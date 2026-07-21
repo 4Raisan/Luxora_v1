@@ -1,0 +1,197 @@
+// Prisma schema for Luxora Platform (PostgreSQL / SQLite compatible)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  phone         String?
+  role          Role           @default(CUSTOMER)
+  createdAt     DateTime       @default(now())
+
+  provider      Provider?
+  subscriptions UserSubscription[]
+  bookings      Booking[]
+  reviews       Review[]
+  complaints    Complaint[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Provider {
+  id                 Int       @id @default(autoincrement())
+  userId             Int       @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nic                String?
+  kycStatus          KycStatus @default(PENDING)
+  category           String
+  availabilityStatus String    @default("available")
+  earnings           Float     @default(0.0)
+
+  bookings           Booking[]
+  reviews            Review[]
+
+  @@map("providers")
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  icon        String?
+
+  services    Service[]
+
+  @@map("categories")
+}
+
+model Service {
+  id           Int      @id @default(autoincrement())
+  categoryId   Int
+  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  price        Float
+  durationMins Int      @default(60)
+
+  bookings     Booking[]
+
+  @@map("services")
+}
+
+model SubscriptionPlan {
+  id           Int      @id @default(autoincrement())
+  title        String
+  type         String   // 'single', 'combo'
+  priceMonthly Float
+  description  String?
+  features     String   // JSON string array
+
+  userSubscriptions UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    Int
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
+  startDate DateTime         @default(now())
+  endDate   DateTime
+  status    String           @default("active")
+
+  @@map("user_subscriptions")
+}
+
+model Booking {
+  id          Int           @id @default(autoincrement())
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id])
+  providerId  Int?
+  provider    Provider?     @relation(fields: [providerId], references: [id])
+  serviceId   Int
+  service     Service       @relation(fields: [serviceId], references: [id])
+  bookingDate String
+  bookingTime String
+  status      BookingStatus @default(PENDING)
+  pinCode     String
+  beforePhoto String?
+  afterPhoto  String?
+  totalPrice  Float
+  createdAt   DateTime      @default(now())
+
+  review      Review?
+  complaints  Complaint[]
+
+  @@map("bookings")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  bookingId  Int      @unique
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id])
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@map("reviews")
+}
+
+model Complaint {
+  id          Int             @id @default(autoincrement())
+  userId      Int
+  user        User            @relation(fields: [userId], references: [id])
+  bookingId   Int?
+  booking     Booking?        @relation(fields: [bookingId], references: [id])
+  subject     String
+  description String
+  status      ComplaintStatus @default(OPEN)
+  createdAt   DateTime        @default(now())
+
+  @@map("complaints")
+}
+
+model Promotion {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  code        String?
+  discountPct Float    @default(0)
+  active      Boolean  @default(true)
+
+  @@map("promotions")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
