@@ -141,6 +141,9 @@ model Booking {
   review      Review?
   complaints  Complaint[]
 
+  @@index([userId])
+  @@index([providerId])
+  @@index([status])
   @@map("bookings")
 }
 
@@ -156,6 +159,7 @@ model Review {
   comment    String?
   createdAt  DateTime @default(now())
 
+  @@index([providerId])
   @@map("reviews")
 }
 
@@ -193,5 +197,6 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@map("notifications")
 }
