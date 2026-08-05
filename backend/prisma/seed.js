@@ -1,27 +1,26 @@
-// Seed script: categories, services, subscription plans, and a universal demo
-// account (one password for all three roles via +alias emails).
+// Seed script: categories, services, subscription plans, and demo accounts.
+// Demo passwords come from environment variables (backend/.env) — see .env.example.
 // Run with: node backend/prisma/seed.js  (after `prisma db push`)
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';
 
-const UNIVERSAL_PW = '12345678';
+const TESTER_PASSWORD = process.env.TESTER_PASSWORD;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!TESTER_PASSWORD || !ADMIN_PASSWORD) {
+  throw new Error('TESTER_PASSWORD and ADMIN_PASSWORD must be set in backend/.env (see .env.example)');
+}
 
 async function main() {
-  // Categories
-  const catCount = await prisma.category.count();
-  if (catCount === 0) {
-    await prisma.category.createMany({
-      data: [
-        { name: 'Auto Care', description: 'Luxury automotive detailing, wash, and interior vacuuming at your doorstep.', icon: 'Car' },
-        { name: 'Garden Care', description: 'Professional lawn mowing, watering, fertilizing, and landscape maintenance.', icon: 'Trees' },
-        { name: 'Pet Care', description: 'Deluxe pet grooming, walking, bathing, and aquarium maintenance.', icon: 'Dog' },
-      ],
-    });
-  }
+  // Categories (upsert so a renamed/missing row never crashes the seed)
+  const ensureCategory = (data) => prisma.category.upsert({ where: { name: data.name }, update: {}, create: data });
+  await ensureCategory({ name: 'Auto Care', description: 'Luxury automotive detailing, wash, and interior vacuuming at your doorstep.', icon: 'Car' });
+  await ensureCategory({ name: 'Garden Care', description: 'Professional lawn mowing, watering, fertilizing, and landscape maintenance.', icon: 'Trees' });
+  await ensureCategory({ name: 'Pet Care', description: 'Deluxe pet grooming, walking, bathing, and aquarium maintenance.', icon: 'Dog' });
 
-  const auto = await prisma.category.findFirst({ where: { name: 'Auto Care' } });
-  const garden = await prisma.category.findFirst({ where: { name: 'Garden Care' } });
-  const pet = await prisma.category.findFirst({ where: { name: 'Pet Care' } });
+  const auto = await prisma.category.findUniqueOrThrow({ where: { name: 'Auto Care' } });
+  const garden = await prisma.category.findUniqueOrThrow({ where: { name: 'Garden Care' } });
+  const pet = await prisma.category.findUniqueOrThrow({ where: { name: 'Pet Care' } });
 
   const svcCount = await prisma.service.count();
   if (svcCount === 0) {
@@ -51,15 +50,15 @@ async function main() {
     });
   }
 
-  // Universal demo account (one password, three roles via +alias emails)
-  const hash = bcrypt.hashSync(UNIVERSAL_PW, 10);
-  const ensure = async (name, email, phone, role, nic, category) => {
+  // Demo accounts — every password is bcrypt-hashed (10 rounds) before storage
+  const ensure = async (name, email, phone, role, nic, category, password) => {
+    const pwHash = bcrypt.hashSync(password, 10);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      await prisma.user.update({ where: { email }, data: { passwordHash: hash, role } });
+      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, role } });
       return;
     }
-    const user = await prisma.user.create({ data: { name, email, passwordHash: hash, phone: phone || '', role } });
+    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', role } });
     if (role === 'PROVIDER') {
       await prisma.provider.upsert({
         where: { userId: user.id },
@@ -69,9 +68,10 @@ async function main() {
     }
   };
 
-  await ensure('Tester Customer', 'tester@gmail.com', '0771000001', 'CUSTOMER', null, null);
-  await ensure('Tester Provider', 'tester.provider@gmail.com', '0771000002', 'PROVIDER', '123456789V', 'Auto Care');
-  await ensure('Tester Admin', 'tester.admin@gmail.com', '0771000003', 'ADMIN', null, null);
+  await ensure('Tester Customer', 'tester@gmail.com', '0771000001', 'CUSTOMER', null, null, TESTER_PASSWORD);
+  await ensure('Tester Provider', 'tester.provider@gmail.com', '0771000002', 'PROVIDER', '123456789V', 'Auto Care', TESTER_PASSWORD);
+  await ensure('Tester Admin', 'tester.admin@gmail.com', '0771000003', 'ADMIN', null, null, TESTER_PASSWORD);
+  await ensure('Luxora Admin', 'admin@luxora.lk', '0771000004', 'ADMIN', null, null, ADMIN_PASSWORD);
 
   console.log('Seed complete.');
 }
