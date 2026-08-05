@@ -1,15 +1,27 @@
 import dotenv from 'dotenv';
+import crypto from 'node:crypto';
 
 dotenv.config();
 
-// Central place for env config. No secret fallbacks are hardcoded —
-// DATABASE_URL and JWT_SECRET must come from the .env file.
+// Central place for env config. In production the secrets must come from the
+// environment; in development we fall back to an ephemeral secret so the
+// server still boots (tokens simply invalidate on restart).
 export const PORT = process.env.PORT || 5000;
-export const JWT_SECRET = process.env.JWT_SECRET;
+export const NODE_ENV = process.env.NODE_ENV || 'development';
 
-if (!JWT_SECRET) {
-  console.warn('WARNING: JWT_SECRET is not set. Auth will fail until you add it to .env');
+function resolveJwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (NODE_ENV === 'production') {
+    console.error('FATAL: JWT_SECRET is not set. Refusing to start in production.');
+    process.exit(1);
+  }
+  const ephemeral = crypto.randomBytes(48).toString('hex');
+  console.warn('WARNING: JWT_SECRET is not set. Using an ephemeral dev secret (tokens reset on restart).');
+  return ephemeral;
 }
+
+export const JWT_SECRET = resolveJwtSecret();
+
 if (!process.env.DATABASE_URL) {
   console.warn('WARNING: DATABASE_URL is not set. Point it at your PostgreSQL / Aiven database in .env');
 }
