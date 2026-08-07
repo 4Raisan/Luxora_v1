@@ -15,8 +15,21 @@ router.get('/', async (req, res) => {
 });
 
 router.put('/:id/read', async (req, res) => {
-  await prisma.notification.updateMany({ where: { id: Number(req.params.id), userId: req.user.id }, data: { read: true } });
+  const result = await prisma.notification.updateMany({
+    where: { id: Number(req.params.id), userId: req.user.id },
+    data: { read: true },
+  });
+  if (result.count === 0) return res.status(404).json({ error: 'Notification not found' });
   res.json({ message: 'Marked read' });
+});
+
+// Mark all of the user's notifications as read
+router.put('/read-all', async (req, res) => {
+  const result = await prisma.notification.updateMany({
+    where: { userId: req.user.id, read: false },
+    data: { read: true },
+  });
+  res.json({ message: 'All notifications marked read', updated: result.count });
 });
 
 export default router;
