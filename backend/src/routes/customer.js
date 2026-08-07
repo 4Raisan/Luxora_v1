@@ -11,6 +11,7 @@ router.get('/dashboard', async (req, res) => {
     where: { id: userId },
     select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
   });
+  if (!profile) return res.status(404).json({ error: 'User not found' });
 
   const activeSubs = await prisma.userSubscription.findMany({
     where: { userId, status: 'active' },
@@ -32,9 +33,10 @@ router.get('/dashboard', async (req, res) => {
   });
   const past = bookings.filter((b) => !upcoming.includes(b));
 
+  // Review has no direct service relation — go through the booking
   const reviews = await prisma.review.findMany({
     where: { userId },
-    include: { service: true, provider: { include: { user: true } } },
+    include: { booking: { include: { service: true } }, provider: { include: { user: true } } },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -45,7 +47,7 @@ router.get('/dashboard', async (req, res) => {
     pastBookings: past,
     reviews: reviews.map((r) => ({
       ...r,
-      service_title: r.service?.title,
+      service_title: r.booking?.service?.title,
       provider_name: r.provider?.user?.name,
     })),
   });
