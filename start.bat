@@ -82,9 +82,17 @@ echo.
 echo [6/7] Starting backend server...
 echo.
 echo ========================================
-echo   API  : http://localhost:5000
-echo   Docs : http://localhost:5000/api/docs
-echo   Press Ctrl+C to stop
+echo.
+echo    OPEN THE WEBSITE HERE:
+echo.
+echo    ^>^>^>  http://localhost:5000  ^<^<^<
+echo.
+echo    Website      : http://localhost:5000
+echo    Login page   : http://localhost:5000/login
+echo    API docs     : http://localhost:5000/api/docs
+echo.
+echo    Press Ctrl+C in this window to stop.
+echo.
 echo ========================================
 echo.
 node src/index.js
