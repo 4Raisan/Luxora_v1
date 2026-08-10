@@ -1,5 +1,7 @@
-// API base URL helper
-const API_BASE = 'http://localhost:5000/api';
+// API base URL — configurable via VITE_API_URL in frontend/.env
+// Falls back to the relative '/api' path so the Vite dev proxy and the
+// Docker production image (Express serves both) work without extra config.
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export async function apiRequest(endpoint, method = 'GET', data = null, token = null) {
   const headers = { 'Content-Type': 'application/json' };
