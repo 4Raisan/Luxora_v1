@@ -4,11 +4,12 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';
 
-const TESTER_PASSWORD = process.env.TESTER_PASSWORD;
+const CUSTOMER_PASSWORD = process.env.CUSTOMER_PASSWORD;
+const PROVIDER_PASSWORD = process.env.PROVIDER_PASSWORD;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-if (!TESTER_PASSWORD || !ADMIN_PASSWORD) {
-  throw new Error('TESTER_PASSWORD and ADMIN_PASSWORD must be set in backend/.env (see .env.example)');
+if (!CUSTOMER_PASSWORD || !PROVIDER_PASSWORD || !ADMIN_PASSWORD) {
+  throw new Error('CUSTOMER_PASSWORD, PROVIDER_PASSWORD and ADMIN_PASSWORD must be set in backend/.env (see .env.example)');
 }
 
 async function main() {
@@ -68,10 +69,9 @@ async function main() {
     }
   };
 
-  await ensure('Tester Customer', 'tester@gmail.com', '0771000001', 'CUSTOMER', null, null, TESTER_PASSWORD);
-  await ensure('Tester Provider', 'tester.provider@gmail.com', '0771000002', 'PROVIDER', '123456789V', 'Auto Care', TESTER_PASSWORD);
-  await ensure('Tester Admin', 'tester.admin@gmail.com', '0771000003', 'ADMIN', null, null, TESTER_PASSWORD);
-  await ensure('Luxora Admin', 'admin@luxora.lk', '0771000004', 'ADMIN', null, null, ADMIN_PASSWORD);
+  await ensure('Luxora Customer', 'customer@luxora.lk', '0771000001', 'CUSTOMER', null, null, CUSTOMER_PASSWORD);
+  await ensure('Luxora Provider', 'provider@luxora.lk', '0771000002', 'PROVIDER', '123456789V', 'Auto Care', PROVIDER_PASSWORD);
+  await ensure('Luxora Admin', 'admin@luxora.lk', '0771000003', 'ADMIN', null, null, ADMIN_PASSWORD);
 
   console.log('Seed complete.');
 }
