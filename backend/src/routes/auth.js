@@ -50,23 +50,13 @@ router.post('/register', authLimiter, async (req, res) => {
   }
 });
 
-// Login (demo role switch: tester@gmail.com maps to the provider/admin demo
-// accounts — all authenticate through the normal bcrypt.compare flow)
+// Login — every account authenticates through the normal bcrypt.compare flow
 router.post('/login', authLimiter, async (req, res) => {
-  const { email, password, role } = req.body;
+  const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
   const normalizedEmail = String(email).trim().toLowerCase();
-
-  let user;
-  if (normalizedEmail === 'tester@gmail.com') {
-    const target = role === 'provider' ? 'tester.provider@gmail.com'
-      : role === 'admin' ? 'tester.admin@gmail.com' : 'tester@gmail.com';
-    user = await prisma.user.findUnique({ where: { email: target } });
-    if (!user) user = await prisma.user.findUnique({ where: { email: 'tester@gmail.com' } });
-  } else {
-    user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  }
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ error: 'Invalid credentials' });
