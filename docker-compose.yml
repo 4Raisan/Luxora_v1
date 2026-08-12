@@ -11,8 +11,9 @@ services:
       - DATABASE_URL=postgresql://luxora_user:luxora_pass@postgres:5432/luxoradb?schema=public
       - JWT_SECRET=${JWT_SECRET:-luxora_super_secret_jwt_2026}
       # Demo seed passwords — override via host env / .env, never hardcode real secrets
-      - TESTER_PASSWORD=${TESTER_PASSWORD:-12345678}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin1234}
+      - CUSTOMER_PASSWORD=${CUSTOMER_PASSWORD:-customer123}
+      - PROVIDER_PASSWORD=${PROVIDER_PASSWORD:-provider123}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
     depends_on:
       postgres:
         condition: service_healthy
