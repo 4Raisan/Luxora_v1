@@ -45,7 +45,7 @@ npm install
 npm run dev             # Vite on http://localhost:5173
 ```
 
-Demo login: `tester@gmail.com` / `12345678` (switch role via the role switcher).
+Demo login: `customer@luxora.lk` / `customer123` (one account per role — see [Demo Accounts](#-demo-accounts)).
 
 ## ✨ Features
 
@@ -125,20 +125,20 @@ npm run dev:all
 
 ## 🔑 Demo Accounts
 
-The DB auto-seeds services/plans but **no users**. Create accounts via the UI:
-- **Customer**: Sign Up → pick "Customer"
-- **Provider**: Sign Up → pick "Provider" (submit NIC + category; admin must approve)
-- **Admin**: register with `role: admin` via API, or use the admin dashboard at `/customer-dashboard` after promoting. To make yourself admin quickly:
-  ```bash
-  curl -X POST http://localhost:5000/api/auth/register \
-    -H "Content-Type: application/json" \
-    -d '{"name":"Admin","email":"admin@luxora.lk","password":"admin1234","role":"admin"}'
-  ```
+`npm run seed` creates the demo accounts below. Their passwords come from `backend/.env` (`CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, `ADMIN_PASSWORD` — placeholders in `.env.example`), and all of them authenticate through the normal bcrypt flow:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Customer | `customer@luxora.lk` | from `CUSTOMER_PASSWORD` (default local: `customer123`) |
+| Provider | `provider@luxora.lk` | from `PROVIDER_PASSWORD` (default local: `provider123`) — KYC approved, Auto Care |
+| Admin | `admin@luxora.lk` | from `ADMIN_PASSWORD` (default local: `admin123`) |
+
+New users can still self-register as **customer** or **provider** via the UI (providers need admin KYC approval). Admin accounts can only be created by seeding — self-registering as admin is blocked.
 
 ### Typical flow
-1. Register a **provider** (Auto Care) → register **admin** → admin approves provider KYC (`PUT /api/admin/providers/:id/kyc`).
-2. Register a **customer** → subscribe to a plan → book a service.
-3. Provider sees the assigned booking, enters the customer's **PIN** to start/complete.
+1. Log in as the demo **customer** → subscribe to a plan → book a service.
+2. Booking is auto-matched to the demo **provider** (KYC approved, Auto Care).
+3. Provider enters the customer's **PIN** to start/complete the booking.
 4. Customer leaves a review; earnings are credited to the provider (85% payout).
 
 ---
@@ -150,7 +150,7 @@ Base URL: `http://localhost:5000/api`
 ### Auth
 | Method | Endpoint | Auth | Description |
 | --- | --- | --- | --- |
-| POST | `/auth/register` | – | Register (customer/provider/admin) |
+| POST | `/auth/register` | – | Register (customer/provider — admin is seed-only) |
 | POST | `/auth/login` | – | Login → returns JWT |
 | GET | `/auth/me` | ✔ | Current user profile |
 
