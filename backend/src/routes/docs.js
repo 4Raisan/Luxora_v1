@@ -36,9 +36,9 @@ const spec = {
     },
     '/auth/login': {
       post: {
-        tags: ['Auth'], summary: 'Login (demo tester account accepts a role switch via the role field)',
+        tags: ['Auth'], summary: 'Login (demo accounts are seeded — see README)',
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: {
-          email: { type: 'string' }, password: { type: 'string' }, role: { type: 'string', enum: ['customer', 'provider', 'admin'] },
+          email: { type: 'string' }, password: { type: 'string' },
         } } } } },
         responses: { '200': { description: 'JWT + user' }, '401': { description: 'Invalid credentials' }, '429': { description: 'Rate limited' } },
       },
