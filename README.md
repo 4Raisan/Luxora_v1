@@ -239,3 +239,59 @@ Luxora/
 - Currency is **LKR** (Sri Lankan Rupee).
 - Provider payout is **85%** of booking total on completion.
 - Out of scope (per spec): marketplace provider-choice, emergency requests, intl ops, vet treatment, crypto/cash.
+
+---
+
+## 🔐 Luxora security — what we have
+
+* **bcrypt** → hashes user passwords
+* **JWT** → authentication after login
+* **Role-based access** → Customer / Provider / Admin permissions
+* **Input validation** → rejects invalid/malicious input
+* **Rate limiting** → reduces login/API abuse
+* **CORS** → controls frontend → backend access
+* **`.env`** → keeps database passwords/JWT secrets out of GitHub
+* **No password/PIN leaks** → sensitive values aren't returned by APIs
+* **SQL injection protection** → Prisma/parameterized queries
+* **Booking state validation** → prevents invalid booking actions
+* **Double-payout protection** → prevents paying the same booking twice
+* **Access control** → users can't access other users' bookings/reviews
+* **HTTPS/TLS** → protects data in transit
+* **Aiven database security** → database credentials stay on the backend
+
+### Services
+
+| Service     | What it does               | Luxora use                                   |
+| ----------- | -------------------------- | -------------------------------------------- |
+| **Vercel**  | Frontend hosting           | React/Vite website                           |
+| **Aiven**   | PostgreSQL hosting         | Luxora database                              |
+| **Resend**  | Transactional email        | Verification, booking emails, password reset |
+| **Brevo**   | Email + marketing          | Resend alternative                           |
+| **PayHere** | Sri Lankan payment gateway | Bookings/subscriptions                       |
+| **PayPal**  | Payment gateway            | International payment alternative            |
+| **Twilio**  | SMS/OTP                    | Phone verification                           |
+| **Vonage**  | SMS/OTP                    | Twilio alternative                           |
+
+### Recommended Luxora setup
+
+```text
+React/Vite
+    ↓
+Vercel
+    ↓
+Node.js + Express
+    ↓
+Prisma
+    ↓
+Aiven PostgreSQL
+```
+
+Additional:
+
+```text
+📧 Email → Resend
+💳 Payment → PayHere
+📱 Phone OTP → Twilio
+```
+
+**PayPal, Brevo and Vonage are alternatives**, so you don't need all of them.
