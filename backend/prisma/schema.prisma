@@ -132,10 +132,12 @@ model Booking {
   bookingDate String
   bookingTime String
   status      BookingStatus @default(PENDING)
-  pinCode     String
-  beforePhoto String?
-  afterPhoto  String?
-  totalPrice  Float
+  pinCode         String
+  pinAttempts     Int      @default(0)
+  pinLockedUntil  DateTime?
+  beforePhoto     String?
+  afterPhoto      String?
+  totalPrice      Float
   createdAt   DateTime      @default(now())
 
   review      Review?
