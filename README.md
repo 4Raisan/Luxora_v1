@@ -295,3 +295,39 @@ Additional:
 ```
 
 **PayPal, Brevo and Vonage are alternatives**, so you don't need all of them.
+
+### One remaining security improvement
+
+For the booking PIN:
+
+```text
+Provider enters PIN
+       ↓
+Wrong PIN
+       ↓
+Attempt counter +1
+       ↓
+5 failures
+       ↓
+Temporary lock
+```
+
+That is the main security improvement I'd add before calling the backend **production-ready**.
+
+### One remaining security improvement
+
+For the booking PIN:
+
+```text
+Provider enters PIN
+       ↓
+Wrong PIN
+       ↓
+Attempt counter +1
+       ↓
+5 failures
+       ↓
+Temporary lock
+```
+
+That is the main security improvement I'd add before calling the backend **production-ready**.
