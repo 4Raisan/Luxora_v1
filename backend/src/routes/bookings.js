@@ -8,6 +8,8 @@ const router = Router();
 router.use(authenticateToken);
 
 const PROVIDER_PAYOUT_RATE = 0.85;
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 // Legal status transitions a provider can perform (admin has an override endpoint).
 const PROVIDER_TRANSITIONS = {
@@ -20,7 +22,7 @@ const PROVIDER_TRANSITIONS = {
 async function pickProvider(categoryName) {
   const candidates = await prisma.provider.findMany({
     where: { category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' },
-    select: { id: true },
+    select: { id: true, userId: true },
   });
   if (candidates.length === 0) return null;
 
@@ -98,6 +100,8 @@ router.get('/my', async (req, res) => {
   res.json(bookings.map((b) => ({
     ...b,
     pinCode: undefined,
+    pinAttempts: undefined,
+    pinLockedUntil: undefined,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
     category_name: b.service?.category?.name,
@@ -124,6 +128,8 @@ router.get('/assigned', async (req, res) => {
   res.json(bookings.map((b) => ({
     ...b,
     pinCode: undefined,
+    pinAttempts: undefined,
+    pinLockedUntil: undefined,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
     service_desc: b.service?.description,
@@ -169,8 +175,58 @@ router.put('/:id/status', async (req, res) => {
     return res.status(400).json({ error: `Cannot move booking from ${booking.status.toLowerCase()} to ${nextStatus.toLowerCase()}` });
   }
 
-  if ((nextStatus === 'COMPLETED' || nextStatus === 'IN_PROGRESS') && booking.pinCode !== String(pin_code)) {
-    return res.status(400).json({ error: 'Invalid PIN Code! Customer verification failed.' });
+  if (nextStatus === 'COMPLETED' || nextStatus === 'IN_PROGRESS') {
+    // PIN lockout check
+    if (booking.pinLockedUntil && new Date(booking.pinLockedUntil) > new Date()) {
+      const remainingMin = Math.ceil((new Date(booking.pinLockedUntil) - new Date()) / 60000);
+      return res.status(429).json({
+        error: `PIN verification is temporarily locked. Try again in ${remainingMin} minute${remainingMin !== 1 ? 's' : ''}.`,
+        locked_until: booking.pinLockedUntil,
+        attempts: booking.pinAttempts,
+      });
+    }
+
+    // Clear expired lockout so the attempt counter resets naturally
+    if (booking.pinLockedUntil && new Date(booking.pinLockedUntil) <= new Date()) {
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { pinAttempts: 0, pinLockedUntil: null },
+      });
+      booking.pinAttempts = 0;
+    }
+
+    if (booking.pinCode !== String(pin_code)) {
+      const newAttempts = booking.pinAttempts + 1;
+      const isLocked = newAttempts >= MAX_PIN_ATTEMPTS;
+      const lockUntil = isLocked ? new Date(Date.now() + PIN_LOCKOUT_MS) : null;
+
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          pinAttempts: newAttempts,
+          pinLockedUntil: lockUntil,
+        },
+      });
+
+      if (isLocked) {
+        return res.status(429).json({
+          error: `Too many failed PIN attempts (${MAX_PIN_ATTEMPTS}). Verification locked for 15 minutes.`,
+          locked_until: lockUntil,
+          attempts: newAttempts,
+        });
+      }
+
+      return res.status(400).json({
+        error: `Invalid PIN Code! ${MAX_PIN_ATTEMPTS - newAttempts} attempt${MAX_PIN_ATTEMPTS - newAttempts !== 1 ? 's' : ''} remaining before lockout.`,
+        attempts_remaining: MAX_PIN_ATTEMPTS - newAttempts,
+      });
+    }
+
+    // Correct PIN — reset counter
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { pinAttempts: 0, pinLockedUntil: null },
+    });
   }
 
   await prisma.booking.update({
