@@ -119,10 +119,11 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('userAddress_' + email) || sessionStorage.getItem('userAddress')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return { street: '45 Marine Drive', city: 'Colombo 03', district: 'Western Province' }
+    return { street: '', city: '', district: 'Western' }
   })
 
   // Dynamic Active Packages & Booking Confirmation State
+  // New users start with an empty list — packages appear only when they actually subscribe.
   const [activePackages, setActivePackages] = useState(() => {
     try {
       const u = sessionStorage.getItem('user')
@@ -130,10 +131,7 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('activePackages_' + email) || sessionStorage.getItem('activePackages')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return [
-      { id: 1, title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', period: '/month', cat: 'auto' },
-      { id: 2, title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', period: '/month', cat: 'garden' }
-    ]
+    return []
   })
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
@@ -364,7 +362,7 @@ const CustomerDashboard = () => {
     }
   }, [activeTab, bookingType])
 
-  // Custom Request State
+  // Custom Request State — new users have no requests.
   const [showCustomRequestModal, setShowCustomRequestModal] = useState(false)
   const [customRequests, setCustomRequests] = useState(() => {
     const email = getUserEmail()
@@ -372,17 +370,7 @@ const CustomerDashboard = () => {
       const stored = localStorage.getItem('custom_requests_' + email)
       if (stored) return JSON.parse(stored)
     } catch (_) {}
-    return [
-      {
-        id: 'REQ-001',
-        title: 'Specialized Villa Deep Marble Polishing',
-        category: 'Home & Estate Care',
-        date: '2026-08-20',
-        time: '10:00 AM',
-        notes: 'High-gloss diamond pad restoration for ground floor living area.',
-        status: 'Under Concierge Review'
-      }
-    ]
+    return []
   })
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
@@ -579,7 +567,7 @@ const CustomerDashboard = () => {
 
 
 
-  // Dynamic History Data State
+  // Dynamic History Data State — empty until the user actually subscribes/books.
   const [historyData, setHistoryData] = useState(() => {
     const email = getUserEmail()
     const saved = localStorage.getItem('history_' + email)
@@ -588,14 +576,7 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    const defaultHistory = [
-      { id: 1, date: 'Aug 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-      { id: 2, date: 'Jul 15, 2026', service: 'Garden Care', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-      { id: 3, date: 'Jul 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-      { id: 4, date: 'Jun 20, 2026', service: 'Pet Care', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
-    ]
-    localStorage.setItem('history_' + email, JSON.stringify(defaultHistory))
-    return defaultHistory
+    return []
   })
 
   const addHistoryRecord = (rec) => {
@@ -623,7 +604,7 @@ const CustomerDashboard = () => {
     })
   }
 
-  // Notification Drawer State
+  // Notification Drawer State — empty until real activity happens.
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
   const [notifications, setNotifications] = useState(() => {
     const email = getUserEmail()
@@ -633,26 +614,7 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    const defaultNotifs = [
-      {
-        id: 1,
-        title: 'Booking Confirmed',
-        message: 'Your Auto Care Premium session is confirmed for tomorrow at 10:00 AM.',
-        time: '10 mins ago',
-        unread: true,
-        category: 'auto'
-      },
-      {
-        id: 2,
-        title: 'Concierge Specialist Assigned',
-        message: 'Senior Specialist Kamal Perera has been assigned to your Garden Care package.',
-        time: '1 hour ago',
-        unread: true,
-        category: 'garden'
-      }
-    ]
-    localStorage.setItem('notifications_' + email, JSON.stringify(defaultNotifs))
-    return defaultNotifs
+    return []
   })
 
   const addNotification = (notif) => {
@@ -923,6 +885,11 @@ const CustomerDashboard = () => {
                 </div>
               )}
               <div className="cd-packages-grid">
+                {activePackages.length === 0 && (
+                  <p style={{ color: 'rgba(245,222,179,0.55)', fontSize: '0.95rem', padding: '18px 4px', gridColumn: '1 / -1' }}>
+                    No active packages yet — subscribe from the Packages tab to see them here.
+                  </p>
+                )}
                 {activePackages.map((pkg) => (
                   <div
                     key={pkg.id}
