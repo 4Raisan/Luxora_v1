@@ -108,11 +108,9 @@ if not exist "%PGDATA%\PG_VERSION" (
     echo [i] First run: initializing dev database cluster...
     "%PGBIN%\initdb.exe" -U luxora_user -A trust -D "%PGDATA%" -E UTF8
     if not exist "%PGDATA%\PG_VERSION" (
-        echo [ERROR] Failed to initialize database cluster.
-        echo         If it says the directory "exists but is not empty", delete it first:
-        echo           rmdir /s /q "%PGDATA%"
-        pause
-        exit /b 1
+        echo [WARN] Failed to initialize the local dev cluster - continuing.
+        echo       If backend/.env points at 5433, fix it: delete "%PGDATA%" and re-run.
+        exit /b 0
     )
     echo [i] Database cluster created.
 )
@@ -132,7 +130,7 @@ set /a tries=0
 if %errorlevel% equ 0 goto :pg_up
 set /a tries+=1
 if %tries% lss 10 (
-    timeout /t 1 /nobreak >nul
+    ping -n 2 127.0.0.1 >nul
     goto :pg_wait
 )
 
@@ -149,12 +147,17 @@ set /a tries=0
 if %errorlevel% equ 0 goto :pg_up
 set /a tries+=1
 if %tries% lss 15 (
-    timeout /t 1 /nobreak >nul
+    ping -n 2 127.0.0.1 >nul
     goto :pg_wait2
 )
-echo [ERROR] PostgreSQL did not become ready. Check %TEMP%\luxora-pg.log
-pause
-exit /b 1
+
+:: Non-fatal: the project's real database is whatever backend/.env points at
+:: (currently Docker on 5432). If that one is down, step 4 (prisma db push)
+:: fails with a clear error. The local dev instance is a convenience only.
+echo [WARN] Local dev PostgreSQL on 5433 did not become ready - continuing.
+echo       If backend/.env points at 5433, fix it: check %TEMP%\luxora-pg.log
+echo       A corrupted cluster can be recreated by deleting %PGDATA% and re-running.
+exit /b 0
 
 :pg_up
 echo [i] PostgreSQL started.
