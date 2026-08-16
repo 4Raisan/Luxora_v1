@@ -331,3 +331,39 @@ Temporary lock
 ```
 
 That is the main security improvement I'd add before calling the backend **production-ready**.
+
+---
+
+## 🌐 Hosting
+
+Luxora runs on three managed services:
+
+| Layer | Service | What it hosts |
+| --- | --- | --- |
+| Frontend | **Vercel** | React 19 + Vite website |
+| Backend | **Render** | Node.js + Express API (port 5000) |
+| Database | **Aiven** | PostgreSQL (via Prisma) |
+
+```text
+React/Vite  →  Vercel
+Node/Express  →  Render
+Prisma  →  Aiven PostgreSQL
+```
+
+### Why Render for the backend
+
+Render and Railway are both Node-friendly, but for a $0 Luxora deployment Render is the better fit:
+
+| | Render | Railway |
+| --- | --- | --- |
+| Free backend | ✅ Yes | ⚠️ Trial + $1/month free credit |
+| Trial | Not needed for free web service | $5 / 30 days |
+| After trial | Free web service remains | $1/month credit |
+| RAM | Free instance | 0.5 GB after trial |
+| Sleep | After 15 min idle | No equivalent free always-on guarantee |
+| Free hours | 750 hrs/month | $1 usage credit/month |
+| GitHub deploy | ✅ | ✅ |
+| Express/Node | ✅ | ✅ |
+| Best for $0 Luxora | 🥇 Render | 🥈 Railway |
+
+Both support GitHub-based deploys and Express/Node, but **Render** gives a permanently free web service, so Luxora's backend is hosted there.
