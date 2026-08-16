@@ -13,6 +13,7 @@ import ProviderRegister from './pages/ProviderRegister'
 import ProviderDashboard from './pages/ProviderDashboard'
 import CustomerDashboard from './pages/CustomerDashboard'
 import AdminDashboard from './pages/AdminDashboard'
+import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
 // Main landing page layout
@@ -40,9 +41,9 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/provider-register" element={<ProviderRegister />} />
-          <Route path="/provider-dashboard" element={<ProviderDashboard />} />
-          <Route path="/customer-dashboard" element={<CustomerDashboard />} />
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/customer-dashboard" element={<ErrorBoundary><CustomerDashboard /></ErrorBoundary>} />
+          <Route path="/admin-dashboard" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+          <Route path="/provider-dashboard" element={<ErrorBoundary><ProviderDashboard /></ErrorBoundary>} />
         </Routes>
       </div>
     </BrowserRouter>
