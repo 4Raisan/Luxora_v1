@@ -119,11 +119,10 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('userAddress_' + email) || sessionStorage.getItem('userAddress')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return { street: '', city: '', district: 'Western' }
+    return { street: '45 Marine Drive', city: 'Colombo 03', district: 'Western Province' }
   })
 
   // Dynamic Active Packages & Booking Confirmation State
-  // New users start with an empty list — packages appear only when they actually subscribe.
   const [activePackages, setActivePackages] = useState(() => {
     try {
       const u = sessionStorage.getItem('user')
@@ -131,7 +130,10 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('activePackages_' + email) || sessionStorage.getItem('activePackages')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return []
+    return [
+      { id: 1, title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', period: '/month', cat: 'auto' },
+      { id: 2, title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', period: '/month', cat: 'garden' }
+    ]
   })
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
@@ -362,7 +364,130 @@ const CustomerDashboard = () => {
     }
   }, [activeTab, bookingType])
 
-  // Custom Request State — new users have no requests.
+  // Customer Active Bookings Chart State
+  const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
+  const [customerActiveBookings, setCustomerActiveBookings] = useState(() => {
+    try {
+      const stored = localStorage.getItem('luxora_customer_bookings')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch (_) {}
+    return [
+      { id: 'B-011', service: 'Auto Care', date: '2026-08-17', time: '10:30 AM', pin: '8942', status: 'CONFIRMED', providerName: 'Nimal Silva', providerRole: 'Auto Detailing Lead' },
+      { id: 'B-012', service: 'Garden Care', date: '2026-08-17', time: '02:00 PM', pin: '3157', status: 'CONFIRMED', providerName: 'Kamal Perera', providerRole: 'Garden & Turf Specialist' },
+      { id: 'B-013', service: 'Pet Care', date: '2026-08-18', time: '11:00 AM', pin: '6409', status: 'CONFIRMED', providerName: 'Sunil Fernando', providerRole: 'Pet Spa Specialist' },
+      { id: 'B-014', service: 'Dual Auto + Garden', date: '2026-08-19', time: '09:30 AM', pin: '7281', status: 'CONFIRMED', providerName: 'Marco Vance', providerRole: 'Senior Concierge' }
+    ]
+  })
+
+  useEffect(() => {
+    const syncActiveBookings = () => {
+      try {
+        const stored = localStorage.getItem('luxora_customer_bookings')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed)) setCustomerActiveBookings(parsed)
+        }
+      } catch (_) {}
+    }
+    syncActiveBookings()
+    window.addEventListener('storage', syncActiveBookings)
+    window.addEventListener('luxora_bookings_updated', syncActiveBookings)
+    const interval = setInterval(syncActiveBookings, 1000)
+    return () => {
+      window.removeEventListener('storage', syncActiveBookings)
+      window.removeEventListener('luxora_bookings_updated', syncActiveBookings)
+      clearInterval(interval)
+    }
+  }, [])
+
+  const checkIsPinUnlocked = (bookingDate, bookingTime) => {
+    try {
+      if (!bookingDate || !bookingTime) return true
+      const now = new Date()
+      const [hoursStr, minutesStrAmPm] = bookingTime.split(':')
+      if (!minutesStrAmPm) return true
+      const [minutesStr, ampm] = minutesStrAmPm.trim().split(' ')
+      let hours = parseInt(hoursStr, 10)
+      const minutes = parseInt(minutesStr, 10)
+      if (ampm === 'PM' && hours < 12) hours += 12
+      if (ampm === 'AM' && hours === 12) hours = 0
+
+      const bookingDt = new Date(`${bookingDate}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
+      const diffMs = bookingDt.getTime() - now.getTime()
+      const diffMinutes = diffMs / (1000 * 60)
+
+      // PIN unlocks if session is within 30 minutes of booking (or if booking is today/due/past)
+      return diffMinutes <= 30
+    } catch (_) {
+      return true
+    }
+  }
+
+  // Service Booking State
+  const [serviceBookingForm, setServiceBookingForm] = useState({
+    packageId: '',
+    date: new Date().toISOString().split('T')[0],
+    hour: '10',
+    minute: '30',
+    ampm: 'AM'
+  })
+  const [serviceBookingConfirmation, setServiceBookingConfirmation] = useState(null)
+
+  const handleConfirmServiceBooking = () => {
+    if (!serviceBookingForm.packageId) {
+      alert('Please select an active package to book a session.')
+      return
+    }
+
+    const selectedPkg = activePackages.find(p => String(p.id) === String(serviceBookingForm.packageId))
+    if (!selectedPkg) return
+
+    const selectedTimeFormatted = `${serviceBookingForm.hour}:${serviceBookingForm.minute} ${serviceBookingForm.ampm}`
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString()
+
+    const stored = localStorage.getItem('luxora_customer_bookings')
+    const existing = stored ? JSON.parse(stored) : []
+    const newB = {
+      id: `B-${String(existing.length + 11).padStart(3, '0')}`,
+      customer: (currentUser && currentUser.name) ? currentUser.name : 'Ashan Perera',
+      service: selectedPkg.title,
+      status: 'CONFIRMED',
+      color: '#4ade80',
+      date: serviceBookingForm.date,
+      time: selectedTimeFormatted,
+      amount: selectedPkg.price || 'LKR 9,000',
+      pin: randomPin,
+      providerName: 'Nimal Silva',
+      providerRole: 'Lead Care Specialist'
+    }
+
+    try {
+      localStorage.setItem('luxora_customer_bookings', JSON.stringify([newB, ...existing]))
+      window.dispatchEvent(new Event('luxora_bookings_updated'))
+    } catch (_) {}
+
+    addNotification({
+      title: '📅 Service Session Booked',
+      message: `Your session for ${selectedPkg.title} has been confirmed for ${serviceBookingForm.date} at ${selectedTimeFormatted}.`,
+      category: selectedPkg.cat || 'system'
+    })
+
+    addHistoryRecord({
+      service: selectedPkg.title,
+      tier: 'Service Session',
+      amount: selectedPkg.price || 'LKR 9,000',
+      status: 'Completed',
+      cat: selectedPkg.cat || 'system'
+    })
+
+    setServiceBookingConfirmation(newB)
+    alert(`🎉 Service Session Confirmed for ${selectedPkg.title} on ${serviceBookingForm.date} at ${selectedTimeFormatted}!`)
+  }
+
+  // Custom Request State
   const [showCustomRequestModal, setShowCustomRequestModal] = useState(false)
   const [customRequests, setCustomRequests] = useState(() => {
     const email = getUserEmail()
@@ -370,7 +495,17 @@ const CustomerDashboard = () => {
       const stored = localStorage.getItem('custom_requests_' + email)
       if (stored) return JSON.parse(stored)
     } catch (_) {}
-    return []
+    return [
+      {
+        id: 'REQ-001',
+        title: 'Specialized Villa Deep Marble Polishing',
+        category: 'Home & Estate Care',
+        date: '2026-08-20',
+        time: '10:00 AM',
+        notes: 'High-gloss diamond pad restoration for ground floor living area.',
+        status: 'Under Concierge Review'
+      }
+    ]
   })
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
@@ -487,17 +622,25 @@ const CustomerDashboard = () => {
     try {
       const stored = localStorage.getItem('luxora_customer_bookings')
       const existing = stored ? JSON.parse(stored) : []
+      const now = new Date()
+      const yyyy = now.getFullYear()
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const dd = String(now.getDate()).padStart(2, '0')
+      const realDate = `${yyyy}-${mm}-${dd}`
+      const realTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+
       const newB = {
         id: `B-${String(existing.length + 11).padStart(3, '0')}`,
-        customer: userProfile.name || 'Alex Mercer',
+        customer: (currentUser && currentUser.name) ? currentUser.name : 'Ashan Perera',
         service: pkg.title,
         status: 'CONFIRMED',
         color: '#4ade80',
-        date: new Date().toISOString().split('T')[0],
-        time: '10:00 AM',
+        date: realDate,
+        time: realTime,
         amount: pkg.price || 'LKR 12,000'
       }
       localStorage.setItem('luxora_customer_bookings', JSON.stringify([newB, ...existing]))
+      window.dispatchEvent(new Event('luxora_bookings_updated'))
     } catch (_) {}
 
     // Send API booking request if token is present
@@ -567,7 +710,7 @@ const CustomerDashboard = () => {
 
 
 
-  // Dynamic History Data State — empty until the user actually subscribes/books.
+  // Dynamic History Data State
   const [historyData, setHistoryData] = useState(() => {
     const email = getUserEmail()
     const saved = localStorage.getItem('history_' + email)
@@ -576,7 +719,14 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    return []
+    const defaultHistory = [
+      { id: 1, date: 'Aug 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
+      { id: 2, date: 'Jul 15, 2026', service: 'Garden Care', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
+      { id: 3, date: 'Jul 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
+      { id: 4, date: 'Jun 20, 2026', service: 'Pet Care', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
+    ]
+    localStorage.setItem('history_' + email, JSON.stringify(defaultHistory))
+    return defaultHistory
   })
 
   const addHistoryRecord = (rec) => {
@@ -604,7 +754,7 @@ const CustomerDashboard = () => {
     })
   }
 
-  // Notification Drawer State — empty until real activity happens.
+  // Notification Drawer State
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
   const [notifications, setNotifications] = useState(() => {
     const email = getUserEmail()
@@ -614,7 +764,26 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    return []
+    const defaultNotifs = [
+      {
+        id: 1,
+        title: 'Booking Confirmed',
+        message: 'Your Auto Care Premium session is confirmed for tomorrow at 10:00 AM.',
+        time: '10 mins ago',
+        unread: true,
+        category: 'auto'
+      },
+      {
+        id: 2,
+        title: 'Concierge Specialist Assigned',
+        message: 'Senior Specialist Kamal Perera has been assigned to your Garden Care package.',
+        time: '1 hour ago',
+        unread: true,
+        category: 'garden'
+      }
+    ]
+    localStorage.setItem('notifications_' + email, JSON.stringify(defaultNotifs))
+    return defaultNotifs
   })
 
   const addNotification = (notif) => {
@@ -775,13 +944,13 @@ const CustomerDashboard = () => {
               className={`cd-nav__tab ${activeTab === 'overview' ? 'active' : ''}`}
               onClick={() => setActiveTab('overview')}
             >
-              Overview
+              Booking
             </button>
             <button
               className={`cd-nav__tab ${activeTab === 'booking' ? 'active' : ''}`}
               onClick={() => setActiveTab('booking')}
             >
-              Booking
+              Subscription Plans
             </button>
             <button
               className={`cd-nav__tab ${activeTab === 'history' ? 'active' : ''}`}
@@ -885,11 +1054,6 @@ const CustomerDashboard = () => {
                 </div>
               )}
               <div className="cd-packages-grid">
-                {activePackages.length === 0 && (
-                  <p style={{ color: 'rgba(245,222,179,0.55)', fontSize: '0.95rem', padding: '18px 4px', gridColumn: '1 / -1' }}>
-                    No active packages yet — subscribe from the Packages tab to see them here.
-                  </p>
-                )}
                 {activePackages.map((pkg) => (
                   <div
                     key={pkg.id}
@@ -919,6 +1083,304 @@ const CustomerDashboard = () => {
                 <button className="cd-package-card cd-package-card--add" onClick={() => setActiveTab('booking')}>
                   <span>+ Add a Package &rsaquo;</span>
                 </button>
+              </div>
+            </section>
+
+            {/* ── SERVICE BOOKING LUXURY MODULE ── */}
+            <section
+              className="cd-section animate-fade-in"
+              style={{
+                background: 'linear-gradient(145deg, #121214 0%, #1a1a1f 100%)',
+                border: '1px solid rgba(201, 168, 76, 0.35)',
+                borderRadius: '20px',
+                padding: '2rem',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Background ambient glow */}
+              <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '180px', height: '180px', background: 'radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(201, 168, 76, 0.12)', border: '1px solid rgba(201, 168, 76, 0.3)', padding: '0.25rem 0.75rem', borderRadius: '20px', marginBottom: '0.5rem' }}>
+                    <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.1em' }}>⚡ CONCIERGE SCHEDULER</span>
+                  </div>
+                  <h3 style={{ margin: 0, color: '#fff', fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                    SERVICE SESSION BOOKING
+                  </h3>
+                  <p style={{ color: '#aaa', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
+                    Schedule a service dispatch directly from your active packages with exact date &amp; time breakdown
+                  </p>
+                </div>
+              </div>
+
+              {/* ── STEP 1: SELECT YOUR ACTIVE PACKAGE (Visual Cards Displayed All at Once) ── */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.85rem' }}>
+                  <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.75rem', fontWeight: 900, width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
+                  <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.05em' }}>SELECT AN ACTIVE PACKAGE:</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+                  {activePackages.map(pkg => {
+                    const isSelected = String(serviceBookingForm.packageId) === String(pkg.id)
+                    return (
+                      <div
+                        key={pkg.id}
+                        onClick={() => setServiceBookingForm(prev => ({ ...prev, packageId: pkg.id }))}
+                        role="button"
+                        tabIndex={0}
+                        style={{
+                          background: isSelected ? 'rgba(201, 168, 76, 0.12)' : '#161619',
+                          border: isSelected ? '2px solid var(--gold, #c9a84c)' : '1px solid #2a2a30',
+                          borderRadius: '14px',
+                          padding: '1.1rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          position: 'relative',
+                          boxShadow: isSelected ? '0 0 20px rgba(201, 168, 76, 0.2)' : 'none'
+                        }}
+                      >
+                        {isSelected && (
+                          <span style={{ position: 'absolute', top: '10px', right: '10px', background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.65rem', fontWeight: 900, padding: '0.2rem 0.5rem', borderRadius: '12px' }}>
+                            ✓ SELECTED
+                          </span>
+                        )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                          <div style={{ background: isSelected ? 'var(--gold, #c9a84c)' : '#222', color: isSelected ? '#000' : 'var(--gold, #c9a84c)', width: '42px', height: '42px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {pkg.cat === 'auto' && <CarIcon />}
+                            {pkg.cat === 'garden' && <LeafIcon />}
+                            {pkg.cat === 'pet' && <PawIcon />}
+                            {pkg.cat === 'system' && <ShieldIcon />}
+                          </div>
+                          <div>
+                            <h4 style={{ color: '#fff', margin: '0 0 0.25rem 0', fontSize: '1.05rem', fontWeight: 800 }}>{pkg.title}</h4>
+                            <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                              🗓 Renewal Date: {getRenewalDate(pkg)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* ── STEP 2 & 3: DATE & TIME SELECTION ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
+                {/* Step 2 Card */}
+                <div style={{ background: '#18181c', border: '1px solid #2a2a30', borderRadius: '14px', padding: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                    <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.7rem', fontWeight: 900, width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
+                    <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.05em' }}>CALENDAR DATE</span>
+                  </div>
+                  <input
+                    type="date"
+                    value={serviceBookingForm.date}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setServiceBookingForm(prev => ({ ...prev, date: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      background: '#0d0d0f',
+                      color: '#fff',
+                      border: '1px solid #333',
+                      padding: '0.75rem 0.9rem',
+                      borderRadius: '10px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Step 3 Card: Broken down into Hours, Minutes, and AM/PM */}
+                <div style={{ background: '#18181c', border: '1px solid #2a2a30', borderRadius: '14px', padding: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                    <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.7rem', fontWeight: 900, width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
+                    <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.05em' }}>TIME (HOURS, MIN, AM/PM)</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+                    {/* Hours */}
+                    <div>
+                      <label style={{ display: 'block', color: '#888', fontSize: '0.65rem', fontWeight: 700, marginBottom: '0.2rem' }}>HOUR</label>
+                      <select
+                        value={serviceBookingForm.hour}
+                        onChange={(e) => setServiceBookingForm(prev => ({ ...prev, hour: e.target.value }))}
+                        style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.3rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
+                      >
+                        {['01','02','03','04','05','06','07','08','09','10','11','12'].map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Minutes */}
+                    <div>
+                      <label style={{ display: 'block', color: '#888', fontSize: '0.65rem', fontWeight: 700, marginBottom: '0.2rem' }}>MIN</label>
+                      <select
+                        value={serviceBookingForm.minute}
+                        onChange={(e) => setServiceBookingForm(prev => ({ ...prev, minute: e.target.value }))}
+                        style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.3rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
+                      >
+                        {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* AM/PM */}
+                    <div>
+                      <label style={{ display: 'block', color: '#888', fontSize: '0.65rem', fontWeight: 700, marginBottom: '0.2rem' }}>PERIOD</label>
+                      <select
+                        value={serviceBookingForm.ampm}
+                        onChange={(e) => setServiceBookingForm(prev => ({ ...prev, ampm: e.target.value }))}
+                        style={{ width: '100%', background: '#0d0d0f', color: 'var(--gold, #c9a84c)', border: '1px solid var(--gold, #c9a84c)', padding: '0.65rem 0.3rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 900, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={handleConfirmServiceBooking}
+                  style={{
+                    background: 'linear-gradient(135deg, #d4af37 0%, #aa7c11 100%)',
+                    color: '#000',
+                    border: 'none',
+                    padding: '0.9rem 2.2rem',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
+                    letterSpacing: '0.04em',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 20px rgba(201, 168, 76, 0.35)'
+                  }}
+                >
+                  CONFIRM &amp; BOOK SERVICE SESSION ✨
+                </button>
+              </div>
+
+              {/* Booking Confirmation Card / Tab */}
+              {serviceBookingConfirmation && (
+                <div
+                  style={{
+                    marginTop: '1.75rem',
+                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(201, 168, 76, 0.1) 100%)',
+                    border: '1px solid var(--gold, #c9a84c)',
+                    borderRadius: '14px',
+                    padding: '1.5rem',
+                    display: 'flex',
+                    justify: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1.25rem',
+                    boxShadow: '0 0 30px rgba(201, 168, 76, 0.15)'
+                  }}
+                  className="animate-fade-in"
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                      <span style={{ background: '#22c55e', color: '#000', fontSize: '0.72rem', fontWeight: 900, padding: '0.25rem 0.65rem', borderRadius: '6px', letterSpacing: '0.05em' }}>
+                        ✓ CONFIRMED BOOKING TAB
+                      </span>
+                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800 }}>{serviceBookingConfirmation.id}</span>
+                    </div>
+                    <h4 style={{ color: '#fff', margin: '0 0 0.35rem 0', fontSize: '1.2rem', fontWeight: 800 }}>{serviceBookingConfirmation.service}</h4>
+                    <p style={{ color: '#ccc', fontSize: '0.85rem', margin: 0 }}>
+                      Scheduled Date: <strong style={{ color: '#fff' }}>{serviceBookingConfirmation.date}</strong> · Time Slot: <strong style={{ color: 'var(--gold, #c9a84c)' }}>{serviceBookingConfirmation.time}</strong>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setServiceBookingConfirmation(null)}
+                    style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#fff', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Dismiss Confirmation ✕
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* ── ACTIVE BOOKINGS CHART / TABLE ── */}
+            <section className="cd-section animate-fade-in" style={{ marginTop: '1.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h3 className="cd-section-label" style={{ margin: 0, color: 'var(--gold, #c9a84c)' }}>ACTIVE BOOKINGS</h3>
+                  <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0.2rem 0 0 0' }}>Real-time active bookings chart with auto-generated security PINs (unlocks 30 mins before booking)</p>
+                </div>
+                <button
+                  className="cd-btn-view-receipt"
+                  onClick={() => setShowAllActiveBookings(prev => !prev)}
+                  style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.45rem 1.1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px' }}
+                >
+                  {showAllActiveBookings ? 'Show Less ‹' : 'View All ›'}
+                </button>
+              </div>
+
+              <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
+                <table className="cd-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
+                      <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', padding: '0.85rem 1rem' }}>BOOKING ID</th>
+                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>PACKAGE</th>
+                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>PROVIDER PROFILE</th>
+                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>DATE &amp; TIME</th>
+                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>SECURITY PIN (30m)</th>
+                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(showAllActiveBookings ? customerActiveBookings : customerActiveBookings.slice(0, 10)).map((b) => {
+                      const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
+                      return (
+                        <tr key={b.id} style={{ borderBottom: '1px solid #202020' }}>
+                          <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
+                          <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>{b.service}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {(b.providerName || 'Nimal Silva')[0]}
+                              </div>
+                              <div>
+                                <span style={{ color: '#eee', fontSize: '0.82rem', fontWeight: 700, display: 'block' }}>{b.providerName || 'Nimal Silva'}</span>
+                                <small style={{ color: '#888', fontSize: '0.72rem' }}>{b.providerRole || 'Certified Specialist'}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ color: '#ccc', fontSize: '0.82rem' }}>
+                            <div>{b.date}</div>
+                            <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
+                          </td>
+                          <td>
+                            {pinUnlocked ? (
+                              <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.85rem', fontWeight: 900, padding: '0.3rem 0.65rem', borderRadius: '6px', letterSpacing: '0.1em' }}>
+                                🔑 {b.pin || '4892'}
+                              </span>
+                            ) : (
+                              <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.75rem', fontWeight: 600, padding: '0.3rem 0.6rem', borderRadius: '6px' }} title="PIN auto-unlocks 30 minutes before your scheduled booking slot">
+                                🔒 Unlocks 30m before
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="cd-status-tag cd-status-tag--completed" style={{ background: 'rgba(201, 168, 76, 0.12)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
+                              {b.status || 'CONFIRMED'}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             </section>
 
@@ -1008,7 +1470,7 @@ const CustomerDashboard = () => {
       {activeTab === 'booking' && (
         <div className="cd-tab-content cd-main-container animate-fade-in">
           <div className="cd-page-header">
-            <h1 className="cd-page-title">Book a Package</h1>
+            <h1 className="cd-page-title">Subscription Plans</h1>
             <p className="cd-page-subtitle">Choose your preferred service and tier</p>
           </div>
 

@@ -310,6 +310,8 @@ export default function AdminDashboard() {
     } catch (_) {}
   }
 
+
+
   const [notifList, setNotifList] = useState([
     { id: 1, title: 'New Booking Confirmed', desc: 'Sofia Marin booked Deep Cleaning (B-001)', time: '5 mins ago', unread: true },
     { id: 2, title: 'Provider KYC Submitted', desc: 'Nimal Silva uploaded verification documents', time: '12 mins ago', unread: true },
@@ -428,6 +430,47 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadAll()
   }, [token])
+
+  useEffect(() => {
+    const syncCustomerBookings = () => {
+      try {
+        const stored = localStorage.getItem('luxora_customer_bookings')
+        if (stored) {
+          const customB = JSON.parse(stored)
+          if (Array.isArray(customB)) {
+            const default10Bookings = [
+              { id: 'B-001', customer: 'Sofia Marin', service: 'Deep Cleaning & Sanitization', status: 'CONFIRMED', color: '#4ade80', date: '2026-08-16', time: '09:00 AM', amount: 'LKR 8,500' },
+              { id: 'B-002', customer: 'Marcus Webb', service: 'Full Auto Detailing & Polish', status: 'IN PROGRESS', color: '#60a5fa', date: '2026-08-16', time: '10:30 AM', amount: 'LKR 12,500' },
+              { id: 'B-003', customer: 'Priya Nair', service: 'Precision Lawn Mowing', status: 'COMPLETED', color: '#c9a84c', date: '2026-08-15', time: '02:00 PM', amount: 'LKR 4,500' },
+              { id: 'B-004', customer: 'James Okafor', service: 'Electrical & Wiring Check', status: 'CANCELLED', color: '#ef4444', date: '2026-08-15', time: '04:00 PM', amount: 'LKR 6,000' },
+              { id: 'B-005', customer: 'Kasun Kalhara', service: 'Tri-Combo Luxury Estate Suite', status: 'CONFIRMED', color: '#4ade80', date: '2026-08-14', time: '11:00 AM', amount: 'LKR 32,000' },
+              { id: 'B-006', customer: 'Ashan Perera', service: 'Auto Foam Wash & Wheel Shine', status: 'COMPLETED', color: '#c9a84c', date: '2026-08-14', time: '01:30 PM', amount: 'LKR 4,500' },
+              { id: 'B-007', customer: 'Dilshan Senanayake', service: 'Pet Spa Grooming & Bathing', status: 'CONFIRMED', color: '#4ade80', date: '2026-08-13', time: '03:15 PM', amount: 'LKR 5,000' },
+              { id: 'B-008', customer: 'Marco Vance', service: 'Landscape Bed Redesign', status: 'IN PROGRESS', color: '#60a5fa', date: '2026-08-12', time: '08:45 AM', amount: 'LKR 15,000' },
+              { id: 'B-009', customer: 'Nimal Silva', service: 'Aquarium Water Quality & Filter', status: 'COMPLETED', color: '#c9a84c', date: '2026-08-11', time: '12:00 PM', amount: 'LKR 6,000' },
+              { id: 'B-010', customer: 'Kamal Perera', service: 'Organic Fertilizer Application', status: 'CONFIRMED', color: '#4ade80', date: '2026-08-10', time: '05:00 PM', amount: 'LKR 4,000' },
+            ]
+            const existingIds = new Set(customB.map(b => b.id))
+            const combined = [...customB]
+            default10Bookings.forEach(d => {
+              if (!existingIds.has(d.id)) combined.push(d)
+            })
+            setBookings(combined)
+          }
+        }
+      } catch (_) {}
+    }
+
+    syncCustomerBookings()
+    window.addEventListener('storage', syncCustomerBookings)
+    window.addEventListener('luxora_bookings_updated', syncCustomerBookings)
+    const interval = setInterval(syncCustomerBookings, 1000)
+    return () => {
+      window.removeEventListener('storage', syncCustomerBookings)
+      window.removeEventListener('luxora_bookings_updated', syncCustomerBookings)
+      clearInterval(interval)
+    }
+  }, [])
 
   const loadAll = async () => {
     try {
@@ -1116,7 +1159,7 @@ export default function AdminDashboard() {
                       <td style={{ color: '#888', fontSize: '0.8rem' }}>{b.date} · {b.time || '10:00 AM'}</td>
                       <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{b.amount || 'LKR 8,500'}</td>
                       <td>
-                        <span className="ad-badge-status" style={{ borderColor: b.color, color: b.color }}>
+                        <span className="ad-badge-status" style={{ borderColor: b.color || '#4ade80', color: b.color || '#4ade80' }}>
                           {b.status}
                         </span>
                       </td>
