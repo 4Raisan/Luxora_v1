@@ -10,9 +10,9 @@ check() {
 jget() { python -c "import sys,json;d=json.loads(sys.argv[1]);print(d.get(sys.argv[2],''))" "$1" "$2" 2>/dev/null; }
 
 # Tokens
-CTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"customer@luxora.lk","password":"customer123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
-PTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"provider@luxora.lk","password":"provider123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
-ATOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@luxora.lk","password":"admin123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
+CTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"customer@luxora.lk","password":"luxora123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
+PTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"provider@luxora.lk","password":"luxora123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
+ATOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@luxora.lk","password":"luxora123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
 [ -n "$CTOK" ] && [ -n "$PTOK" ] && [ -n "$ATOK" ] && { pass=$((pass+1)); echo "PASS: all three demo logins"; } || { fail=$((fail+1)); echo "FAIL: demo logins"; }
 
 echo "=== Catalog ==="
