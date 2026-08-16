@@ -482,7 +482,50 @@ export default function AdminDashboard() {
         apiRequest('/admin/complaints', 'GET', null, activeTok),
         apiRequest('/promotions', 'GET', null, activeTok),
       ])
-      setStats(s); setProviders(p); setBookings(b); setComplaints(c); setPromotions(pr)
+      // Normalize real API data into the flat shapes this UI renders.
+      // The API returns nested/relational objects (e.g. booking.service is an
+      // object) which crash React if rendered directly.
+      const STATUS_COLORS = { PENDING: '#eab308', ASSIGNED: '#4ade80', CONFIRMED: '#4ade80', IN_PROGRESS: '#60a5fa', COMPLETED: '#c9a84c', CANCELLED: '#ef4444' }
+      const normBookings = (Array.isArray(b) ? b : []).map((x) => ({
+        id: x.id,
+        customer: x.customer_name || x.customer_email || 'Customer',
+        service: (typeof x.service === 'string' ? x.service : x.service?.title) || x.service_title || 'Service',
+        date: x.bookingDate || x.booking_date || '',
+        time: x.bookingTime || x.booking_time || '',
+        amount: 'LKR ' + Number(x.totalPrice ?? x.total_price ?? 0).toLocaleString(),
+        status: String(x.status || '').toUpperCase(),
+        color: STATUS_COLORS[String(x.status || '').toUpperCase()] || '#888',
+        raw: x,
+      }))
+      const normComplaints = (Array.isArray(c) ? c : []).map((x) => ({
+        id: x.id,
+        from: x.customer_name || x.customer_email || 'Customer',
+        subject: x.subject,
+        description: x.description,
+        date: (x.createdAt || '').slice(0, 10),
+        status: String(x.status || '').toUpperCase(),
+        raw: x,
+      }))
+      const normProviders = (Array.isArray(p) ? p : []).map((x) => ({
+        id: x.id,
+        name: x.name || x.email,
+        email: x.email,
+        category: x.category,
+        nic: x.nic || '—',
+        kyc_status: x.kyc_status || x.kycStatus || 'pending',
+        availability: x.availability_status || x.availabilityStatus || '—',
+        earnings: x.earnings,
+        raw: x,
+      }))
+      const normPromotions = (Array.isArray(pr) ? pr : []).map((x) => ({
+        id: x.id,
+        title: x.title,
+        code: x.code || '—',
+        discount: (x.discount_percent ?? x.discountPct ?? 0) + '%',
+        active: x.is_active ?? x.active ?? true,
+        raw: x,
+      }))
+      setStats(s); setProviders(normProviders); setBookings(normBookings); setComplaints(normComplaints); setPromotions(normPromotions)
     } catch (err) {
       // Fallback data matching Figma design specifications (No emojis)
       setStats({ totalUsers: 12841, totalProviders: 1092, totalBookings: 4230, totalRevenue: 81400 })
@@ -719,7 +762,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">TOTAL USERS</span>
                     <span className="ad-metric-icon"><Icons.Users /></span>
                   </div>
-                  <h2 className="ad-metric-val">12,841</h2>
+                  <h2 className="ad-metric-val">{(stats.totalUsers ?? 0).toLocaleString()}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -727,7 +770,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">ACTIVE PROVIDERS</span>
                     <span className="ad-metric-icon"><Icons.Building /></span>
                   </div>
-                  <h2 className="ad-metric-val">1,092</h2>
+                  <h2 className="ad-metric-val">{(stats.totalProviders ?? 0).toLocaleString()}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -735,7 +778,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">BOOKINGS MTD</span>
                     <span className="ad-metric-icon"><Icons.Bookings /></span>
                   </div>
-                  <h2 className="ad-metric-val">4,230</h2>
+                  <h2 className="ad-metric-val">{(stats.totalBookings ?? 0).toLocaleString()}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -743,7 +786,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">REVENUE MTD</span>
                     <span className="ad-metric-icon"><Icons.Revenue /></span>
                   </div>
-                  <h2 className="ad-metric-val">LKR 81,400</h2>
+                  <h2 className="ad-metric-val">LKR {(Number(stats.totalRevenue ?? 0)).toLocaleString()}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -751,7 +794,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">OPEN COMPLAINTS</span>
                     <span className="ad-metric-icon" style={{ color: '#eab308' }}><Icons.Complaints /></span>
                   </div>
-                  <h2 className="ad-metric-val" style={{ color: '#fff' }}>7</h2>
+                  <h2 className="ad-metric-val" style={{ color: '#fff' }}>{stats.openComplaints ?? 0}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -759,7 +802,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">SUPPORT TICKETS</span>
                     <span className="ad-metric-icon"><Icons.Support /></span>
                   </div>
-                  <h2 className="ad-metric-val">34</h2>
+                  <h2 className="ad-metric-val">{complaints.length}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -767,7 +810,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">PENDING APPROVALS</span>
                     <span className="ad-metric-icon"><Icons.Hourglass /></span>
                   </div>
-                  <h2 className="ad-metric-val">4</h2>
+                  <h2 className="ad-metric-val">{providers.filter(p => (p.kyc_status || '').toLowerCase() === 'pending').length}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -775,7 +818,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">ACTIVE PROMOS</span>
                     <span className="ad-metric-icon"><Icons.Gift /></span>
                   </div>
-                  <h2 className="ad-metric-val">3</h2>
+                  <h2 className="ad-metric-val">{promotions.filter(x => x.active).length}</h2>
                 </div>
               </div>
 
