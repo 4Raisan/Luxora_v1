@@ -90,7 +90,8 @@ router.post('/', async (req, res) => {
   });
 });
 
-// My bookings (customer)
+// My bookings (customer). The PIN belongs to the customer, so it is returned
+// on their own bookings — they need it to verify the provider on arrival.
 router.get('/my', async (req, res) => {
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
@@ -102,6 +103,7 @@ router.get('/my', async (req, res) => {
     pinCode: undefined,
     pinAttempts: undefined,
     pinLockedUntil: undefined,
+    pin_code: b.status === 'CANCELLED' ? undefined : b.pinCode,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
     category_name: b.service?.category?.name,
