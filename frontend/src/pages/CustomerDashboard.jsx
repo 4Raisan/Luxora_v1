@@ -92,6 +92,15 @@ const HISTORY_DATA = [
 
 const CustomerDashboard = () => {
   const navigate = useNavigate()
+
+  const getUserEmail = () => {
+    try {
+      const u = sessionStorage.getItem('user')
+      if (u) return JSON.parse(u).email || 'tester@gmail.com'
+    } catch (_) {}
+    return 'tester@gmail.com'
+  }
+
   const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'booking' | 'history'
   const [bookingType, setBookingType] = useState('combo') // 'combo' | 'single'
   const [historyFilter, setHistoryFilter] = useState('all') // 'all' | 'auto' | 'garden' | 'pet'
@@ -186,6 +195,71 @@ const CustomerDashboard = () => {
   const [bookingBillingType, setBookingBillingType] = useState('auto_renew') // 'auto_renew' | 'one_time'
   const [selectedReceiptItem, setSelectedReceiptItem] = useState(null)
 
+  // Custom Request State
+  const [showCustomRequestModal, setShowCustomRequestModal] = useState(false)
+  const [customRequests, setCustomRequests] = useState(() => {
+    const email = getUserEmail()
+    try {
+      const stored = localStorage.getItem('custom_requests_' + email)
+      if (stored) return JSON.parse(stored)
+    } catch (_) {}
+    return [
+      {
+        id: 'REQ-001',
+        title: 'Specialized Villa Deep Marble Polishing',
+        category: 'Home & Estate Care',
+        date: '2026-08-20',
+        time: '10:00 AM',
+        notes: 'High-gloss diamond pad restoration for ground floor living area.',
+        status: 'Under Concierge Review'
+      }
+    ]
+  })
+
+  const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
+
+  const handleCustomRequestSubmit = (e) => {
+    e.preventDefault()
+    if (!customForm.title || !customForm.notes) {
+      alert('Please fill out Subject Title and Requirements.')
+      return
+    }
+
+    const email = getUserEmail()
+    const newReq = {
+      id: `REQ-${String(customRequests.length + 1).padStart(3, '0')}`,
+      title: customForm.title,
+      category: customForm.category,
+      date: customForm.date || new Date().toISOString().split('T')[0],
+      time: customForm.time || '10:00 AM',
+      notes: customForm.notes,
+      status: 'Under Concierge Review'
+    }
+
+    const updated = [newReq, ...customRequests]
+    setCustomRequests(updated)
+    try { localStorage.setItem('custom_requests_' + email, JSON.stringify(updated)) } catch (_) {}
+
+    addHistoryRecord({
+      service: `Custom Request: ${customForm.title}`,
+      tier: 'Custom Request',
+      ref: newReq.id,
+      amount: 'Quotation Pending',
+      status: 'In Review',
+      cat: 'system'
+    })
+
+    addNotification({
+      title: 'Custom Request Submitted',
+      message: `Your request "${customForm.title}" (${newReq.id}) has been submitted to Concierge Desk.`,
+      category: 'system'
+    })
+
+    alert(`Custom Request "${customForm.title}" submitted successfully! A Luxora Concierge Specialist will contact you shortly.`)
+    setShowCustomRequestModal(false)
+    setCustomForm({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
+  }
+
   const handleCancelSubscription = (pkgId) => {
     const u = sessionStorage.getItem('user')
     const email = u ? JSON.parse(u).email : 'guest'
@@ -253,6 +327,22 @@ const CustomerDashboard = () => {
       cat: pkg.cat || 'system'
     })
 
+    try {
+      const stored = localStorage.getItem('luxora_customer_bookings')
+      const existing = stored ? JSON.parse(stored) : []
+      const newB = {
+        id: `B-${String(existing.length + 11).padStart(3, '0')}`,
+        customer: userProfile.name || 'Alex Mercer',
+        service: pkg.title,
+        status: 'CONFIRMED',
+        color: '#4ade80',
+        date: new Date().toISOString().split('T')[0],
+        time: '10:00 AM',
+        amount: pkg.price || 'LKR 12,000'
+      }
+      localStorage.setItem('luxora_customer_bookings', JSON.stringify([newB, ...existing]))
+    } catch (_) {}
+
     // Send API booking request if token is present
     const token = sessionStorage.getItem('token')
     if (token) {
@@ -318,13 +408,7 @@ const CustomerDashboard = () => {
     }, 2800)
   }
 
-  const getUserEmail = () => {
-    try {
-      const u = sessionStorage.getItem('user')
-      if (u) return JSON.parse(u).email || 'tester@gmail.com'
-    } catch (_) {}
-    return 'tester@gmail.com'
-  }
+
 
   // Dynamic History Data State
   const [historyData, setHistoryData] = useState(() => {
@@ -700,6 +784,57 @@ const CustomerDashboard = () => {
                   <span>+ Add a Package &rsaquo;</span>
                 </button>
               </div>
+            </section>
+
+            {/* ── Custom Service Request Module ── */}
+            <section className="cd-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h3 className="cd-section-label" style={{ margin: 0, color: 'var(--gold, #c9a84c)' }}>CUSTOM REQUESTS ({customRequests.length})</h3>
+                  <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0.2rem 0 0 0' }}>Request specialized estate care, bespoke valet, or tailored concierge services</p>
+                </div>
+                <button
+                  className="cd-btn-view-receipt"
+                  onClick={() => setShowCustomRequestModal(true)}
+                  style={{ background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', fontWeight: 800, padding: '0.6rem 1.25rem', fontSize: '0.82rem' }}
+                >
+                  + Submit Custom Request
+                </button>
+              </div>
+
+              {customRequests.length === 0 ? (
+                <div style={{ background: '#141414', border: '1px dashed rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '2rem', textAlign: 'center' }}>
+                  <p style={{ color: '#bbb', fontSize: '0.88rem', margin: '0 0 1rem 0' }}>Need a specialized service not covered by standard packages? Submit a custom request for personalized concierge pricing.</p>
+                  <button
+                    className="cd-btn-view-receipt"
+                    onClick={() => setShowCustomRequestModal(true)}
+                    style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.5rem 1.2rem' }}
+                  >
+                    + Create Custom Request
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
+                  {customRequests.map((req) => (
+                    <div key={req.id} style={{ background: '#141414', border: '1px solid rgba(201, 168, 76, 0.25)', borderRadius: '14px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', fontWeight: 800 }}>{req.id}</span>
+                          <span style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#eab308', fontSize: '0.68rem', fontWeight: 700, padding: '0.2rem 0.55rem', borderRadius: '4px', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+                            {req.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <h4 style={{ color: '#fff', fontSize: '1.05rem', margin: '0 0 0.4rem 0', fontWeight: 700 }}>{req.title}</h4>
+                        <p style={{ color: '#aaa', fontSize: '0.82rem', margin: 0, lineHeight: 1.5 }}>{req.notes}</p>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#777', fontSize: '0.75rem', borderTop: '1px solid #222', paddingTop: '0.65rem', marginTop: '0.25rem' }}>
+                        <span>Category: <strong style={{ color: '#ddd' }}>{req.category}</strong></span>
+                        <span>Date: <strong style={{ color: '#ddd' }}>{req.date}</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Monthly Summary */}
@@ -1755,6 +1890,100 @@ const CustomerDashboard = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Submit Custom Service Request Modal ── */}
+      {showCustomRequestModal && (
+        <div className="cd-drawer-overlay animate-fade-in" onClick={() => setShowCustomRequestModal(false)}>
+          <div
+            className="cd-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: '520px', background: '#121212', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '16px', padding: '1.75rem' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.85rem', marginBottom: '1.25rem' }}>
+              <div>
+                <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.15em' }}>BESPOKE CONCIERGE</span>
+                <h3 style={{ color: '#fff', fontSize: '1.25rem', margin: '0.2rem 0 0 0', fontWeight: 800 }}>Submit Custom Service Request</h3>
+              </div>
+              <button
+                className="cd-drawer-close"
+                onClick={() => setShowCustomRequestModal(false)}
+                style={{ background: '#1e1e1e', border: '1px solid #333', color: '#aaa', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCustomRequestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>SERVICE SUBJECT / TITLE</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Villa Marble Floor Polishing & Restoration"
+                  value={customForm.title}
+                  onChange={(e) => setCustomForm({ ...customForm, title: e.target.value })}
+                  style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>CATEGORY</label>
+                  <select
+                    value={customForm.category}
+                    onChange={(e) => setCustomForm({ ...customForm, category: e.target.value })}
+                    style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                  >
+                    <option value="Home & Estate Care">Home & Estate Care</option>
+                    <option value="Auto Care">Auto Care</option>
+                    <option value="Garden Care">Garden Care</option>
+                    <option value="Pet Care">Pet Care</option>
+                    <option value="VIP Concierge">VIP Concierge</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED DATE</label>
+                  <input
+                    type="date"
+                    value={customForm.date}
+                    onChange={(e) => setCustomForm({ ...customForm, date: e.target.value })}
+                    style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>SPECIAL REQUIREMENTS & DETAILS</label>
+                <textarea
+                  rows="4"
+                  required
+                  placeholder="Describe your custom service requirements, estate dimensions, specialized instructions, or urgency..."
+                  value={customForm.notes}
+                  onChange={(e) => setCustomForm({ ...customForm, notes: e.target.value })}
+                  style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomRequestModal(false)}
+                  style={{ background: 'transparent', border: '1px solid #333', color: '#aaa', padding: '0.6rem 1.25rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ background: 'var(--gold, #c9a84c)', border: 'none', color: '#000', padding: '0.6rem 1.4rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800 }}
+                >
+                  Submit Request
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

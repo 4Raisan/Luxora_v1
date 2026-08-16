@@ -1412,3 +1412,46 @@
   background: #dc2626;
   border-color: #dc2626;
 }
+
+/* ── Mobile Optimization Rules ── */
+@media (max-width: 1024px) {
+  .pd-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pd-services-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .pd-dashboard {
+    flex-direction: column;
+  }
+  .pd-sidebar {
+    width: 100%;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid #1e1e1e;
+    padding: 1rem;
+  }
+  .pd-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pd-nav__item {
+    padding: 0.5rem 0.85rem;
+    min-height: 44px;
+  }
+  .pd-main {
+    padding: 1rem;
+  }
+  .pd-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .pd-modal {
+    width: 95vw;
+    margin: 1rem auto;
+  }
+}

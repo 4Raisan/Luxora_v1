@@ -224,10 +224,11 @@
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  background: linear-gradient(135deg, #111111 0%, #050505 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 2.25rem 2.5rem;
-  background-image: radial-gradient(circle at right top, rgba(201, 168, 76, 0.08) 0%, transparent 60%);
+  background: linear-gradient(90deg, rgba(8, 8, 8, 0.95) 0%, rgba(8, 8, 8, 0.7) 45%, rgba(8, 8, 8, 0.2) 100%), url('/dark_luxury_mansion.jpg') no-repeat center center;
+  background-size: cover;
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  padding: 2.75rem 2.75rem;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(201, 168, 76, 0.1) inset;
 }
 
 .ad-hero__eyebrow {
@@ -413,5 +414,274 @@
   }
   .ad-tables-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Notification Modal Popup ────────────────────────────────── */
+.ad-notif-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.ad-notif-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #111111;
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(201, 168, 76, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ad-notif-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 1rem;
+}
+
+.ad-notif-modal__eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  color: var(--gold, #c9a84c);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.ad-notif-modal__title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.ad-notif-modal__close {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  color: #aaa;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.ad-notif-modal__close:hover {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+
+.ad-notif-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.ad-notif-empty {
+  text-align: center;
+  color: #777;
+  font-size: 0.85rem;
+  padding: 2rem 0;
+  margin: 0;
+}
+
+.ad-notif-card {
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  transition: all 0.2s;
+}
+
+.ad-notif-card.unread {
+  border-left: 3px solid var(--gold, #c9a84c);
+  background: rgba(201, 168, 76, 0.04);
+}
+
+.ad-notif-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.ad-notif-card__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ad-notif-card__time {
+  font-size: 0.7rem;
+  color: #777;
+}
+
+.ad-notif-card__desc {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin: 0;
+}
+
+.ad-notif-modal__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 1rem;
+}
+
+.ad-notif-clear-btn {
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ad-notif-clear-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.ad-notif-close-btn {
+  background: var(--gold, #c9a84c);
+  border: none;
+  color: #000;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ad-notif-close-btn:hover {
+  background: #d4b55c;
+}
+
+.ad-reset-btn {
+  background: transparent;
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  color: var(--gold, #c9a84c);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ad-reset-btn:hover {
+  background: rgba(201, 168, 76, 0.1);
+  border-color: var(--gold, #c9a84c);
+}
+
+/* ── Mobile Optimization & Responsive Layout Rules ── */
+@media (max-width: 768px) {
+  .ad-dashboard {
+    flex-direction: column;
+  }
+
+  .ad-sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1rem;
+  }
+
+  .ad-sidebar__nav {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ad-nav__item {
+    white-space: nowrap;
+    padding: 0.5rem 0.85rem;
+    min-height: 44px;
+  }
+
+  .ad-main {
+    padding: 1rem;
+  }
+
+  .ad-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .ad-topbar__actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .ad-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .ad-table-card {
+    padding: 1rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ad-data-table {
+    min-width: 620px;
+  }
+
+  .ad-notif-modal {
+    width: 95vw;
+    padding: 1.25rem;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .ad-main {
+    padding: 0.75rem;
+  }
+
+  .ad-topbar__eyebrow {
+    font-size: 0.7rem;
+  }
+
+  .ad-hero-banner {
+    padding: 1.5rem 1rem;
+  }
+
+  .ad-hero-banner h1 {
+    font-size: 1.35rem;
   }
 }

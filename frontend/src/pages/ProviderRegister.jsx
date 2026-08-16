@@ -151,6 +151,34 @@ const ProviderRegister = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     setLoading(true)
+
+    try {
+      const stored = localStorage.getItem('luxora_all_users')
+      const existing = stored ? JSON.parse(stored) : []
+      const newProvRecord = {
+        id: `USR-${String(existing.length + 7).padStart(3, '0')}`,
+        name: `${form.firstName} ${form.lastName}`.trim() || 'New Provider',
+        email: form.email,
+        role: 'Provider',
+        registered: new Date().toISOString().split('T')[0],
+        category: form.services.join(', ') || 'Concierge'
+      }
+      localStorage.setItem('luxora_all_users', JSON.stringify([newProvRecord, ...existing]))
+
+      const newProvItem = {
+        id: existing.length + 6,
+        name: `${form.firstName} ${form.lastName}`.trim() || 'New Provider',
+        email: form.email,
+        category: form.services.join(', ') || 'Auto Care',
+        nic: form.nic || '199512345678',
+        kyc_status: 'pending',
+        rating: '5.0 / 5.0'
+      }
+      const storedP = localStorage.getItem('luxora_all_providers')
+      const existingP = storedP ? JSON.parse(storedP) : []
+      localStorage.setItem('luxora_all_providers', JSON.stringify([newProvItem, ...existingP]))
+    } catch (_) {}
+
     setTimeout(() => {
       setLoading(false)
       setSubmitted(true)

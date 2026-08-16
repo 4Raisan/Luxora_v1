@@ -77,14 +77,14 @@ const Login = () => {
       localStorage.setItem('user_' + userObj.email, JSON.stringify(userObj))
       if (data.token) localStorage.setItem('luxora_token', data.token)
 
-      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('tariq')
+      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
       const userRole = data.user?.role
 
       if (userRole === 'admin' || isInputAdmin) {
         const adminObj = {
-          name: 'Tariq Hassan',
+          name: 'Deshan Ganganath',
           title: 'Super Admin',
-          email: form.email || 'tariq.hassan@luxora.com',
+          email: form.email || 'deshan@luxora.com',
           role: 'admin',
           phone: '+94 77 987 6543'
         }
@@ -102,13 +102,13 @@ const Login = () => {
       }
     } catch (err) {
       setLoading(false)
-      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('tariq')
+      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
 
       if (isInputAdmin) {
         const adminObj = {
-          name: 'Tariq Hassan',
+          name: 'Deshan Ganganath',
           title: 'Super Admin',
-          email: form.email || 'tariq.hassan@luxora.com',
+          email: form.email || 'deshan@luxora.com',
           role: 'admin',
           phone: '+94 77 987 6543'
         }

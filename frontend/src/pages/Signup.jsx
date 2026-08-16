@@ -64,6 +64,21 @@ const Signup = () => {
       userData.email = data.user?.email || form.email
       userData.phone = data.user?.phone || form.phone
 
+      // Save newly registered user into luxora_all_users for Admin User Management
+      try {
+        const stored = localStorage.getItem('luxora_all_users')
+        const existing = stored ? JSON.parse(stored) : []
+        const newUserRecord = {
+          id: `USR-${String(existing.length + 7).padStart(3, '0')}`,
+          name: userData.name || form.fullName || 'New Customer',
+          email: userData.email || form.email,
+          role: 'Customer',
+          registered: new Date().toISOString().split('T')[0],
+          plan: 'Single Auto Elite'
+        }
+        localStorage.setItem('luxora_all_users', JSON.stringify([newUserRecord, ...existing]))
+      } catch (_) {}
+
       sessionStorage.setItem('token', data.token || 'demo-token')
       sessionStorage.setItem('user', JSON.stringify(userData))
       sessionStorage.setItem('isCustomerLoggedIn', 'true')
@@ -71,6 +86,21 @@ const Signup = () => {
       navigate('/customer-dashboard')
     } catch (err) {
       setLoading(false)
+      // Save user to luxora_all_users for Admin User Management even in fallback mode
+      try {
+        const stored = localStorage.getItem('luxora_all_users')
+        const existing = stored ? JSON.parse(stored) : []
+        const newUserRecord = {
+          id: `USR-${String(existing.length + 7).padStart(3, '0')}`,
+          name: form.fullName || 'New Customer',
+          email: form.email,
+          role: 'Customer',
+          registered: new Date().toISOString().split('T')[0],
+          plan: 'Single Auto Elite'
+        }
+        localStorage.setItem('luxora_all_users', JSON.stringify([newUserRecord, ...existing]))
+      } catch (_) {}
+
       // Demo / fallback mode if backend API is not responding
       sessionStorage.setItem('isCustomerLoggedIn', 'true')
       sessionStorage.setItem('isFirstTimeSignup', 'true')
