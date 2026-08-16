@@ -119,7 +119,7 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('userAddress_' + email) || sessionStorage.getItem('userAddress')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return { street: '45 Marine Drive', city: 'Colombo 03', district: 'Western Province' }
+    return { street: '', city: '', district: 'Western' }
   })
 
   // Dynamic Active Packages & Booking Confirmation State
@@ -130,14 +130,12 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('activePackages_' + email) || sessionStorage.getItem('activePackages')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return [
-      { id: 1, title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', period: '/month', cat: 'auto' },
-      { id: 2, title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', period: '/month', cat: 'garden' }
-    ]
+    return []
   })
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
+  const [bookingPin, setBookingPin] = useState(null)
 
   const calculateServiceTokens = (packages) => {
     let auto = 0
@@ -364,8 +362,10 @@ const CustomerDashboard = () => {
     }
   }, [activeTab, bookingType])
 
-  // Customer Active Bookings Chart State
+  // Customer Active Bookings Chart State — real bookings from the API,
+  // with any locally booked ones kept as a fallback when the API is empty.
   const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
+  const [realBookings, setRealBookings] = useState([])
   const [customerActiveBookings, setCustomerActiveBookings] = useState(() => {
     try {
       const stored = localStorage.getItem('luxora_customer_bookings')
@@ -374,13 +374,64 @@ const CustomerDashboard = () => {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed
       }
     } catch (_) {}
-    return [
-      { id: 'B-011', service: 'Auto Care', date: '2026-08-17', time: '10:30 AM', pin: '8942', status: 'CONFIRMED', providerName: 'Nimal Silva', providerRole: 'Auto Detailing Lead' },
-      { id: 'B-012', service: 'Garden Care', date: '2026-08-17', time: '02:00 PM', pin: '3157', status: 'CONFIRMED', providerName: 'Kamal Perera', providerRole: 'Garden & Turf Specialist' },
-      { id: 'B-013', service: 'Pet Care', date: '2026-08-18', time: '11:00 AM', pin: '6409', status: 'CONFIRMED', providerName: 'Sunil Fernando', providerRole: 'Pet Spa Specialist' },
-      { id: 'B-014', service: 'Dual Auto + Garden', date: '2026-08-19', time: '09:30 AM', pin: '7281', status: 'CONFIRMED', providerName: 'Marco Vance', providerRole: 'Senior Concierge' }
-    ]
+    return []
   })
+
+  // Load real bookings (with their verification PINs) from the backend.
+  const refreshRealBookings = async () => {
+    const token = sessionStorage.getItem('token')
+    if (!token) return
+    try {
+      const res = await fetch('/api/bookings/my', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!Array.isArray(data)) return
+      const mapped = data.map((b) => ({
+        id: `#${b.booking_id ?? b.id}`,
+        realId: b.booking_id ?? b.id,
+        service: b.service_title || b.service?.title || 'Luxora Service',
+        date: b.bookingDate || b.booking_date,
+        time: b.bookingTime || b.booking_time,
+        pin: b.pin_code,
+        status: (b.status || '').toUpperCase(),
+        providerName: b.provider_name || 'Awaiting assignment',
+        providerRole: b.category_name ? `${b.category_name} Specialist` : 'Concierge',
+      }))
+      setRealBookings(mapped)
+    } catch (_) {}
+  }
+
+  useEffect(() => {
+    refreshRealBookings()
+    const interval = setInterval(refreshRealBookings, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Cancel a real booking (PENDING or ASSIGNED only, enforced by the API).
+  const [cancellingBookingId, setCancellingBookingId] = useState(null)
+  const handleCancelBookingRow = async (b) => {
+    if (!window.confirm(`Cancel booking ${b.id} (${b.service})?`)) return
+    setCancellingBookingId(b.realId)
+    try {
+      const token = sessionStorage.getItem('token')
+      const res = await fetch(`/api/bookings/${b.realId}/cancel`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(data.error || 'Could not cancel this booking.')
+      } else {
+        addNotification({ title: '🚫 Booking Cancelled', message: `Booking ${b.id} (${b.service}) has been cancelled.`, category: 'system' })
+        await refreshRealBookings()
+      }
+    } catch (_) {
+      alert('Network error — try again.')
+    }
+    setCancellingBookingId(null)
+  }
+
+  const displayBookings = realBookings.length > 0 ? realBookings : customerActiveBookings
 
   useEffect(() => {
     const syncActiveBookings = () => {
@@ -495,17 +546,7 @@ const CustomerDashboard = () => {
       const stored = localStorage.getItem('custom_requests_' + email)
       if (stored) return JSON.parse(stored)
     } catch (_) {}
-    return [
-      {
-        id: 'REQ-001',
-        title: 'Specialized Villa Deep Marble Polishing',
-        category: 'Home & Estate Care',
-        date: '2026-08-20',
-        time: '10:00 AM',
-        notes: 'High-gloss diamond pad restoration for ground floor living area.',
-        status: 'Under Concierge Review'
-      }
-    ]
+    return []
   })
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
@@ -584,7 +625,7 @@ const CustomerDashboard = () => {
     setTimeout(() => setBookingSuccessMsg(''), 3500)
   }
 
-  const handleConfirmBooking = (pkg) => {
+  const handleConfirmBooking = async (pkg) => {
     const u = sessionStorage.getItem('user')
     const email = u ? JSON.parse(u).email : 'guest'
 
@@ -643,22 +684,47 @@ const CustomerDashboard = () => {
       window.dispatchEvent(new Event('luxora_bookings_updated'))
     } catch (_) {}
 
-    // Send API booking request if token is present
+    // Send API booking request if token is present.
+    // Map the package category to a real service from the catalog so the
+    // booking lands on the right service instead of always service 1.
     const token = sessionStorage.getItem('token')
     if (token) {
-      fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          service_id: pkg.service_id || 1,
-          booking_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          booking_time: '10:00 AM',
-          special_notes: `Subscribed package: ${pkg.title} (${pkg.tier || 'Standard'})`
+      const catMap = { auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }
+      const wantedCat = catMap[pkg.cat]
+      try {
+        const svcRes = await fetch('/api/services')
+        const services = svcRes.ok ? await svcRes.json() : []
+        const match = (Array.isArray(services) && wantedCat &&
+          services.find(s => s.category_name === wantedCat || s.category?.name === wantedCat)) || null
+        const serviceId = match?.id || pkg.service_id || 1
+
+        const res = await fetch('/api/bookings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            service_id: serviceId,
+            booking_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+            booking_time: '10:00 AM'
+          })
         })
-      }).catch(() => {})
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          alert(`Booking could not be placed: ${data.error || res.status}. Your package is still saved locally.`)
+        } else if (data.pin_code) {
+          addNotification({
+            title: '🔐 Your Booking PIN',
+            message: `Booking #${data.booking_id} confirmed for ${match?.title || pkg.title}. Show this PIN to your provider: ${data.pin_code}`,
+            category: pkg.cat || 'system'
+          })
+          setBookingPin({ pin: data.pin_code, bookingId: data.booking_id, service: match?.title || pkg.title })
+          refreshRealBookings()
+        }
+      } catch (err) {
+        alert('Booking service unreachable — package saved locally only.')
+      }
     }
 
     setSelectedPackageToBook(null)
@@ -719,14 +785,7 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    const defaultHistory = [
-      { id: 1, date: 'Aug 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-      { id: 2, date: 'Jul 15, 2026', service: 'Garden Care', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-      { id: 3, date: 'Jul 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-      { id: 4, date: 'Jun 20, 2026', service: 'Pet Care', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
-    ]
-    localStorage.setItem('history_' + email, JSON.stringify(defaultHistory))
-    return defaultHistory
+    return []
   })
 
   const addHistoryRecord = (rec) => {
@@ -764,26 +823,7 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    const defaultNotifs = [
-      {
-        id: 1,
-        title: 'Booking Confirmed',
-        message: 'Your Auto Care Premium session is confirmed for tomorrow at 10:00 AM.',
-        time: '10 mins ago',
-        unread: true,
-        category: 'auto'
-      },
-      {
-        id: 2,
-        title: 'Concierge Specialist Assigned',
-        message: 'Senior Specialist Kamal Perera has been assigned to your Garden Care package.',
-        time: '1 hour ago',
-        unread: true,
-        category: 'garden'
-      }
-    ]
-    localStorage.setItem('notifications_' + email, JSON.stringify(defaultNotifs))
-    return defaultNotifs
+    return []
   })
 
   const addNotification = (notif) => {
@@ -803,13 +843,58 @@ const CustomerDashboard = () => {
     })
   }
 
+  // Live notifications from the backend (assignment / start / completion),
+  // merged on top of locally generated ones.
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    if (!token) return
+    let cancelled = false
+    const loadApiNotifs = async () => {
+      try {
+        const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled || !Array.isArray(data)) return
+        const apiNotifs = data.map((n) => {
+          const msg = n.message || ''
+          let title = 'Luxora Update'
+          if (/completed/i.test(msg)) title = '✅ Service Completed'
+          else if (/started/i.test(msg)) title = '🔧 Service Started'
+          else if (/assigned/i.test(msg)) title = '👤 Provider Assigned'
+          else if (/cancel/i.test(msg)) title = '🚫 Booking Cancelled'
+          else if (/review/i.test(msg)) title = '⭐ Review Request'
+          return {
+            id: 'api-' + n.id,
+            title,
+            message: msg,
+            time: n.createdAt ? new Date(n.createdAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'recently',
+            unread: !n.isRead,
+            category: 'system',
+            apiId: n.id
+          }
+        })
+        setNotifications(prev => {
+          const local = prev.filter(n => !String(n.id).startsWith('api-'))
+          return [...apiNotifs, ...local]
+        })
+      } catch (_) {}
+    }
+    loadApiNotifs()
+    const interval = setInterval(loadApiNotifs, 20000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
+
   const unreadCount = notifications.filter(n => n.unread).length
 
   const markAllNotifsRead = () => {
     const email = getUserEmail()
+    const token = sessionStorage.getItem('token')
+    if (token) {
+      fetch('/api/notifications/read-all', { method: 'PUT', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+    }
     setNotifications(prev => {
       const updated = prev.map(n => ({ ...n, unread: false }))
-      localStorage.setItem('notifications_' + email, JSON.stringify(updated))
+      localStorage.setItem('notifications_' + email, JSON.stringify(updated.filter(n => !String(n.id).startsWith('api-'))))
       return updated
     })
   }
@@ -1053,7 +1138,33 @@ const CustomerDashboard = () => {
                   {bookingSuccessMsg}
                 </div>
               )}
+              {bookingPin && (
+                <div
+                  className="cd-booking-success-toast animate-fade-in"
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', justifyContent: 'space-between', cursor: 'default' }}
+                >
+                  <span>
+                    🔐 Booking #{bookingPin.bookingId} ({bookingPin.service}) confirmed.
+                    <strong> Your verification PIN:</strong>
+                  </span>
+                  <span style={{ fontSize: '1.6rem', letterSpacing: '0.35em', fontWeight: 700 }}>
+                    {bookingPin.pin}
+                  </span>
+                  <button
+                    onClick={() => setBookingPin(null)}
+                    style={{ background: 'none', border: 'none', color: 'inherit', fontSize: '1.1rem', cursor: 'pointer' }}
+                    aria-label="Dismiss PIN"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <div className="cd-packages-grid">
+                {activePackages.length === 0 && (
+                  <p style={{ color: 'rgba(245,222,179,0.55)', fontSize: '0.95rem', padding: '18px 4px', gridColumn: '1 / -1' }}>
+                    No active packages yet — subscribe from the Packages tab to see them here.
+                  </p>
+                )}
                 {activePackages.map((pkg) => (
                   <div
                     key={pkg.id}
@@ -1339,7 +1450,7 @@ const CustomerDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(showAllActiveBookings ? customerActiveBookings : customerActiveBookings.slice(0, 10)).map((b) => {
+                    {(showAllActiveBookings ? displayBookings : displayBookings.slice(0, 10)).map((b) => {
                       const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
                       return (
                         <tr key={b.id} style={{ borderBottom: '1px solid #202020' }}>
@@ -1361,9 +1472,13 @@ const CustomerDashboard = () => {
                             <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                           </td>
                           <td>
-                            {pinUnlocked ? (
+                            {b.status === 'CANCELLED' ? (
+                              <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#666', fontSize: '0.75rem', fontWeight: 600, padding: '0.3rem 0.6rem', borderRadius: '6px' }}>
+                                —
+                              </span>
+                            ) : pinUnlocked ? (
                               <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.85rem', fontWeight: 900, padding: '0.3rem 0.65rem', borderRadius: '6px', letterSpacing: '0.1em' }}>
-                                🔑 {b.pin || '4892'}
+                                🔑 {b.pin || '—'}
                               </span>
                             ) : (
                               <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.75rem', fontWeight: 600, padding: '0.3rem 0.6rem', borderRadius: '6px' }} title="PIN auto-unlocks 30 minutes before your scheduled booking slot">
@@ -1372,9 +1487,21 @@ const CustomerDashboard = () => {
                             )}
                           </td>
                           <td>
-                            <span className="cd-status-tag cd-status-tag--completed" style={{ background: 'rgba(201, 168, 76, 0.12)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
-                              {b.status || 'CONFIRMED'}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span className="cd-status-tag cd-status-tag--completed" style={{ background: 'rgba(201, 168, 76, 0.12)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
+                                {b.status || 'CONFIRMED'}
+                              </span>
+                              {b.realId && (b.status === 'PENDING' || b.status === 'ASSIGNED') && (
+                                <button
+                                  onClick={() => handleCancelBookingRow(b)}
+                                  disabled={cancellingBookingId === b.realId}
+                                  style={{ background: 'transparent', border: '1px solid #f87171', color: '#f87171', padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', borderRadius: '6px' }}
+                                  title="Cancel this booking"
+                                >
+                                  {cancellingBookingId === b.realId ? 'Cancelling…' : 'Cancel'}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       )
@@ -2116,7 +2243,7 @@ const CustomerDashboard = () => {
               </div>
               <div className="cd-book-confirm-row">
                 <span>Delivery Address:</span>
-                <small>{userAddress.street}, {userAddress.city}, {userAddress.district}</small>
+                <small>{userAddress.street ? `${userAddress.street}, ${userAddress.city}, ${userAddress.district}` : 'Not set yet — set it from your profile'}</small>
               </div>
               <div className="cd-book-confirm-row">
                 <span>{bookingBillingType === 'auto_renew' ? 'Next Renewal Date:' : 'Expiry Date:'}</span>
