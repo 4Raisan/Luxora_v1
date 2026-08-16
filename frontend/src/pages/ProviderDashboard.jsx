@@ -259,40 +259,92 @@ const ProviderDashboard = () => {
     }
   }
 
-  const [bookingsList, setBookingsList] = useState([
-    {
-      month: 'AUG',
-      day: '16',
-      title: 'Auto Care – Vehicle Detailing & Health Audit',
-      sub: 'Full Interior Detailing & Engine Diagnostics • Member Villa',
-      status: 'CONFIRMED',
-      color: '#C9A84C',
-    },
-    {
-      month: 'AUG',
-      day: '19',
-      title: 'Garden Care – Landscaping & Flora Maintenance',
-      sub: 'Courtyard Lawn Trimming & Hydroponic Care • Estate Residence',
-      status: 'PENDING',
-      color: '#eab308',
-    },
-    {
-      month: 'AUG',
-      day: '22',
-      title: 'Pet Care – Grooming & Veterinary Wellness',
-      sub: 'Full Dog Spa & Annual Vaccine Check • Colombo Residence',
-      status: 'CONFIRMED',
-      color: '#C9A84C',
-    },
-    {
-      month: 'AUG',
-      day: '25',
-      title: 'Full Home Suite (Combo: Auto + Garden + Pet)',
-      sub: 'All-Inclusive Estate Maintenance Package • Luxury Penthouse',
-      status: 'CONFIRMED',
-      color: '#C9A84C',
-    },
-  ])
+  const [bookingsList, setBookingsList] = useState([])
+  const [realEarnings, setRealEarnings] = useState(null)
+
+  // PIN verification modal for starting / completing real bookings
+  const [pinModal, setPinModal] = useState(null) // { realId, action, title }
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [pinBusy, setPinBusy] = useState(false)
+
+  const STATUS_STYLE = {
+    CONFIRMED: '#C9A84C',
+    PENDING: '#eab308',
+    IN_PROGRESS: '#38bdf8',
+    COMPLETED: '#4ade80',
+    CANCELLED: '#f87171',
+  }
+
+  // Load real assigned bookings from the backend. Falls back to the
+  // demo list when the API is unreachable or returns nothing.
+  const loadAssignedBookings = async () => {
+    const token = sessionStorage.getItem('token')
+    if (!token) return
+    try {
+      const res = await fetch('/api/bookings/assigned', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!Array.isArray(data) || data.length === 0) return
+      const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+      const mapped = data.map((b) => {
+        const dateStr = b.bookingDate || b.booking_date || ''
+        const mm = parseInt(dateStr.slice(5, 7), 10)
+        const statusMap = { assigned: 'CONFIRMED', pending: 'PENDING', in_progress: 'IN_PROGRESS', completed: 'COMPLETED', cancelled: 'CANCELLED' }
+        const uiStatus = statusMap[b.status] || 'PENDING'
+        return {
+          realId: b.booking_id ?? b.id,
+          month: MONTHS[mm - 1] || '—',
+          day: dateStr.slice(8, 10) || '—',
+          title: b.service_title || b.service?.title || 'Luxora Service',
+          sub: `${b.customer_name || 'Customer'} • ${b.bookingTime || b.booking_time || ''}`,
+          status: uiStatus,
+          color: STATUS_STYLE[uiStatus] || '#eab308',
+          customerPhone: b.customer_phone,
+        }
+      })
+      setBookingsList(mapped)
+    } catch (_) {}
+  }
+
+  useEffect(() => {
+    loadAssignedBookings()
+    const token = sessionStorage.getItem('token')
+    if (token) {
+      fetch('/api/provider/earnings', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d && typeof d.earnings === 'number') setRealEarnings(d.earnings) })
+        .catch(() => {})
+    }
+  }, [])
+
+  const submitPin = async () => {
+    if (!pinModal || pinInput.trim().length !== 4) {
+      setPinError('Enter the 4-digit PIN the customer showed you.')
+      return
+    }
+    setPinBusy(true)
+    setPinError('')
+    try {
+      const token = sessionStorage.getItem('token')
+      const res = await fetch(`/api/bookings/${pinModal.realId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: pinModal.action, pin_code: pinInput.trim() })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPinError(data.error || 'Verification failed.')
+      } else {
+        setPinModal(null)
+        setPinInput('')
+        await loadAssignedBookings()
+      }
+    } catch (_) {
+      setPinError('Network error — try again.')
+    }
+    setPinBusy(false)
+  }
 
   const [customRequests, setCustomRequests] = useState([
     {
@@ -552,6 +604,24 @@ const ProviderDashboard = () => {
                     </div>
 
                     <div className="pd-all-booking-actions">
+                      {b.realId && b.status === 'CONFIRMED' && (
+                        <button
+                          type="button"
+                          className="pd-cr-btn-accept"
+                          onClick={() => { setPinError(''); setPinInput(''); setPinModal({ realId: b.realId, action: 'in_progress', title: b.title }) }}
+                        >
+                          START SERVICE 🔑
+                        </button>
+                      )}
+                      {b.realId && b.status === 'IN_PROGRESS' && (
+                        <button
+                          type="button"
+                          className="pd-cr-btn-accept"
+                          onClick={() => { setPinError(''); setPinInput(''); setPinModal({ realId: b.realId, action: 'completed', title: b.title }) }}
+                        >
+                          COMPLETE SERVICE ✅
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="pd-cr-btn-accept"
@@ -760,10 +830,10 @@ const ProviderDashboard = () => {
                 <div className="pd-stats">
                   {(() => {
                     const confirmedList = bookingsList.filter(b => b.status === 'CONFIRMED')
-                    const nextServiceStr = confirmedList.length > 0 ? `2026.08.${confirmedList[0].day}` : '2026.08.16'
+                    const nextServiceStr = confirmedList.length > 0 ? `2026.08.${confirmedList[0].day}` : '—'
                     return [
                       { label: 'ACTIVE BOOKINGS', value: String(confirmedList.length), accent: false },
-                      { label: 'TOTAL EARNING',   value: 'Rs. 125,000', accent: true  },
+                      { label: 'TOTAL EARNING',   value: realEarnings != null ? `Rs. ${realEarnings.toLocaleString()}` : 'Rs. —', accent: true },
                       { label: 'NEXT SERVICE',    value: nextServiceStr, accent: false },
                     ]
                   })().map((s) => (
@@ -895,6 +965,47 @@ const ProviderDashboard = () => {
       </div>
 
       {/* ── VIEW APPOINTMENT DETAILS POPUP MODAL ── */}
+      {pinModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          onClick={() => !pinBusy && setPinModal(null)}
+        >
+          <div
+            style={{ background: '#121212', border: '1px solid rgba(201,168,76,0.4)', borderRadius: '14px', padding: '2rem', maxWidth: '420px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span style={{ color: 'var(--gold, #C9A84C)', fontSize: '0.72rem', letterSpacing: '0.22em', fontWeight: 700 }}>
+              {pinModal.action === 'in_progress' ? 'START SERVICE — CUSTOMER VERIFICATION' : 'COMPLETE SERVICE — CUSTOMER VERIFICATION'}
+            </span>
+            <h3 style={{ color: '#fff', margin: '0.6rem 0 1rem', fontSize: '1.15rem' }}>{pinModal.title}</h3>
+            <p style={{ color: '#999', fontSize: '0.85rem', margin: '0 0 1rem' }}>
+              Ask the customer for their 4-digit verification PIN. It is shown in their dashboard booking table.
+            </p>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              value={pinInput}
+              disabled={pinBusy}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitPin() }}
+              placeholder="••••"
+              style={{ width: '100%', background: '#1a1a1a', border: '1px solid #333', borderRadius: '10px', color: '#fff', fontSize: '1.8rem', letterSpacing: '0.5em', textAlign: 'center', padding: '0.8rem', outline: 'none', marginBottom: '0.8rem' }}
+              autoFocus
+            />
+            {pinError && <p style={{ color: '#f87171', fontSize: '0.82rem', margin: '0 0 0.8rem' }}>{pinError}</p>}
+            <div style={{ display: 'flex', gap: '0.7rem', justifyContent: 'flex-end' }}>
+              <button type="button" disabled={pinBusy} onClick={() => setPinModal(null)} style={{ background: 'none', border: '1px solid #333', color: '#aaa', borderRadius: '8px', padding: '0.6rem 1.1rem', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button type="button" disabled={pinBusy} onClick={submitPin} style={{ background: 'var(--gold, #C9A84C)', border: 'none', color: '#000', fontWeight: 800, borderRadius: '8px', padding: '0.6rem 1.3rem', cursor: 'pointer' }}>
+                {pinBusy ? 'Verifying…' : 'Verify PIN'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedDetailsBooking && (
         <div className="pd-drawer-overlay" onClick={() => setSelectedDetailsBooking(null)}>
           <div className="pd-modal" onClick={(e) => e.stopPropagation()}>
