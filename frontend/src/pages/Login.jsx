@@ -82,11 +82,11 @@ const Login = () => {
 
       if (userRole === 'admin' || isInputAdmin) {
         const adminObj = {
-          name: 'Deshan Ganganath',
+          name: data.user?.name || 'Luxora Admin',
           title: 'Super Admin',
-          email: form.email || 'deshan@luxora.com',
+          email: data.user?.email || form.email,
           role: 'admin',
-          phone: '+94 77 987 6543'
+          phone: data.user?.phone || '+94 77 987 6543'
         }
         sessionStorage.setItem('token', data.token || 'demo-admin-token')
         sessionStorage.setItem('user', JSON.stringify(adminObj))
