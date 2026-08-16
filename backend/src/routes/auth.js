@@ -8,7 +8,7 @@ import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.
 
 const router = Router();
 
-const authLimiter = rateLimit({ max: 20, windowMs: 15 * 60 * 1000 });
+const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
 
 // Register (customer or provider only — admin accounts are seeded, never self-registered)
 router.post('/register', authLimiter, async (req, res) => {
