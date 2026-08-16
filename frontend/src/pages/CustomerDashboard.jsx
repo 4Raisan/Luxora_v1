@@ -195,6 +195,175 @@ const CustomerDashboard = () => {
   const [bookingBillingType, setBookingBillingType] = useState('auto_renew') // 'auto_renew' | 'one_time'
   const [selectedReceiptItem, setSelectedReceiptItem] = useState(null)
 
+  // Admin Panel Subscription Linkage State
+  const [adminSubscriptions, setAdminSubscriptions] = useState(() => {
+    try {
+      const stored = localStorage.getItem('luxora_subscriptions')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length >= 9) return parsed
+      }
+    } catch (_) {}
+    return [
+      {
+        id: 'SUB-001',
+        title: 'Auto Care - Basic',
+        type: 'Single Package',
+        cat: 'Auto Care',
+        tier: 'Basic',
+        visits: '1 visit',
+        tokens: 1,
+        price: 5000,
+        subscribers: 142,
+        popular: false,
+        inclusives: ['1 visit / month', 'Exterior foam wash & wheel shine', 'Interior vacuuming', '1 Service Token (×1)']
+      },
+      {
+        id: 'SUB-002',
+        title: 'Auto Care - Standard ★',
+        type: 'Single Package',
+        cat: 'Auto Care',
+        tier: 'Standard ★',
+        visits: '2 visits',
+        tokens: 3,
+        price: 9000,
+        subscribers: 428,
+        popular: true,
+        inclusives: ['2 visits / month', 'Full vehicle wash & wax', 'Interior deep clean & leather conditioning', '3 Service Tokens (×3)', 'Priority booking slot']
+      },
+      {
+        id: 'SUB-003',
+        title: 'Auto Care - Premium',
+        type: 'Single Package',
+        cat: 'Auto Care',
+        tier: 'Premium',
+        visits: 'Unlimited',
+        tokens: 6,
+        price: 15000,
+        subscribers: 215,
+        popular: false,
+        inclusives: ['Unlimited visits / month', 'Ceramic windshield & paint protection', 'Engine bay detailing & tire gloss', '6 Service Tokens (×6)', 'VIP emergency dispatch']
+      },
+      {
+        id: 'SUB-004',
+        title: 'Garden Care - Basic',
+        type: 'Single Package',
+        cat: 'Garden Care',
+        tier: 'Basic',
+        visits: '1 visit',
+        tokens: 1,
+        price: 7500,
+        subscribers: 98,
+        popular: false,
+        inclusives: ['1 visit / month', 'Lawn mowing & edging', 'Weed removal & basic pruning', '1 Service Token (×1)']
+      },
+      {
+        id: 'SUB-005',
+        title: 'Garden Care - Standard ★',
+        type: 'Single Package',
+        cat: 'Garden Care',
+        tier: 'Standard ★',
+        visits: '2 visits',
+        tokens: 3,
+        price: 14000,
+        subscribers: 382,
+        popular: true,
+        inclusives: ['2 visits / month', 'Precision lawn care & bush sculpting', 'Organic fertilizer & soil treatment', '3 Service Tokens (×3)', 'Seasonal planting advice']
+      },
+      {
+        id: 'SUB-006',
+        title: 'Garden Care - Premium',
+        type: 'Single Package',
+        cat: 'Garden Care',
+        tier: 'Premium',
+        visits: 'Unlimited',
+        tokens: 6,
+        price: 25000,
+        subscribers: 175,
+        popular: false,
+        inclusives: ['Unlimited visits / month', 'Full landscape maintenance & irrigation check', 'Pest control & tree pruning', '6 Service Tokens (×6)', 'Dedicated gardener']
+      },
+      {
+        id: 'SUB-007',
+        title: 'Pet Care - Basic',
+        type: 'Single Package',
+        cat: 'Pet Care',
+        tier: 'Basic',
+        visits: '1 visit',
+        tokens: 1,
+        price: 6000,
+        subscribers: 85,
+        popular: false,
+        inclusives: ['1 visit / month', 'Basic pet bath & coat brushing', 'Nail trimming & ear cleaning', '1 Service Token (×1)']
+      },
+      {
+        id: 'SUB-008',
+        title: 'Pet Care - Standard ★',
+        type: 'Single Package',
+        cat: 'Pet Care',
+        tier: 'Standard ★',
+        visits: '2 visits',
+        tokens: 3,
+        price: 11000,
+        subscribers: 290,
+        popular: true,
+        inclusives: ['2 visits / month', 'Full spa grooming, bath & blow dry', 'Flea & tick preventative treatment', '3 Service Tokens (×3)', 'Annual vet checkup voucher']
+      },
+      {
+        id: 'SUB-009',
+        title: 'Pet Care - Premium',
+        type: 'Single Package',
+        cat: 'Pet Care',
+        tier: 'Premium',
+        visits: 'Unlimited',
+        tokens: 6,
+        price: 18000,
+        subscribers: 160,
+        popular: false,
+        inclusives: ['Unlimited visits / month', 'Styling grooming, teeth cleaning & coat shine', '24/7 emergency pet transportation', '6 Service Tokens (×6)', 'Nutritional plan']
+      },
+      {
+        id: 'SUB-010',
+        title: 'Combo Package: Dual Auto + Garden Elite',
+        type: 'Combo Package',
+        cat: 'Auto + Garden',
+        price: 24000,
+        subscribers: 310,
+        inclusives: ['Complete Auto Care & Garden Care features', '15% Bundle savings discount applied', 'Dedicated VIP estate manager']
+      },
+      {
+        id: 'SUB-011',
+        title: 'Combo Package: Tri-Combo Luxury Suite',
+        type: 'Combo Package',
+        cat: 'Auto + Garden + Pet',
+        price: 32000,
+        subscribers: 282,
+        inclusives: ['All Auto, Garden & Pet Care benefits included', '24/7 VIP priority emergency dispatch', 'Free quarterly high-pressure driveway wash']
+      }
+    ]
+  })
+
+  useEffect(() => {
+    const syncSubscriptions = () => {
+      try {
+        const stored = localStorage.getItem('luxora_subscriptions')
+        if (stored) {
+          setAdminSubscriptions(JSON.parse(stored))
+        }
+      } catch (_) {}
+    }
+
+    syncSubscriptions()
+    window.addEventListener('storage', syncSubscriptions)
+    window.addEventListener('luxora_subscriptions_updated', syncSubscriptions)
+    const interval = setInterval(syncSubscriptions, 1000)
+    return () => {
+      window.removeEventListener('storage', syncSubscriptions)
+      window.removeEventListener('luxora_subscriptions_updated', syncSubscriptions)
+      clearInterval(interval)
+    }
+  }, [activeTab, bookingType])
+
   // Custom Request State
   const [showCustomRequestModal, setShowCustomRequestModal] = useState(false)
   const [customRequests, setCustomRequests] = useState(() => {
@@ -904,260 +1073,112 @@ const CustomerDashboard = () => {
 
           {/* ── Single Packages Grid ── */}
           {bookingType === 'single' && (
-            <div className="cd-booking-grid">
-              {/* Auto Care Column */}
-              <div className="cd-booking-col">
-                <div className="cd-booking-col__header">
-                  <div className="cd-booking-col__icon"><CarIcon /></div>
-                  <h3 className="cd-booking-col__title">Auto Care</h3>
-                  <p className="cd-booking-col__desc">Full vehicle care &mdash; wash, wax, interior &amp; inspection</p>
-                </div>
-                <div className="cd-tier-list">
-                  <div className="cd-tier-card" onClick={() => setSelectedPackageToBook({ title: 'Auto Care', tier: 'Basic Plan', price: 'LKR 5,000', cat: 'auto', service_id: 1 })} role="button" tabIndex={0} title="Click to book Auto Care Basic">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+              {adminSubscriptions
+                .filter(s => s.type === 'Single Package')
+                .map((s) => (
+                  <div
+                    key={s.id}
+                    className="cd-combo-card animate-fade-in"
+                    onClick={() => setSelectedPackageToBook({
+                      title: s.title.replace('Single Package: ', ''),
+                      tier: 'Single Package Plan ★',
+                      price: `LKR ${Number(s.price).toLocaleString()}`,
+                      cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
+                      service_id: 1
+                    })}
+                    role="button"
+                    tabIndex={0}
+                    title={`Click to book ${s.title}`}
+                    style={{ background: '#141414', border: '1px solid #282828', borderRadius: '14px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem', cursor: 'pointer' }}
+                  >
                     <div>
-                      <span className="cd-tier-name">Basic</span>
-                      <span className="cd-tier-sub">1 visit &bull; <CoinIcon /><strong>×1</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 5,000</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <span className="cd-popular-badge" style={{ position: 'static', background: 'rgba(201, 168, 76, 0.15)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)' }}>
+                          {(s.cat || 'SINGLE CARE').toUpperCase()}
+                        </span>
+                        <span style={{ color: '#888', fontSize: '0.75rem', fontWeight: 600 }}>{s.id}</span>
+                      </div>
 
-                  <div className="cd-tier-card cd-tier-card--popular" onClick={() => setSelectedPackageToBook({ title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', cat: 'auto', service_id: 1 })} role="button" tabIndex={0} title="Click to book Auto Care Standard">
-                    <span className="cd-popular-badge">POPULAR</span>
-                    <div>
-                      <span className="cd-tier-name">Standard ★</span>
-                      <span className="cd-tier-sub">2 visits &bull; <CoinIcon /><strong>×3</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 9,000</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
+                      <h3 style={{ color: '#fff', fontSize: '1.25rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
+                        {s.title.replace('Single Package: ', '')}
+                      </h3>
 
-                  <div className="cd-tier-card" onClick={() => setSelectedPackageToBook({ title: 'Auto Care', tier: 'Premium Plan', price: 'LKR 15,000', cat: 'auto', service_id: 1 })} role="button" tabIndex={0} title="Click to book Auto Care Premium">
-                    <div>
-                      <span className="cd-tier-name">Premium</span>
-                      <span className="cd-tier-sub">Unlimited &bull; <CoinIcon /><strong>×6</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 15,000</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                      <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '1rem' }}>
+                        LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.8rem', color: '#888', fontWeight: 400 }}>/mo</small>
+                      </div>
 
-              {/* Garden Care Column */}
-              <div className="cd-booking-col">
-                <div className="cd-booking-col__header">
-                  <div className="cd-booking-col__icon"><LeafIcon /></div>
-                  <h3 className="cd-booking-col__title">Garden Care</h3>
-                  <p className="cd-booking-col__desc">Lawn maintenance, pruning, planting &amp; landscaping</p>
-                </div>
-                <div className="cd-tier-list">
-                  <div className="cd-tier-card" onClick={() => setSelectedPackageToBook({ title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', cat: 'garden', service_id: 2 })} role="button" tabIndex={0} title="Click to book Garden Care Basic">
-                    <div>
-                      <span className="cd-tier-name">Basic</span>
-                      <span className="cd-tier-sub">1 visit &bull; <CoinIcon /><strong>×1</strong></span>
+                      <div style={{ borderTop: '1px solid #222', paddingTop: '0.85rem' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 700, letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>INCLUDED CONCIERGE SERVICES:</span>
+                        <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#ccc', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {Array.isArray(s.inclusives) ? s.inclusives.map((inc, i) => (
+                            <li key={i} style={{ color: '#bbb' }}>{inc}</li>
+                          )) : <li style={{ color: '#bbb' }}>{s.inclusives}</li>}
+                        </ul>
+                      </div>
                     </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 7,500</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
 
-                  <div className="cd-tier-card cd-tier-card--popular" onClick={() => setSelectedPackageToBook({ title: 'Garden Care', tier: 'Standard Plan ★', price: 'LKR 14,000', cat: 'garden', service_id: 2 })} role="button" tabIndex={0} title="Click to book Garden Care Standard">
-                    <span className="cd-popular-badge">POPULAR</span>
-                    <div>
-                      <span className="cd-tier-name">Standard ★</span>
-                      <span className="cd-tier-sub">2 visits &bull; <CoinIcon /><strong>×3</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 14,000</strong>
-                      <small>/mo</small>
-                    </div>
+                    <button className="cd-combo-book-btn" style={{ width: '100%', marginTop: '0.5rem' }}>
+                      Book Single Package &rsaquo;
+                    </button>
                   </div>
-
-                  <div className="cd-tier-card" onClick={() => setSelectedPackageToBook({ title: 'Garden Care', tier: 'Premium Plan', price: 'LKR 25,000', cat: 'garden', service_id: 2 })} role="button" tabIndex={0} title="Click to book Garden Care Premium">
-                    <div>
-                      <span className="cd-tier-name">Premium</span>
-                      <span className="cd-tier-sub">Unlimited &bull; <CoinIcon /><strong>×6</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 25,000</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pet Care Column */}
-              <div className="cd-booking-col">
-                <div className="cd-booking-col__header">
-                  <div className="cd-booking-col__icon"><PawIcon /></div>
-                  <h3 className="cd-booking-col__title">Pet Care</h3>
-                  <p className="cd-booking-col__desc">Professional grooming, health checks &amp; specialty care</p>
-                </div>
-                <div className="cd-tier-list">
-                  <div className="cd-tier-card" onClick={() => setSelectedPackageToBook({ title: 'Pet Care', tier: 'Basic Plan', price: 'LKR 6,000', cat: 'pet', service_id: 3 })} role="button" tabIndex={0} title="Click to book Pet Care Basic">
-                    <div>
-                      <span className="cd-tier-name">Basic</span>
-                      <span className="cd-tier-sub">1 visit &bull; <CoinIcon /><strong>×1</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 6,000</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
-
-                  <div className="cd-tier-card cd-tier-card--popular" onClick={() => setSelectedPackageToBook({ title: 'Pet Care', tier: 'Standard Plan ★', price: 'LKR 11,000', cat: 'pet', service_id: 3 })} role="button" tabIndex={0} title="Click to book Pet Care Standard">
-                    <span className="cd-popular-badge">POPULAR</span>
-                    <div>
-                      <span className="cd-tier-name">Standard ★</span>
-                      <span className="cd-tier-sub">2 visits &bull; <CoinIcon /><strong>×3</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 11,000</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
-
-                  <div className="cd-tier-card" onClick={() => setSelectedPackageToBook({ title: 'Pet Care', tier: 'Premium Plan', price: 'LKR 18,000', cat: 'pet', service_id: 3 })} role="button" tabIndex={0} title="Click to book Pet Care Premium">
-                    <div>
-                      <span className="cd-tier-name">Premium</span>
-                      <span className="cd-tier-sub">Unlimited &bull; <CoinIcon /><strong>×6</strong></span>
-                    </div>
-                    <div className="cd-tier-price">
-                      <strong>LKR 18,000</strong>
-                      <small>/mo</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                ))}
             </div>
           )}
 
           {/* ── Combo Packages Grid ── */}
           {bookingType === 'combo' && (
-            <div className="cd-combo-grid animate-fade-in">
-              {/* Card 1: Full Home Suite */}
-              <div className="cd-combo-card" onClick={() => setSelectedPackageToBook({ title: 'Full Home Suite', tier: 'Full Combo (-10%)', price: 'LKR 16,650', cat: 'system', service_id: 1 })} role="button" tabIndex={0} title="Click to book Full Home Suite">
-                <div className="cd-combo-card__top">
-                  <span className="cd-combo-badge">Best Value</span>
-                  <span className="cd-combo-disc">-10%</span>
-                </div>
-                <div className="cd-combo-icons">
-                  <div className="cd-combo-icon-box"><CarIcon /></div>
-                  <div className="cd-combo-icon-box"><LeafIcon /></div>
-                  <div className="cd-combo-icon-box"><PawIcon /></div>
-                </div>
-                <h3 className="cd-combo-title">Full Home Suite</h3>
-                <p className="cd-combo-desc">All three services at maximum savings</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+              {adminSubscriptions
+                .filter(s => s.type === 'Combo Package')
+                .map((s) => (
+                  <div
+                    key={s.id}
+                    className="cd-combo-card animate-fade-in"
+                    onClick={() => setSelectedPackageToBook({
+                      title: s.title.replace('Combo Package: ', ''),
+                      tier: 'VIP Combo Suite Plan 👑',
+                      price: `LKR ${Number(s.price).toLocaleString()}`,
+                      cat: 'system',
+                      service_id: 1
+                    })}
+                    role="button"
+                    tabIndex={0}
+                    title={`Click to book ${s.title}`}
+                    style={{ background: '#161616', border: '1px solid var(--gold, #c9a84c)', borderRadius: '16px', padding: '1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1.25rem', boxShadow: '0 0 25px rgba(201, 168, 76, 0.1)', cursor: 'pointer' }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <span className="cd-combo-badge" style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800 }}>
+                          👑 VIP BUNDLE (-15%)
+                        </span>
+                        <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 700 }}>{s.id}</span>
+                      </div>
 
-                <ul className="cd-combo-features">
-                  <li><span className="cd-combo-check">✓</span> 2 monthly visits</li>
-                  <li><span className="cd-combo-check">✓</span> Premium materials</li>
-                  <li><span className="cd-combo-check">✓</span> Priority support</li>
-                </ul>
+                      <h3 style={{ color: '#fff', fontSize: '1.35rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
+                        {s.title.replace('Combo Package: ', '')}
+                      </h3>
+                      <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem 0' }}>Comprehensive multi-service estate suite with VIP priority dispatch</p>
 
-                <div className="cd-combo-divider" />
+                      <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.6rem', fontWeight: 800, marginBottom: '1.1rem' }}>
+                        LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.85rem', color: '#888', fontWeight: 400 }}>/mo</small>
+                      </div>
 
-                <div className="cd-combo-price-bar">
-                  <div className="cd-combo-price">
-                    <span>from</span> <strong>LKR 16,650</strong> <small>/mo</small>
+                      <div style={{ borderTop: '1px solid #282828', paddingTop: '1rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--gold, #c9a84c)', fontWeight: 700, letterSpacing: '0.05em', display: 'block', marginBottom: '0.6rem' }}>EXCLUSIVE COMBO INCLUSIVES:</span>
+                        <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#eee', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                          {Array.isArray(s.inclusives) ? s.inclusives.map((inc, i) => (
+                            <li key={i} style={{ color: '#ddd' }}>{inc}</li>
+                          )) : <li style={{ color: '#ddd' }}>{s.inclusives}</li>}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <button className="cd-combo-book-btn" style={{ width: '100%', marginTop: '0.5rem', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800, padding: '0.75rem 1rem' }}>
+                      Subscribe VIP Combo Package &rsaquo;
+                    </button>
                   </div>
-                  <button className="cd-combo-book-btn">Book Combo &rsaquo;</button>
-                </div>
-              </div>
-
-              {/* Card 2: Auto & Garden */}
-              <div className="cd-combo-card" onClick={() => setSelectedPackageToBook({ title: 'Auto & Garden Combo', tier: 'Dual Combo (-5%)', price: 'LKR 11,875', cat: 'auto', service_id: 1 })} role="button" tabIndex={0} title="Click to book Auto & Garden Combo">
-                <div className="cd-combo-card__top">
-                  <div />
-                  <span className="cd-combo-disc">-5%</span>
-                </div>
-                <div className="cd-combo-icons">
-                  <div className="cd-combo-icon-box"><CarIcon /></div>
-                  <div className="cd-combo-icon-box"><LeafIcon /></div>
-                </div>
-                <h3 className="cd-combo-title">Auto &amp; Garden</h3>
-                <p className="cd-combo-desc">Perfect for homeowners</p>
-
-                <ul className="cd-combo-features">
-                  <li><span className="cd-combo-check">✓</span> 2 monthly visits</li>
-                  <li><span className="cd-combo-check">✓</span> Premium materials</li>
-                  <li><span className="cd-combo-check">✓</span> Priority support</li>
-                </ul>
-
-                <div className="cd-combo-divider" />
-
-                <div className="cd-combo-price-bar">
-                  <div className="cd-combo-price">
-                    <span>from</span> <strong>LKR 11,875</strong> <small>/mo</small>
-                  </div>
-                  <button className="cd-combo-book-btn">Book Combo &rsaquo;</button>
-                </div>
-              </div>
-
-              {/* Card 3: Auto & Pet */}
-              <div className="cd-combo-card" onClick={() => setSelectedPackageToBook({ title: 'Auto & Pet Combo', tier: 'Dual Combo (-5%)', price: 'LKR 10,450', cat: 'auto', service_id: 1 })} role="button" tabIndex={0} title="Click to book Auto & Pet Combo">
-                <div className="cd-combo-card__top">
-                  <div />
-                  <span className="cd-combo-disc">-5%</span>
-                </div>
-                <div className="cd-combo-icons">
-                  <div className="cd-combo-icon-box"><CarIcon /></div>
-                  <div className="cd-combo-icon-box"><PawIcon /></div>
-                </div>
-                <h3 className="cd-combo-title">Auto &amp; Pet</h3>
-                <p className="cd-combo-desc">Popular city package</p>
-
-                <ul className="cd-combo-features">
-                  <li><span className="cd-combo-check">✓</span> 2 monthly visits</li>
-                  <li><span className="cd-combo-check">✓</span> Premium materials</li>
-                  <li><span className="cd-combo-check">✓</span> Priority support</li>
-                </ul>
-
-                <div className="cd-combo-divider" />
-
-                <div className="cd-combo-price-bar">
-                  <div className="cd-combo-price">
-                    <span>from</span> <strong>LKR 10,450</strong> <small>/mo</small>
-                  </div>
-                  <button className="cd-combo-book-btn">Book Combo &rsaquo;</button>
-                </div>
-              </div>
-
-              {/* Card 4: Garden & Pet */}
-              <div className="cd-combo-card" onClick={() => setSelectedPackageToBook({ title: 'Garden & Pet Combo', tier: 'Dual Combo (-5%)', price: 'LKR 12,825', cat: 'garden', service_id: 2 })} role="button" tabIndex={0} title="Click to book Garden & Pet Combo">
-                <div className="cd-combo-card__top">
-                  <div />
-                  <span className="cd-combo-disc">-5%</span>
-                </div>
-                <div className="cd-combo-icons">
-                  <div className="cd-combo-icon-box"><LeafIcon /></div>
-                  <div className="cd-combo-icon-box"><PawIcon /></div>
-                </div>
-                <h3 className="cd-combo-title">Garden &amp; Pet</h3>
-                <p className="cd-combo-desc">Nature-first lifestyle</p>
-
-                <ul className="cd-combo-features">
-                  <li><span className="cd-combo-check">✓</span> 2 monthly visits</li>
-                  <li><span className="cd-combo-check">✓</span> Premium materials</li>
-                  <li><span className="cd-combo-check">✓</span> Priority support</li>
-                </ul>
-
-                <div className="cd-combo-divider" />
-
-                <div className="cd-combo-price-bar">
-                  <div className="cd-combo-price">
-                    <span>from</span> <strong>LKR 12,825</strong> <small>/mo</small>
-                  </div>
-                  <button className="cd-combo-book-btn">Book Combo &rsaquo;</button>
-                </div>
-              </div>
+                ))}
             </div>
           )}
         </div>

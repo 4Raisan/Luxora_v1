@@ -72,55 +72,159 @@ export default function AdminDashboard() {
   const [subscriptions, setSubscriptions] = useState(() => {
     try {
       const stored = localStorage.getItem('luxora_subscriptions')
-      if (stored) return JSON.parse(stored)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length >= 9) {
+          return parsed
+        }
+      }
     } catch (_) {}
-    return [
+    const defaultSubs = [
+      // ── Auto Care Single Packages ──
       {
         id: 'SUB-001',
-        title: 'Single Package: Auto Elite Care',
+        title: 'Auto Care - Basic',
         type: 'Single Package',
         cat: 'Auto Care',
-        price: 12000,
-        subscribers: 428,
-        inclusives: ['Bi-weekly exterior foam wash & wax', 'Interior vacuuming & leather conditioning', 'Tire gloss & ceramic windshield treatment', 'Priority emergency booking slot']
+        tier: 'Basic',
+        visits: '1 visit',
+        tokens: 1,
+        price: 5000,
+        subscribers: 142,
+        popular: false,
+        inclusives: ['1 visit / month', 'Exterior foam wash & wheel shine', 'Interior vacuuming', '1 Service Token (×1)']
       },
       {
         id: 'SUB-002',
-        title: 'Single Package: Garden Oasis Sanctuary',
+        title: 'Auto Care - Standard ★',
         type: 'Single Package',
-        cat: 'Garden Care',
-        price: 15000,
-        subscribers: 382,
-        inclusives: ['Weekly precision lawn trimming & edging', 'Organic fertilizer & soil nourishment', 'Pest & weed control treatments', 'Irrigation & sprinkler checkups']
+        cat: 'Auto Care',
+        tier: 'Standard ★',
+        visits: '2 visits',
+        tokens: 3,
+        price: 9000,
+        subscribers: 428,
+        popular: true,
+        inclusives: ['2 visits / month', 'Full vehicle wash & wax', 'Interior deep clean & leather conditioning', '3 Service Tokens (×3)', 'Priority booking slot']
       },
       {
         id: 'SUB-003',
-        title: 'Single Package: Pet Spa Royale Pass',
+        title: 'Auto Care - Premium',
         type: 'Single Package',
-        cat: 'Pet Care',
-        price: 9000,
+        cat: 'Auto Care',
+        tier: 'Premium',
+        visits: 'Unlimited',
+        tokens: 6,
+        price: 15000,
         subscribers: 215,
-        inclusives: ['Bi-weekly pet grooming, bathing & coat shine', 'Nail trimming, paw care & ear cleaning', 'Flea & tick preventative herbal bath', 'Annual veterinary consultation voucher']
+        popular: false,
+        inclusives: ['Unlimited visits / month', 'Ceramic windshield & paint protection', 'Engine bay detailing & tire gloss', '6 Service Tokens (×6)', 'VIP emergency dispatch']
       },
+
+      // ── Garden Care Single Packages ──
       {
         id: 'SUB-004',
+        title: 'Garden Care - Basic',
+        type: 'Single Package',
+        cat: 'Garden Care',
+        tier: 'Basic',
+        visits: '1 visit',
+        tokens: 1,
+        price: 7500,
+        subscribers: 98,
+        popular: false,
+        inclusives: ['1 visit / month', 'Lawn mowing & edging', 'Weed removal & basic pruning', '1 Service Token (×1)']
+      },
+      {
+        id: 'SUB-005',
+        title: 'Garden Care - Standard ★',
+        type: 'Single Package',
+        cat: 'Garden Care',
+        tier: 'Standard ★',
+        visits: '2 visits',
+        tokens: 3,
+        price: 14000,
+        subscribers: 382,
+        popular: true,
+        inclusives: ['2 visits / month', 'Precision lawn care & bush sculpting', 'Organic fertilizer & soil treatment', '3 Service Tokens (×3)', 'Seasonal planting advice']
+      },
+      {
+        id: 'SUB-006',
+        title: 'Garden Care - Premium',
+        type: 'Single Package',
+        cat: 'Garden Care',
+        tier: 'Premium',
+        visits: 'Unlimited',
+        tokens: 6,
+        price: 25000,
+        subscribers: 175,
+        popular: false,
+        inclusives: ['Unlimited visits / month', 'Full landscape maintenance & irrigation check', 'Pest control & tree pruning', '6 Service Tokens (×6)', 'Dedicated gardener']
+      },
+
+      // ── Pet Care Single Packages ──
+      {
+        id: 'SUB-007',
+        title: 'Pet Care - Basic',
+        type: 'Single Package',
+        cat: 'Pet Care',
+        tier: 'Basic',
+        visits: '1 visit',
+        tokens: 1,
+        price: 6000,
+        subscribers: 85,
+        popular: false,
+        inclusives: ['1 visit / month', 'Basic pet bath & coat brushing', 'Nail trimming & ear cleaning', '1 Service Token (×1)']
+      },
+      {
+        id: 'SUB-008',
+        title: 'Pet Care - Standard ★',
+        type: 'Single Package',
+        cat: 'Pet Care',
+        tier: 'Standard ★',
+        visits: '2 visits',
+        tokens: 3,
+        price: 11000,
+        subscribers: 290,
+        popular: true,
+        inclusives: ['2 visits / month', 'Full spa grooming, bath & blow dry', 'Flea & tick preventative treatment', '3 Service Tokens (×3)', 'Annual vet checkup voucher']
+      },
+      {
+        id: 'SUB-009',
+        title: 'Pet Care - Premium',
+        type: 'Single Package',
+        cat: 'Pet Care',
+        tier: 'Premium',
+        visits: 'Unlimited',
+        tokens: 6,
+        price: 18000,
+        subscribers: 160,
+        popular: false,
+        inclusives: ['Unlimited visits / month', 'Styling grooming, teeth cleaning & coat shine', '24/7 emergency pet transportation', '6 Service Tokens (×6)', 'Nutritional plan']
+      },
+
+      // ── Combo Packages ──
+      {
+        id: 'SUB-010',
         title: 'Combo Package: Dual Auto + Garden Elite',
         type: 'Combo Package',
         cat: 'Auto + Garden',
         price: 24000,
         subscribers: 310,
-        inclusives: ['Complete Auto Elite Care Pass features', 'Complete Garden Oasis Sanctuary features', '15% Bundle savings discount applied', 'Dedicated VIP estate manager']
+        inclusives: ['Complete Auto Care & Garden Care features', '15% Bundle savings discount applied', 'Dedicated VIP estate manager']
       },
       {
-        id: 'SUB-005',
+        id: 'SUB-011',
         title: 'Combo Package: Tri-Combo Luxury Suite',
         type: 'Combo Package',
         cat: 'Auto + Garden + Pet',
         price: 32000,
         subscribers: 282,
-        inclusives: ['All Auto, Garden & Pet Care benefits included', '24/7 VIP priority emergency dispatch', 'Free quarterly high-pressure driveway wash', 'Unlimited service rescheduling']
+        inclusives: ['All Auto, Garden & Pet Care benefits included', '24/7 VIP priority emergency dispatch', 'Free quarterly high-pressure driveway wash']
       }
     ]
+    try { localStorage.setItem('luxora_subscriptions', JSON.stringify(defaultSubs)) } catch (_) {}
+    return defaultSubs
   })
 
   const [subFilter, setSubFilter] = useState('ALL')
@@ -159,8 +263,9 @@ export default function AdminDashboard() {
 
     const categoryVal = subForm.type === 'Combo Package' ? 'Combo Suite' : (subForm.cat || 'Auto Care')
 
+    let updated = []
     if (editingSub) {
-      const updated = subscriptions.map(s => s.id === editingSub.id ? {
+      updated = subscriptions.map(s => s.id === editingSub.id ? {
         ...s,
         title: subForm.title,
         type: subForm.type,
@@ -169,7 +274,6 @@ export default function AdminDashboard() {
         inclusives: inclusivesArr
       } : s)
       setSubscriptions(updated)
-      try { localStorage.setItem('luxora_subscriptions', JSON.stringify(updated)) } catch (_) {}
       alert(`Package "${subForm.title}" updated successfully!`)
     } else {
       const newSub = {
@@ -181,15 +285,29 @@ export default function AdminDashboard() {
         subscribers: 0,
         inclusives: inclusivesArr
       }
-      const updated = [newSub, ...subscriptions]
+      updated = [newSub, ...subscriptions]
       setSubscriptions(updated)
-      try { localStorage.setItem('luxora_subscriptions', JSON.stringify(updated)) } catch (_) {}
       alert(`New Package "${subForm.title}" created successfully!`)
     }
+
+    try {
+      localStorage.setItem('luxora_subscriptions', JSON.stringify(updated))
+      window.dispatchEvent(new Event('luxora_subscriptions_updated'))
+    } catch (_) {}
 
     setShowSubModal(false)
     setEditingSub(null)
     setSubForm({ title: '', type: 'Single Package', cat: 'Auto Care', price: '', inclusives: '' })
+  }
+
+  const handleDeleteSub = (subId) => {
+    if (!window.confirm('Are you sure you want to delete this subscription package?')) return
+    const updated = subscriptions.filter(s => s.id !== subId)
+    setSubscriptions(updated)
+    try {
+      localStorage.setItem('luxora_subscriptions', JSON.stringify(updated))
+      window.dispatchEvent(new Event('luxora_subscriptions_updated'))
+    } catch (_) {}
   }
 
   const [notifList, setNotifList] = useState([
@@ -920,13 +1038,33 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      <button
-                        className="ad-reset-btn"
-                        onClick={() => handleOpenEditSub(s)}
-                        style={{ width: '100%', textAlign: 'center', marginTop: '0.5rem' }}
-                      >
-                        Edit Pricing & Inclusives
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                        <button
+                          className="ad-reset-btn"
+                          onClick={() => handleOpenEditSub(s)}
+                          style={{ flex: 1, textAlign: 'center' }}
+                        >
+                          Edit Pricing & Inclusives
+                        </button>
+                        <button
+                          className="ad-btn-reject"
+                          onClick={() => handleDeleteSub(s.id)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            padding: '0.5rem 0.85rem',
+                            borderRadius: '6px',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          title="Remove this subscription plan"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
