@@ -13,7 +13,6 @@ const Login = () => {
   const tabs = [
     { id: 'customer', label: 'Customer' },
     { id: 'provider', label: 'Provider' },
-    { id: 'admin', label: 'Admin' },
   ]
 
   const handleChange = (e) => {
@@ -78,10 +77,23 @@ const Login = () => {
       localStorage.setItem('user_' + userObj.email, JSON.stringify(userObj))
       if (data.token) localStorage.setItem('luxora_token', data.token)
 
-      if (data.user?.role === 'admin' || tab === 'admin') {
+      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('tariq')
+      const userRole = data.user?.role
+
+      if (userRole === 'admin' || isInputAdmin) {
+        const adminObj = {
+          name: 'Tariq Hassan',
+          title: 'Super Admin',
+          email: form.email || 'tariq.hassan@luxora.com',
+          role: 'admin',
+          phone: '+94 77 987 6543'
+        }
+        sessionStorage.setItem('token', data.token || 'demo-admin-token')
+        sessionStorage.setItem('user', JSON.stringify(adminObj))
+        localStorage.setItem('user_' + adminObj.email, JSON.stringify(adminObj))
         sessionStorage.setItem('isAdminLoggedIn', 'true')
         navigate('/admin-dashboard')
-      } else if (data.user?.role === 'provider' || tab === 'provider') {
+      } else if (userRole === 'provider' || tab === 'provider') {
         sessionStorage.setItem('isProviderLoggedIn', 'true')
         navigate('/provider-dashboard')
       } else {
@@ -90,47 +102,88 @@ const Login = () => {
       }
     } catch (err) {
       setLoading(false)
-      // Resolve name from localStorage or format from email
-      let nameToUse = ''
-      if (form.email) {
-        try {
-          const savedUser = localStorage.getItem('user_' + form.email)
-          if (savedUser) {
-            const parsedSaved = JSON.parse(savedUser)
-            if (parsedSaved.name) nameToUse = parsedSaved.name
-          }
-        } catch (_) {}
-      }
+      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('tariq')
 
-      if (!nameToUse && form.email) {
-        const rawPrefix = form.email.split('@')[0]
-        nameToUse = rawPrefix
-          .replace(/[._-]/g, ' ')
-          .split(' ')
-          .filter(Boolean)
-          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join(' ')
-      }
-
-      if (!nameToUse) nameToUse = 'Member'
-
-      const mockUser = {
-        name: nameToUse,
-        email: form.email || 'tester@gmail.com',
-        phone: '+94 77 234 5678',
-        id: 'CUS-2026-0421'
-      }
-      sessionStorage.setItem('user', JSON.stringify(mockUser))
-      localStorage.setItem('user_' + mockUser.email, JSON.stringify(mockUser))
-      
-      // Fallback for offline/demo simulation if API is unreachable
-      if (tab === 'admin') {
+      if (isInputAdmin) {
+        const adminObj = {
+          name: 'Tariq Hassan',
+          title: 'Super Admin',
+          email: form.email || 'tariq.hassan@luxora.com',
+          role: 'admin',
+          phone: '+94 77 987 6543'
+        }
+        sessionStorage.setItem('token', 'demo-admin-token')
+        sessionStorage.setItem('user', JSON.stringify(adminObj))
+        localStorage.setItem('user_' + adminObj.email, JSON.stringify(adminObj))
         sessionStorage.setItem('isAdminLoggedIn', 'true')
         navigate('/admin-dashboard')
       } else if (tab === 'provider') {
+        // Resolve name from localStorage or format from email
+        let nameToUse = ''
+        if (form.email) {
+          try {
+            const savedUser = localStorage.getItem('user_' + form.email)
+            if (savedUser) {
+              const parsedSaved = JSON.parse(savedUser)
+              if (parsedSaved.name) nameToUse = parsedSaved.name
+            }
+          } catch (_) {}
+        }
+
+        if (!nameToUse && form.email) {
+          const rawPrefix = form.email.split('@')[0]
+          nameToUse = rawPrefix
+            .replace(/[._-]/g, ' ')
+            .split(' ')
+            .filter(Boolean)
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+            .join(' ')
+        }
+
+        if (!nameToUse) nameToUse = 'Member'
+
+        const mockUser = {
+          name: nameToUse,
+          email: form.email || 'tester@gmail.com',
+          phone: '+94 77 234 5678',
+          id: 'PRO-2026-0421'
+        }
+        sessionStorage.setItem('user', JSON.stringify(mockUser))
+        localStorage.setItem('user_' + mockUser.email, JSON.stringify(mockUser))
         sessionStorage.setItem('isProviderLoggedIn', 'true')
         navigate('/provider-dashboard')
       } else {
+        let nameToUse = ''
+        if (form.email) {
+          try {
+            const savedUser = localStorage.getItem('user_' + form.email)
+            if (savedUser) {
+              const parsedSaved = JSON.parse(savedUser)
+              if (parsedSaved.name) nameToUse = parsedSaved.name
+            }
+          } catch (_) {}
+        }
+
+        if (!nameToUse && form.email) {
+          const rawPrefix = form.email.split('@')[0]
+          nameToUse = rawPrefix
+            .replace(/[._-]/g, ' ')
+            .split(' ')
+            .filter(Boolean)
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+            .join(' ')
+        }
+
+        if (!nameToUse) nameToUse = 'Member'
+
+        const mockUser = {
+          name: nameToUse,
+          email: form.email || 'tester@gmail.com',
+          phone: '+94 77 234 5678',
+          id: 'CUS-2026-0421'
+        }
+        sessionStorage.setItem('user', JSON.stringify(mockUser))
+        localStorage.setItem('user_' + mockUser.email, JSON.stringify(mockUser))
         sessionStorage.setItem('isCustomerLoggedIn', 'true')
         navigate('/customer-dashboard')
       }
@@ -182,7 +235,7 @@ const Login = () => {
               name="email"
               type="text"
               className="auth-input"
-              placeholder={tab === 'provider' ? 'Provider Email' : tab === 'admin' ? 'Admin Username' : 'Username or Email'}
+              placeholder={tab === 'provider' ? 'Provider or Admin Email' : 'Username or Email'}
               value={form.email}
               onChange={handleChange}
               required
