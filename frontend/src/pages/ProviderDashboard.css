@@ -1012,8 +1012,11 @@
 }
 
 @media (max-width: 900px) {
-  .pd-sidebar { width: 60px; }
-  .pd-sidebar__logo-img { height: 28px; }
+  /* Hard rail width: the logo's intrinsic width otherwise forces the flex
+     item wider than 60px and crushes the main content on phones. */
+  .pd-sidebar { width: 60px; min-width: 60px; max-width: 60px; }
+  .pd-sidebar__logo { padding: 1rem 0.5rem; }
+  .pd-sidebar__logo-img { width: 28px; height: 28px; object-fit: contain; }
   .pd-sidebar__tier,
   .pd-nav__label,
   .pd-sidebar__name,
