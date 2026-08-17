@@ -90,8 +90,8 @@
 .plans__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.25rem;
-  align-items: start;
+  gap: 1.5rem;
+  align-items: stretch;
   animation: fadeInUp 0.35s ease both;
 }
 
@@ -104,7 +104,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  height: 100%;
+  box-sizing: border-box;
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
@@ -119,11 +120,11 @@
   background: linear-gradient(160deg, #15120a 0%, #111 100%);
   border-color: rgba(201,168,76,0.4);
   box-shadow: 0 0 0 1px rgba(201,168,76,0.08), 0 20px 50px rgba(0,0,0,0.5);
-  transform: scale(1.02);
+  transform: none;
 }
 
 .plan-card--featured:hover {
-  transform: scale(1.02) translateY(-5px);
+  transform: translateY(-5px);
 }
 
 /* Badge */

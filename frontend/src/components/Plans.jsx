@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './Plans.css'
 
 const CATEGORIES = [
@@ -99,24 +100,25 @@ const PLANS = {
         'Basic plant health care & pruning',
       ],
       off: [
-        'Aeration',
-        'Pest & disease monitoring',
-        'Flowerbed care',
+        'Pest & disease treatment',
+        'Full landscape redesign',
       ],
     },
     {
       id: 'garden-premium',
       tier: 'Premium',
-      price: 25000,
+      price: 24000,
       highlight: false,
-      summary: '6–8 visits/month for large gardens (>20 perches)',
+      summary: '8 visits/month for large gardens & estates',
       features: [
-        '6–8 visits/month (1.5–2×/week)',
-        'Large gardens (>20 perches / >500 m²)',
-        'Full lawn care: mowing, edging, aeration',
-        'Structured watering plan & fertilizing',
-        'Pest & disease monitoring',
-        'Trimming, hedge shaping & flowerbed care',
+        '8 visits/month (~2×/week)',
+        'Large gardens & estates (20+ perches / 500+ m²)',
+        'Full lawn care, edging, weeding & aerating',
+        'Complete watering & irrigation check',
+        'Fertilizer & organic compost application',
+        'Pest & disease monitoring and treatment',
+        'Hedge shaping, flowerbed care & seasonal planting',
+        'Priority service desk & dedicated gardener',
       ],
       off: [],
     },
@@ -127,19 +129,18 @@ const PLANS = {
       tier: 'Basic',
       price: 6000,
       highlight: false,
-      summary: '2 pet bathing sessions per month',
+      summary: '2 sessions/month for 1 pet',
       features: [
-        '2 pet bathing sessions/month',
-        'Dogs or cats',
-        'Basic grooming: brushing',
-        'Nail trimming',
-        'Ear cleaning',
+        '2 sessions/month',
+        '1 pet',
+        'Basic spa wash & blow-dry',
+        'Nail trimming & ear cleaning',
+        'Brushing & coat fluff',
       ],
       off: [
-        'Pet walking',
-        'Coat & skin check',
-        'Fish tank cleaning',
-        'Priority scheduling',
+        'Full haircut & styling',
+        'Teeth brushing & breath freshener',
+        'Flea & tick treatment',
       ],
     },
     {
@@ -147,17 +148,19 @@ const PLANS = {
       tier: 'Standard',
       price: 11000,
       highlight: true,
-      summary: '4 pet care sessions per month (weekly)',
+      summary: '4 sessions/month (weekly) for up to 2 pets',
       features: [
-        '4 pet care sessions/month (weekly)',
-        'Bathing + full grooming each visit',
-        'Dog walking (30 min/visit)',
-        'Basic coat & skin check each session',
+        '4 sessions/month (weekly)',
+        'Up to 2 pets',
+        'Deluxe spa wash, blow-dry & de-shedding',
+        'Nail trimming & ear cleaning',
+        'Full haircut or breed-specific styling',
+        'Teeth brushing & breath freshener',
+        'Basic flea & tick check',
       ],
       off: [
-        'Teeth brushing',
-        'Fish tank cleaning',
-        'Priority scheduling',
+        'Medicated bath treatment',
+        'Unlimited emergency visits',
       ],
     },
     {
@@ -165,14 +168,16 @@ const PLANS = {
       tier: 'Premium',
       price: 18000,
       highlight: false,
-      summary: '6–8 sessions/month with full care package',
+      summary: '6 sessions/month for multi-pet households',
       features: [
-        '6–8 pet care sessions/month (1.5–2×/week)',
-        'Full grooming: bath, blow-dry, brushing',
-        'Nail, ears & teeth brushing (if tolerated)',
-        'Dog walking (45 min/visit) or play sessions',
-        'Fish tank cleaning & water quality testing (1×/month)',
-        'Priority scheduling & dedicated caregiver',
+        '6 sessions/month (~1.5×/week)',
+        'Multi-pet household (up to 4 pets)',
+        'Full luxury spa grooming & styling',
+        'Nail grinding & paw balm application',
+        'Teeth brushing & ear sanitation',
+        'Medicated / hypoallergenic bath options',
+        'Flea & tick preventative treatment',
+        'Priority booking & dedicated groomer',
       ],
       off: [],
     },
@@ -187,6 +192,7 @@ const CheckIcon = () => (
 
 
 const Plans = () => {
+  const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState('auto')
 
   useEffect(() => {
@@ -200,6 +206,25 @@ const Plans = () => {
   }, [])
 
   const currentPlans = PLANS[activeCategory]
+
+  const handleGetStarted = (plan) => {
+    try {
+      const catObj = CATEGORIES.find(c => c.id === activeCategory)
+      const fullPlan = { ...plan, categoryLabel: catObj ? catObj.label : 'Auto', cat: activeCategory }
+      sessionStorage.setItem('selected_home_plan', JSON.stringify(fullPlan))
+
+      const token = sessionStorage.getItem('token') || localStorage.getItem('luxora_token')
+      const user = sessionStorage.getItem('user')
+
+      if (token && user) {
+        navigate('/customer-dashboard')
+      } else {
+        navigate('/login')
+      }
+    } catch (_) {
+      navigate('/login')
+    }
+  }
 
   return (
     <section id="plans" className="plans">
@@ -266,7 +291,7 @@ const Plans = () => {
               <button
                 className="plan-card__cta"
                 id={`plan-${plan.id}-btn`}
-                onClick={() => document.getElementById('membership')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => handleGetStarted(plan)}
               >
                 Get Started
               </button>

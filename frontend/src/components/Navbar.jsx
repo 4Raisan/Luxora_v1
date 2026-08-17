@@ -9,8 +9,34 @@ const Navbar = () => {
   const [activeLink, setActiveLink] = useState('Home')
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20)
-    window.addEventListener('scroll', handleScroll)
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20)
+
+      // Section Scroll Spy Tracking
+      const sections = [
+        { id: 'home', name: 'Home' },
+        { id: 'services', name: 'Services' },
+        { id: 'plans', name: 'Plans' },
+        { id: 'membership', name: 'Membership' },
+        { id: 'contact', name: 'Contact' }
+      ]
+
+      const scrollPos = window.scrollY + 180
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const secEl = document.getElementById(sections[i].id)
+        if (secEl) {
+          const top = secEl.offsetTop
+          if (scrollPos >= top) {
+            setActiveLink(sections[i].name)
+            break
+          }
+        }
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -19,8 +45,17 @@ const Navbar = () => {
   const handleNavClick = (link) => {
     setActiveLink(link)
     setMenuOpen(false)
-    const el = document.getElementById(link.toLowerCase())
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    const targetId = link.toLowerCase()
+    const el = document.getElementById(targetId)
+    if (el) {
+      const navOffset = 80
+      const elementPosition = el.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - navOffset
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      })
+    }
   }
 
   return (

@@ -194,7 +194,35 @@ const ProviderRegister = () => {
         <Link to="/" className="pr-logo">
           <img src="/luxora-logo.png" alt="LUXORA" className="pr-logo-img" />
         </Link>
-        <div className="pr-success">
+        <div className="pr-success" style={{ position: 'relative' }}>
+          <button
+            className="auth-card-close-btn"
+            onClick={() => navigate('/')}
+            aria-label="Close & Return to Home"
+            title="Close & Return to Home"
+            type="button"
+            style={{
+              position: 'absolute',
+              top: '1.25rem',
+              right: '1.25rem',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#aaa',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              zIndex: 10
+            }}
+          >
+            ✕
+          </button>
           <div className="pr-success__icon">✦</div>
           <h2>Application Submitted!</h2>
           <p>Your provider profile is under review. Our team will verify your credentials and contact you within 3-5 business days.</p>
@@ -252,6 +280,35 @@ const ProviderRegister = () => {
 
       {/* Card */}
       <div className="pr-card">
+        {/* Upper Right Close Button */}
+        <button
+          className="auth-card-close-btn"
+          onClick={() => navigate('/')}
+          aria-label="Close & Return to Home"
+          title="Close & Return to Home"
+          type="button"
+          style={{
+            position: 'absolute',
+            top: '1.25rem',
+            right: '1.25rem',
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            color: '#aaa',
+            fontSize: '0.9rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            zIndex: 10
+          }}
+        >
+          ✕
+        </button>
         {/* Step Header */}
         <div className="pr-card__step-label">
           <div className="pr-card__step-num">{steps[step].num}</div>

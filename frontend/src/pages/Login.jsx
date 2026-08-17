@@ -10,6 +10,55 @@ const Login = () => {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
 
+  // Forgot Password State
+  const [showForgotModal, setShowForgotModal] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [forgotStep, setForgotStep] = useState(1) // 1: Email, 2: New Password
+  const [forgotSuccessMsg, setForgotSuccessMsg] = useState('')
+  const [forgotErrorMsg, setForgotErrorMsg] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+
+  const handleSendResetLink = (e) => {
+    e.preventDefault()
+    if (!forgotEmail || !forgotEmail.includes('@')) {
+      setForgotErrorMsg('Please enter a valid email address.')
+      return
+    }
+    setForgotLoading(true)
+    setForgotErrorMsg('')
+
+    setTimeout(() => {
+      setForgotLoading(false)
+      setForgotStep(2)
+    }, 1000)
+  }
+
+  const handleResetPasswordSubmit = (e) => {
+    e.preventDefault()
+    if (!newPassword || newPassword.length < 6) {
+      setForgotErrorMsg('Password must be at least 6 characters.')
+      return
+    }
+
+    try {
+      const savedUserStr = localStorage.getItem('user_' + forgotEmail)
+      let userObj = savedUserStr ? JSON.parse(savedUserStr) : { email: forgotEmail, name: forgotEmail.split('@')[0] }
+      userObj.password = newPassword
+      localStorage.setItem('user_' + forgotEmail, JSON.stringify(userObj))
+    } catch (_) {}
+
+    setForgotSuccessMsg('Password updated successfully! You can now log in with your new password.')
+    setTimeout(() => {
+      setShowForgotModal(false)
+      setForm(prev => ({ ...prev, email: forgotEmail, password: newPassword }))
+      setForgotStep(1)
+      setForgotEmail('')
+      setNewPassword('')
+      setForgotSuccessMsg('')
+    }, 2000)
+  }
+
   const tabs = [
     { id: 'customer', label: 'Customer' },
     { id: 'provider', label: 'Provider' },
@@ -78,15 +127,15 @@ const Login = () => {
       if (data.token) localStorage.setItem('luxora_token', data.token)
 
       const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
-      const userRole = String(data.user?.role || '').toLowerCase()
+      const userRole = data.user?.role
 
       if (userRole === 'admin' || isInputAdmin) {
         const adminObj = {
-          name: data.user?.name || 'Luxora Admin',
+          name: 'Deshan Ganganath',
           title: 'Super Admin',
-          email: data.user?.email || form.email,
+          email: form.email || 'deshan@luxora.com',
           role: 'admin',
-          phone: data.user?.phone || '+94 77 987 6543'
+          phone: '+94 77 987 6543'
         }
         sessionStorage.setItem('token', data.token || 'demo-admin-token')
         sessionStorage.setItem('user', JSON.stringify(adminObj))
@@ -202,6 +251,36 @@ const Login = () => {
 
       {/* Card */}
       <div className="auth-card">
+        {/* Upper Right Close Button */}
+        <button
+          className="auth-card-close-btn"
+          onClick={() => navigate('/')}
+          aria-label="Close & Return to Home"
+          title="Close & Return to Home"
+          type="button"
+          style={{
+            position: 'absolute',
+            top: '1.25rem',
+            right: '1.25rem',
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            color: '#aaa',
+            fontSize: '0.9rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            zIndex: 10
+          }}
+        >
+          ✕
+        </button>
+
         <div className="auth-card__header">
           <h1 className="auth-card__title">Welcome Back</h1>
           <p className="auth-card__subtitle">Access your elite concierge suite</p>
@@ -290,7 +369,21 @@ const Login = () => {
               <span className="auth-checkbox__box" />
               <span className="auth-checkbox__label">Keep me signed in</span>
             </label>
-            <a href="#" className="auth-forgot" id="login-forgot-link">Forgot Password?</a>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForgotModal(true)
+                setForgotStep(1)
+                setForgotErrorMsg('')
+                setForgotSuccessMsg('')
+                if (form.email) setForgotEmail(form.email)
+              }}
+              className="auth-forgot"
+              id="login-forgot-link"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              Forgot Password?
+            </button>
           </div>
 
           {/* Submit */}
@@ -320,6 +413,135 @@ const Login = () => {
           </Link>
         </div>
       </div>
+
+      {/* ── Forgot Password Modal Overlay ── */}
+      {showForgotModal && (
+        <div
+          className="cd-support-overlay"
+          onClick={() => setShowForgotModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.82)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem'
+          }}
+        >
+          <div
+            className="auth-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '440px', width: '100%', position: 'relative', margin: 0 }}
+          >
+            {/* Upper Right Close Button */}
+            <button
+              className="auth-card-close-btn"
+              onClick={() => setShowForgotModal(false)}
+              aria-label="Close Modal"
+              title="Close Modal"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                zIndex: 10
+              }}
+            >
+              ✕
+            </button>
+
+            <div className="auth-card__header">
+              <h2 className="auth-card__title" style={{ fontSize: '1.4rem' }}>Reset Password</h2>
+              <p className="auth-card__subtitle">Recover access to your Luxora concierge account</p>
+            </div>
+
+            {forgotErrorMsg && (
+              <div style={{ color: '#ef4444', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                {forgotErrorMsg}
+              </div>
+            )}
+
+            {forgotSuccessMsg && (
+              <div style={{ color: '#22c55e', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem', background: 'rgba(34,197,94,0.1)', padding: '0.6rem', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.3)', fontWeight: 700 }}>
+                {forgotSuccessMsg}
+              </div>
+            )}
+
+            {forgotStep === 1 && (
+              <form onSubmit={handleSendResetLink} className="auth-form" style={{ marginTop: '1rem' }}>
+                <div className="auth-field">
+                  <label style={{ display: 'block', color: '#888', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>ACCOUNT EMAIL ADDRESS</label>
+                  <input
+                    type="email"
+                    className="auth-input"
+                    placeholder="Enter registered email (e.g. tester@gmail.com)"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className={`auth-submit ${forgotLoading ? 'loading' : ''}`}
+                  style={{ marginTop: '1.2rem' }}
+                  disabled={forgotLoading}
+                >
+                  {forgotLoading ? 'VERIFYING...' : 'SEND RESET CODE →'}
+                </button>
+              </form>
+            )}
+
+            {forgotStep === 2 && (
+              <form onSubmit={handleResetPasswordSubmit} className="auth-form" style={{ marginTop: '1rem' }}>
+                <div style={{ background: 'rgba(201, 168, 76, 0.1)', border: '1px solid rgba(201, 168, 76, 0.3)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1.25rem', color: 'var(--gold, #c9a84c)', fontSize: '0.82rem', lineHeight: '1.5' }}>
+                  🔑 Reset link verified for <strong>{forgotEmail}</strong>. Please enter your new password below:
+                </div>
+
+                <div className="auth-field">
+                  <label style={{ display: 'block', color: '#888', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>NEW PASSWORD</label>
+                  <input
+                    type="password"
+                    className="auth-input"
+                    placeholder="Enter new password (min 6 characters)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="auth-submit"
+                  style={{ marginTop: '1.2rem' }}
+                >
+                  CONFIRM NEW PASSWORD
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       <p className="auth-tagline">EXCELLENCE REFINED</p>
     </div>

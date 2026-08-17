@@ -28,14 +28,30 @@
   z-index: 2;
   display: block;
   text-decoration: none;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .auth-logo-img {
-  height: 60px;
+  height: 75px;
   width: auto;
   object-fit: contain;
-  border-radius: 4px;
-  filter: brightness(1.05);
+  border: none;
+  outline: none;
+  box-shadow: none;
+  border-radius: 0;
+  mix-blend-mode: lighten;
+  filter: brightness(1.15) contrast(1.05);
+  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 55%, rgba(0, 0, 0, 0) 98%);
+  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 55%, rgba(0, 0, 0, 0) 98%);
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.auth-logo-img:hover {
+  transform: scale(1.03);
+  filter: brightness(1.25) contrast(1.1);
 }
 
 /* ─── Card ──────────────────────────────────────────────── */

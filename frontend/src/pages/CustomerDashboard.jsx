@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import './CustomerDashboard.css'
 
@@ -90,6 +90,75 @@ const HISTORY_DATA = [
   { id: 6, date: 'May 15, 2026', service: 'Pet Care', icon: <PawIcon />, tier: 'Standard ★', ref: 'INV-2026-0055', amount: 'LKR 11,000', status: 'Completed', cat: 'pet' },
 ]
 
+const SRI_LANKA_TOWNS = [
+  { name: "Colombo", province: "Western" },
+  { name: "Sri Jayawardenepura Kotte", province: "Western" },
+  { name: "Dehiwala-Mount Lavinia", province: "Western" },
+  { name: "Kaduwela", province: "Western" },
+  { name: "Moratuwa", province: "Western" },
+  { name: "Kolonnawa", province: "Western" },
+  { name: "Seethawakapura", province: "Western" },
+  { name: "Maharagama", province: "Western" },
+  { name: "Kesbewa", province: "Western" },
+  { name: "Boralesgamuwa", province: "Western" },
+  { name: "Gampaha", province: "Western" },
+  { name: "Negombo", province: "Western" },
+  { name: "Wattala", province: "Western" },
+  { name: "Katunayake-Seeduwa", province: "Western" },
+  { name: "Minuwangoda", province: "Western" },
+  { name: "Ja-Ela", province: "Western" },
+  { name: "Peliyagoda", province: "Western" },
+  { name: "Kalutara", province: "Western" },
+  { name: "Panadura", province: "Western" },
+  { name: "Horana", province: "Western" },
+  { name: "Beruwala", province: "Western" },
+  { name: "Kandy", province: "Central" },
+  { name: "Wattegama", province: "Central" },
+  { name: "Kadugannawa", province: "Central" },
+  { name: "Gampola", province: "Central" },
+  { name: "Nawalapitiya", province: "Central" },
+  { name: "Matale", province: "Central" },
+  { name: "Dambulla", province: "Central" },
+  { name: "Nuwara Eliya", province: "Central" },
+  { name: "Hatton-Dickoya", province: "Central" },
+  { name: "Thalawakele-Lindula", province: "Central" },
+  { name: "Galle", province: "Southern" },
+  { name: "Ambalangoda", province: "Southern" },
+  { name: "Hikkaduwa", province: "Southern" },
+  { name: "Matara", province: "Southern" },
+  { name: "Weligama", province: "Southern" },
+  { name: "Hambantota", province: "Southern" },
+  { name: "Tangalle", province: "Southern" },
+  { name: "Jaffna", province: "Northern" },
+  { name: "Valvettithurai", province: "Northern" },
+  { name: "Point Pedro", province: "Northern" },
+  { name: "Chavakachcheri", province: "Northern" },
+  { name: "Mannar", province: "Northern" },
+  { name: "Vavuniya", province: "Northern" },
+  { name: "Trincomalee", province: "Eastern" },
+  { name: "Kinniya", province: "Eastern" },
+  { name: "Batticaloa", province: "Eastern" },
+  { name: "Eravur", province: "Eastern" },
+  { name: "Kattankudy", province: "Eastern" },
+  { name: "Kalmunai", province: "Eastern" },
+  { name: "Akkaraipattu", province: "Eastern" },
+  { name: "Ampara", province: "Eastern" },
+  { name: "Kurunegala", province: "North Western" },
+  { name: "Kuliyapitiya", province: "North Western" },
+  { name: "Puttalam", province: "North Western" },
+  { name: "Chilaw", province: "North Western" },
+  { name: "Anuradhapura", province: "North Central" },
+  { name: "Polonnaruwa", province: "North Central" },
+  { name: "Badulla", province: "Uva" },
+  { name: "Bandarawela", province: "Uva" },
+  { name: "Haputale", province: "Uva" },
+  { name: "Monaragala", province: "Uva" },
+  { name: "Ratnapura", province: "Sabaragamuwa" },
+  { name: "Balangoda", province: "Sabaragamuwa" },
+  { name: "Embilipitiya", province: "Sabaragamuwa" },
+  { name: "Kegalle", province: "Sabaragamuwa" }
+]
+
 const CustomerDashboard = () => {
   const navigate = useNavigate()
 
@@ -107,10 +176,11 @@ const CustomerDashboard = () => {
   const [showProfileDrawer, setShowProfileDrawer] = useState(false)
 
   const [showAddressModal, setShowAddressModal] = useState(false)
+  const [townDropdownOpen, setTownDropdownOpen] = useState(false)
   const [addressForm, setAddressForm] = useState({
     street: '',
     city: '',
-    district: 'Western'
+    district: ''
   })
   const [userAddress, setUserAddress] = useState(() => {
     try {
@@ -119,7 +189,7 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('userAddress_' + email) || sessionStorage.getItem('userAddress')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return { street: '', city: '', district: 'Western' }
+    return { street: '', city: '', district: '' }
   })
 
   // Dynamic Active Packages & Booking Confirmation State
@@ -130,12 +200,51 @@ const CustomerDashboard = () => {
       const saved = localStorage.getItem('activePackages_' + email) || sessionStorage.getItem('activePackages')
       if (saved) return JSON.parse(saved)
     } catch (_) {}
-    return []
+    return [
+      { id: 1, title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', period: '/month', cat: 'auto' },
+      { id: 2, title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', period: '/month', cat: 'garden' }
+    ]
   })
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
-  const [bookingPin, setBookingPin] = useState(null)
+
+  useEffect(() => {
+    try {
+      const savedPlanStr = sessionStorage.getItem('selected_home_plan')
+      if (savedPlanStr) {
+        const plan = JSON.parse(savedPlanStr)
+        sessionStorage.removeItem('selected_home_plan')
+
+        const planTitle = plan.categoryLabel ? `${plan.categoryLabel} Care` : (plan.title || `${plan.tier} Care`)
+        const planTier = `${plan.tier} Plan`
+        const planPrice = `LKR ${typeof plan.price === 'number' ? plan.price.toLocaleString() : plan.price}`
+
+        const exists = activePackages.some(p => p.title === planTitle && p.tier === planTier)
+        if (!exists) {
+          const newPkg = {
+            id: plan.id || Date.now(),
+            title: planTitle,
+            tier: planTier,
+            price: planPrice,
+            period: '/month',
+            cat: plan.cat || 'auto',
+            purchasedAt: Date.now()
+          }
+          const updated = [newPkg, ...activePackages]
+          setActivePackages(updated)
+
+          const u = sessionStorage.getItem('user')
+          const email = u ? JSON.parse(u).email : 'guest'
+          localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
+          sessionStorage.setItem('activePackages', JSON.stringify(updated))
+
+          setBookingSuccessMsg(`✨ Welcome! Your selected ${newPkg.title} (${newPkg.tier}) subscription has been activated.`)
+          setTimeout(() => setBookingSuccessMsg(''), 5000)
+        }
+      }
+    } catch (_) {}
+  }, [])
 
   const calculateServiceTokens = (packages) => {
     let auto = 0
@@ -362,10 +471,11 @@ const CustomerDashboard = () => {
     }
   }, [activeTab, bookingType])
 
-  // Customer Active Bookings Chart State — real bookings from the API,
-  // with any locally booked ones kept as a fallback when the API is empty.
+  // Customer Active Bookings Chart State & Filters
+  const [selectedBookingId, setSelectedBookingId] = useState(null)
+  const [activeBookingIdFilter, setActiveBookingIdFilter] = useState('')
+  const [activeBookingDateFilter, setActiveBookingDateFilter] = useState('')
   const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
-  const [realBookings, setRealBookings] = useState([])
   const [customerActiveBookings, setCustomerActiveBookings] = useState(() => {
     try {
       const stored = localStorage.getItem('luxora_customer_bookings')
@@ -374,64 +484,36 @@ const CustomerDashboard = () => {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed
       }
     } catch (_) {}
-    return []
+    return [
+      { id: 'B-011', service: 'Auto Care', date: '2026-08-17', time: '10:30 AM', pin: '8942', endPin: '9412', location: 'No. 42, Galle Road, Colombo 03', status: 'CONFIRMED', providerName: 'Nimal Silva', providerRole: 'Auto Detailing Lead' },
+      { id: 'B-012', service: 'Garden Care', date: '2026-08-17', time: '02:00 PM', pin: '3157', endPin: '8204', location: 'No. 18, Gregorys Road, Colombo 07', status: 'CONFIRMED', providerName: 'Kamal Perera', providerRole: 'Garden & Turf Specialist' },
+      { id: 'B-013', service: 'Pet Care', date: '2026-08-18', time: '11:00 AM', pin: '6409', endPin: '5193', location: 'No. 5, Dharmapala Mawatha, Colombo 03', status: 'CONFIRMED', providerName: 'Sunil Fernando', providerRole: 'Pet Spa Specialist' },
+      { id: 'B-014', service: 'Dual Auto + Garden', date: '2026-08-19', time: '09:30 AM', pin: '7281', endPin: '6341', location: 'No. 88, Ward Place, Colombo 07', status: 'CONFIRMED', providerName: 'Marco Vance', providerRole: 'Senior Concierge' }
+    ]
   })
 
-  // Load real bookings (with their verification PINs) from the backend.
-  const refreshRealBookings = async () => {
-    const token = sessionStorage.getItem('token')
-    if (!token) return
+  const handleChangeBookingLocation = (bookingId) => {
+    const target = customerActiveBookings.find(b => b.id === bookingId)
+    const currentLoc = target && target.location ? target.location : 'No. 42, Galle Road, Colombo 03'
+    const newLoc = prompt(`Enter new dispatch address/location for booking ${bookingId}:`, currentLoc)
+    if (!newLoc || newLoc.trim() === '') return
+
     try {
-      const res = await fetch('/api/bookings/my', { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) return
-      const data = await res.json()
-      if (!Array.isArray(data)) return
-      const mapped = data.map((b) => ({
-        id: `#${b.booking_id ?? b.id}`,
-        realId: b.booking_id ?? b.id,
-        service: b.service_title || b.service?.title || 'Luxora Service',
-        date: b.bookingDate || b.booking_date,
-        time: b.bookingTime || b.booking_time,
-        pin: b.pin_code,
-        status: (b.status || '').toUpperCase(),
-        providerName: b.provider_name || 'Awaiting assignment',
-        providerRole: b.category_name ? `${b.category_name} Specialist` : 'Concierge',
-      }))
-      setRealBookings(mapped)
+      const stored = localStorage.getItem('luxora_customer_bookings')
+      const existing = stored ? JSON.parse(stored) : []
+      const updated = existing.map(b => b.id === bookingId ? { ...b, location: newLoc.trim() } : b)
+      localStorage.setItem('luxora_customer_bookings', JSON.stringify(updated))
+      window.dispatchEvent(new Event('luxora_bookings_updated'))
+
+      setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, location: newLoc.trim() } : b))
+      addNotification({
+        title: '📍 Location Updated',
+        message: `Dispatch location for booking ${bookingId} updated to: ${newLoc.trim()}`,
+        category: 'system'
+      })
+      alert(`Location for booking ${bookingId} updated successfully to: ${newLoc.trim()}`)
     } catch (_) {}
   }
-
-  useEffect(() => {
-    refreshRealBookings()
-    const interval = setInterval(refreshRealBookings, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  // Cancel a real booking (PENDING or ASSIGNED only, enforced by the API).
-  const [cancellingBookingId, setCancellingBookingId] = useState(null)
-  const handleCancelBookingRow = async (b) => {
-    if (!window.confirm(`Cancel booking ${b.id} (${b.service})?`)) return
-    setCancellingBookingId(b.realId)
-    try {
-      const token = sessionStorage.getItem('token')
-      const res = await fetch(`/api/bookings/${b.realId}/cancel`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        alert(data.error || 'Could not cancel this booking.')
-      } else {
-        addNotification({ title: '🚫 Booking Cancelled', message: `Booking ${b.id} (${b.service}) has been cancelled.`, category: 'system' })
-        await refreshRealBookings()
-      }
-    } catch (_) {
-      alert('Network error — try again.')
-    }
-    setCancellingBookingId(null)
-  }
-
-  const displayBookings = realBookings.length > 0 ? realBookings : customerActiveBookings
 
   useEffect(() => {
     const syncActiveBookings = () => {
@@ -477,6 +559,34 @@ const CustomerDashboard = () => {
     }
   }
 
+  const handleCancelBooking = (bookingId) => {
+    const target = customerActiveBookings.find(b => b.id === bookingId)
+    const serviceName = target ? target.service : 'Service'
+
+    if (!window.confirm(`Are you sure you want to cancel booking ${bookingId} (${serviceName})?`)) {
+      return
+    }
+
+    try {
+      const stored = localStorage.getItem('luxora_customer_bookings')
+      const existing = stored ? JSON.parse(stored) : []
+      const updated = existing.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b)
+
+      localStorage.setItem('luxora_customer_bookings', JSON.stringify(updated))
+      window.dispatchEvent(new Event('luxora_bookings_updated'))
+
+      setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
+      setSelectedBookingId(prev => prev === bookingId ? null : prev)
+
+      addNotification({
+        title: '🚫 Booking Cancelled',
+        message: `Your booking ${bookingId} (${serviceName}) has been cancelled.`,
+        category: 'system'
+      })
+      alert(`Booking ${bookingId} has been cancelled successfully.`)
+    } catch (_) {}
+  }
+
   // Service Booking State
   const [serviceBookingForm, setServiceBookingForm] = useState({
     packageId: '',
@@ -488,6 +598,13 @@ const CustomerDashboard = () => {
   const [serviceBookingConfirmation, setServiceBookingConfirmation] = useState(null)
 
   const handleConfirmServiceBooking = () => {
+    if (!userAddress || (!userAddress.street && !userAddress.city)) {
+      setShowAddressModal(true)
+      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before booking a session.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      return
+    }
+
     if (!serviceBookingForm.packageId) {
       alert('Please select an active package to book a session.')
       return
@@ -498,6 +615,7 @@ const CustomerDashboard = () => {
 
     const selectedTimeFormatted = `${serviceBookingForm.hour}:${serviceBookingForm.minute} ${serviceBookingForm.ampm}`
     const randomPin = Math.floor(1000 + Math.random() * 9000).toString()
+    const randomEndPin = Math.floor(1000 + Math.random() * 9000).toString()
 
     const stored = localStorage.getItem('luxora_customer_bookings')
     const existing = stored ? JSON.parse(stored) : []
@@ -511,6 +629,8 @@ const CustomerDashboard = () => {
       time: selectedTimeFormatted,
       amount: selectedPkg.price || 'LKR 9,000',
       pin: randomPin,
+      endPin: randomEndPin,
+      location: 'No. 42, Galle Road, Colombo 03',
       providerName: 'Nimal Silva',
       providerRole: 'Lead Care Specialist'
     }
@@ -546,7 +666,17 @@ const CustomerDashboard = () => {
       const stored = localStorage.getItem('custom_requests_' + email)
       if (stored) return JSON.parse(stored)
     } catch (_) {}
-    return []
+    return [
+      {
+        id: 'REQ-001',
+        title: 'Specialized Villa Deep Marble Polishing',
+        category: 'Home & Estate Care',
+        date: '2026-08-20',
+        time: '10:00 AM',
+        notes: 'High-gloss diamond pad restoration for ground floor living area.',
+        status: 'Under Concierge Review'
+      }
+    ]
   })
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
@@ -594,19 +724,29 @@ const CustomerDashboard = () => {
   }
 
   const handleCancelSubscription = (pkgId) => {
-    const u = sessionStorage.getItem('user')
-    const email = u ? JSON.parse(u).email : 'guest'
+    const targetId = pkgId || (selectedActivePackageToManage && selectedActivePackageToManage.id)
+    if (!targetId && targetId !== 0) {
+      alert('Package ID missing.')
+      return
+    }
 
-    const cancelledPkg = activePackages.find(p => p.id === pkgId)
-    const updated = activePackages.filter(p => p.id !== pkgId)
+    const u = sessionStorage.getItem('user')
+    const email = u ? JSON.parse(u).email : (currentUser && currentUser.email ? currentUser.email : 'guest')
+
+    const cancelledPkg = activePackages.find(p => String(p.id) === String(targetId))
+    const updated = activePackages.filter(p => String(p.id) !== String(targetId))
+
     setActivePackages(updated)
-    localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
-    sessionStorage.setItem('activePackages', JSON.stringify(updated))
+    try {
+      localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
+      sessionStorage.setItem('activePackages', JSON.stringify(updated))
+      window.dispatchEvent(new Event('luxora_packages_updated'))
+    } catch (_) {}
 
     if (cancelledPkg) {
       addNotification({
         title: '⚠️ Subscription Cancelled',
-        message: `Your ${cancelledPkg.title} (${cancelledPkg.tier || 'Standard'}) subscription has been cancelled. Concierge access remains active until ${getRenewalDate(cancelledPkg)}.`,
+        message: `Your ${cancelledPkg.title} (${cancelledPkg.tier || 'Standard'}) subscription has been cancelled.`,
         category: cancelledPkg.cat || 'system'
       })
 
@@ -621,11 +761,21 @@ const CustomerDashboard = () => {
 
     setSelectedActivePackageToManage(null)
     setShowCancelConfirmStep(false)
-    setBookingSuccessMsg(`⚠️ Subscription for ${cancelledPkg?.title || 'package'} has been cancelled.`)
-    setTimeout(() => setBookingSuccessMsg(''), 3500)
+    const toastMsg = `⚠️ Subscription for "${cancelledPkg ? cancelledPkg.title : 'package'}" has been cancelled.`
+    setBookingSuccessMsg(toastMsg)
+    alert(`Subscription for "${cancelledPkg ? cancelledPkg.title : 'package'}" has been cancelled successfully.`)
+    setTimeout(() => setBookingSuccessMsg(''), 4000)
   }
 
-  const handleConfirmBooking = async (pkg) => {
+  const handleConfirmBooking = (pkg) => {
+    if (!userAddress || (!userAddress.street && !userAddress.city)) {
+      setSelectedPackageToBook(null)
+      setShowAddressModal(true)
+      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before completing your purchase.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      return
+    }
+
     const u = sessionStorage.getItem('user')
     const email = u ? JSON.parse(u).email : 'guest'
 
@@ -684,47 +834,22 @@ const CustomerDashboard = () => {
       window.dispatchEvent(new Event('luxora_bookings_updated'))
     } catch (_) {}
 
-    // Send API booking request if token is present.
-    // Map the package category to a real service from the catalog so the
-    // booking lands on the right service instead of always service 1.
+    // Send API booking request if token is present
     const token = sessionStorage.getItem('token')
     if (token) {
-      const catMap = { auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }
-      const wantedCat = catMap[pkg.cat]
-      try {
-        const svcRes = await fetch('/api/services')
-        const services = svcRes.ok ? await svcRes.json() : []
-        const match = (Array.isArray(services) && wantedCat &&
-          services.find(s => s.category_name === wantedCat || s.category?.name === wantedCat)) || null
-        const serviceId = match?.id || pkg.service_id || 1
-
-        const res = await fetch('/api/bookings', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            service_id: serviceId,
-            booking_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-            booking_time: '10:00 AM'
-          })
+      fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          service_id: pkg.service_id || 1,
+          booking_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+          booking_time: '10:00 AM',
+          special_notes: `Subscribed package: ${pkg.title} (${pkg.tier || 'Standard'})`
         })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          alert(`Booking could not be placed: ${data.error || res.status}. Your package is still saved locally.`)
-        } else if (data.pin_code) {
-          addNotification({
-            title: '🔐 Your Booking PIN',
-            message: `Booking #${data.booking_id} confirmed for ${match?.title || pkg.title}. Show this PIN to your provider: ${data.pin_code}`,
-            category: pkg.cat || 'system'
-          })
-          setBookingPin({ pin: data.pin_code, bookingId: data.booking_id, service: match?.title || pkg.title })
-          refreshRealBookings()
-        }
-      } catch (err) {
-        alert('Booking service unreachable — package saved locally only.')
-      }
+      }).catch(() => {})
     }
 
     setSelectedPackageToBook(null)
@@ -785,7 +910,14 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    return []
+    const defaultHistory = [
+      { id: 1, date: 'Aug 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
+      { id: 2, date: 'Jul 15, 2026', service: 'Garden Care', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
+      { id: 3, date: 'Jul 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
+      { id: 4, date: 'Jun 20, 2026', service: 'Pet Care', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
+    ]
+    localStorage.setItem('history_' + email, JSON.stringify(defaultHistory))
+    return defaultHistory
   })
 
   const addHistoryRecord = (rec) => {
@@ -823,7 +955,26 @@ const CustomerDashboard = () => {
         return JSON.parse(saved)
       } catch (_) {}
     }
-    return []
+    const defaultNotifs = [
+      {
+        id: 1,
+        title: 'Booking Confirmed',
+        message: 'Your Auto Care Premium session is confirmed for tomorrow at 10:00 AM.',
+        time: '10 mins ago',
+        unread: true,
+        category: 'auto'
+      },
+      {
+        id: 2,
+        title: 'Concierge Specialist Assigned',
+        message: 'Senior Specialist Kamal Perera has been assigned to your Garden Care package.',
+        time: '1 hour ago',
+        unread: true,
+        category: 'garden'
+      }
+    ]
+    localStorage.setItem('notifications_' + email, JSON.stringify(defaultNotifs))
+    return defaultNotifs
   })
 
   const addNotification = (notif) => {
@@ -843,58 +994,13 @@ const CustomerDashboard = () => {
     })
   }
 
-  // Live notifications from the backend (assignment / start / completion),
-  // merged on top of locally generated ones.
-  useEffect(() => {
-    const token = sessionStorage.getItem('token')
-    if (!token) return
-    let cancelled = false
-    const loadApiNotifs = async () => {
-      try {
-        const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } })
-        if (!res.ok) return
-        const data = await res.json()
-        if (cancelled || !Array.isArray(data)) return
-        const apiNotifs = data.map((n) => {
-          const msg = n.message || ''
-          let title = 'Luxora Update'
-          if (/completed/i.test(msg)) title = '✅ Service Completed'
-          else if (/started/i.test(msg)) title = '🔧 Service Started'
-          else if (/assigned/i.test(msg)) title = '👤 Provider Assigned'
-          else if (/cancel/i.test(msg)) title = '🚫 Booking Cancelled'
-          else if (/review/i.test(msg)) title = '⭐ Review Request'
-          return {
-            id: 'api-' + n.id,
-            title,
-            message: msg,
-            time: n.createdAt ? new Date(n.createdAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'recently',
-            unread: !n.isRead,
-            category: 'system',
-            apiId: n.id
-          }
-        })
-        setNotifications(prev => {
-          const local = prev.filter(n => !String(n.id).startsWith('api-'))
-          return [...apiNotifs, ...local]
-        })
-      } catch (_) {}
-    }
-    loadApiNotifs()
-    const interval = setInterval(loadApiNotifs, 20000)
-    return () => { cancelled = true; clearInterval(interval) }
-  }, [])
-
   const unreadCount = notifications.filter(n => n.unread).length
 
   const markAllNotifsRead = () => {
     const email = getUserEmail()
-    const token = sessionStorage.getItem('token')
-    if (token) {
-      fetch('/api/notifications/read-all', { method: 'PUT', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
-    }
     setNotifications(prev => {
       const updated = prev.map(n => ({ ...n, unread: false }))
-      localStorage.setItem('notifications_' + email, JSON.stringify(updated.filter(n => !String(n.id).startsWith('api-'))))
+      localStorage.setItem('notifications_' + email, JSON.stringify(updated))
       return updated
     })
   }
@@ -1138,33 +1244,7 @@ const CustomerDashboard = () => {
                   {bookingSuccessMsg}
                 </div>
               )}
-              {bookingPin && (
-                <div
-                  className="cd-booking-success-toast animate-fade-in"
-                  style={{ display: 'flex', alignItems: 'center', gap: '14px', justifyContent: 'space-between', cursor: 'default' }}
-                >
-                  <span>
-                    🔐 Booking #{bookingPin.bookingId} ({bookingPin.service}) confirmed.
-                    <strong> Your verification PIN:</strong>
-                  </span>
-                  <span style={{ fontSize: '1.6rem', letterSpacing: '0.35em', fontWeight: 700 }}>
-                    {bookingPin.pin}
-                  </span>
-                  <button
-                    onClick={() => setBookingPin(null)}
-                    style={{ background: 'none', border: 'none', color: 'inherit', fontSize: '1.1rem', cursor: 'pointer' }}
-                    aria-label="Dismiss PIN"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
               <div className="cd-packages-grid">
-                {activePackages.length === 0 && (
-                  <p style={{ color: 'rgba(245,222,179,0.55)', fontSize: '0.95rem', padding: '18px 4px', gridColumn: '1 / -1' }}>
-                    No active packages yet — subscribe from the Packages tab to see them here.
-                  </p>
-                )}
                 {activePackages.map((pkg) => (
                   <div
                     key={pkg.id}
@@ -1173,6 +1253,7 @@ const CustomerDashboard = () => {
                     role="button"
                     tabIndex={0}
                     title="Click to manage or cancel subscription"
+                    style={{ position: 'relative' }}
                   >
                     <div className="cd-package-card__icon">
                       {pkg.cat === 'auto' && <CarIcon />}
@@ -1184,9 +1265,33 @@ const CustomerDashboard = () => {
                       <h4 className="cd-package-card__title">{pkg.title}</h4>
                       <p className="cd-package-card__tier">{pkg.tier}</p>
                     </div>
-                    <div className="cd-package-card__price">
-                      <span className="cd-price-amount">{pkg.price}</span>
-                      <span className="cd-price-period">{pkg.period || '/month'}</span>
+                    <div className="cd-package-card__price" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                      <div>
+                        <span className="cd-price-amount">{pkg.price}</span>
+                        <span className="cd-price-period">{pkg.period || '/month'}</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (window.confirm(`Are you sure you want to cancel your ${pkg.title} package subscription?`)) {
+                            handleCancelSubscription(pkg.id)
+                          }
+                        }}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid #ef4444',
+                          color: '#ef4444',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          padding: '0.25rem 0.6rem',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          marginTop: '0.25rem'
+                        }}
+                        title="Cancel package subscription"
+                      >
+                        Cancel Package ✕
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1430,14 +1535,14 @@ const CustomerDashboard = () => {
                 </div>
                 <button
                   className="cd-btn-view-receipt"
-                  onClick={() => setShowAllActiveBookings(prev => !prev)}
+                  onClick={() => setActiveTab('active_bookings')}
                   style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.45rem 1.1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px' }}
                 >
-                  {showAllActiveBookings ? 'Show Less ‹' : 'View All ›'}
+                  View All ›
                 </button>
               </div>
 
-              <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px' }}>
+              <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
                 <table className="cd-table" style={{ margin: 0 }}>
                   <thead>
                     <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
@@ -1450,60 +1555,110 @@ const CustomerDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(showAllActiveBookings ? displayBookings : displayBookings.slice(0, 10)).map((b) => {
+                    {(showAllActiveBookings ? customerActiveBookings : customerActiveBookings.slice(0, 10)).map((b) => {
                       const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
+                      const isSelectedRow = selectedBookingId === b.id
                       return (
-                        <tr key={b.id} style={{ borderBottom: '1px solid #202020' }}>
-                          <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
-                          <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>{b.service}</td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {(b.providerName || 'Nimal Silva')[0]}
+                        <React.Fragment key={b.id}>
+                            <tr
+                              onClick={() => {
+                                if (b.status !== 'CANCELLED') {
+                                  setSelectedBookingId(prev => prev === b.id ? null : b.id)
+                                }
+                              }}
+                              style={{
+                                borderBottom: isSelectedRow && b.status !== 'CANCELLED' ? '1px solid var(--gold, #c9a84c)' : '1px solid #202020',
+                                background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.03)' : (isSelectedRow ? 'rgba(201, 168, 76, 0.08)' : 'transparent'),
+                                cursor: b.status === 'CANCELLED' ? 'not-allowed' : 'pointer',
+                                opacity: b.status === 'CANCELLED' ? 0.65 : 1,
+                                transition: 'all 0.2s ease'
+                              }}
+                              title={b.status === 'CANCELLED' ? 'Booking cancelled - details disabled' : 'Click row to view location, working end PIN, or make changes'}
+                            >
+                              <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.9rem' }}>{b.id}</td>
+                              <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem' }}>{b.service}</td>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 900, fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {(b.providerName || 'Nimal Silva')[0]}
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#eee', fontSize: '0.88rem', fontWeight: 700, display: 'block' }}>{b.providerName || 'Nimal Silva'}</span>
+                                    <small style={{ color: '#888', fontSize: '0.75rem' }}>{b.providerRole || 'Certified Specialist'}</small>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ color: '#ccc', fontSize: '0.85rem' }}>
+                                <div>{b.date}</div>
+                                <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
+                              </td>
+                              <td>
+                                {b.status === 'CANCELLED' ? (
+                                  <span style={{ color: '#666', fontSize: '0.78rem', fontStyle: 'italic', fontWeight: 600 }}>— Cancelled —</span>
+                                ) : pinUnlocked ? (
+                                  <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.92rem', fontWeight: 900, padding: '0.35rem 0.75rem', borderRadius: '6px', letterSpacing: '0.1em' }}>
+                                    🔑 {b.pin || '4892'}
+                                  </span>
+                                ) : (
+                                  <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.78rem', fontWeight: 600, padding: '0.35rem 0.65rem', borderRadius: '6px' }} title="PIN auto-unlocks 30 minutes before your scheduled booking slot">
+                                    🔒 Unlocks 30m before
+                                  </span>
+                                )}
+                              </td>
+                            <td>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span className="cd-status-tag cd-status-tag--completed" style={{ background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(201, 168, 76, 0.12)', color: b.status === 'CANCELLED' ? '#ef4444' : 'var(--gold, #c9a84c)', border: b.status === 'CANCELLED' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
+                                  {b.status || 'CONFIRMED'}
+                                </span>
+                                {b.status !== 'CANCELLED' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleCancelBooking(b.id); }}
+                                    style={{ background: 'transparent', border: 'none', color: '#ef4444', textDecoration: 'underline', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                    title="Cancel this booking"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
                               </div>
-                              <div>
-                                <span style={{ color: '#eee', fontSize: '0.82rem', fontWeight: 700, display: 'block' }}>{b.providerName || 'Nimal Silva'}</span>
-                                <small style={{ color: '#888', fontSize: '0.72rem' }}>{b.providerRole || 'Certified Specialist'}</small>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ color: '#ccc', fontSize: '0.82rem' }}>
-                            <div>{b.date}</div>
-                            <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
-                          </td>
-                          <td>
-                            {b.status === 'CANCELLED' ? (
-                              <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#666', fontSize: '0.75rem', fontWeight: 600, padding: '0.3rem 0.6rem', borderRadius: '6px' }}>
-                                —
-                              </span>
-                            ) : pinUnlocked ? (
-                              <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.85rem', fontWeight: 900, padding: '0.3rem 0.65rem', borderRadius: '6px', letterSpacing: '0.1em' }}>
-                                🔑 {b.pin || '—'}
-                              </span>
-                            ) : (
-                              <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.75rem', fontWeight: 600, padding: '0.3rem 0.6rem', borderRadius: '6px' }} title="PIN auto-unlocks 30 minutes before your scheduled booking slot">
-                                🔒 Unlocks 30m before
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span className="cd-status-tag cd-status-tag--completed" style={{ background: 'rgba(201, 168, 76, 0.12)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
-                                {b.status || 'CONFIRMED'}
-                              </span>
-                              {b.realId && (b.status === 'PENDING' || b.status === 'ASSIGNED') && (
-                                <button
-                                  onClick={() => handleCancelBookingRow(b)}
-                                  disabled={cancellingBookingId === b.realId}
-                                  style={{ background: 'transparent', border: '1px solid #f87171', color: '#f87171', padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', borderRadius: '6px' }}
-                                  title="Cancel this booking"
-                                >
-                                  {cancellingBookingId === b.realId ? 'Cancelling…' : 'Cancel'}
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
+
+                          {/* Selected Row Detail Panel */}
+                          {isSelectedRow && b.status !== 'CANCELLED' && (
+                            <tr style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
+                              <td colSpan={6} style={{ padding: '0.85rem 1.25rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'rgba(201, 168, 76, 0.05)', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '0.85rem 1.25rem' }}>
+                                  <div>
+                                    <span style={{ color: '#888', fontSize: '0.68rem', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DISPATCH ADDRESS LOCATION</span>
+                                    <span style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.15rem' }}>
+                                      📍 {b.location || 'No. 42, Galle Road, Colombo 03'}
+                                    </span>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                    <div style={{ background: '#16161a', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '10px', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                      <div>
+                                        <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', display: 'block' }}>🏁 WORKING END PIN</span>
+                                        <small style={{ color: '#888', fontSize: '0.68rem' }}>Completion Verification Code</small>
+                                      </div>
+                                      <span style={{ background: 'rgba(201, 168, 76, 0.15)', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', fontSize: '1.05rem', fontWeight: 900, padding: '0.25rem 0.75rem', borderRadius: '8px', letterSpacing: '0.15em' }}>
+                                        {b.endPin || '9812'}
+                                      </span>
+                                    </div>
+
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setSelectedBookingId(null); }}
+                                      style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#aaa', padding: '0.55rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                                      title="Close panel"
+                                    >
+                                      Close ✕
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       )
                     })}
                   </tbody>
@@ -1636,13 +1791,21 @@ const CustomerDashboard = () => {
                   <div
                     key={s.id}
                     className="cd-combo-card animate-fade-in"
-                    onClick={() => setSelectedPackageToBook({
-                      title: s.title.replace('Single Package: ', ''),
-                      tier: 'Single Package Plan ★',
-                      price: `LKR ${Number(s.price).toLocaleString()}`,
-                      cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
-                      service_id: 1
-                    })}
+                    onClick={() => {
+                      if (!userAddress || (!userAddress.street && !userAddress.city)) {
+                        setShowAddressModal(true)
+                        setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
+                        setTimeout(() => setBookingSuccessMsg(''), 6000)
+                        return
+                      }
+                      setSelectedPackageToBook({
+                        title: s.title.replace('Single Package: ', ''),
+                        tier: 'Single Package Plan ★',
+                        price: `LKR ${Number(s.price).toLocaleString()}`,
+                        cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
+                        service_id: 1
+                      })
+                    }}
                     role="button"
                     tabIndex={0}
                     title={`Click to book ${s.title}`}
@@ -1691,13 +1854,21 @@ const CustomerDashboard = () => {
                   <div
                     key={s.id}
                     className="cd-combo-card animate-fade-in"
-                    onClick={() => setSelectedPackageToBook({
-                      title: s.title.replace('Combo Package: ', ''),
-                      tier: 'VIP Combo Suite Plan 👑',
-                      price: `LKR ${Number(s.price).toLocaleString()}`,
-                      cat: 'system',
-                      service_id: 1
-                    })}
+                    onClick={() => {
+                      if (!userAddress || (!userAddress.street && !userAddress.city)) {
+                        setShowAddressModal(true)
+                        setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
+                        setTimeout(() => setBookingSuccessMsg(''), 6000)
+                        return
+                      }
+                      setSelectedPackageToBook({
+                        title: s.title.replace('Combo Package: ', ''),
+                        tier: 'VIP Combo Suite Plan 👑',
+                        price: `LKR ${Number(s.price).toLocaleString()}`,
+                        cat: 'system',
+                        service_id: 1
+                      })
+                    }}
                     role="button"
                     tabIndex={0}
                     title={`Click to book ${s.title}`}
@@ -1737,6 +1908,190 @@ const CustomerDashboard = () => {
                 ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── TAB: ACTIVE BOOKINGS (FULL VIEW WITH DATES & BOOKING ID FILTERS) ── */}
+      {activeTab === 'active_bookings' && (
+        <div className="cd-tab-content cd-main-container animate-fade-in">
+          <div className="cd-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div>
+              <button
+                onClick={() => setActiveTab('overview')}
+                style={{ background: 'transparent', border: 'none', color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', padding: 0, marginBottom: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                ‹ Back to Booking
+              </button>
+              <h1 className="cd-page-title">Active Service Bookings</h1>
+              <p className="cd-page-subtitle">Full real-time chart of scheduled concierge dispatches, specialist profiles, and 30-minute security PINs</p>
+            </div>
+
+            {/* Interactive Filters Bar */}
+            <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexWrap: 'wrap', background: '#141414', border: '1px solid #282828', padding: '0.85rem 1.1rem', borderRadius: '14px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+              {/* Filter by Booking ID */}
+              <div>
+                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>SEARCH BOOKING ID:</label>
+                <input
+                  type="text"
+                  placeholder="Filter ID (e.g. B-011)..."
+                  value={activeBookingIdFilter}
+                  onChange={(e) => setActiveBookingIdFilter(e.target.value)}
+                  style={{ background: '#1c1c1c', color: '#fff', border: '1px solid #333', padding: '0.5rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem', width: '170px', outline: 'none' }}
+                />
+              </div>
+
+              {/* Filter by Date */}
+              <div>
+                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>FILTER BY DATE:</label>
+                <input
+                  type="date"
+                  value={activeBookingDateFilter}
+                  onChange={(e) => setActiveBookingDateFilter(e.target.value)}
+                  style={{ background: '#1c1c1c', color: '#fff', border: '1px solid #333', padding: '0.5rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
+
+              {/* Clear Filters Button */}
+              {(activeBookingIdFilter || activeBookingDateFilter) && (
+                <button
+                  onClick={() => { setActiveBookingIdFilter(''); setActiveBookingDateFilter('') }}
+                  style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 0.9rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Clear Filters ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Full Interactive Table */}
+          <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
+            <table className="cd-table" style={{ margin: 0 }}>
+              <thead>
+                <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
+                  <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', padding: '0.95rem 1rem' }}>BOOKING ID</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>PACKAGE</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>PROVIDER PROFILE</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>DATE &amp; TIME</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>SECURITY PIN (30m)</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerActiveBookings
+                  .filter(b => {
+                    const matchId = !activeBookingIdFilter || (b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
+                    const matchDate = !activeBookingDateFilter || b.date === activeBookingDateFilter
+                    return matchId && matchDate
+                  })
+                  .map((b) => {
+                    const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
+                    const isSelectedRow = selectedBookingId === b.id
+                    return (
+                      <React.Fragment key={b.id}>
+                        <tr
+                          onClick={() => {
+                            if (b.status !== 'CANCELLED') {
+                              setSelectedBookingId(prev => prev === b.id ? null : b.id)
+                            }
+                          }}
+                          style={{
+                            borderBottom: isSelectedRow && b.status !== 'CANCELLED' ? '1px solid var(--gold, #c9a84c)' : '1px solid #202020',
+                            background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.03)' : (isSelectedRow ? 'rgba(201, 168, 76, 0.08)' : 'transparent'),
+                            cursor: b.status === 'CANCELLED' ? 'not-allowed' : 'pointer',
+                            opacity: b.status === 'CANCELLED' ? 0.65 : 1,
+                            transition: 'all 0.2s ease'
+                          }}
+                          title={b.status === 'CANCELLED' ? 'Booking cancelled - details disabled' : 'Click row to view location, working end PIN, or make changes'}
+                        >
+                          <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.9rem' }}>{b.id}</td>
+                          <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem' }}>{b.service}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 900, fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {(b.providerName || 'Nimal Silva')[0]}
+                              </div>
+                              <div>
+                                <span style={{ color: '#eee', fontSize: '0.88rem', fontWeight: 700, display: 'block' }}>{b.providerName || 'Nimal Silva'}</span>
+                                <small style={{ color: '#888', fontSize: '0.75rem' }}>{b.providerRole || 'Certified Specialist'}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ color: '#ccc', fontSize: '0.85rem' }}>
+                            <div>{b.date}</div>
+                            <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
+                          </td>
+                          <td>
+                            {b.status === 'CANCELLED' ? (
+                              <span style={{ color: '#666', fontSize: '0.78rem', fontStyle: 'italic', fontWeight: 600 }}>— Cancelled —</span>
+                            ) : pinUnlocked ? (
+                              <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.92rem', fontWeight: 900, padding: '0.35rem 0.75rem', borderRadius: '6px', letterSpacing: '0.1em' }}>
+                                🔑 {b.pin || '4892'}
+                              </span>
+                            ) : (
+                              <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.78rem', fontWeight: 600, padding: '0.35rem 0.65rem', borderRadius: '6px' }} title="PIN auto-unlocks 30 minutes before your scheduled booking slot">
+                                🔒 Unlocks 30m before
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span className="cd-status-tag cd-status-tag--completed" style={{ background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(201, 168, 76, 0.12)', color: b.status === 'CANCELLED' ? '#ef4444' : 'var(--gold, #c9a84c)', border: b.status === 'CANCELLED' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
+                                {b.status || 'CONFIRMED'}
+                              </span>
+                              {b.status !== 'CANCELLED' && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCancelBooking(b.id); }}
+                                  style={{ background: 'transparent', border: 'none', color: '#ef4444', textDecoration: 'underline', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                  title="Cancel this booking"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Selected Row Detail Panel */}
+                        {isSelectedRow && b.status !== 'CANCELLED' && (
+                          <tr style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
+                            <td colSpan={6} style={{ padding: '0.85rem 1.25rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'rgba(201, 168, 76, 0.05)', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '0.85rem 1.25rem' }}>
+                                  <div>
+                                    <span style={{ color: '#888', fontSize: '0.68rem', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DISPATCH ADDRESS LOCATION</span>
+                                    <span style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.15rem' }}>
+                                      📍 {b.location || 'No. 42, Galle Road, Colombo 03'}
+                                    </span>
+                                  </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                  <div style={{ background: '#16161a', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '10px', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <div>
+                                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', display: 'block' }}>🏁 WORKING END PIN</span>
+                                      <small style={{ color: '#888', fontSize: '0.68rem' }}>Completion Verification Code</small>
+                                    </div>
+                                    <span style={{ background: 'rgba(201, 168, 76, 0.15)', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', fontSize: '1.05rem', fontWeight: 900, padding: '0.25rem 0.75rem', borderRadius: '8px', letterSpacing: '0.15em' }}>
+                                      {b.endPin || '9812'}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedBookingId(null); }}
+                                    style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#aaa', padding: '0.55rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                                    title="Close panel"
+                                  >
+                                    Close ✕
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -1923,10 +2278,16 @@ const CustomerDashboard = () => {
                 <div className="cd-contact-icon-box"><MapPinIcon /></div>
                 <div className="cd-contact-text">
                   <span className="cd-contact-field">DELIVERY ADDRESS</span>
-                  <span className="cd-contact-val">
-                    {userAddress.street}<br />
-                    {userAddress.city}{userAddress.district ? `, ${userAddress.district}` : ''}
-                  </span>
+                  {userAddress && (userAddress.street || userAddress.city) ? (
+                    <span className="cd-contact-val">
+                      {userAddress.street}<br />
+                      {userAddress.city}{userAddress.district ? `, ${userAddress.district}` : ''}
+                    </span>
+                  ) : (
+                    <span className="cd-contact-val" style={{ color: '#888', fontStyle: 'italic', fontSize: '0.82rem' }}>
+                      — Not Specified (Pending) —
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1935,7 +2296,7 @@ const CustomerDashboard = () => {
                 style={{ width: '100%', marginTop: '0.85rem', justifyContent: 'center' }}
                 onClick={() => { setShowProfileDrawer(false); setShowAddressModal(true) }}
               >
-                ✏️ Edit Delivery Address
+                {userAddress && (userAddress.street || userAddress.city) ? '✏️ Edit Delivery Address' : '📍 Set Delivery Address'}
               </button>
             </div>
 
@@ -1969,7 +2330,42 @@ const CustomerDashboard = () => {
       {/* ── First-Time Login Address Setup Modal Popup ── */}
       {showAddressModal && (
         <div className="cd-address-overlay">
-          <div className="cd-address-modal animate-fade-in">
+          <div className="cd-address-modal animate-fade-in" style={{ position: 'relative' }}>
+            {/* Upper Right Close / Remind Me Later Button */}
+            <button
+              className="auth-card-close-btn"
+              onClick={() => {
+                setShowAddressModal(false)
+                sessionStorage.setItem('address_remind_later', 'true')
+                setBookingSuccessMsg('⏰ Address setup deferred — you can set your Service Delivery Address anytime in your profile.')
+                setTimeout(() => setBookingSuccessMsg(''), 6000)
+              }}
+              aria-label="Remind Me Later"
+              title="Remind Me Later"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                zIndex: 10
+              }}
+            >
+              ✕
+            </button>
+
             <div className="cd-address-modal__header">
               <div className="cd-address-icon-box"><MapPinIcon /></div>
               <h2 className="cd-address-modal__title">Service Delivery Address</h2>
@@ -1991,43 +2387,146 @@ const CustomerDashboard = () => {
               </div>
 
               <div className="cd-address-row">
-                <div className="cd-address-field">
-                  <label htmlFor="addr-city">City / Area</label>
-                  <input
-                    id="addr-city"
-                    type="text"
-                    placeholder="e.g. Colombo 03"
-                    value={addressForm.city}
-                    onChange={(e) => setAddressForm(prev => ({ ...prev, city: e.target.value }))}
-                    required
-                  />
+                <div className="cd-address-field" style={{ position: 'relative' }}>
+                  <label htmlFor="addr-city">City / Town</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="addr-city"
+                      name="luxora_town_no_autofill"
+                      type="text"
+                      placeholder="Type or scroll to select town..."
+                      value={addressForm.city}
+                      onChange={(e) => {
+                        const typedVal = e.target.value
+                        const matched = SRI_LANKA_TOWNS.find(t => t.name.toLowerCase() === typedVal.trim().toLowerCase())
+                        setAddressForm(prev => ({
+                          ...prev,
+                          city: typedVal,
+                          district: matched ? matched.province : (typedVal ? prev.district : '')
+                        }))
+                        setTownDropdownOpen(true)
+                      }}
+                      onFocus={() => setTownDropdownOpen(true)}
+                      required
+                      autoComplete="off"
+                      data-lpignore="true"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setTownDropdownOpen(!townDropdownOpen)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--gold, #c9a84c)',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 800
+                      }}
+                    >
+                      {townDropdownOpen ? '▲' : '▼'}
+                    </button>
+                  </div>
+
+                  {townDropdownOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        maxHeight: '190px',
+                        overflowY: 'auto',
+                        background: '#16161a',
+                        border: '1px solid var(--gold, #c9a84c)',
+                        borderRadius: '10px',
+                        zIndex: 999,
+                        marginTop: '4px',
+                        boxShadow: '0 12px 35px rgba(0,0,0,0.85)'
+                      }}
+                    >
+                      {SRI_LANKA_TOWNS
+                        .filter(t => t.name.toLowerCase().includes((addressForm.city || '').toLowerCase()) || t.province.toLowerCase().includes((addressForm.city || '').toLowerCase()))
+                        .map((townObj, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setAddressForm(prev => ({
+                                ...prev,
+                                city: townObj.name,
+                                district: townObj.province
+                              }))
+                              setTownDropdownOpen(false)
+                            }}
+                            style={{
+                              padding: '0.55rem 0.85rem',
+                              color: '#eee',
+                              fontSize: '0.84rem',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid rgba(255,255,255,0.05)',
+                              transition: 'background 0.15s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(201, 168, 76, 0.2)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}>
+                              <span style={{ color: 'var(--gold, #c9a84c)' }}>📍</span> {townObj.name}
+                            </span>
+                            <span style={{ fontSize: '0.68rem', background: 'rgba(201,168,76,0.15)', color: 'var(--gold, #c9a84c)', padding: '0.15rem 0.45rem', borderRadius: '4px', border: '1px solid rgba(201,168,76,0.3)', fontWeight: 700 }}>
+                              {townObj.province}
+                            </span>
+                          </div>
+                        ))}
+                      {SRI_LANKA_TOWNS.filter(t => t.name.toLowerCase().includes((addressForm.city || '').toLowerCase())).length === 0 && (
+                        <div style={{ padding: '0.75rem', color: '#888', fontSize: '0.8rem', textAlign: 'center' }}>
+                          No exact match. Using custom entry &quot;{addressForm.city}&quot;...
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="cd-address-field">
                   <label htmlFor="addr-district">Province</label>
-                  <select
+                  <input
                     id="addr-district"
-                    className="cd-address-select"
-                    value={addressForm.district}
-                    onChange={(e) => setAddressForm(prev => ({ ...prev, district: e.target.value }))}
-                    required
-                  >
-                    <option value="Western">Western</option>
-                    <option value="Central">Central</option>
-                    <option value="Southern">Southern</option>
-                    <option value="Northern">Northern</option>
-                    <option value="Eastern">Eastern</option>
-                    <option value="North Western">North Western</option>
-                    <option value="North Central">North Central</option>
-                    <option value="Uva">Uva</option>
-                    <option value="Sabaragamuwa">Sabaragamuwa</option>
-                  </select>
+                    type="text"
+                    placeholder="Auto-selected based on City"
+                    value={addressForm.district ? `${addressForm.district} Province` : ''}
+                    readOnly
+                    disabled
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      color: addressForm.district ? 'var(--gold, #c9a84c)' : '#666',
+                      fontWeight: 700,
+                      cursor: 'not-allowed',
+                      border: addressForm.district ? '1px solid rgba(201, 168, 76, 0.4)' : '1px solid #333'
+                    }}
+                  />
                 </div>
               </div>
 
               <div className="cd-address-actions">
                 <button type="submit" className="cd-address-save-btn">
                   SAVE TO PROFILE &rarr;
+                </button>
+                <button
+                  type="button"
+                  className="cd-address-remind-btn"
+                  onClick={() => {
+                    setShowAddressModal(false)
+                    sessionStorage.setItem('address_remind_later', 'true')
+                    setBookingSuccessMsg('⏰ Address setup deferred — you can set your Service Delivery Address anytime in your profile.')
+                    setTimeout(() => setBookingSuccessMsg(''), 6000)
+                  }}
+                >
+                  REMIND ME LATER
                 </button>
               </div>
             </form>
@@ -2243,7 +2742,7 @@ const CustomerDashboard = () => {
               </div>
               <div className="cd-book-confirm-row">
                 <span>Delivery Address:</span>
-                <small>{userAddress.street ? `${userAddress.street}, ${userAddress.city}, ${userAddress.district}` : 'Not set yet — set it from your profile'}</small>
+                <small>{userAddress.street}, {userAddress.city}, {userAddress.district}</small>
               </div>
               <div className="cd-book-confirm-row">
                 <span>{bookingBillingType === 'auto_renew' ? 'Next Renewal Date:' : 'Expiry Date:'}</span>
