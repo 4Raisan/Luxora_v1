@@ -600,7 +600,7 @@
 
 /* ── Mobile Optimization & Responsive Layout Rules ── */
 @media (max-width: 768px) {
-  .ad-dashboard {
+  .ad-wrapper {
     flex-direction: column;
   }
 
@@ -613,7 +613,7 @@
     padding: 1rem;
   }
 
-  .ad-sidebar__nav {
+  .ad-nav {
     display: flex;
     flex-direction: row;
     overflow-x: auto;
