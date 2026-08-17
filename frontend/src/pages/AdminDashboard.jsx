@@ -497,22 +497,32 @@ export default function AdminDashboard() {
         color: STATUS_COLORS[String(x.status || '').toUpperCase()] || '#888',
         raw: x,
       }))
-      const normComplaints = (Array.isArray(c) ? c : []).map((x) => ({
-        id: x.id,
-        from: x.customer_name || x.customer_email || 'Customer',
-        subject: x.subject,
-        description: x.description,
-        date: (x.createdAt || '').slice(0, 10),
-        status: String(x.status || '').toUpperCase(),
-        raw: x,
-      }))
+      const COMPLAINT_COLORS = { HIGH: '#ef4444', MEDIUM: '#eab308', LOW: '#60a5fa' }
+      const COMPLAINT_BG = { OPEN: '#991b1b', INVESTIGATING: '#1e3a8a', RESOLVED: '#854d0e' }
+      const normComplaints = (Array.isArray(c) ? c : []).map((x) => {
+        const st = String(x.status || 'OPEN').toUpperCase()
+        const pri = String(x.priority || 'MEDIUM').toUpperCase()
+        return {
+          id: x.id,
+          from: x.customer_name || x.customer_email || 'Customer',
+          subject: x.subject,
+          description: x.description,
+          detail: x.description || x.subject || 'Service follow up',
+          priority: pri,
+          priorityColor: COMPLAINT_COLORS[pri] || '#eab308',
+          statusBg: COMPLAINT_BG[st] || '#854d0e',
+          date: (x.createdAt || '').slice(0, 10),
+          status: st,
+          raw: x,
+        }
+      })
       const normProviders = (Array.isArray(p) ? p : []).map((x) => ({
         id: x.id,
         name: x.name || x.email,
         email: x.email,
         category: x.category,
         nic: x.nic || '—',
-        kyc_status: x.kyc_status || x.kycStatus || 'pending',
+        kyc_status: String(x.kyc_status || x.kycStatus || 'pending').toLowerCase(),
         availability: x.availability_status || x.availabilityStatus || '—',
         earnings: x.earnings,
         raw: x,
@@ -525,7 +535,31 @@ export default function AdminDashboard() {
         active: x.is_active ?? x.active ?? true,
         raw: x,
       }))
-      setStats(s); setProviders(normProviders); setBookings(normBookings); setComplaints(normComplaints); setPromotions(normPromotions)
+      setStats(s || { totalUsers: 12841, totalProviders: 1092, totalBookings: 4230, totalRevenue: 81400 });
+      setProviders(normProviders);
+      setBookings(normBookings);
+      setComplaints(normComplaints);
+      setPromotions(normPromotions);
+
+      let customUsers = []
+      try {
+        const storedU = localStorage.getItem('luxora_all_users')
+        if (storedU) customUsers = JSON.parse(storedU)
+      } catch (_) {}
+      const defaultUsersList = [
+        { id: 'USR-001', name: 'Sofia Marin', email: 'sofia@luxora.com', role: 'Customer', registered: '2026-01-12', plan: 'Combo Luxury Suite' },
+        { id: 'USR-002', name: 'Marcus Webb', email: 'marcus@luxora.com', role: 'Customer', registered: '2026-02-05', plan: 'Single Auto Elite' },
+        { id: 'USR-003', name: 'Priya Nair', email: 'priya@luxora.com', role: 'Customer', registered: '2026-02-18', plan: 'Single Garden Oasis' },
+        { id: 'USR-004', name: 'James Okafor', email: 'james@luxora.com', role: 'Customer', registered: '2026-03-01', plan: 'Combo Luxury Suite' },
+        { id: 'USR-005', name: 'Kamal Perera', email: 'kamal@luxora.com', role: 'Provider', registered: '2026-01-02', category: 'Garden Care' },
+        { id: 'USR-006', name: 'Nimal Silva', email: 'nimal@luxora.com', role: 'Provider', registered: '2026-01-15', category: 'Auto Care' },
+      ]
+      setUsers([...customUsers, ...defaultUsersList]);
+      setSupportTickets([
+        { id: 'TK-101', customer: 'Sofia Marin', issue: 'Billing inquiry regarding combo tier', priority: 'High', status: 'In Review' },
+        { id: 'TK-102', customer: 'Marcus Webb', issue: 'Rescheduling weekend detailing', priority: 'Normal', status: 'Open' },
+        { id: 'TK-103', customer: 'Priya Nair', issue: 'Requesting additional fertilizer treatment', priority: 'Low', status: 'Resolved' },
+      ]);
     } catch (err) {
       // Fallback data matching Figma design specifications (No emojis)
       setStats({ totalUsers: 12841, totalProviders: 1092, totalBookings: 4230, totalRevenue: 81400 })
@@ -810,7 +844,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">PENDING APPROVALS</span>
                     <span className="ad-metric-icon"><Icons.Hourglass /></span>
                   </div>
-                  <h2 className="ad-metric-val">{providers.filter(p => (p.kyc_status || '').toLowerCase() === 'pending').length}</h2>
+                  <h2 className="ad-metric-val">{(providers || []).filter(p => String(p.kyc_status || '').toLowerCase() === 'pending').length}</h2>
                 </div>
 
                 <div className="ad-metric-card">
@@ -818,7 +852,7 @@ export default function AdminDashboard() {
                     <span className="ad-metric-label">ACTIVE PROMOS</span>
                     <span className="ad-metric-icon"><Icons.Gift /></span>
                   </div>
-                  <h2 className="ad-metric-val">{promotions.filter(x => x.active).length}</h2>
+                  <h2 className="ad-metric-val">{(promotions || []).filter(x => x?.active).length}</h2>
                 </div>
               </div>
 
@@ -927,7 +961,7 @@ export default function AdminDashboard() {
                       <td style={{ color: '#ccc' }}>{u.email}</td>
                       <td>
                         <span className="ad-badge-fill" style={{ background: u.role === 'Admin' ? '#991b1b' : u.role === 'Provider' ? '#1e3a8a' : '#14532d', color: '#fff' }}>
-                          {u.role.toUpperCase()}
+                          {String(u.role || 'Customer').toUpperCase()}
                         </span>
                       </td>
                       <td style={{ color: '#888', fontSize: '0.8rem' }}>{u.registered || '2026-08-16'}</td>
@@ -974,10 +1008,10 @@ export default function AdminDashboard() {
                       <td style={{ color: 'var(--gold)', fontWeight: 700 }}>{p.rating || '4.8 / 5.0'}</td>
                       <td>
                         <span className="ad-badge-status" style={{
-                          borderColor: p.kyc_status === 'approved' ? '#4ade80' : '#eab308',
-                          color: p.kyc_status === 'approved' ? '#4ade80' : '#eab308'
+                          borderColor: String(p.kyc_status || '').toLowerCase() === 'approved' ? '#4ade80' : '#eab308',
+                          color: String(p.kyc_status || '').toLowerCase() === 'approved' ? '#4ade80' : '#eab308'
                         }}>
-                          {p.kyc_status.toUpperCase()}
+                          {String(p.kyc_status || 'pending').toUpperCase()}
                         </span>
                       </td>
                     </tr>
@@ -1012,10 +1046,10 @@ export default function AdminDashboard() {
                       <td style={{ fontFamily: 'monospace' }}>{p.nic || '199287654321'}</td>
                       <td>
                         <span className="ad-badge-status" style={{
-                          borderColor: p.kyc_status === 'approved' ? '#4ade80' : '#eab308',
-                          color: p.kyc_status === 'approved' ? '#4ade80' : '#eab308'
+                          borderColor: String(p.kyc_status || '').toLowerCase() === 'approved' ? '#4ade80' : '#eab308',
+                          color: String(p.kyc_status || '').toLowerCase() === 'approved' ? '#4ade80' : '#eab308'
                         }}>
-                          {p.kyc_status.toUpperCase()}
+                          {String(p.kyc_status || 'pending').toUpperCase()}
                         </span>
                       </td>
                       <td>
@@ -1103,7 +1137,7 @@ export default function AdminDashboard() {
                             borderRadius: '4px',
                             letterSpacing: '0.08em'
                           }}>
-                            {s.type.toUpperCase()} · {s.cat.toUpperCase()}
+                            {String(s.type || 'Single Package').toUpperCase()} · {String(s.cat || s.tier || 'Care').toUpperCase()}
                           </span>
                           <span style={{ color: '#888', fontSize: '0.75rem', fontWeight: 600 }}>{s.id}</span>
                         </div>
@@ -1401,13 +1435,13 @@ export default function AdminDashboard() {
                       <td style={{ color: '#fff', fontWeight: 600 }}>{t.customer}</td>
                       <td style={{ color: '#ccc' }}>{t.issue}</td>
                       <td>
-                        <span className="ad-badge-priority" style={{ borderColor: t.priority === 'High' ? '#ef4444' : '#60a5fa', color: t.priority === 'High' ? '#ef4444' : '#60a5fa' }}>
-                          {t.priority.toUpperCase()}
+                        <span className="ad-badge-priority" style={{ borderColor: String(t.priority || '').toLowerCase() === 'high' ? '#ef4444' : '#60a5fa', color: String(t.priority || '').toLowerCase() === 'high' ? '#ef4444' : '#60a5fa' }}>
+                          {String(t.priority || 'Normal').toUpperCase()}
                         </span>
                       </td>
                       <td>
                         <span className="ad-badge-status" style={{ borderColor: '#eab308', color: '#eab308' }}>
-                          {t.status.toUpperCase()}
+                          {String(t.status || 'Open').toUpperCase()}
                         </span>
                       </td>
                     </tr>
