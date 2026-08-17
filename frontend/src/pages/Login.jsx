@@ -78,7 +78,7 @@ const Login = () => {
       if (data.token) localStorage.setItem('luxora_token', data.token)
 
       const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
-      const userRole = data.user?.role
+      const userRole = String(data.user?.role || '').toLowerCase()
 
       if (userRole === 'admin' || isInputAdmin) {
         const adminObj = {
