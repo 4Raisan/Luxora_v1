@@ -1437,7 +1437,7 @@ const CustomerDashboard = () => {
                 </button>
               </div>
 
-              <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
+              <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px' }}>
                 <table className="cd-table" style={{ margin: 0 }}>
                   <thead>
                     <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
