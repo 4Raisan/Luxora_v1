@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
+import { sendEmail } from '../services/integrations.js';
 import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 
 const router = Router();
@@ -124,7 +125,7 @@ router.post('/', async (req, res) => {
 
   const pin_code = Math.floor(1000 + Math.random() * 9000).toString();
 
-  const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true } });
+  const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true, email: true, name: true } });
   const town = normalizeTown(customer?.town);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time);
   const provider = shouldAutoAssign ? await pickProvider(service.category.name, town, booking_date, booking_time) : null;
@@ -149,6 +150,7 @@ router.post('/', async (req, res) => {
   if (provider_id) {
     await notify(provider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
   }
+  sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your ${service.title} booking is scheduled for ${booking_date} at ${booking_time}.</p><p>Booking status: ${status.toLowerCase()}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
   res.status(201).json({
     booking_id: booking.id,
@@ -324,6 +326,8 @@ router.put('/:id/status', async (req, res) => {
       await prisma.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
     }
     await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');
+    const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
+    sendEmail({ to: customer?.email, subject: `Luxora service completed #${id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${id} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
   } else if (nextStatus === 'IN_PROGRESS') {
     await notify(booking.userId, `Your provider has started service on booking #${id}.`);
   } else if (nextStatus === 'ASSIGNED') {

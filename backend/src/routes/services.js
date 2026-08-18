@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { toPositiveInt } from '../middleware/validators.js';
+import { sendEmail } from '../services/integrations.js';
 
 const router = Router();
 
@@ -42,6 +43,8 @@ router.post('/subscriptions/subscribe', authenticateToken, async (req, res) => {
   await prisma.userSubscription.create({
     data: { userId: req.user.id, planId: plan_id, endDate, status: 'active' },
   });
+  const subscriber = await prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true, name: true } });
+  sendEmail({ to: subscriber?.email, subject: `Luxora subscription confirmed: ${plan.title}`, html: `<p>Hi ${subscriber?.name || 'Customer'},</p><p>Your ${plan.title} subscription is active until ${endDate.toISOString().slice(0, 10)}.</p><p>Amount: LKR ${plan.priceMonthly.toLocaleString()}</p>` }).catch((error) => console.warn('[email] subscription receipt failed:', error.message));
   res.status(201).json({ message: 'Subscribed successfully', plan, endDate });
 });
 
