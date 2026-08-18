@@ -327,6 +327,7 @@ const CustomerDashboard = () => {
   const [showCancelledSuccessModal, setShowCancelledSuccessModal] = useState(false)
   const [cancelledPackageTitle, setCancelledPackageTitle] = useState('')
   const [bookingBillingType, setBookingBillingType] = useState('auto_renew') // 'auto_renew' | 'one_time'
+  const [paymentBusy, setPaymentBusy] = useState(false)
   const [selectedReceiptItem, setSelectedReceiptItem] = useState(null)
 
   // Admin Panel Subscription Linkage State
@@ -570,7 +571,9 @@ const CustomerDashboard = () => {
     apiRequest('/bookings/my', 'GET', null, token).then((rows) => {
       const mapped = rows.map((booking) => ({
         id: booking.id,
-        customer: currentUser?.name || 'Customer',
+        customer: (() => {
+          try { return JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Customer' } catch (_) { return 'Customer' }
+        })(),
         service: booking.service_title || 'Concierge Service',
         status: booking.status.toUpperCase(),
         color: booking.status === 'cancelled' ? '#ef4444' : '#4ade80',
@@ -578,14 +581,14 @@ const CustomerDashboard = () => {
         time: booking.bookingTime,
         amount: `LKR ${Number(booking.totalPrice || 0).toLocaleString()}`,
         pin: booking.pin_code,
-        location: booking.town || userAddress?.city || 'Town not set',
+        location: booking.town || 'Town not set',
         providerName: booking.provider_name || 'Awaiting assignment',
         providerPhone: booking.provider_phone,
         isSession: true,
       }))
       if (mapped.length) setCustomerActiveBookings(mapped)
     }).catch((error) => console.warn('Could not load customer bookings.', error))
-  }, [currentUser?.name, userAddress?.city])
+  }, [])
 
   const checkIsPinUnlocked = (bookingDate, bookingTime) => {
     try {
@@ -955,6 +958,26 @@ const CustomerDashboard = () => {
       setBookingSuccessMsg('')
       setActiveTab('overview')
     }, 1500)
+  }
+
+  const startPayment = async (provider, pkg) => {
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') { alert('Please log in with a live backend account before paying.'); return }
+    const amount = Number(String(pkg.price || '').replace(/[^\d.]/g, ''))
+    if (!Number.isFinite(amount) || amount <= 0) { alert('This package has no valid payment amount.'); return }
+    setPaymentBusy(true)
+    try {
+      if (provider === 'payhere') {
+        const order = await apiRequest('/payments/payhere/order', 'POST', { amount, currency: 'LKR', customer: { email: currentUser.email, items: pkg.title, city: userAddress.city, address: userAddress.street } }, token)
+        const form = document.createElement('form'); form.method = 'POST'; form.action = order.checkoutUrl
+        Object.entries(order.fields).forEach(([name, value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value ?? ''; form.appendChild(input) })
+        document.body.appendChild(form); form.submit()
+      } else {
+        const order = await apiRequest('/payments/paypal/order', 'POST', { amount, currency: 'USD', description: pkg.title }, token)
+        if (!order.approvalUrl) throw new Error('PayPal did not return an approval URL')
+        window.location.assign(order.approvalUrl)
+      }
+    } catch (error) { alert(error.message || 'Payment could not be started.') } finally { setPaymentBusy(false) }
   }
 
   // Support Modal State
@@ -3472,6 +3495,14 @@ const CustomerDashboard = () => {
             </div>
 
             <div className="cd-support-actions" style={{ marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+                <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('payhere', selectedPackageToBook)}>
+                  {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYHERE'}
+                </button>
+                <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('paypal', selectedPackageToBook)}>
+                  {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYPAL'}
+                </button>
+              </div>
               <button
                 className="cd-support-send-btn"
                 onClick={() => handleConfirmBooking(selectedPackageToBook)}

@@ -19,7 +19,7 @@ const Login = () => {
   const [forgotErrorMsg, setForgotErrorMsg] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
 
-  const handleSendResetLink = (e) => {
+  const handleSendResetLink = async (e) => {
     e.preventDefault()
     if (!forgotEmail || !forgotEmail.includes('@')) {
       setForgotErrorMsg('Please enter a valid email address.')
@@ -27,11 +27,17 @@ const Login = () => {
     }
     setForgotLoading(true)
     setForgotErrorMsg('')
-
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/auth/password-reset/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: forgotEmail }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not send reset email')
+      setForgotSuccessMsg('If that account exists, a password reset link has been sent by email.')
+      setTimeout(() => setShowForgotModal(false), 3500)
+    } catch (error) {
+      setForgotErrorMsg(error.message || 'Could not send reset email')
+    } finally {
       setForgotLoading(false)
-      setForgotStep(2)
-    }, 1000)
+    }
   }
 
   const handleResetPasswordSubmit = (e) => {
