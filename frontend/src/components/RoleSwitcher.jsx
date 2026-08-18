@@ -14,7 +14,7 @@ export default function RoleSwitcher() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
-  const currentRole = localStorage.getItem('luxora_role') || 'customer'
+  const currentRole = (localStorage.getItem('luxora_role') || 'customer').toLowerCase()
   const currentEmail = localStorage.getItem('luxora_email') || ''
 
   if (!isUniversalTester(currentEmail)) return null
@@ -28,7 +28,7 @@ export default function RoleSwitcher() {
         password: UNIVERSAL_PW,
       })
       localStorage.setItem('luxora_token', res.token)
-      localStorage.setItem('luxora_role', res.user.role)
+      localStorage.setItem('luxora_role', String(res.user.role || role).toLowerCase())
       setOpen(false)
       navigate(ROLE_ROUTES[role])
     } catch (e) {

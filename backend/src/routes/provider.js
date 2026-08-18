@@ -5,6 +5,19 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticateToken, requireRole('PROVIDER'));
 
+router.put('/service-towns', async (req, res) => {
+  const towns = String(req.body.service_towns || '').split(',').map((town) => town.trim().replace(/\s+/g, ' ')).filter(Boolean);
+  const uniqueTowns = [...new Map(towns.map((town) => [town.toLocaleLowerCase(), town])).values()];
+  if (uniqueTowns.length > 10 || uniqueTowns.some((town) => town.length > 100)) {
+    return res.status(400).json({ error: 'service_towns may contain up to 10 towns, each at most 100 characters' });
+  }
+  const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  const service_towns = uniqueTowns.join(', ');
+  await prisma.provider.update({ where: { id: provider.id }, data: { serviceTowns: service_towns } });
+  res.json({ service_towns });
+});
+
 router.put('/availability', async (req, res) => {
   const { availability_status } = req.body;
   const allowed = ['available', 'busy', 'offline'];

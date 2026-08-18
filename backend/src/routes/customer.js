@@ -5,11 +5,19 @@ import { authenticateToken } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticateToken);
 
+// The town is retained on the user and copied to each newly-created booking.
+router.put('/town', async (req, res) => {
+  const town = typeof req.body.town === 'string' ? req.body.town.trim().replace(/\s+/g, ' ') : '';
+  if (town.length > 100) return res.status(400).json({ error: 'town must be at most 100 characters' });
+  await prisma.user.update({ where: { id: req.user.id }, data: { town: town || null } });
+  res.json({ town: town || null });
+});
+
 router.get('/dashboard', async (req, res) => {
   const userId = req.user.id;
   const profile = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, phone: true, town: true, role: true, createdAt: true },
   });
   if (!profile) return res.status(404).json({ error: 'User not found' });
 
@@ -40,11 +48,12 @@ router.get('/dashboard', async (req, res) => {
     orderBy: { createdAt: 'desc' },
   });
 
+  const withoutProviderSchedule = (booking) => ({ ...booking, expectedEndTime: undefined });
   res.json({
     profile,
     activeSubscriptions: activeSubs,
-    upcomingBookings: upcoming,
-    pastBookings: past,
+    upcomingBookings: upcoming.map(withoutProviderSchedule),
+    pastBookings: past.map(withoutProviderSchedule),
     reviews: reviews.map((r) => ({
       ...r,
       service_title: r.booking?.service?.title,

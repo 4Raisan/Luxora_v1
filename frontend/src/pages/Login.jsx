@@ -118,16 +118,22 @@ const Login = () => {
         phone: '+94 77 234 5678',
         id: 'CUS-2026-0421'
       }
+      if (data.provider) {
+        userObj.serviceTowns = data.provider.serviceTowns || ''
+        userObj.town = data.provider.town || ''
+      }
       if (!userObj.name) userObj.name = nameToUse
+      const userRole = String(data.user?.role || '').toLowerCase()
 
       // Save token and user info
       sessionStorage.setItem('token', data.token || 'demo-token')
       sessionStorage.setItem('user', JSON.stringify(userObj))
       localStorage.setItem('user_' + userObj.email, JSON.stringify(userObj))
+      localStorage.setItem('luxora_email', userObj.email)
+      localStorage.setItem('luxora_role', userRole || tab)
       if (data.token) localStorage.setItem('luxora_token', data.token)
 
       const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
-      const userRole = data.user?.role
 
       if (userRole === 'admin' || isInputAdmin) {
         const adminObj = {

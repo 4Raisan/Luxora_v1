@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Calendar from '../components/Calendar'
+import { apiRequest } from '../services/api'
 import './ProviderDashboard.css'
 
 /* ── SVG Icons ─────────────────────────────────────── */
@@ -203,7 +204,7 @@ const ProviderDashboard = () => {
   const [settingsForm, setSettingsForm] = useState({
     name: currentProvider.name || 'Provider Partner',
     mobile: currentProvider.mobile || '0771234567',
-    town: currentProvider.town || currentProvider.city || 'Colombo 03',
+       town: currentProvider.serviceTowns || currentProvider.town || currentProvider.city || 'Colombo 03',
     services: Array.isArray(currentProvider.services) 
       ? currentProvider.services 
       : (typeof currentProvider.services === 'string' ? currentProvider.services.split(', ').filter(Boolean) : ['Auto Care', 'Garden Care', 'Pet Care'])
@@ -214,7 +215,7 @@ const ProviderDashboard = () => {
     setSettingsForm({
       name: currentProvider.name || 'Provider Partner',
       mobile: currentProvider.mobile || '0771234567',
-      town: currentProvider.town || currentProvider.city || 'Colombo 03',
+       town: currentProvider.serviceTowns || currentProvider.town || currentProvider.city || 'Colombo 03',
       services: Array.isArray(currentProvider.services) 
         ? currentProvider.services 
         : (typeof currentProvider.services === 'string' ? currentProvider.services.split(', ').filter(Boolean) : ['Auto Care', 'Garden Care', 'Pet Care'])
@@ -231,7 +232,7 @@ const ProviderDashboard = () => {
     })
   }
 
-  const handleSubmitToVerify = (e) => {
+  const handleSubmitToVerify = async (e) => {
     e.preventDefault()
     let digits = settingsForm.mobile.replace(/\D/g, '')
     if (digits.length !== 10 && digits.length !== 9) {
@@ -243,11 +244,22 @@ const ProviderDashboard = () => {
       return
     }
 
+    const token = sessionStorage.getItem('token')
+    if (token && token !== 'demo-token') {
+      try {
+        await apiRequest('/provider/service-towns', 'PUT', { service_towns: settingsForm.town }, token)
+      } catch (error) {
+        alert(error.message || 'Could not save service towns.')
+        return
+      }
+    }
+
     const updated = {
       ...currentProvider,
       name: settingsForm.name,
       mobile: settingsForm.mobile,
       town: settingsForm.town,
+      serviceTowns: settingsForm.town,
       city: settingsForm.town,
       services: settingsForm.services,
       verificationStatus: 'UPDATED & VERIFIED ✓'
@@ -260,6 +272,38 @@ const ProviderDashboard = () => {
 
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(16)
   const [bookingFilter, setBookingFilter] = useState('ALL')
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') return
+    apiRequest('/bookings/assigned', 'GET', null, token).then((rows) => {
+      setBookingsList(rows.map((booking) => {
+        const date = new Date(`${booking.bookingDate}T00:00:00`)
+        return {
+          apiId: booking.id,
+          month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+          day: String(date.getDate()),
+          title: booking.service_title || 'Service booking',
+          sub: `${booking.customer_name || 'Customer'}${booking.town ? ` • ${booking.town}` : ''}`,
+          status: booking.status.toUpperCase(),
+          color: booking.status === 'pending' ? '#eab308' : '#4ade80',
+          bookingDate: booking.bookingDate,
+          bookingTime: booking.bookingTime,
+        }
+      }))
+    }).catch((error) => console.warn('Could not load provider bookings.', error))
+  }, [])
+
+  const handleClaimBooking = async (booking) => {
+    const token = sessionStorage.getItem('token')
+    if (!token || !booking.apiId) return
+    try {
+      await apiRequest(`/bookings/${booking.apiId}/status`, 'PUT', { status: 'assigned' }, token)
+      setBookingsList((items) => items.map((item) => item.apiId === booking.apiId ? { ...item, status: 'ASSIGNED', color: '#4ade80' } : item))
+    } catch (error) {
+      alert(error.message || 'Could not claim booking.')
+    }
+  }
 
   const handleBookingClick = (dayStr) => {
     const d = parseInt(dayStr, 10)
@@ -589,6 +633,15 @@ const ProviderDashboard = () => {
                       >
                         VIEW DETAILS
                       </button>
+                      {b.status === 'PENDING' && b.apiId && (
+                        <button
+                          type="button"
+                          className="pd-cr-btn-accept"
+                          onClick={() => handleClaimBooking(b)}
+                        >
+                          CLAIM BOOKING
+                        </button>
+                      )}
                       {b.status !== 'CANCELLED' ? (
                         <button
                           type="button"
@@ -1002,14 +1055,14 @@ const ProviderDashboard = () => {
 
               {/* Town / City */}
               <div className="pd-edit-field">
-                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>TOWN / CITY *</label>
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>TOWNS SERVED (UP TO 10, COMMA-SEPARATED) *</label>
                 <input
                   type="text"
                   required
                   className="pd-edit-input"
                   value={settingsForm.town}
                   onChange={(e) => setSettingsForm({ ...settingsForm, town: e.target.value })}
-                  placeholder="e.g. Colombo 03 / Kandy / Galle"
+                  placeholder="e.g. Colombo 03, Kandy, Galle"
                 />
               </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { apiRequest } from '../services/api'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -563,6 +564,29 @@ const CustomerDashboard = () => {
     }
   }, [])
 
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') return
+    apiRequest('/bookings/my', 'GET', null, token).then((rows) => {
+      const mapped = rows.map((booking) => ({
+        id: booking.id,
+        customer: currentUser?.name || 'Customer',
+        service: booking.service_title || 'Concierge Service',
+        status: booking.status.toUpperCase(),
+        color: booking.status === 'cancelled' ? '#ef4444' : '#4ade80',
+        date: booking.bookingDate,
+        time: booking.bookingTime,
+        amount: `LKR ${Number(booking.totalPrice || 0).toLocaleString()}`,
+        pin: booking.pin_code,
+        location: booking.town || userAddress?.city || 'Town not set',
+        providerName: booking.provider_name || 'Awaiting assignment',
+        providerPhone: booking.provider_phone,
+        isSession: true,
+      }))
+      if (mapped.length) setCustomerActiveBookings(mapped)
+    }).catch((error) => console.warn('Could not load customer bookings.', error))
+  }, [currentUser?.name, userAddress?.city])
+
   const checkIsPinUnlocked = (bookingDate, bookingTime) => {
     try {
       if (!bookingDate || !bookingTime) return true
@@ -592,6 +616,11 @@ const CustomerDashboard = () => {
 
     if (!window.confirm(`Are you sure you want to cancel booking ${bookingId} (${serviceName})?`)) {
       return
+    }
+
+    const token = sessionStorage.getItem('token')
+    if (token && token !== 'demo-token' && Number.isInteger(Number(bookingId))) {
+      apiRequest(`/bookings/${bookingId}/cancel`, 'PUT', null, token).catch((error) => console.warn('Backend cancellation failed.', error))
     }
 
     try {
@@ -628,7 +657,7 @@ const CustomerDashboard = () => {
   const [showSessionConfirmedModal, setShowSessionConfirmedModal] = useState(false)
   const [confirmedModalDetails, setConfirmedModalDetails] = useState(null)
 
-  const handleConfirmServiceBooking = () => {
+  const handleConfirmServiceBooking = async () => {
     if (!userAddress || (!userAddress.street && !userAddress.city)) {
       setShowAddressModal(true)
       setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before booking a session.')
@@ -669,7 +698,7 @@ const CustomerDashboard = () => {
 
     const stored = localStorage.getItem(userBookingsKey) || localStorage.getItem('luxora_customer_bookings')
     const existing = stored ? JSON.parse(stored) : []
-    const newB = {
+    let newB = {
       id: `B-${String(existing.length + 11).padStart(3, '0')}`,
       customer: (currentUser && currentUser.name) ? currentUser.name : 'Ashan Perera',
       service: serviceTitle,
@@ -684,6 +713,29 @@ const CustomerDashboard = () => {
       providerName: 'Nimal Silva',
       providerRole: 'Lead Care Specialist',
       isSession: true
+    }
+
+    // Persist the same booking through the backend so town matching, time-window
+    // rules, provider assignment and PIN generation are enforced server-side.
+    const token = sessionStorage.getItem('token')
+    if (token && token !== 'demo-token') {
+      try {
+        if (userAddress?.city) {
+          await apiRequest('/customer/town', 'PUT', { town: userAddress.city }, token)
+        }
+        const services = await apiRequest('/services', 'GET', null, token)
+        const service = services.find((item) => item.category_name === categoryName) || services[0]
+        if (service) {
+          const created = await apiRequest('/bookings', 'POST', {
+            service_id: service.id,
+            booking_date: serviceBookingForm.date,
+            booking_time: selectedTimeFormatted,
+          }, token)
+          newB = { ...newB, id: created.booking_id, status: created.status.toUpperCase(), amount: `LKR ${Number(created.total_price).toLocaleString()}`, pin: created.pin_code }
+        }
+      } catch (error) {
+        console.warn('Backend booking unavailable; retaining local demo booking.', error)
+      }
     }
 
     const newUsed = {
@@ -1126,7 +1178,7 @@ const CustomerDashboard = () => {
     }
   }, [navigate])
 
-  const handleSaveAddress = (e) => {
+  const handleSaveAddress = async (e) => {
     e.preventDefault()
     if (!addressForm.street || !addressForm.city) return
     const newAddr = {
@@ -1137,6 +1189,14 @@ const CustomerDashboard = () => {
     setUserAddress(newAddr)
     localStorage.setItem('userAddress_' + userKey, JSON.stringify(newAddr))
     localStorage.setItem('hasSetupAddress_' + userKey, 'true')
+    const token = sessionStorage.getItem('token')
+    if (token && token !== 'demo-token') {
+      try {
+        await apiRequest('/customer/town', 'PUT', { town: newAddr.city }, token)
+      } catch (error) {
+        console.warn('Could not persist customer town to backend.', error)
+      }
+    }
     sessionStorage.removeItem('isFirstTimeSignup')
     setShowAddressModal(false)
   }

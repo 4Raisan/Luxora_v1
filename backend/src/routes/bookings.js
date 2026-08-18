@@ -10,6 +10,9 @@ router.use(authenticateToken);
 const PROVIDER_PAYOUT_RATE = 0.85;
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+const AUTO_ASSIGNMENT_START_HOUR = 7;
+const AUTO_ASSIGNMENT_END_HOUR = 16;
+const AUTO_ASSIGNMENT_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 // Legal status transitions a provider can perform (admin has an override endpoint).
 const PROVIDER_TRANSITIONS = {
@@ -18,25 +21,86 @@ const PROVIDER_TRANSITIONS = {
   IN_PROGRESS: ['COMPLETED'],
 };
 
-// Pick the least-loaded approved+available provider for a category.
-async function pickProvider(categoryName) {
+function normalizeTown(town) {
+  return typeof town === 'string' && town.trim() ? town.trim().replace(/\s+/g, ' ') : null;
+}
+
+function servesTown(provider, town) {
+  if (!town) return false;
+  const wanted = town.toLocaleLowerCase();
+  return provider.serviceTowns.split(',').some((servedTown) => servedTown.trim().toLocaleLowerCase() === wanted);
+}
+
+function bookingStart(date, time) {
+  const match = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+  if (meridiem === 'AM' && hour === 12) hour = 0;
+  if (meridiem === 'PM' && hour !== 12) hour += 12;
+  return new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+}
+
+function isInAutoAssignmentWindow(date, time) {
+  const start = bookingStart(date, time);
+  return Boolean(start) && start.getHours() >= AUTO_ASSIGNMENT_START_HOUR && start.getHours() <= AUTO_ASSIGNMENT_END_HOUR;
+}
+
+function cooldownEndsAt(booking) {
+  const start = bookingStart(booking.bookingDate, booking.bookingTime);
+  const sixHoursAfterStart = new Date(start.getTime() + AUTO_ASSIGNMENT_COOLDOWN_MS);
+  // A provider may only shorten the default cooldown, never extend it.
+  return booking.expectedEndTime && new Date(booking.expectedEndTime) < sixHoursAfterStart
+    ? new Date(booking.expectedEndTime)
+    : sixHoursAfterStart;
+}
+
+// Pick the least-loaded approved+available provider matching the booking town.
+// A provider's latest same-day auto assignment governs their cooldown.
+async function pickProvider(categoryName, town, bookingDate, bookingTime) {
   const candidates = await prisma.provider.findMany({
     where: { category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, serviceTowns: true },
   });
-  if (candidates.length === 0) return null;
+  const scheduledStart = bookingStart(bookingDate, bookingTime);
+  const townCandidates = candidates.filter((provider) => servesTown(provider, town));
+  if (townCandidates.length === 0) return null;
+
+  const priorAutoAssignments = await prisma.booking.findMany({
+    where: {
+      providerId: { in: townCandidates.map((provider) => provider.id) },
+      bookingDate,
+      autoAssigned: true,
+      status: { not: 'CANCELLED' },
+    },
+    select: { providerId: true, bookingDate: true, bookingTime: true, expectedEndTime: true },
+  });
+  const latestAutoAssignmentByProvider = new Map();
+  for (const assignment of priorAutoAssignments) {
+    const latest = latestAutoAssignmentByProvider.get(assignment.providerId);
+    if (!latest || bookingStart(assignment.bookingDate, assignment.bookingTime) > bookingStart(latest.bookingDate, latest.bookingTime)) {
+      latestAutoAssignmentByProvider.set(assignment.providerId, assignment);
+    }
+  }
+  const eligible = townCandidates.filter((provider) => {
+    const latestAssignment = latestAutoAssignmentByProvider.get(provider.id);
+    const cooldownEnd = latestAssignment && cooldownEndsAt(latestAssignment);
+    return !cooldownEnd || scheduledStart >= cooldownEnd;
+  });
+  if (eligible.length === 0) return null;
 
   const load = await prisma.booking.groupBy({
     by: ['providerId'],
     where: {
-      providerId: { in: candidates.map((c) => c.id) },
+      providerId: { in: eligible.map((c) => c.id) },
       status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
     },
     _count: { _all: true },
   });
   const loadMap = new Map(load.map((l) => [l.providerId, l._count._all]));
 
-  return candidates.reduce((best, c) =>
+  return eligible.reduce((best, c) =>
     (loadMap.get(c.id) || 0) < (loadMap.get(best.id) || 0) ? c : best
   );
 }
@@ -60,7 +124,10 @@ router.post('/', async (req, res) => {
 
   const pin_code = Math.floor(1000 + Math.random() * 9000).toString();
 
-  const provider = await pickProvider(service.category.name);
+  const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true } });
+  const town = normalizeTown(customer?.town);
+  const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time);
+  const provider = shouldAutoAssign ? await pickProvider(service.category.name, town, booking_date, booking_time) : null;
   const provider_id = provider ? provider.id : null;
   const status = provider_id ? 'ASSIGNED' : 'PENDING';
 
@@ -71,7 +138,9 @@ router.post('/', async (req, res) => {
       serviceId,
       bookingDate: booking_date,
       bookingTime: booking_time.trim().toUpperCase(),
+      town,
       status,
+      autoAssigned: Boolean(provider_id),
       pinCode: pin_code,
       totalPrice: service.price,
     },
@@ -103,6 +172,7 @@ router.get('/my', async (req, res) => {
     pinCode: undefined,
     pinAttempts: undefined,
     pinLockedUntil: undefined,
+    expectedEndTime: undefined,
     pin_code: b.status === 'CANCELLED' ? undefined : b.pinCode,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
@@ -112,7 +182,8 @@ router.get('/my', async (req, res) => {
   })));
 });
 
-// Assigned bookings (provider): own bookings + unassigned PENDING pool in the provider's category
+// Assigned bookings (provider): own bookings plus same-category manual jobs in served towns.
+// Legacy bookings without a town remain visible to every provider in that category.
 router.get('/assigned', async (req, res) => {
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
@@ -127,7 +198,9 @@ router.get('/assigned', async (req, res) => {
     include: { service: { include: { category: true } }, user: true },
     orderBy: { id: 'desc' },
   });
-  res.json(bookings.map((b) => ({
+  res.json(bookings
+    .filter((b) => b.providerId === provider.id || !b.town || servesTown(provider, b.town))
+    .map((b) => ({
     ...b,
     pinCode: undefined,
     pinAttempts: undefined,
@@ -169,6 +242,9 @@ router.put('/:id/status', async (req, res) => {
     const svc = await prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } });
     if (svc?.category?.name !== provider.category) {
       return res.status(403).json({ error: 'This booking belongs to another service category' });
+    }
+    if (booking.town && !servesTown(provider, booking.town)) {
+      return res.status(403).json({ error: 'You do not serve this booking town' });
     }
   }
 
@@ -255,6 +331,23 @@ router.put('/:id/status', async (req, res) => {
   }
 
   res.json({ message: `Booking status updated to ${nextStatus.toLowerCase()}`, status: nextStatus.toLowerCase() });
+});
+
+// Internal provider scheduling only. Customer endpoints deliberately omit this field.
+router.put('/:id/schedule', async (req, res) => {
+  const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  const booking = await prisma.booking.findFirst({ where: { id: Number(req.params.id), providerId: provider.id } });
+  if (!booking) return res.status(404).json({ error: 'Booking not found or not assigned to you' });
+
+  const expectedEndTime = new Date(req.body.expected_end_time);
+  const start = bookingStart(booking.bookingDate, booking.bookingTime);
+  const latestAllowed = new Date(start.getTime() + AUTO_ASSIGNMENT_COOLDOWN_MS);
+  if (Number.isNaN(expectedEndTime.getTime()) || expectedEndTime <= start || expectedEndTime > latestAllowed) {
+    return res.status(400).json({ error: 'expected_end_time must be after the booking start and no later than its 6-hour cooldown end' });
+  }
+  await prisma.booking.update({ where: { id: booking.id }, data: { expectedEndTime } });
+  res.json({ message: 'Expected end time saved', expected_end_time: expectedEndTime });
 });
 
 // Cancel own pending/assigned booking (customer)

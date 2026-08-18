@@ -52,25 +52,25 @@ async function main() {
   }
 
   // Demo accounts — every password is bcrypt-hashed (10 rounds) before storage
-  const ensure = async (name, email, phone, role, nic, category, password) => {
+  const ensure = async (name, email, phone, role, nic, category, password, town = null, serviceTowns = '') => {
     const pwHash = bcrypt.hashSync(password, 10);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, role } });
+      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, role, town } });
       return;
     }
-    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', role } });
+    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', town, role } });
     if (role === 'PROVIDER') {
       await prisma.provider.upsert({
         where: { userId: user.id },
-        update: {},
-        create: { userId: user.id, nic: nic || '123456789V', category: category || 'Auto Care', kycStatus: 'APPROVED' },
+        update: { serviceTowns },
+        create: { userId: user.id, nic: nic || '123456789V', category: category || 'Auto Care', serviceTowns, kycStatus: 'APPROVED' },
       });
     }
   };
 
-  await ensure('Luxora Customer', 'customer@luxora.lk', '0771000001', 'CUSTOMER', null, null, CUSTOMER_PASSWORD);
-  await ensure('Luxora Provider', 'provider@luxora.lk', '0771000002', 'PROVIDER', '123456789V', 'Auto Care', PROVIDER_PASSWORD);
+  await ensure('Luxora Customer', 'customer@luxora.lk', '0771000001', 'CUSTOMER', null, null, CUSTOMER_PASSWORD, 'Colombo');
+  await ensure('Luxora Provider', 'provider@luxora.lk', '0771000002', 'PROVIDER', '123456789V', 'Auto Care', PROVIDER_PASSWORD, null, 'Colombo, Colombo 03');
   await ensure('Luxora Admin', 'admin@luxora.lk', '0771000003', 'ADMIN', null, null, ADMIN_PASSWORD);
 
   console.log('Seed complete.');

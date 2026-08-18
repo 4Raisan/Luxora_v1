@@ -12,7 +12,7 @@ const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
 
 // Register (customer or provider only — admin accounts are seeded, never self-registered)
 router.post('/register', authLimiter, async (req, res) => {
-  const { name, email, password, phone, role, nic, category } = req.body;
+  const { name, email, password, phone, town, service_towns, role, nic, category } = req.body;
 
   if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Name is required' });
   if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
@@ -32,14 +32,19 @@ router.post('/register', authLimiter, async (req, res) => {
       providerCategory = category;
     }
 
+    const providerTowns = normalizeServiceTowns(service_towns);
+    if (userRole === 'PROVIDER' && providerTowns === null) {
+      return res.status(400).json({ error: 'service_towns must contain at most 10 towns' });
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { name: name.trim(), email: normalizedEmail, passwordHash, phone: phone || '', role: userRole },
+      data: { name: name.trim(), email: normalizedEmail, passwordHash, phone: phone || '', town: normalizeTown(town), role: userRole },
     });
 
     if (userRole === 'PROVIDER') {
       await prisma.provider.create({
-        data: { userId: user.id, nic: nic || '', category: providerCategory, kycStatus: 'PENDING' },
+        data: { userId: user.id, nic: nic || '', category: providerCategory, serviceTowns: providerTowns || '', kycStatus: 'PENDING' },
       });
     }
 
@@ -49,6 +54,17 @@ router.post('/register', authLimiter, async (req, res) => {
     res.status(500).json({ error: 'Registration failed', detail: err.message });
   }
 });
+
+function normalizeTown(value) {
+  return typeof value === 'string' && value.trim() ? value.trim().replace(/\s+/g, ' ') : null;
+}
+
+function normalizeServiceTowns(value) {
+  if (value === undefined || value === null || value === '') return '';
+  const towns = String(value).split(',').map((town) => normalizeTown(town)).filter(Boolean);
+  if (towns.length > 10) return null;
+  return [...new Map(towns.map((town) => [town.toLocaleLowerCase(), town])).values()].join(', ');
+}
 
 // Login — every account authenticates through the normal bcrypt.compare flow
 router.post('/login', authLimiter, async (req, res) => {

@@ -41,6 +41,7 @@ model User {
   email         String         @unique
   passwordHash  String
   phone         String?
+  town          String?
   role          Role           @default(CUSTOMER)
   createdAt     DateTime       @default(now())
 
@@ -62,6 +63,7 @@ model Provider {
   kycStatus          KycStatus @default(PENDING)
   category           String
   availabilityStatus String    @default("available")
+  serviceTowns       String    @default("") // comma-separated list, maximum 10 towns
   earnings           Float     @default(0.0)
 
   bookings           Booking[]
@@ -131,7 +133,10 @@ model Booking {
   service     Service       @relation(fields: [serviceId], references: [id])
   bookingDate String
   bookingTime String
+  town        String?
   status      BookingStatus @default(PENDING)
+  autoAssigned    Boolean   @default(false)
+  expectedEndTime DateTime?
   pinCode         String
   pinAttempts     Int      @default(0)
   pinLockedUntil  DateTime?

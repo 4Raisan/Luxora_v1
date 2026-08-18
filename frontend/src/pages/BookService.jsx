@@ -6,7 +6,7 @@ import './BookService.css'
 
 export default function BookService() {
   const navigate = useNavigate()
-  const [token] = useState(localStorage.getItem('luxora_token') || '')
+  const [token] = useState(localStorage.getItem('luxora_token') || sessionStorage.getItem('token') || '')
   const [services, setServices] = useState([])
   const [categories, setCategories] = useState([])
   const [serviceId, setServiceId] = useState('')

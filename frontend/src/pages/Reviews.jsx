@@ -6,7 +6,7 @@ import './Reviews.css'
 
 export default function Reviews() {
   const navigate = useNavigate()
-  const [token] = useState(localStorage.getItem('luxora_token') || '')
+  const [token] = useState(localStorage.getItem('luxora_token') || sessionStorage.getItem('token') || '')
   const [bookings, setBookings] = useState([])
   const [selected, setSelected] = useState(null)
   const [rating, setRating] = useState(0)
