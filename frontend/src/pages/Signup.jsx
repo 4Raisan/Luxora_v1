@@ -82,6 +82,12 @@ const Signup = () => {
         localStorage.setItem('luxora_all_users', JSON.stringify([newUserRecord, ...existing]))
       } catch (_) {}
 
+      const userEmail = (userData.email || form.email).toLowerCase()
+      localStorage.setItem('activePackages_' + userEmail, JSON.stringify([]))
+      localStorage.setItem('luxora_customer_bookings_' + userEmail, JSON.stringify([]))
+      localStorage.setItem('custom_requests_' + userEmail, JSON.stringify([]))
+      localStorage.setItem('notifications_' + userEmail, JSON.stringify([]))
+
       sessionStorage.setItem('token', data.token || 'demo-token')
       sessionStorage.setItem('user', JSON.stringify(userData))
       sessionStorage.setItem('isCustomerLoggedIn', 'true')
@@ -103,6 +109,10 @@ const Signup = () => {
         }
         localStorage.setItem('luxora_all_users', JSON.stringify([newUserRecord, ...existing]))
       } catch (_) {}
+
+      const userEmail = form.email.toLowerCase()
+      localStorage.setItem('activePackages_' + userEmail, JSON.stringify([]))
+      localStorage.setItem('luxora_customer_bookings_' + userEmail, JSON.stringify([]))
 
       // Demo / fallback mode if backend API is not responding
       sessionStorage.setItem('isCustomerLoggedIn', 'true')

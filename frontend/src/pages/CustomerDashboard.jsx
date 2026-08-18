@@ -196,14 +196,17 @@ const CustomerDashboard = () => {
   const [activePackages, setActivePackages] = useState(() => {
     try {
       const u = sessionStorage.getItem('user')
-      const email = u ? JSON.parse(u).email : 'guest'
+      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
       const saved = localStorage.getItem('activePackages_' + email) || sessionStorage.getItem('activePackages')
       if (saved) return JSON.parse(saved)
+      if (email === 'tester@gmail.com' || email === 'customer@luxora.lk' || email === 'deshan@luxora.com') {
+        return [
+          { id: 1, title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', period: '/month', cat: 'auto' },
+          { id: 2, title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', period: '/month', cat: 'garden' }
+        ]
+      }
     } catch (_) {}
-    return [
-      { id: 1, title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', period: '/month', cat: 'auto' },
-      { id: 2, title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', period: '/month', cat: 'garden' }
-    ]
+    return []
   })
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
@@ -285,7 +288,22 @@ const CustomerDashboard = () => {
     return { auto, garden, pet }
   }
 
-  const tokens = calculateServiceTokens(activePackages)
+  const [usedTokens, setUsedTokens] = useState(() => {
+    try {
+      const u = sessionStorage.getItem('user')
+      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
+      const saved = localStorage.getItem('luxora_used_tokens_' + email)
+      if (saved) return JSON.parse(saved)
+    } catch (_) {}
+    return { auto: 0, garden: 0, pet: 0 }
+  })
+
+  const baseTokens = calculateServiceTokens(activePackages)
+  const tokens = {
+    auto: Math.max(0, baseTokens.auto - (usedTokens.auto || 0)),
+    garden: Math.max(0, baseTokens.garden - (usedTokens.garden || 0)),
+    pet: Math.max(0, baseTokens.pet - (usedTokens.pet || 0))
+  }
 
   const getRenewalDate = (pkg) => {
     const base = pkg && pkg.purchasedAt ? pkg.purchasedAt : Date.now()
@@ -299,6 +317,10 @@ const CustomerDashboard = () => {
   // Manage Active Package & Cancellation State
   const [selectedActivePackageToManage, setSelectedActivePackageToManage] = useState(null)
   const [showCancelConfirmStep, setShowCancelConfirmStep] = useState(false)
+  const [showCancelPackageConfirmModal, setShowCancelPackageConfirmModal] = useState(false)
+  const [packageToCancel, setPackageToCancel] = useState(null)
+  const [showCancelledSuccessModal, setShowCancelledSuccessModal] = useState(false)
+  const [cancelledPackageTitle, setCancelledPackageTitle] = useState('')
   const [bookingBillingType, setBookingBillingType] = useState('auto_renew') // 'auto_renew' | 'one_time'
   const [selectedReceiptItem, setSelectedReceiptItem] = useState(null)
 
@@ -478,18 +500,15 @@ const CustomerDashboard = () => {
   const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
   const [customerActiveBookings, setCustomerActiveBookings] = useState(() => {
     try {
-      const stored = localStorage.getItem('luxora_customer_bookings')
+      const u = sessionStorage.getItem('user')
+      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
+      const stored = localStorage.getItem('luxora_customer_bookings_' + email) || localStorage.getItem('luxora_customer_bookings')
       if (stored) {
         const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        if (Array.isArray(parsed)) return parsed
       }
     } catch (_) {}
-    return [
-      { id: 'B-011', service: 'Auto Care', date: '2026-08-17', time: '10:30 AM', pin: '8942', endPin: '9412', location: 'No. 42, Galle Road, Colombo 03', status: 'CONFIRMED', providerName: 'Nimal Silva', providerRole: 'Auto Detailing Lead' },
-      { id: 'B-012', service: 'Garden Care', date: '2026-08-17', time: '02:00 PM', pin: '3157', endPin: '8204', location: 'No. 18, Gregorys Road, Colombo 07', status: 'CONFIRMED', providerName: 'Kamal Perera', providerRole: 'Garden & Turf Specialist' },
-      { id: 'B-013', service: 'Pet Care', date: '2026-08-18', time: '11:00 AM', pin: '6409', endPin: '5193', location: 'No. 5, Dharmapala Mawatha, Colombo 03', status: 'CONFIRMED', providerName: 'Sunil Fernando', providerRole: 'Pet Spa Specialist' },
-      { id: 'B-014', service: 'Dual Auto + Garden', date: '2026-08-19', time: '09:30 AM', pin: '7281', endPin: '6341', location: 'No. 88, Ward Place, Colombo 07', status: 'CONFIRMED', providerName: 'Marco Vance', providerRole: 'Senior Concierge' }
-    ]
+    return []
   })
 
   const handleChangeBookingLocation = (bookingId) => {
@@ -518,10 +537,14 @@ const CustomerDashboard = () => {
   useEffect(() => {
     const syncActiveBookings = () => {
       try {
-        const stored = localStorage.getItem('luxora_customer_bookings')
+        const u = sessionStorage.getItem('user')
+        const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
+        const stored = localStorage.getItem('luxora_customer_bookings_' + email) || localStorage.getItem('luxora_customer_bookings')
         if (stored) {
           const parsed = JSON.parse(stored)
           if (Array.isArray(parsed)) setCustomerActiveBookings(parsed)
+        } else {
+          setCustomerActiveBookings([])
         }
       } catch (_) {}
     }
@@ -596,6 +619,10 @@ const CustomerDashboard = () => {
     ampm: 'AM'
   })
   const [serviceBookingConfirmation, setServiceBookingConfirmation] = useState(null)
+  const [showInsufficientTokensModal, setShowInsufficientTokensModal] = useState(false)
+  const [insufficientTokenCategory, setInsufficientTokenCategory] = useState('')
+  const [showSessionConfirmedModal, setShowSessionConfirmedModal] = useState(false)
+  const [confirmedModalDetails, setConfirmedModalDetails] = useState(null)
 
   const handleConfirmServiceBooking = () => {
     if (!userAddress || (!userAddress.street && !userAddress.city)) {
@@ -606,56 +633,91 @@ const CustomerDashboard = () => {
     }
 
     if (!serviceBookingForm.packageId) {
-      alert('Please select an active package to book a session.')
+      alert('Please select a category to book a session.')
       return
     }
 
-    const selectedPkg = activePackages.find(p => String(p.id) === String(serviceBookingForm.packageId))
-    if (!selectedPkg) return
+    const cat = serviceBookingForm.packageId || 'auto'
+    const catLabels = { auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }
+    const categoryName = catLabels[cat] || 'Service'
+
+    if ((tokens[cat] || 0) <= 0) {
+      setInsufficientTokenCategory(categoryName)
+      setShowInsufficientTokensModal(true)
+      return
+    }
+
+    const selectedPkg = activePackages.find(p => String(p.id) === String(serviceBookingForm.packageId) || p.cat === serviceBookingForm.packageId)
+    const serviceTitle = categoryName
+    const servicePrice = selectedPkg ? selectedPkg.price : 'LKR 9,000'
 
     const selectedTimeFormatted = `${serviceBookingForm.hour}:${serviceBookingForm.minute} ${serviceBookingForm.ampm}`
     const randomPin = Math.floor(1000 + Math.random() * 9000).toString()
     const randomEndPin = Math.floor(1000 + Math.random() * 9000).toString()
 
-    const stored = localStorage.getItem('luxora_customer_bookings')
+    const userLoc = userAddress && (userAddress.street || userAddress.city)
+      ? `${userAddress.street}, ${userAddress.city}${userAddress.district ? `, ${userAddress.district}` : ''}`
+      : 'No. 42, Galle Road, Colombo 03'
+
+    const u = sessionStorage.getItem('user')
+    const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
+    const userBookingsKey = 'luxora_customer_bookings_' + email
+
+    const stored = localStorage.getItem(userBookingsKey) || localStorage.getItem('luxora_customer_bookings')
     const existing = stored ? JSON.parse(stored) : []
     const newB = {
       id: `B-${String(existing.length + 11).padStart(3, '0')}`,
       customer: (currentUser && currentUser.name) ? currentUser.name : 'Ashan Perera',
-      service: selectedPkg.title,
+      service: serviceTitle,
       status: 'CONFIRMED',
       color: '#4ade80',
       date: serviceBookingForm.date,
       time: selectedTimeFormatted,
-      amount: selectedPkg.price || 'LKR 9,000',
+      amount: servicePrice,
       pin: randomPin,
       endPin: randomEndPin,
-      location: 'No. 42, Galle Road, Colombo 03',
+      location: userLoc,
       providerName: 'Nimal Silva',
-      providerRole: 'Lead Care Specialist'
+      providerRole: 'Lead Care Specialist',
+      isSession: true
     }
 
+    const newUsed = {
+      ...usedTokens,
+      [cat]: (usedTokens[cat] || 0) + 1
+    }
+    setUsedTokens(newUsed)
+
     try {
-      localStorage.setItem('luxora_customer_bookings', JSON.stringify([newB, ...existing]))
+      localStorage.setItem('luxora_used_tokens_' + email, JSON.stringify(newUsed))
+      const updated = [newB, ...existing]
+      localStorage.setItem(userBookingsKey, JSON.stringify(updated))
+      localStorage.setItem('luxora_customer_bookings', JSON.stringify(updated))
       window.dispatchEvent(new Event('luxora_bookings_updated'))
     } catch (_) {}
 
     addNotification({
       title: '📅 Service Session Booked',
-      message: `Your session for ${selectedPkg.title} has been confirmed for ${serviceBookingForm.date} at ${selectedTimeFormatted}.`,
-      category: selectedPkg.cat || 'system'
+      message: `Your session for ${serviceTitle} has been confirmed for ${serviceBookingForm.date} at ${selectedTimeFormatted}.`,
+      category: cat
     })
 
     addHistoryRecord({
-      service: selectedPkg.title,
+      service: serviceTitle,
       tier: 'Service Session',
-      amount: selectedPkg.price || 'LKR 9,000',
+      amount: servicePrice,
       status: 'Completed',
-      cat: selectedPkg.cat || 'system'
+      cat: cat
     })
 
     setServiceBookingConfirmation(newB)
-    alert(`🎉 Service Session Confirmed for ${selectedPkg.title} on ${serviceBookingForm.date} at ${selectedTimeFormatted}!`)
+    setConfirmedModalDetails({
+      ...newB,
+      categoryName,
+      remainingTokens: Math.max(0, (tokens[cat] || 1) - 1)
+    })
+    setShowSessionConfirmedModal(true)
+    setServiceBookingForm(prev => ({ ...prev, packageId: '' }))
   }
 
   // Custom Request State
@@ -664,19 +726,26 @@ const CustomerDashboard = () => {
     const email = getUserEmail()
     try {
       const stored = localStorage.getItem('custom_requests_' + email)
-      if (stored) return JSON.parse(stored)
-    } catch (_) {}
-    return [
-      {
-        id: 'REQ-001',
-        title: 'Specialized Villa Deep Marble Polishing',
-        category: 'Home & Estate Care',
-        date: '2026-08-20',
-        time: '10:00 AM',
-        notes: 'High-gloss diamond pad restoration for ground floor living area.',
-        status: 'Under Concierge Review'
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) return parsed
       }
-    ]
+    } catch (_) {}
+    const isDemoAccount = ['tester@gmail.com', 'customer@luxora.lk', 'deshan@luxora.com', 'ashan@gmail.com'].includes(email)
+    if (isDemoAccount) {
+      return [
+        {
+          id: 'REQ-001',
+          title: 'Specialized Villa Deep Marble Polishing',
+          category: 'Home & Estate Care',
+          date: '2026-08-20',
+          time: '10:00 AM',
+          notes: 'High-gloss diamond pad restoration for ground floor living area.',
+          status: 'Under Concierge Review'
+        }
+      ]
+    }
+    return []
   })
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
@@ -724,16 +793,16 @@ const CustomerDashboard = () => {
   }
 
   const handleCancelSubscription = (pkgId) => {
-    const targetId = pkgId || (selectedActivePackageToManage && selectedActivePackageToManage.id)
-    if (!targetId && targetId !== 0) {
+    const targetId = (pkgId !== undefined && pkgId !== null) ? pkgId : ((selectedActivePackageToManage && selectedActivePackageToManage.id) || (packageToCancel && packageToCancel.id))
+    if (targetId === undefined || targetId === null) {
       alert('Package ID missing.')
       return
     }
 
     const u = sessionStorage.getItem('user')
-    const email = u ? JSON.parse(u).email : (currentUser && currentUser.email ? currentUser.email : 'guest')
+    const email = u ? (JSON.parse(u).email || '').toLowerCase() : (currentUser && currentUser.email ? currentUser.email.toLowerCase() : 'guest')
 
-    const cancelledPkg = activePackages.find(p => String(p.id) === String(targetId))
+    const cancelledPkg = activePackages.find(p => String(p.id) === String(targetId)) || packageToCancel
     const updated = activePackages.filter(p => String(p.id) !== String(targetId))
 
     setActivePackages(updated)
@@ -741,6 +810,7 @@ const CustomerDashboard = () => {
       localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
       sessionStorage.setItem('activePackages', JSON.stringify(updated))
       window.dispatchEvent(new Event('luxora_packages_updated'))
+      window.dispatchEvent(new Event('storage'))
     } catch (_) {}
 
     if (cancelledPkg) {
@@ -761,10 +831,11 @@ const CustomerDashboard = () => {
 
     setSelectedActivePackageToManage(null)
     setShowCancelConfirmStep(false)
-    const toastMsg = `⚠️ Subscription for "${cancelledPkg ? cancelledPkg.title : 'package'}" has been cancelled.`
-    setBookingSuccessMsg(toastMsg)
-    alert(`Subscription for "${cancelledPkg ? cancelledPkg.title : 'package'}" has been cancelled successfully.`)
-    setTimeout(() => setBookingSuccessMsg(''), 4000)
+    setPackageToCancel(null)
+    setShowCancelPackageConfirmModal(false)
+
+    setCancelledPackageTitle(cancelledPkg ? cancelledPkg.title : 'Package')
+    setShowCancelledSuccessModal(true)
   }
 
   const handleConfirmBooking = (pkg) => {
@@ -810,29 +881,7 @@ const CustomerDashboard = () => {
       cat: pkg.cat || 'system'
     })
 
-    try {
-      const stored = localStorage.getItem('luxora_customer_bookings')
-      const existing = stored ? JSON.parse(stored) : []
-      const now = new Date()
-      const yyyy = now.getFullYear()
-      const mm = String(now.getMonth() + 1).padStart(2, '0')
-      const dd = String(now.getDate()).padStart(2, '0')
-      const realDate = `${yyyy}-${mm}-${dd}`
-      const realTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
 
-      const newB = {
-        id: `B-${String(existing.length + 11).padStart(3, '0')}`,
-        customer: (currentUser && currentUser.name) ? currentUser.name : 'Ashan Perera',
-        service: pkg.title,
-        status: 'CONFIRMED',
-        color: '#4ade80',
-        date: realDate,
-        time: realTime,
-        amount: pkg.price || 'LKR 12,000'
-      }
-      localStorage.setItem('luxora_customer_bookings', JSON.stringify([newB, ...existing]))
-      window.dispatchEvent(new Event('luxora_bookings_updated'))
-    } catch (_) {}
 
     // Send API booking request if token is present
     const token = sessionStorage.getItem('token')
@@ -952,29 +1001,34 @@ const CustomerDashboard = () => {
     const saved = localStorage.getItem('notifications_' + email)
     if (saved) {
       try {
-        return JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
       } catch (_) {}
     }
-    const defaultNotifs = [
-      {
-        id: 1,
-        title: 'Booking Confirmed',
-        message: 'Your Auto Care Premium session is confirmed for tomorrow at 10:00 AM.',
-        time: '10 mins ago',
-        unread: true,
-        category: 'auto'
-      },
-      {
-        id: 2,
-        title: 'Concierge Specialist Assigned',
-        message: 'Senior Specialist Kamal Perera has been assigned to your Garden Care package.',
-        time: '1 hour ago',
-        unread: true,
-        category: 'garden'
-      }
-    ]
-    localStorage.setItem('notifications_' + email, JSON.stringify(defaultNotifs))
-    return defaultNotifs
+    const isDemoAccount = ['tester@gmail.com', 'customer@luxora.lk', 'deshan@luxora.com', 'ashan@gmail.com'].includes(email)
+    if (isDemoAccount) {
+      const defaultNotifs = [
+        {
+          id: 1,
+          title: 'Booking Confirmed',
+          message: 'Your Auto Care Premium session is confirmed for tomorrow at 10:00 AM.',
+          time: '10 mins ago',
+          unread: true,
+          category: 'auto'
+        },
+        {
+          id: 2,
+          title: 'Concierge Specialist Assigned',
+          message: 'Senior Specialist Kamal Perera has been assigned to your Garden Care package.',
+          time: '1 hour ago',
+          unread: true,
+          category: 'garden'
+        }
+      ]
+      try { localStorage.setItem('notifications_' + email, JSON.stringify(defaultNotifs)) } catch (_) {}
+      return defaultNotifs
+    }
+    return []
   })
 
   const addNotification = (notif) => {
@@ -1265,33 +1319,9 @@ const CustomerDashboard = () => {
                       <h4 className="cd-package-card__title">{pkg.title}</h4>
                       <p className="cd-package-card__tier">{pkg.tier}</p>
                     </div>
-                    <div className="cd-package-card__price" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
-                      <div>
-                        <span className="cd-price-amount">{pkg.price}</span>
-                        <span className="cd-price-period">{pkg.period || '/month'}</span>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (window.confirm(`Are you sure you want to cancel your ${pkg.title} package subscription?`)) {
-                            handleCancelSubscription(pkg.id)
-                          }
-                        }}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          border: '1px solid #ef4444',
-                          color: '#ef4444',
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          marginTop: '0.25rem'
-                        }}
-                        title="Cancel package subscription"
-                      >
-                        Cancel Package ✕
-                      </button>
+                    <div className="cd-package-card__price">
+                      <span className="cd-price-amount">{pkg.price}</span>
+                      <span className="cd-price-period">{pkg.period || '/month'}</span>
                     </div>
                   </div>
                 ))}
@@ -1302,264 +1332,269 @@ const CustomerDashboard = () => {
               </div>
             </section>
 
-            {/* ── SERVICE BOOKING LUXURY MODULE ── */}
-            <section
-              className="cd-section animate-fade-in"
+            {/* ── SERVICE BOOKING & ACTIVE BOOKINGS DUO GRID LAYOUT ── */}
+            <div
+              className="cd-duo-booking-grid"
               style={{
-                background: 'linear-gradient(145deg, #121214 0%, #1a1a1f 100%)',
-                border: '1px solid rgba(201, 168, 76, 0.35)',
-                borderRadius: '20px',
-                padding: '2rem',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05)',
-                position: 'relative',
-                overflow: 'hidden'
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
+                gap: '1.75rem',
+                alignItems: 'stretch',
+                marginTop: '1.75rem'
               }}
             >
-              {/* Background ambient glow */}
-              <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '180px', height: '180px', background: 'radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
+              {/* ── LEFT COLUMN: SERVICE BOOKING LUXURY MODULE ── */}
+              <section
+                className="cd-section animate-fade-in"
+                style={{
+                  background: 'linear-gradient(145deg, #121214 0%, #1a1a1f 100%)',
+                  border: '1px solid rgba(201, 168, 76, 0.35)',
+                  borderRadius: '20px',
+                  padding: '1.75rem',
+                  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  margin: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  height: '100%'
+                }}
+              >
+                {/* Background ambient glow */}
+                <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '180px', height: '180px', background: 'radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(201, 168, 76, 0.12)', border: '1px solid rgba(201, 168, 76, 0.3)', padding: '0.25rem 0.75rem', borderRadius: '20px', marginBottom: '0.5rem' }}>
-                    <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.1em' }}>⚡ CONCIERGE SCHEDULER</span>
-                  </div>
-                  <h3 style={{ margin: 0, color: '#fff', fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                    SERVICE SESSION BOOKING
-                  </h3>
-                  <p style={{ color: '#aaa', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
-                    Schedule a service dispatch directly from your active packages with exact date &amp; time breakdown
-                  </p>
-                </div>
-              </div>
-
-              {/* ── STEP 1: SELECT YOUR ACTIVE PACKAGE (Visual Cards Displayed All at Once) ── */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.85rem' }}>
-                  <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.75rem', fontWeight: 900, width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
-                  <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.05em' }}>SELECT AN ACTIVE PACKAGE:</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-                  {activePackages.map(pkg => {
-                    const isSelected = String(serviceBookingForm.packageId) === String(pkg.id)
-                    return (
-                      <div
-                        key={pkg.id}
-                        onClick={() => setServiceBookingForm(prev => ({ ...prev, packageId: pkg.id }))}
-                        role="button"
-                        tabIndex={0}
-                        style={{
-                          background: isSelected ? 'rgba(201, 168, 76, 0.12)' : '#161619',
-                          border: isSelected ? '2px solid var(--gold, #c9a84c)' : '1px solid #2a2a30',
-                          borderRadius: '14px',
-                          padding: '1.1rem',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          position: 'relative',
-                          boxShadow: isSelected ? '0 0 20px rgba(201, 168, 76, 0.2)' : 'none'
-                        }}
-                      >
-                        {isSelected && (
-                          <span style={{ position: 'absolute', top: '10px', right: '10px', background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.65rem', fontWeight: 900, padding: '0.2rem 0.5rem', borderRadius: '12px' }}>
-                            ✓ SELECTED
-                          </span>
-                        )}
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                          <div style={{ background: isSelected ? 'var(--gold, #c9a84c)' : '#222', color: isSelected ? '#000' : 'var(--gold, #c9a84c)', width: '42px', height: '42px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {pkg.cat === 'auto' && <CarIcon />}
-                            {pkg.cat === 'garden' && <LeafIcon />}
-                            {pkg.cat === 'pet' && <PawIcon />}
-                            {pkg.cat === 'system' && <ShieldIcon />}
-                          </div>
-                          <div>
-                            <h4 style={{ color: '#fff', margin: '0 0 0.25rem 0', fontSize: '1.05rem', fontWeight: 800 }}>{pkg.title}</h4>
-                            <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                              🗓 Renewal Date: {getRenewalDate(pkg)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* ── STEP 2 & 3: DATE & TIME SELECTION ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
-                {/* Step 2 Card */}
-                <div style={{ background: '#18181c', border: '1px solid #2a2a30', borderRadius: '14px', padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
-                    <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.7rem', fontWeight: 900, width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
-                    <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.05em' }}>CALENDAR DATE</span>
-                  </div>
-                  <input
-                    type="date"
-                    value={serviceBookingForm.date}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setServiceBookingForm(prev => ({ ...prev, date: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      background: '#0d0d0f',
-                      color: '#fff',
-                      border: '1px solid #333',
-                      padding: '0.75rem 0.9rem',
-                      borderRadius: '10px',
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                {/* Step 3 Card: Broken down into Hours, Minutes, and AM/PM */}
-                <div style={{ background: '#18181c', border: '1px solid #2a2a30', borderRadius: '14px', padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
-                    <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.7rem', fontWeight: 900, width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
-                    <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.05em' }}>TIME (HOURS, MIN, AM/PM)</span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
-                    {/* Hours */}
-                    <div>
-                      <label style={{ display: 'block', color: '#888', fontSize: '0.65rem', fontWeight: 700, marginBottom: '0.2rem' }}>HOUR</label>
-                      <select
-                        value={serviceBookingForm.hour}
-                        onChange={(e) => setServiceBookingForm(prev => ({ ...prev, hour: e.target.value }))}
-                        style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.3rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
-                      >
-                        {['01','02','03','04','05','06','07','08','09','10','11','12'].map(h => (
-                          <option key={h} value={h}>{h}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Minutes */}
-                    <div>
-                      <label style={{ display: 'block', color: '#888', fontSize: '0.65rem', fontWeight: 700, marginBottom: '0.2rem' }}>MIN</label>
-                      <select
-                        value={serviceBookingForm.minute}
-                        onChange={(e) => setServiceBookingForm(prev => ({ ...prev, minute: e.target.value }))}
-                        style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.3rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
-                      >
-                        {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* AM/PM */}
-                    <div>
-                      <label style={{ display: 'block', color: '#888', fontSize: '0.65rem', fontWeight: 700, marginBottom: '0.2rem' }}>PERIOD</label>
-                      <select
-                        value={serviceBookingForm.ampm}
-                        onChange={(e) => setServiceBookingForm(prev => ({ ...prev, ampm: e.target.value }))}
-                        style={{ width: '100%', background: '#0d0d0f', color: 'var(--gold, #c9a84c)', border: '1px solid var(--gold, #c9a84c)', padding: '0.65rem 0.3rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 900, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={handleConfirmServiceBooking}
-                  style={{
-                    background: 'linear-gradient(135deg, #d4af37 0%, #aa7c11 100%)',
-                    color: '#000',
-                    border: 'none',
-                    padding: '0.9rem 2.2rem',
-                    borderRadius: '12px',
-                    fontWeight: 800,
-                    fontSize: '0.92rem',
-                    letterSpacing: '0.04em',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 20px rgba(201, 168, 76, 0.35)'
-                  }}
-                >
-                  CONFIRM &amp; BOOK SERVICE SESSION ✨
-                </button>
-              </div>
-
-              {/* Booking Confirmation Card / Tab */}
-              {serviceBookingConfirmation && (
-                <div
-                  style={{
-                    marginTop: '1.75rem',
-                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(201, 168, 76, 0.1) 100%)',
-                    border: '1px solid var(--gold, #c9a84c)',
-                    borderRadius: '14px',
-                    padding: '1.5rem',
-                    display: 'flex',
-                    justify: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '1.25rem',
-                    boxShadow: '0 0 30px rgba(201, 168, 76, 0.15)'
-                  }}
-                  className="animate-fade-in"
-                >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
-                      <span style={{ background: '#22c55e', color: '#000', fontSize: '0.72rem', fontWeight: 900, padding: '0.25rem 0.65rem', borderRadius: '6px', letterSpacing: '0.05em' }}>
-                        ✓ CONFIRMED BOOKING TAB
-                      </span>
-                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800 }}>{serviceBookingConfirmation.id}</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(201, 168, 76, 0.12)', border: '1px solid rgba(201, 168, 76, 0.3)', padding: '0.25rem 0.75rem', borderRadius: '20px', marginBottom: '0.5rem' }}>
+                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.1em' }}>⚡ CONCIERGE SCHEDULER</span>
                     </div>
-                    <h4 style={{ color: '#fff', margin: '0 0 0.35rem 0', fontSize: '1.2rem', fontWeight: 800 }}>{serviceBookingConfirmation.service}</h4>
-                    <p style={{ color: '#ccc', fontSize: '0.85rem', margin: 0 }}>
-                      Scheduled Date: <strong style={{ color: '#fff' }}>{serviceBookingConfirmation.date}</strong> · Time Slot: <strong style={{ color: 'var(--gold, #c9a84c)' }}>{serviceBookingConfirmation.time}</strong>
+                    <h3 style={{ margin: 0, color: '#fff', fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                      SERVICE SESSION BOOKING
+                    </h3>
+                    <p style={{ color: '#aaa', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
+                      Schedule a service dispatch directly from your active packages with exact date &amp; time breakdown
                     </p>
                   </div>
+                </div>
+
+                {/* ── STEP 1: SELECT CATEGORY (Always Display Auto Care, Garden Care, Pet Care) ── */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.85rem' }}>
+                    <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.75rem', fontWeight: 900, width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
+                    <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.05em' }}>SELECT CATEGORY:</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem' }}>
+                    {[
+                      { id: 'auto', title: 'Auto Care', icon: <CarIcon /> },
+                      { id: 'garden', title: 'Garden Care', icon: <LeafIcon /> },
+                      { id: 'pet', title: 'Pet Care', icon: <PawIcon /> }
+                    ].map(catItem => {
+                      const isSelected = serviceBookingForm.packageId === catItem.id
+                      const activePkg = activePackages.find(p => p.cat === catItem.id)
+                      return (
+                        <div
+                          key={catItem.id}
+                          onClick={() => setServiceBookingForm(prev => ({ ...prev, packageId: catItem.id }))}
+                          role="button"
+                          tabIndex={0}
+                          style={{
+                            background: isSelected ? 'rgba(201, 168, 76, 0.14)' : '#161619',
+                            border: isSelected ? '2px solid var(--gold, #c9a84c)' : '1px solid #2a2a30',
+                            borderRadius: '14px',
+                            padding: '0.9rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            position: 'relative',
+                            boxShadow: isSelected ? '0 0 20px rgba(201, 168, 76, 0.2)' : 'none'
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{ position: 'absolute', top: '8px', right: '8px', background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.6rem', fontWeight: 900, padding: '0.15rem 0.4rem', borderRadius: '10px' }}>
+                              ✓
+                            </span>
+                          )}
+
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+                            <div style={{ background: isSelected ? 'var(--gold, #c9a84c)' : '#222', color: isSelected ? '#000' : 'var(--gold, #c9a84c)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {catItem.icon}
+                            </div>
+                            <div>
+                              <h4 style={{ color: '#fff', margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>{catItem.title}</h4>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* ── STEP 2 & 3: DATE & TIME SELECTION ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                  {/* Step 2 Card */}
+                  <div style={{ background: '#18181c', border: '1px solid #2a2a30', borderRadius: '14px', padding: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                      <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.7rem', fontWeight: 900, width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
+                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em' }}>CALENDAR DATE</span>
+                    </div>
+                    <input
+                      type="date"
+                      value={serviceBookingForm.date}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setServiceBookingForm(prev => ({ ...prev, date: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        background: '#0d0d0f',
+                        color: '#fff',
+                        border: '1px solid #333',
+                        padding: '0.65rem 0.75rem',
+                        borderRadius: '10px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  {/* Step 3 Card: Broken down into Hours, Minutes, and AM/PM */}
+                  <div style={{ background: '#18181c', border: '1px solid #2a2a30', borderRadius: '14px', padding: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                      <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.7rem', fontWeight: 900, width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
+                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em' }}>TIME (HOURS, MIN, AM/PM)</span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem' }}>
+                      {/* Hours */}
+                      <div>
+                        <label style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>HOUR</label>
+                        <select
+                          value={serviceBookingForm.hour}
+                          onChange={(e) => setServiceBookingForm(prev => ({ ...prev, hour: e.target.value }))}
+                          style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.55rem 0.2rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
+                        >
+                          {['01','02','03','04','05','06','07','08','09','10','11','12'].map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Minutes */}
+                      <div>
+                        <label style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>MIN</label>
+                        <select
+                          value={serviceBookingForm.minute}
+                          onChange={(e) => setServiceBookingForm(prev => ({ ...prev, minute: e.target.value }))}
+                          style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.55rem 0.2rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
+                        >
+                          {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* AM/PM */}
+                      <div>
+                        <label style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>PERIOD</label>
+                        <select
+                          value={serviceBookingForm.ampm}
+                          onChange={(e) => setServiceBookingForm(prev => ({ ...prev, ampm: e.target.value }))}
+                          style={{ width: '100%', background: '#0d0d0f', color: 'var(--gold, #c9a84c)', border: '1px solid var(--gold, #c9a84c)', padding: '0.55rem 0.2rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 900, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
+                        >
+                          <option value="AM">AM</option>
+                          <option value="PM">PM</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
                   <button
-                    onClick={() => setServiceBookingConfirmation(null)}
-                    style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#fff', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                    onClick={handleConfirmServiceBooking}
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(135deg, #d4af37 0%, #aa7c11 100%)',
+                      color: '#000',
+                      border: 'none',
+                      padding: '0.85rem 1.5rem',
+                      borderRadius: '12px',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      letterSpacing: '0.04em',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 20px rgba(201, 168, 76, 0.35)'
+                    }}
                   >
-                    Dismiss Confirmation ✕
+                    CONFIRM &amp; BOOK SERVICE SESSION ✨
                   </button>
                 </div>
-              )}
-            </section>
+              </section>
 
-            {/* ── ACTIVE BOOKINGS CHART / TABLE ── */}
-            <section className="cd-section animate-fade-in" style={{ marginTop: '1.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div>
-                  <h3 className="cd-section-label" style={{ margin: 0, color: 'var(--gold, #c9a84c)' }}>ACTIVE BOOKINGS</h3>
-                  <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0.2rem 0 0 0' }}>Real-time active bookings chart with auto-generated security PINs (unlocks 30 mins before booking)</p>
+              {/* ── RIGHT COLUMN: ACTIVE BOOKINGS CHART / TABLE ── */}
+              <section
+                className="cd-section animate-fade-in"
+                style={{
+                  background: 'linear-gradient(145deg, #121214 0%, #1a1a1f 100%)',
+                  border: '1px solid rgba(201, 168, 76, 0.35)',
+                  borderRadius: '20px',
+                  padding: '1.75rem',
+                  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  margin: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  height: '100%'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div>
+                    <h3 className="cd-section-label" style={{ margin: 0, color: 'var(--gold, #c9a84c)' }}>ACTIVE BOOKINGS</h3>
+                    <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0.2rem 0 0 0' }}>Real-time active bookings chart with security PINs</p>
+                  </div>
+                  <button
+                    className="cd-btn-view-receipt"
+                    onClick={() => {
+                      setShowAllActiveBookings(true)
+                      setActiveTab('active_bookings')
+                    }}
+                    style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.4rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px' }}
+                  >
+                    View All ›
+                  </button>
                 </div>
-                <button
-                  className="cd-btn-view-receipt"
-                  onClick={() => setActiveTab('active_bookings')}
-                  style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.45rem 1.1rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px' }}
-                >
-                  View All ›
-                </button>
-              </div>
 
-              <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
-                <table className="cd-table" style={{ margin: 0 }}>
-                  <thead>
-                    <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
-                      <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', padding: '0.85rem 1rem' }}>BOOKING ID</th>
-                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>PACKAGE</th>
-                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>PROVIDER PROFILE</th>
-                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>DATE &amp; TIME</th>
-                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>SECURITY PIN (30m)</th>
-                      <th style={{ fontSize: '0.75rem', padding: '0.85rem 1rem' }}>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(showAllActiveBookings ? customerActiveBookings : customerActiveBookings.slice(0, 10)).map((b) => {
-                      const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
-                      const isSelectedRow = selectedBookingId === b.id
-                      return (
-                        <React.Fragment key={b.id}>
+                <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <table className="cd-table" style={{ margin: 0, height: '100%' }}>
+                    <thead>
+                      <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
+                        <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', padding: '0.75rem 0.75rem' }}>BOOKING ID</th>
+                        <th style={{ fontSize: '0.72rem', padding: '0.75rem 0.75rem' }}>CATEGORY</th>
+                        <th style={{ fontSize: '0.72rem', padding: '0.75rem 0.75rem' }}>PROVIDER</th>
+                        <th style={{ fontSize: '0.72rem', padding: '0.75rem 0.75rem' }}>DATE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const sessionOnly = customerActiveBookings.filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
+                        const displayList = showAllActiveBookings ? sessionOnly : sessionOnly.slice(0, 5)
+                        if (displayList.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#888', fontSize: '0.85rem' }}>
+                                No active service session bookings scheduled yet. Select a category on the left to book a session!
+                              </td>
+                            </tr>
+                          )
+                        }
+                        return displayList.map((b) => {
+                          const isSelectedRow = selectedBookingId === b.id
+                          return (
+                            <React.Fragment key={b.id}>
                             <tr
                               onClick={() => {
                                 if (b.status !== 'CANCELLED') {
@@ -1573,60 +1608,33 @@ const CustomerDashboard = () => {
                                 opacity: b.status === 'CANCELLED' ? 0.65 : 1,
                                 transition: 'all 0.2s ease'
                               }}
-                              title={b.status === 'CANCELLED' ? 'Booking cancelled - details disabled' : 'Click row to view location, working end PIN, or make changes'}
+                              title={b.status === 'CANCELLED' ? 'Booking cancelled' : 'Click row to view details'}
                             >
-                              <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.9rem' }}>{b.id}</td>
-                              <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem' }}>{b.service}</td>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 900, fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {(b.providerName || 'Nimal Silva')[0]}
-                                  </div>
-                                  <div>
-                                    <span style={{ color: '#eee', fontSize: '0.88rem', fontWeight: 700, display: 'block' }}>{b.providerName || 'Nimal Silva'}</span>
-                                    <small style={{ color: '#888', fontSize: '0.75rem' }}>{b.providerRole || 'Certified Specialist'}</small>
-                                  </div>
-                                </div>
+                              <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
+                              <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
+                                {b.service === 'Auto Care' || b.service === 'Garden Care' || b.service === 'Pet Care'
+                                  ? b.service
+                                  : ((b.service || b.cat || '').toLowerCase().includes('auto') || (b.service || b.cat || '').toLowerCase().includes('car')
+                                      ? 'Auto Care'
+                                      : ((b.service || b.cat || '').toLowerCase().includes('garden') || (b.service || b.cat || '').toLowerCase().includes('lawn')
+                                          ? 'Garden Care'
+                                          : ((b.service || b.cat || '').toLowerCase().includes('pet')
+                                              ? 'Pet Care'
+                                              : (b.service || 'Auto Care'))))}
                               </td>
-                              <td style={{ color: '#ccc', fontSize: '0.85rem' }}>
+                              <td>
+                                <span style={{ color: '#eee', fontSize: '0.82rem', fontWeight: 700 }}>{b.providerName || 'Nimal Silva'}</span>
+                              </td>
+                              <td style={{ color: '#ccc', fontSize: '0.78rem' }}>
                                 <div>{b.date}</div>
                                 <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                               </td>
-                              <td>
-                                {b.status === 'CANCELLED' ? (
-                                  <span style={{ color: '#666', fontSize: '0.78rem', fontStyle: 'italic', fontWeight: 600 }}>— Cancelled —</span>
-                                ) : pinUnlocked ? (
-                                  <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.92rem', fontWeight: 900, padding: '0.35rem 0.75rem', borderRadius: '6px', letterSpacing: '0.1em' }}>
-                                    🔑 {b.pin || '4892'}
-                                  </span>
-                                ) : (
-                                  <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.78rem', fontWeight: 600, padding: '0.35rem 0.65rem', borderRadius: '6px' }} title="PIN auto-unlocks 30 minutes before your scheduled booking slot">
-                                    🔒 Unlocks 30m before
-                                  </span>
-                                )}
-                              </td>
-                            <td>
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span className="cd-status-tag cd-status-tag--completed" style={{ background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(201, 168, 76, 0.12)', color: b.status === 'CANCELLED' ? '#ef4444' : 'var(--gold, #c9a84c)', border: b.status === 'CANCELLED' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
-                                  {b.status || 'CONFIRMED'}
-                                </span>
-                                {b.status !== 'CANCELLED' && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleCancelBooking(b.id); }}
-                                    style={{ background: 'transparent', border: 'none', color: '#ef4444', textDecoration: 'underline', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                                    title="Cancel this booking"
-                                  >
-                                    Cancel
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
+                            </tr>
 
                           {/* Selected Row Detail Panel */}
                           {isSelectedRow && b.status !== 'CANCELLED' && (
                             <tr style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
-                              <td colSpan={6} style={{ padding: '0.85rem 1.25rem' }}>
+                              <td colSpan={4} style={{ padding: '0.85rem 1.25rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'rgba(201, 168, 76, 0.05)', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '0.85rem 1.25rem' }}>
                                   <div>
                                     <span style={{ color: '#888', fontSize: '0.68rem', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DISPATCH ADDRESS LOCATION</span>
@@ -1635,62 +1643,63 @@ const CustomerDashboard = () => {
                                     </span>
                                   </div>
 
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                                    <div style={{ background: '#16161a', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '10px', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                      <div>
-                                        <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', display: 'block' }}>🏁 WORKING END PIN</span>
-                                        <small style={{ color: '#888', fontSize: '0.68rem' }}>Completion Verification Code</small>
-                                      </div>
-                                      <span style={{ background: 'rgba(201, 168, 76, 0.15)', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', fontSize: '1.05rem', fontWeight: 900, padding: '0.25rem 0.75rem', borderRadius: '8px', letterSpacing: '0.15em' }}>
-                                        {b.endPin || '9812'}
-                                      </span>
+                                  <div style={{ background: '#16161a', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '10px', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <div>
+                                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', display: 'block' }}>🏁 WORKING END PIN</span>
+                                      <small style={{ color: '#888', fontSize: '0.68rem' }}>Completion Verification Code</small>
                                     </div>
-
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setSelectedBookingId(null); }}
-                                      style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#aaa', padding: '0.55rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
-                                      title="Close panel"
-                                    >
-                                      Close ✕
-                                    </button>
+                                    <span style={{ background: 'rgba(201, 168, 76, 0.15)', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', fontSize: '1.05rem', fontWeight: 900, padding: '0.25rem 0.75rem', borderRadius: '8px', letterSpacing: '0.15em' }}>
+                                      {b.endPin || '9812'}
+                                    </span>
                                   </div>
+
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedBookingId(null); }}
+                                    style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#aaa', padding: '0.55rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                                    title="Close panel"
+                                  >
+                                    Close ✕
+                                  </button>
                                 </div>
                               </td>
                             </tr>
                           )}
                         </React.Fragment>
                       )
-                    })}
+                    })
+                  })()}
                   </tbody>
                 </table>
               </div>
             </section>
+          </div>
 
             {/* ── Custom Service Request Module ── */}
-            <section className="cd-section">
+            <section className="cd-section" style={{ marginTop: '2.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
                   <h3 className="cd-section-label" style={{ margin: 0, color: 'var(--gold, #c9a84c)' }}>CUSTOM REQUESTS ({customRequests.length})</h3>
                   <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0.2rem 0 0 0' }}>Request specialized estate care, bespoke valet, or tailored concierge services</p>
                 </div>
-                <button
-                  className="cd-btn-view-receipt"
-                  onClick={() => setShowCustomRequestModal(true)}
-                  style={{ background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', fontWeight: 800, padding: '0.6rem 1.25rem', fontSize: '0.82rem' }}
-                >
-                  + Submit Custom Request
-                </button>
-              </div>
-
-              {customRequests.length === 0 ? (
-                <div style={{ background: '#141414', border: '1px dashed rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '2rem', textAlign: 'center' }}>
-                  <p style={{ color: '#bbb', fontSize: '0.88rem', margin: '0 0 1rem 0' }}>Need a specialized service not covered by standard packages? Submit a custom request for personalized concierge pricing.</p>
+                {customRequests.length > 0 && (
                   <button
                     className="cd-btn-view-receipt"
                     onClick={() => setShowCustomRequestModal(true)}
-                    style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.5rem 1.2rem' }}
+                    style={{ background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', fontWeight: 800, padding: '0.6rem 1.25rem', fontSize: '0.82rem', borderRadius: '8px', cursor: 'pointer' }}
                   >
-                    + Create Custom Request
+                    + Submit Custom Request
+                  </button>
+                )}
+              </div>
+
+              {customRequests.length === 0 ? (
+                <div style={{ background: '#141414', border: '1px dashed rgba(201, 168, 76, 0.3)', borderRadius: '16px', padding: '3rem 2rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <button
+                    className="cd-btn-view-receipt"
+                    onClick={() => setShowCustomRequestModal(true)}
+                    style={{ background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', fontWeight: 800, padding: '0.85rem 2rem', fontSize: '0.9rem', borderRadius: '10px', boxShadow: '0 4px 15px rgba(201, 168, 76, 0.35)', cursor: 'pointer' }}
+                  >
+                    + Add Custom Request
                   </button>
                 </div>
               ) : (
@@ -1717,33 +1726,7 @@ const CustomerDashboard = () => {
               )}
             </section>
 
-            {/* Monthly Summary */}
-            <section className="cd-section">
-              <h3 className="cd-section-label">MONTHLY SUMMARY</h3>
-              <div className="cd-summary-grid">
-                <div className="cd-summary-card">
-                  <span className="cd-summary-card__label">Monthly Spend</span>
-                  <div className="cd-summary-card__val">
-                    LKR {totalMonthlySpend.toLocaleString()}
-                  </div>
-                  <span className="cd-summary-card__sub">{activePackages.length} active plan{activePackages.length === 1 ? '' : 's'}</span>
-                </div>
 
-                <div className="cd-summary-card">
-                  <span className="cd-summary-card__label">Sessions This Month</span>
-                  <div className="cd-summary-card__val">{totalTokensSum}</div>
-                  <span className="cd-summary-card__sub">Sum of Service Tokens ({tokens.auto} + {tokens.garden} + {tokens.pet})</span>
-                </div>
-
-                <div className="cd-summary-card">
-                  <span className="cd-summary-card__label">Next Renewal</span>
-                  <div className="cd-summary-card__val cd-summary-card__val--gold">
-                    {activePackages.length > 0 ? getRenewalDate(activePackages[0]) : 'N/A'}
-                  </div>
-                  <span className="cd-summary-card__sub">30-day renewal period</span>
-                </div>
-              </div>
-            </section>
           </div>
         </div>
       )}
@@ -1978,6 +1961,7 @@ const CustomerDashboard = () => {
               </thead>
               <tbody>
                 {customerActiveBookings
+                  .filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
                   .filter(b => {
                     const matchId = !activeBookingIdFilter || (b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
                     const matchDate = !activeBookingDateFilter || b.date === activeBookingDateFilter
@@ -2337,8 +2321,6 @@ const CustomerDashboard = () => {
               onClick={() => {
                 setShowAddressModal(false)
                 sessionStorage.setItem('address_remind_later', 'true')
-                setBookingSuccessMsg('⏰ Address setup deferred — you can set your Service Delivery Address anytime in your profile.')
-                setTimeout(() => setBookingSuccessMsg(''), 6000)
               }}
               aria-label="Remind Me Later"
               title="Remind Me Later"
@@ -2522,14 +2504,454 @@ const CustomerDashboard = () => {
                   onClick={() => {
                     setShowAddressModal(false)
                     sessionStorage.setItem('address_remind_later', 'true')
-                    setBookingSuccessMsg('⏰ Address setup deferred — you can set your Service Delivery Address anytime in your profile.')
-                    setTimeout(() => setBookingSuccessMsg(''), 6000)
                   }}
                 >
                   REMIND ME LATER
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Insufficient Tokens Modal Popup ── */}
+      {showInsufficientTokensModal && (
+        <div className="cd-address-overlay" onClick={() => setShowInsufficientTokensModal(false)}>
+          <div
+            className="cd-address-modal animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '480px',
+              textAlign: 'center',
+              padding: '2.5rem 2rem',
+              position: 'relative'
+            }}
+          >
+            <button
+              className="auth-card-close-btn"
+              onClick={() => setShowInsufficientTokensModal(false)}
+              aria-label="Close"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem'
+              }}
+            >
+              ✕
+            </button>
+
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.8rem',
+                margin: '0 auto 1.25rem auto'
+              }}
+            >
+              🪙
+            </div>
+
+            <h3 style={{ color: '#fff', fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.5rem 0', letterSpacing: '-0.01em' }}>
+              INSUFFICIENT SERVICE TOKENS
+            </h3>
+
+            <p style={{ color: '#aaa', fontSize: '0.88rem', lineHeight: '1.5', margin: '0 0 1.75rem 0' }}>
+              You currently have <strong style={{ color: '#ef4444' }}>0 {insufficientTokenCategory || 'Service'} tokens</strong> remaining. To place a session booking for {insufficientTokenCategory}, please subscribe to a package or pass in Subscription Plans to receive booking tokens.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowInsufficientTokensModal(false)
+                  setActiveTab('booking')
+                }}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, var(--gold, #c9a84c) 0%, #a68432 100%)',
+                  color: '#000',
+                  border: 'none',
+                  padding: '0.85rem 1.25rem',
+                  borderRadius: '10px',
+                  fontSize: '0.88rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(201, 168, 76, 0.25)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                BROWSE SUBSCRIPTION PLANS &rarr;
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowInsufficientTokensModal(false)}
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: '#888',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Service Session Confirmed Modal Popup ── */}
+      {showSessionConfirmedModal && confirmedModalDetails && (
+        <div className="cd-address-overlay" onClick={() => setShowSessionConfirmedModal(false)}>
+          <div
+            className="cd-address-modal animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '520px',
+              textAlign: 'center',
+              padding: '2.5rem 2rem',
+              position: 'relative'
+            }}
+          >
+            <button
+              className="auth-card-close-btn"
+              onClick={() => setShowSessionConfirmedModal(false)}
+              aria-label="Close"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem'
+              }}
+            >
+              ✕
+            </button>
+
+            <div
+              style={{
+                width: '68px',
+                height: '68px',
+                borderRadius: '50%',
+                background: 'rgba(34, 197, 94, 0.15)',
+                border: '1px solid rgba(34, 197, 94, 0.4)',
+                color: '#4ade80',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem',
+                margin: '0 auto 1.25rem auto'
+              }}
+            >
+              🎉
+            </div>
+
+            <h3 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800, margin: '0 0 0.35rem 0', letterSpacing: '-0.01em' }}>
+              SERVICE SESSION CONFIRMED!
+            </h3>
+            <p style={{ color: '#aaa', fontSize: '0.85rem', margin: '0 0 1.5rem 0' }}>
+              Your concierge service dispatch has been successfully scheduled.
+            </p>
+
+            <div
+              style={{
+                background: '#161619',
+                border: '1px solid rgba(201, 168, 76, 0.3)',
+                borderRadius: '14px',
+                padding: '1.25rem',
+                textAlign: 'left',
+                marginBottom: '1.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>SERVICE CATEGORY</span>
+                <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>{confirmedModalDetails.service}</span>
+              </div>
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>DATE &amp; TIME</span>
+                <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.88rem', fontWeight: 800 }}>
+                  📅 {confirmedModalDetails.date} at {confirmedModalDetails.time}
+                </span>
+              </div>
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>TOKEN SUMMARY</span>
+                <span style={{ color: '#4ade80', fontSize: '0.82rem', fontWeight: 800 }}>
+                  1 {confirmedModalDetails.categoryName} Token Used ({confirmedModalDetails.remainingTokens} Left)
+                </span>
+              </div>
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>DISPATCH LOCATION</span>
+                <span style={{ color: '#ccc', fontSize: '0.78rem', fontWeight: 600, textAlign: 'right', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  📍 {confirmedModalDetails.location}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSessionConfirmedModal(false)}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, var(--gold, #c9a84c) 0%, #a68432 100%)',
+                color: '#000',
+                border: 'none',
+                padding: '0.88rem 1.25rem',
+                borderRadius: '10px',
+                fontSize: '0.88rem',
+                fontWeight: 900,
+                letterSpacing: '0.04em',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(201, 168, 76, 0.25)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              GREAT, GOT IT! &rarr;
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Are You Sure Cancel Package Subscription Modal Popup ── */}
+      {showCancelPackageConfirmModal && packageToCancel && (
+        <div className="cd-address-overlay" onClick={() => setShowCancelPackageConfirmModal(false)}>
+          <div
+            className="cd-address-modal animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '520px',
+              padding: '2.5rem 2rem',
+              position: 'relative'
+            }}
+          >
+            <button
+              className="auth-card-close-btn"
+              onClick={() => setShowCancelPackageConfirmModal(false)}
+              aria-label="Close"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem'
+              }}
+            >
+              ✕
+            </button>
+
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#ef4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.8rem',
+                  margin: '0 auto 1rem auto'
+                }}
+              >
+                ⚠️
+              </div>
+
+              <h3 style={{ color: '#fff', fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.4rem 0', letterSpacing: '-0.01em' }}>
+                ARE YOU SURE YOU WANT TO CANCEL?
+              </h3>
+              <p style={{ color: '#aaa', fontSize: '0.86rem', margin: '0 0 1.5rem 0', lineHeight: '1.5' }}>
+                Are you sure you want to cancel your <strong style={{ color: '#fff' }}>{packageToCancel.title} ({packageToCancel.tier})</strong> package subscription?
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  handleCancelSubscription(packageToCancel.id)
+                  setShowCancelPackageConfirmModal(false)
+                  setPackageToCancel(null)
+                }}
+                style={{
+                  flex: 1,
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #ef4444',
+                  color: '#ef4444',
+                  padding: '0.85rem 1rem',
+                  borderRadius: '10px',
+                  fontSize: '0.84rem',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                YES, CANCEL SUBSCRIPTION
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCancelPackageConfirmModal(false)
+                  setPackageToCancel(null)
+                }}
+                style={{
+                  flex: 1,
+                  background: 'linear-gradient(135deg, var(--gold, #c9a84c) 0%, #a68432 100%)',
+                  color: '#000',
+                  border: 'none',
+                  padding: '0.85rem 1rem',
+                  borderRadius: '10px',
+                  fontSize: '0.84rem',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(201, 168, 76, 0.25)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                KEEP MY SUBSCRIPTION
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Subscription Cancelled Success Modal Popup ── */}
+      {showCancelledSuccessModal && (
+        <div className="cd-address-overlay" onClick={() => setShowCancelledSuccessModal(false)}>
+          <div
+            className="cd-address-modal animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '460px',
+              textAlign: 'center',
+              padding: '2.5rem 2rem',
+              position: 'relative'
+            }}
+          >
+            <button
+              className="auth-card-close-btn"
+              onClick={() => setShowCancelledSuccessModal(false)}
+              aria-label="Close"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem'
+              }}
+            >
+              ✕
+            </button>
+
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.8rem',
+                margin: '0 auto 1.25rem auto'
+              }}
+            >
+              ⚠️
+            </div>
+
+            <h3 style={{ color: '#fff', fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.5rem 0', letterSpacing: '-0.01em' }}>
+              SUBSCRIPTION CANCELLED
+            </h3>
+
+            <p style={{ color: '#aaa', fontSize: '0.88rem', lineHeight: '1.5', margin: '0 0 1.75rem 0' }}>
+              Your subscription for <strong style={{ color: '#fff' }}>"{cancelledPackageTitle}"</strong> has been successfully cancelled. You can resubscribe anytime from Subscription Plans.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowCancelledSuccessModal(false)}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, var(--gold, #c9a84c) 0%, #a68432 100%)',
+                color: '#000',
+                border: 'none',
+                padding: '0.85rem 1.25rem',
+                borderRadius: '10px',
+                fontSize: '0.88rem',
+                fontWeight: 900,
+                letterSpacing: '0.04em',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(201, 168, 76, 0.25)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              GOT IT
+            </button>
           </div>
         </div>
       )}
@@ -2601,25 +3023,60 @@ const CustomerDashboard = () => {
         </div>
       )}
 
-      {/* ── Notifications Slide Drawer Panel ── */}
+      {/* ── Notifications Centered Popup Modal ── */}
       {showNotifDrawer && (
-        <div className="cd-drawer-overlay" onClick={() => setShowNotifDrawer(false)}>
-          <div className="cd-drawer-window cd-notif-drawer animate-slide-left" onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.78)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1.5rem'
+          }}
+          onClick={() => setShowNotifDrawer(false)}
+        >
+          <div
+            className="animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#141416',
+              border: '1px solid var(--gold, #c9a84c)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '520px',
+              maxHeight: '82vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(201, 168, 76, 0.2)',
+              overflow: 'hidden'
+            }}
+          >
             {/* Header */}
-            <div className="cd-drawer-header">
-              <div className="cd-notif-header-title">
-                <span className="cd-drawer-title">NOTIFICATIONS</span>
-                {unreadCount > 0 && <span className="cd-notif-unread-tag">{unreadCount} NEW</span>}
-              </div>
-              <div className="cd-notif-header-actions">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #282828', background: '#18181c' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.95rem', fontWeight: 900, letterSpacing: '0.08em' }}>🔔 NOTIFICATIONS</span>
                 {unreadCount > 0 && (
-                  <button className="cd-notif-mark-read-btn" onClick={markAllNotifsRead}>
+                  <span style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontSize: '0.68rem', fontWeight: 900, padding: '0.2rem 0.55rem', borderRadius: '10px' }}>
+                    {unreadCount} NEW
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllNotifsRead}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
                     Mark all read
                   </button>
                 )}
                 <button
-                  className="cd-drawer-close"
                   onClick={() => setShowNotifDrawer(false)}
+                  style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', fontSize: '1rem', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   aria-label="Close Notifications"
                 >
                   ✕
@@ -2628,32 +3085,46 @@ const CustomerDashboard = () => {
             </div>
 
             {/* Notification List */}
-            <div className="cd-notif-list">
+            <div style={{ padding: '1.25rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               {notifications.length === 0 ? (
-                <div className="cd-notif-empty">
-                  <div className="cd-notif-empty-icon"><BellIcon /></div>
-                  <p>No notifications yet</p>
+                <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', color: '#888' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.6 }}>🔔</div>
+                  <h4 style={{ color: '#fff', margin: '0 0 0.25rem 0', fontSize: '1rem', fontWeight: 700 }}>No Notifications Yet</h4>
+                  <p style={{ color: '#aaa', fontSize: '0.82rem', margin: 0 }}>You have no unread notifications or system alerts at this time.</p>
                 </div>
               ) : (
                 notifications.map((item) => (
-                  <div key={item.id} className={`cd-notif-item ${item.unread ? 'cd-notif-item--unread' : ''}`} onClick={() => markNotifAsRead(item.id)}>
-                    <div className="cd-notif-item__left">
-                      <div className={`cd-notif-icon cd-notif-icon--${item.category}`}>
-                        {item.category === 'auto' && <CarIcon />}
-                        {item.category === 'garden' && <LeafIcon />}
-                        {item.category === 'system' && <ShieldIcon />}
-                      </div>
+                  <div
+                    key={item.id}
+                    onClick={() => markNotifAsRead(item.id)}
+                    style={{
+                      background: item.unread ? 'rgba(201, 168, 76, 0.08)' : '#1a1a1e',
+                      border: item.unread ? '1px solid rgba(201, 168, 76, 0.4)' : '1px solid #282828',
+                      borderRadius: '14px',
+                      padding: '1rem',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.85rem',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ background: item.unread ? 'var(--gold, #c9a84c)' : '#282828', color: item.unread ? '#000' : 'var(--gold, #c9a84c)', width: '38px', height: '38px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {item.category === 'auto' && <CarIcon />}
+                      {item.category === 'garden' && <LeafIcon />}
+                      {item.category === 'system' && <ShieldIcon />}
                     </div>
-                    <div className="cd-notif-item__content">
-                      <div className="cd-notif-item__top">
-                        <h4 className="cd-notif-item__title">{item.title}</h4>
-                        <span className="cd-notif-item__time">{item.time}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                        <h4 style={{ color: '#fff', fontSize: '0.92rem', margin: 0, fontWeight: 700 }}>{item.title}</h4>
+                        <span style={{ color: '#888', fontSize: '0.72rem' }}>{item.time}</span>
                       </div>
-                      <p className="cd-notif-item__msg">{item.message}</p>
+                      <p style={{ color: '#ccc', fontSize: '0.82rem', margin: 0, lineHeight: 1.4 }}>{item.message}</p>
                     </div>
                     <button
-                      className="cd-notif-item__dismiss"
-                      onClick={() => dismissNotification(item.id)}
+                      onClick={(e) => { e.stopPropagation(); dismissNotification(item.id); }}
+                      style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '0.85rem', cursor: 'pointer', padding: '0.2rem' }}
                       title="Dismiss notification"
                     >
                       ✕
@@ -2818,7 +3289,12 @@ const CustomerDashboard = () => {
                 <div className="cd-manage-modal-actions">
                   <button
                     className="cd-btn-cancel-sub"
-                    onClick={() => setShowCancelConfirmStep(true)}
+                    onClick={() => {
+                      const pkg = selectedActivePackageToManage
+                      setSelectedActivePackageToManage(null)
+                      setPackageToCancel(pkg)
+                      setShowCancelPackageConfirmModal(true)
+                    }}
                   >
                     Cancel Subscription
                   </button>
@@ -2836,44 +3312,8 @@ const CustomerDashboard = () => {
                 <div className="cd-cancel-warning-icon">⚠️</div>
                 <h4 className="cd-cancel-warning-title">Cancel {selectedActivePackageToManage.title}?</h4>
                 <p className="cd-cancel-warning-text">
-                  Are you sure you want to cancel this subscription? Please review the official cancellation policy below:
+                  Are you sure you want to cancel your {selectedActivePackageToManage.title} subscription?
                 </p>
-
-                {/* Official Cancellation Policy Rules */}
-                <div className="cd-cancel-policy-box">
-                  <h5 className="cd-policy-box-title">📋 CANCELLATION &amp; REFUND POLICY</h5>
-                  <div className="cd-policy-tier">
-                    <span className="cd-policy-dot green">●</span>
-                    <div>
-                      <strong>&gt;24 Hours Before:</strong>
-                      <p>100% Free Cancellation.</p>
-                    </div>
-                  </div>
-
-                  <div className="cd-policy-tier">
-                    <span className="cd-policy-dot yellow">●</span>
-                    <div>
-                      <strong>12–24 Hours Before:</strong>
-                      <p>Free cancellation (provider-specific non-refundable costs may be deducted).</p>
-                    </div>
-                  </div>
-
-                  <div className="cd-policy-tier">
-                    <span className="cd-policy-dot orange">●</span>
-                    <div>
-                      <strong>&lt;12 Hours Before:</strong>
-                      <p>A 10% cancellation fee of booking value applies.</p>
-                    </div>
-                  </div>
-
-                  <div className="cd-policy-tier">
-                    <span className="cd-policy-dot red">●</span>
-                    <div>
-                      <strong>Provider Arrived / Service Started:</strong>
-                      <p>Cancellation is not permitted; applicable service charge retained.</p>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="cd-manage-modal-actions" style={{ marginTop: '1.25rem' }}>
                   <button
