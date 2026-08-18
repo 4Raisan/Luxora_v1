@@ -48,6 +48,8 @@ router.get('/dashboard', async (req, res) => {
     orderBy: { createdAt: 'desc' },
   });
 
+  // expectedEndTime is provider-only scheduling metadata. Keep this helper at
+  // every customer-facing booking boundary, including nested review bookings.
   const withoutProviderSchedule = (booking) => ({ ...booking, expectedEndTime: undefined });
   res.json({
     profile,
@@ -56,6 +58,7 @@ router.get('/dashboard', async (req, res) => {
     pastBookings: past.map(withoutProviderSchedule),
     reviews: reviews.map((r) => ({
       ...r,
+      booking: r.booking ? withoutProviderSchedule(r.booking) : r.booking,
       service_title: r.booking?.service?.title,
       provider_name: r.provider?.user?.name,
     })),
