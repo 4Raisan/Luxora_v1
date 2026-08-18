@@ -15,12 +15,15 @@ import providerRoutes from './routes/provider.js';
 import promotionRoutes from './routes/promotions.js';
 import notificationRoutes from './routes/notifications.js';
 import docsRoutes from './routes/docs.js';
+import integrationRoutes from './routes/integrations.js';
+import profileRoutes from './routes/profile.js';
 import { prisma } from './config/prisma.js';
 
 const app = express();
 app.disable('x-powered-by');
 app.use(cors());
 app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: false, limit: '64kb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -33,6 +36,8 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/provider', providerRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api', integrationRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api', docsRoutes);
 
 // Health check (used by docker-compose / load balancers)

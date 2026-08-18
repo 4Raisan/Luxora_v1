@@ -41,6 +41,7 @@ model User {
   email         String         @unique
   passwordHash  String
   phone         String?
+  phoneVerified Boolean        @default(false)
   town          String?
   role          Role           @default(CUSTOMER)
   createdAt     DateTime       @default(now())

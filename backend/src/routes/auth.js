@@ -1,10 +1,12 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
+import { sendEmail } from '../services/integrations.js';
 
 const router = Router();
 
@@ -49,10 +51,35 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, email: normalizedEmail, role: userRole, name }, JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ token, user: { id: user.id, name, email: normalizedEmail, role: userRole, phone: phone || '' } });
+    sendEmail({ to: normalizedEmail, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${name.trim()}.</p><p>Your concierge account is ready.</p>` }).catch((error) => console.warn('[email] welcome failed:', error.message));
+    res.status(201).json({ token, user: { id: user.id, name, email: normalizedEmail, role: userRole, phone: phone || '', town: normalizeTown(town) } });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed', detail: err.message });
   }
+});
+
+const resetTokens = new Map();
+router.post('/password-reset/request', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
+  const user = await prisma.user.findUnique({ where: { email } });
+  // Always return the same response to avoid account enumeration.
+  if (user) {
+    const token = `${crypto.randomUUID()}-${crypto.randomUUID()}`;
+    resetTokens.set(token, { userId: user.id, expiresAt: Date.now() + 15 * 60 * 1000 });
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?reset_token=${encodeURIComponent(token)}`;
+    sendEmail({ to: email, subject: 'Reset your Luxora password', html: `<p>We received a password reset request.</p><p><a href="${resetUrl}">Reset your password</a> (valid for 15 minutes).</p>` }).catch((error) => console.warn('[email] reset failed:', error.message));
+  }
+  res.json({ message: 'If that account exists, a password reset email has been sent.' });
+});
+
+router.post('/password-reset/confirm', async (req, res) => {
+  const record = resetTokens.get(req.body.token);
+  if (!record || record.expiresAt < Date.now() || !isPassword(req.body.password)) return res.status(400).json({ error: 'Invalid or expired reset token' });
+  const passwordHash = await bcrypt.hash(req.body.password, 10);
+  await prisma.user.update({ where: { id: record.userId }, data: { passwordHash } });
+  resetTokens.delete(req.body.token);
+  res.json({ message: 'Password updated successfully' });
 });
 
 function normalizeTown(value) {
@@ -86,7 +113,7 @@ router.post('/login', authLimiter, async (req, res) => {
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, phoneVerified: user.phoneVerified, town: user.town },
     provider,
   });
 });
@@ -95,7 +122,7 @@ router.post('/login', authLimiter, async (req, res) => {
 router.get('/me', authenticateToken, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, role: true, createdAt: true },
   });
   if (!user) return res.status(404).json({ error: 'User not found' });
   let provider = null;
