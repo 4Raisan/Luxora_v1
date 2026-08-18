@@ -33,8 +33,6 @@ const formatMobileNumber = (val) => {
 const NAV_ITEMS = [
   { id: 'overview',      icon: <GridIcon />,   label: 'Overview' },
   { id: 'bookings',      icon: <CalIcon />,    label: 'Bookings' },
-  { id: 'notifications', icon: <BellIcon />,   label: 'Notifications' },
-  { id: 'settings',      icon: <GearIcon />,   label: 'Settings' },
 ]
 
 const STATS = [
@@ -205,8 +203,10 @@ const ProviderDashboard = () => {
   const [settingsForm, setSettingsForm] = useState({
     name: currentProvider.name || 'Provider Partner',
     mobile: currentProvider.mobile || '0771234567',
-    nicNumber: currentProvider.nicNumber || '199512345678',
-    address: currentProvider.address || 'No. 42, Marina Boulevard, Colombo 03'
+    town: currentProvider.town || currentProvider.city || 'Colombo 03',
+    services: Array.isArray(currentProvider.services) 
+      ? currentProvider.services 
+      : (typeof currentProvider.services === 'string' ? currentProvider.services.split(', ').filter(Boolean) : ['Auto Care', 'Garden Care', 'Pet Care'])
   })
   const [verificationStatus, setVerificationStatus] = useState(() => currentProvider.verificationStatus || 'VERIFIED PROVIDER ✓')
 
@@ -214,10 +214,22 @@ const ProviderDashboard = () => {
     setSettingsForm({
       name: currentProvider.name || 'Provider Partner',
       mobile: currentProvider.mobile || '0771234567',
-      nicNumber: currentProvider.nicNumber || '199512345678',
-      address: currentProvider.address || 'No. 42, Marina Boulevard, Colombo 03'
+      town: currentProvider.town || currentProvider.city || 'Colombo 03',
+      services: Array.isArray(currentProvider.services) 
+        ? currentProvider.services 
+        : (typeof currentProvider.services === 'string' ? currentProvider.services.split(', ').filter(Boolean) : ['Auto Care', 'Garden Care', 'Pet Care'])
     })
   }, [currentProvider])
+
+  const toggleSettingService = (srv) => {
+    setSettingsForm(prev => {
+      const exists = prev.services.includes(srv)
+      const nextServices = exists 
+        ? prev.services.filter(s => s !== srv)
+        : [...prev.services, srv]
+      return { ...prev, services: nextServices }
+    })
+  }
 
   const handleSubmitToVerify = (e) => {
     e.preventDefault()
@@ -226,8 +238,8 @@ const ProviderDashboard = () => {
       alert('Please enter a valid 10-digit mobile number (e.g. 0771234567).')
       return
     }
-    if (settingsForm.nicNumber.length > 12 || settingsForm.nicNumber.length < 9) {
-      alert('Please enter a valid NIC number (e.g. 199512345678).')
+    if (settingsForm.services.length === 0) {
+      alert('Please select at least one service served.')
       return
     }
 
@@ -235,16 +247,15 @@ const ProviderDashboard = () => {
       ...currentProvider,
       name: settingsForm.name,
       mobile: settingsForm.mobile,
-      nicNumber: settingsForm.nicNumber,
-      address: settingsForm.address,
-      verificationStatus: 'SUBMITTED FOR VERIFICATION ⏳'
+      town: settingsForm.town,
+      city: settingsForm.town,
+      services: settingsForm.services,
+      verificationStatus: 'UPDATED & VERIFIED ✓'
     }
-
     setCurrentProvider(updated)
-    setVerificationStatus('SUBMITTED FOR VERIFICATION ⏳')
-    sessionStorage.setItem('user', JSON.stringify(updated))
-    localStorage.setItem('user_' + (updated.email || 'guest'), JSON.stringify(updated))
-    alert('Your provider account details have been updated and submitted to verify! ⏳')
+    localStorage.setItem('luxora_provider_' + currentProvider.email, JSON.stringify(updated))
+    setVerificationStatus('UPDATED & VERIFIED ✓')
+    alert('Settings & profile credentials updated successfully!')
   }
 
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(16)
@@ -318,6 +329,8 @@ const ProviderDashboard = () => {
   ])
 
   const [notificationsList, setNotificationsList] = useState(NOTIFICATIONS)
+  const [showNotifModal, setShowNotifModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   const handleAcceptRequest = (id) => {
     const reqToAccept = customRequests.find(r => r.id === id)
@@ -475,20 +488,27 @@ const ProviderDashboard = () => {
               id="pd-notif-btn"
               aria-label="Notifications"
               title="Click to view Notifications"
-              onClick={() => handleNavClick('notifications')}
+              onClick={() => setShowNotifModal(true)}
+              style={{ position: 'relative' }}
             >
               <BellIcon />
-              <span className="pd-topbar__badge">{notificationsList.length}</span>
+              {notificationsList.filter(n => !n.isRead).length > 0 && (
+                <span className="pd-topbar__badge">{notificationsList.filter(n => !n.isRead).length}</span>
+              )}
             </button>
+
             <button
               className="pd-topbar__icon-btn"
               id="pd-settings-btn"
               aria-label="Settings"
               title="Click to view Settings"
-              onClick={() => handleNavClick('settings')}
+              onClick={() => setShowSettingsModal(true)}
             >
               <GearIcon />
             </button>
+
+
+
             <button className="pd-topbar__icon-btn" id="pd-logout-btn" aria-label="Log out" title="Log out"
               onClick={handleLogout}>
               <LogOutIcon />
@@ -586,162 +606,6 @@ const ProviderDashboard = () => {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          ) : activeNav === 'notifications' ? (
-            <div className="pd-all-bookings-view" style={{ gridColumn: '1 / -1' }}>
-              <div className="pd-section-header" style={{ marginBottom: '1.5rem' }}>
-                <div>
-                  <span className="pd-greeting__label">SYSTEM ALERTS & MESSAGES</span>
-                  <h1 className="pd-section-title" style={{ fontSize: '1.6rem' }}>Notifications</h1>
-                </div>
-                <button className="pd-section-link" onClick={() => setActiveNav('overview')}>← Back to Overview</button>
-              </div>
-
-              <div className="pd-notifs" style={{ maxWidth: '800px' }}>
-                {notificationsList.map((n, i) => (
-                  <div key={i} className="pd-notif" style={{ background: '#141414', padding: '1.25rem', borderRadius: '12px', border: '1px solid #222' }}>
-                    <div className="pd-notif__icon" style={{ width: '36px', height: '36px', fontSize: '1rem' }}>{n.icon}</div>
-                    <div className="pd-notif__body" style={{ flex: 1 }}>
-                      <p className="pd-notif__title" style={{ fontSize: '0.95rem' }}>{n.title}</p>
-                      <p className="pd-notif__text" style={{ fontSize: '0.85rem', color: '#aaa', margin: '0.35rem 0' }}>{n.body}</p>
-                      <p className="pd-notif__time" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>{n.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : activeNav === 'settings' ? (
-            <div className="pd-all-bookings-view" style={{ gridColumn: '1 / -1' }}>
-              <div className="pd-section-header" style={{ marginBottom: '1.5rem' }}>
-                <div>
-                  <span className="pd-greeting__label">PARTNER ACCOUNT MANAGEMENT</span>
-                  <h1 className="pd-section-title" style={{ fontSize: '1.6rem' }}>Provider Settings & Verification</h1>
-                </div>
-                <button className="pd-section-link" onClick={() => setActiveNav('overview')}>← Back to Overview</button>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
-                {/* Account Details Form / Card */}
-                <div style={{ background: '#141414', padding: '1.75rem', borderRadius: '16px', border: '1px solid #222' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.1rem', color: '#fff', margin: 0, fontWeight: 700 }}>Provider Partner Profile</h3>
-                      <span style={{ fontSize: '0.72rem', color: '#888' }}>Manage official credentials, address, and verification status</span>
-                    </div>
-                    <span style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      padding: '0.4rem 0.85rem',
-                      borderRadius: '20px',
-                      background: verificationStatus.includes('SUBMITTED') ? 'rgba(234, 179, 8, 0.15)' : 'rgba(74, 222, 128, 0.15)',
-                      border: `1px solid ${verificationStatus.includes('SUBMITTED') ? '#eab308' : '#4ade80'}`,
-                      color: verificationStatus.includes('SUBMITTED') ? '#eab308' : '#4ade80'
-                    }}>
-                      {verificationStatus}
-                    </span>
-                  </div>
-
-                  <form onSubmit={handleSubmitToVerify} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <div className="pd-edit-field">
-                      <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.4rem', display: 'block' }}>FULL NAME *</label>
-                      <input
-                        type="text"
-                        required
-                        className="pd-edit-input"
-                        value={settingsForm.name}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
-                        placeholder="e.g. Marco Vance"
-                      />
-                    </div>
-
-                    <div className="pd-edit-field">
-                      <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.4rem', display: 'block' }}>EMAIL ADDRESS (READ ONLY)</label>
-                      <input
-                        type="email"
-                        disabled
-                        className="pd-edit-input"
-                        style={{ opacity: 0.6, cursor: 'not-allowed' }}
-                        value={currentProvider.email}
-                      />
-                    </div>
-
-                    <div className="pd-edit-field">
-                      <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.4rem', display: 'block' }}>MOBILE NUMBER (07XXXXXXXX) *</label>
-                      <input
-                        type="tel"
-                        required
-                        className="pd-edit-input"
-                        value={settingsForm.mobile}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, mobile: e.target.value })}
-                        placeholder="0771234567"
-                      />
-                      <span style={{ fontSize: '0.72rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>
-                        Preview: {formatMobileNumber(settingsForm.mobile)}
-                      </span>
-                    </div>
-
-                    <div className="pd-edit-field">
-                      <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.4rem', display: 'block' }}>NATIONAL IDENTITY CARD (NIC) NUMBER *</label>
-                      <input
-                        type="text"
-                        required
-                        className="pd-edit-input"
-                        value={settingsForm.nicNumber}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, nicNumber: e.target.value })}
-                        placeholder="199512345678"
-                      />
-                    </div>
-
-                    <div className="pd-edit-field">
-                      <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.4rem', display: 'block' }}>FULL BUSINESS / RESIDENCE ADDRESS *</label>
-                      <input
-                        type="text"
-                        required
-                        className="pd-edit-input"
-                        value={settingsForm.address}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
-                        placeholder="No. 42, Marina Boulevard, Colombo 03"
-                      />
-                    </div>
-
-                    <div className="pd-edit-field">
-                      <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.4rem', display: 'block' }}>SERVICES OFFERED</label>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
-                        <span className="pd-service-chip">🚗 Auto Care & Detailing</span>
-                        <span className="pd-service-chip">🌿 Garden Curation & Landscaping</span>
-                        <span className="pd-service-chip">🐾 Pet Grooming & Spa</span>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: '0.75rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                      <button
-                        type="submit"
-                        className="pd-btn-save-edit"
-                        style={{ width: '100%', padding: '0.85rem', background: 'var(--gold)', color: '#000', fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.05em', borderRadius: '8px', cursor: 'pointer' }}
-                      >
-                        ✓ SUBMIT TO VERIFY
-                      </button>
-                    </div>
-                  </form>
-                </div>
-
-                {/* Right side info panel */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  <div style={{ background: '#141414', padding: '1.25rem', borderRadius: '14px', border: '1px solid #222' }}>
-                    <h4 style={{ color: 'var(--gold)', fontSize: '0.85rem', letterSpacing: '0.08em', margin: '0 0 0.5rem 0' }}>VERIFICATION PROCESS</h4>
-                    <p style={{ fontSize: '0.78rem', color: '#aaa', lineHeight: '1.5', margin: 0 }}>
-                      Submitting updated NIC, mobile, or address credentials places your account in high-priority review. Standard approval takes less than 2 hours.
-                    </p>
-                  </div>
-
-                  <div style={{ background: '#141414', padding: '1.25rem', borderRadius: '14px', border: '1px solid #222' }}>
-                    <h4 style={{ color: '#fff', fontSize: '0.85rem', margin: '0 0 0.5rem 0' }}>PRIVACY & SECURITY</h4>
-                    <p style={{ fontSize: '0.78rem', color: '#aaa', lineHeight: '1.5', margin: 0 }}>
-                      Your personal identification numbers are encrypted under 256-bit SSL protocols and shared only with assigned estate managers.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           ) : (
@@ -872,22 +736,7 @@ const ProviderDashboard = () => {
                   <Calendar bookings={bookingsList.filter(b => b.status !== 'CANCELLED')} selectedDay={selectedCalendarDay} onSelectDay={setSelectedCalendarDay} />
                 </div>
 
-                {/* Notifications */}
-                <div className="pd-widget">
-                  <h3 className="pd-widget__title">RECENT NOTIFICATIONS</h3>
-                  <div className="pd-notifs">
-                    {notificationsList.map((n, i) => (
-                      <div key={i} className="pd-notif" id={`pd-notif-${i}`}>
-                        <div className="pd-notif__icon">{n.icon}</div>
-                        <div className="pd-notif__body">
-                          <p className="pd-notif__title">{n.title}</p>
-                          <p className="pd-notif__text">{n.body}</p>
-                          <p className="pd-notif__time">{n.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
               </div>
             </>
           )}
@@ -1032,6 +881,184 @@ const ProviderDashboard = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── NOTIFICATIONS POPUP MODAL ── */}
+      {showNotifModal && (
+        <div className="pd-drawer-overlay" onClick={() => setShowNotifModal(false)}>
+          <div className="pd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px', width: '90%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', borderBottom: '1px solid #222', paddingBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>🔔</span>
+                <h3 style={{ color: 'var(--gold)', margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Provider Notifications</h3>
+              </div>
+              <button onClick={() => setShowNotifModal(false)} style={{ background: 'transparent', border: 'none', color: '#aaa', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+            </div>
+
+            {/* Action Buttons: Mark as Read All & Clear All */}
+            {notificationsList.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginBottom: '0.85rem' }}>
+                <button
+                  onClick={() => setNotificationsList(prev => prev.map(n => ({ ...n, isRead: true })))}
+                  style={{ background: 'rgba(201, 168, 76, 0.12)', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.35rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease' }}
+                >
+                  ✓ Mark as Read All
+                </button>
+                <button
+                  onClick={() => setNotificationsList([])}
+                  style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.35rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease' }}
+                >
+                  🗑️ Clear All
+                </button>
+              </div>
+            )}
+
+            <div style={{ maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {notificationsList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#888', fontSize: '0.88rem' }}>
+                  No notifications at this time.
+                </div>
+              ) : (
+                notificationsList.map((n, i) => (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      setNotificationsList(prev => prev.map((item, idx) => idx === i ? { ...item, isRead: true } : item))
+                    }}
+                    style={{
+                      background: n.isRead ? '#0e0e11' : '#141414',
+                      border: n.isRead ? '1px solid #202020' : '1px solid rgba(201, 168, 76, 0.3)',
+                      opacity: n.isRead ? 0.7 : 1,
+                      borderRadius: '10px',
+                      padding: '0.95rem',
+                      display: 'flex',
+                      gap: '0.75rem',
+                      alignItems: 'flex-start',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: n.isRead ? '#1a1a1a' : 'rgba(201, 168, 76, 0.15)', color: n.isRead ? '#888' : 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {n.icon || '🔔'}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 700 }}>{n.title}</span>
+                        {!n.isRead && (
+                          <span style={{ background: 'var(--gold)', color: '#000', borderRadius: '50%', width: '7px', height: '7px', display: 'inline-block' }} title="Unread" />
+                        )}
+                      </div>
+                      <p style={{ color: '#aaa', fontSize: '0.8rem', margin: '0.25rem 0' }}>{n.body}</p>
+                      <small style={{ color: 'var(--gold)', fontSize: '0.7rem', fontWeight: 600 }}>{n.time}</small>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SETTINGS & PROFILE VERIFICATION POPUP MODAL ── */}
+      {showSettingsModal && (
+        <div className="pd-drawer-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="pd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', width: '92%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #222', paddingBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+                <h3 style={{ color: 'var(--gold)', margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Provider Settings &amp; Credentials</h3>
+              </div>
+              <button onClick={() => setShowSettingsModal(false)} style={{ background: 'transparent', border: 'none', color: '#aaa', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+            </div>
+
+            <form onSubmit={(e) => { handleSubmitToVerify(e); setShowSettingsModal(false); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Display Name */}
+              <div className="pd-edit-field">
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>DISPLAY NAME *</label>
+                <input
+                  type="text"
+                  required
+                  className="pd-edit-input"
+                  value={settingsForm.name}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                  placeholder="e.g. Marco Vance"
+                />
+              </div>
+
+              {/* Mobile Number */}
+              <div className="pd-edit-field">
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>MOBILE NUMBER (07XXXXXXXX) *</label>
+                <input
+                  type="tel"
+                  required
+                  className="pd-edit-input"
+                  value={settingsForm.mobile}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, mobile: e.target.value })}
+                  placeholder="0771234567"
+                />
+              </div>
+
+              {/* Town / City */}
+              <div className="pd-edit-field">
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>TOWN / CITY *</label>
+                <input
+                  type="text"
+                  required
+                  className="pd-edit-input"
+                  value={settingsForm.town}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, town: e.target.value })}
+                  placeholder="e.g. Colombo 03 / Kandy / Galle"
+                />
+              </div>
+
+              {/* Services Served */}
+              <div className="pd-edit-field">
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>SERVICES SERVED *</label>
+                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  {['Auto Care', 'Garden Care', 'Pet Care'].map((srv) => {
+                    const isSelected = settingsForm.services.includes(srv)
+                    return (
+                      <button
+                        key={srv}
+                        type="button"
+                        onClick={() => toggleSettingService(srv)}
+                        style={{
+                          background: isSelected ? 'rgba(201, 168, 76, 0.2)' : '#16161a',
+                          border: isSelected ? '1px solid var(--gold, #c9a84c)' : '1px solid #333',
+                          color: isSelected ? 'var(--gold, #c9a84c)' : '#aaa',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '20px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        {isSelected ? '✓ ' : '+ '}{srv}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  style={{ background: 'transparent', border: '1px solid #444', color: '#ccc', padding: '0.6rem 1.2rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ background: 'var(--gold)', border: 'none', color: '#000', padding: '0.6rem 1.4rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}
+                >
+                  ✓ SAVE SETTINGS
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

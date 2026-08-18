@@ -46,6 +46,8 @@ const ProviderRegister = () => {
     nicBack: null,
     nicFrontPreview: null,
     nicBackPreview: null,
+    selfie: null,
+    selfiePreview: null,
     // Step 2
     businessName: '',
     businessType: '',
@@ -336,6 +338,12 @@ const ProviderRegister = () => {
                 preview={form.nicBackPreview} />
             </div>
 
+            <div className="pr-row" style={{ marginTop: '0.5rem' }}>
+              <UploadBox label="PROVIDER SELFIE PHOTO (IMAGE ONLY)" id="provider-selfie"
+                onChange={handleFileChange('selfie', 'selfiePreview')}
+                preview={form.selfiePreview} />
+            </div>
+
             <div className="pr-row pr-row--otp">
               <input id="pr-mobile" name="mobile" type="tel" className="pr-input"
                 placeholder="Mobile Number" value={form.mobile}
@@ -463,6 +471,7 @@ const ProviderRegister = () => {
                 <div className="pr-review-row"><span>Name</span><span>{form.fullName || '—'}</span></div>
                 <div className="pr-review-row"><span>NIC</span><span>{form.nicNumber || '—'}</span></div>
                 <div className="pr-review-row"><span>Mobile</span><span>{form.mobile || '—'}</span></div>
+                <div className="pr-review-row"><span>Selfie Photo</span><span>{form.selfiePreview ? '✓ Uploaded' : 'Not Uploaded'}</span></div>
               </div>
               <div className="pr-review-section">
                 <h4>Business Info</h4>
