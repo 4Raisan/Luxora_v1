@@ -170,9 +170,13 @@ const CustomerDashboard = () => {
     return 'tester@gmail.com'
   }
 
-  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'booking' | 'history'
+  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'booking' | 'active_bookings' | 'transaction_history'
   const [bookingType, setBookingType] = useState('combo') // 'combo' | 'single'
   const [historyFilter, setHistoryFilter] = useState('all') // 'all' | 'auto' | 'garden' | 'pet'
+  const [showAllHistory, setShowAllHistory] = useState(false)
+  const [historySearchInvoice, setHistorySearchInvoice] = useState('')
+  const [historySearchPackage, setHistorySearchPackage] = useState('')
+  const [historySearchDate, setHistorySearchDate] = useState('')
   const [showProfileDrawer, setShowProfileDrawer] = useState(false)
 
   const [showAddressModal, setShowAddressModal] = useState(false)
@@ -702,14 +706,6 @@ const CustomerDashboard = () => {
       category: cat
     })
 
-    addHistoryRecord({
-      service: serviceTitle,
-      tier: 'Service Session',
-      amount: servicePrice,
-      status: 'Completed',
-      cat: cat
-    })
-
     setServiceBookingConfirmation(newB)
     setConfirmedModalDetails({
       ...newB,
@@ -954,19 +950,28 @@ const CustomerDashboard = () => {
   const [historyData, setHistoryData] = useState(() => {
     const email = getUserEmail()
     const saved = localStorage.getItem('history_' + email)
+    const isDemoAccount = ['tester@gmail.com', 'customer@luxora.lk', 'deshan@luxora.com', 'ashan@gmail.com'].includes(email)
     if (saved) {
       try {
-        return JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && (parsed.length > 4 || !isDemoAccount)) return parsed
       } catch (_) {}
     }
-    const defaultHistory = [
-      { id: 1, date: 'Aug 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-      { id: 2, date: 'Jul 15, 2026', service: 'Garden Care', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-      { id: 3, date: 'Jul 1, 2026', service: 'Auto Care', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-      { id: 4, date: 'Jun 20, 2026', service: 'Pet Care', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
-    ]
-    localStorage.setItem('history_' + email, JSON.stringify(defaultHistory))
-    return defaultHistory
+    if (isDemoAccount) {
+      const defaultHistory = [
+        { id: 1, date: 'Aug 1, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
+        { id: 2, date: 'Jul 15, 2026', service: 'Garden Care Package', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
+        { id: 3, date: 'Jul 1, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
+        { id: 4, date: 'Jun 20, 2026', service: 'Pet Care Package', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' },
+        { id: 5, date: 'Jun 5, 2026', service: 'VIP Combo Suite Package', tier: 'VIP Estate Suite 👑', ref: 'INV-2026-0058', amount: 'LKR 34,500', status: 'Completed', cat: 'system' },
+        { id: 6, date: 'May 18, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0044', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
+        { id: 7, date: 'May 2, 2026', service: 'Garden Care Package', tier: 'Basic Plan', ref: 'INV-2026-0039', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
+        { id: 8, date: 'Apr 12, 2026', service: 'Pet Care Package', tier: 'Premium Plan', ref: 'INV-2026-0021', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
+      ]
+      try { localStorage.setItem('history_' + email, JSON.stringify(defaultHistory)) } catch (_) {}
+      return defaultHistory
+    }
+    return []
   })
 
   const addHistoryRecord = (rec) => {
@@ -1196,12 +1201,6 @@ const CustomerDashboard = () => {
               onClick={() => setActiveTab('booking')}
             >
               Subscription Plans
-            </button>
-            <button
-              className={`cd-nav__tab ${activeTab === 'history' ? 'active' : ''}`}
-              onClick={() => setActiveTab('history')}
-            >
-              History
             </button>
           </nav>
 
@@ -1891,10 +1890,154 @@ const CustomerDashboard = () => {
                 ))}
             </div>
           )}
+
+          {/* ── Transaction History (Merged Under Subscription Plans) ── */}
+          <div style={{ marginTop: '3.5rem', paddingTop: '2.5rem', borderTop: '1px solid #282828' }}>
+            <div className="cd-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h2 className="cd-page-title" style={{ fontSize: '1.45rem', color: 'var(--gold, #c9a84c)' }}>Transaction History</h2>
+                <p className="cd-page-subtitle">Real-time log of your concierge payments and receipts</p>
+              </div>
+              <button
+                className="cd-btn-view-receipt"
+                onClick={() => setActiveTab('transaction_history')}
+                style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.45rem 1rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px' }}
+              >
+                View All ({filteredHistory.length}) ›
+              </button>
+            </div>
+
+            {/* Top Summary Cards */}
+            <div className="cd-history-summary">
+              <div className="cd-hstat-card">
+                <div className="cd-hstat-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M17 6h6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <span className="cd-hstat-label">Total Spent</span>
+                  <div className="cd-hstat-val">{formattedTotalSpent}</div>
+                </div>
+              </div>
+
+              <div className="cd-hstat-card">
+                <div className="cd-hstat-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <span className="cd-hstat-label">Total Transactions</span>
+                  <div className="cd-hstat-val">{historyData.length}</div>
+                </div>
+              </div>
+
+              <div className="cd-hstat-card">
+                <div className="cd-hstat-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 20v-6M6 20V10M18 20V4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <span className="cd-hstat-label">Avg. Transaction</span>
+                  <div className="cd-hstat-val">{avgPerMonth}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="cd-filter-pills">
+              <button
+                className={`cd-filter-pill ${historyFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setHistoryFilter('all')}
+              >
+                All Services ({historyData.length})
+              </button>
+              <button
+                className={`cd-filter-pill ${historyFilter === 'auto' ? 'active' : ''}`}
+                onClick={() => setHistoryFilter('auto')}
+              >
+                Auto Care ({historyData.filter(h => h.cat === 'auto').length})
+              </button>
+              <button
+                className={`cd-filter-pill ${historyFilter === 'garden' ? 'active' : ''}`}
+                onClick={() => setHistoryFilter('garden')}
+              >
+                Garden Care ({historyData.filter(h => h.cat === 'garden').length})
+              </button>
+              <button
+                className={`cd-filter-pill ${historyFilter === 'pet' ? 'active' : ''}`}
+                onClick={() => setHistoryFilter('pet')}
+              >
+                Pet Care ({historyData.filter(h => h.cat === 'pet').length})
+              </button>
+            </div>
+
+            {/* History Table */}
+            <div className="cd-table-wrap">
+              <table className="cd-table">
+                <thead>
+                  <tr>
+                    <th>DATE</th>
+                    <th>SERVICE / PACKAGE</th>
+                    <th>TIER / PLAN</th>
+                    <th>INVOICE REF</th>
+                    <th>AMOUNT</th>
+                    <th>STATUS</th>
+                    <th>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#888', fontSize: '0.88rem' }}>
+                        No transaction history records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredHistory.slice(0, 5).map((item) => (
+                      <tr key={item.id}>
+                        <td className="cd-cell-date">{item.date}</td>
+                        <td className="cd-cell-service">
+                          <span className="cd-service-badge">
+                            {item.cat === 'auto' && <CarIcon />}
+                            {item.cat === 'garden' && <LeafIcon />}
+                            {item.cat === 'pet' && <PawIcon />}
+                            {item.cat === 'system' && <ShieldIcon />}
+                            {item.service}
+                          </span>
+                        </td>
+                        <td className="cd-cell-tier">{item.tier}</td>
+                        <td className="cd-cell-ref">{item.ref}</td>
+                        <td className="cd-cell-amount">{item.amount}</td>
+                        <td>
+                          <span className={`cd-status-tag ${item.status === 'Cancelled' ? 'cd-status-tag--cancelled' : 'cd-status-tag--completed'}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td>
+                          {item.status === 'Completed' ? (
+                            <button className="cd-btn-view-receipt" onClick={() => setSelectedReceiptItem(item)}>
+                              Receipt 🧾
+                            </button>
+                          ) : (
+                            <span style={{ color: '#666', fontSize: '0.78rem' }}>N/A</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ── TAB: ACTIVE BOOKINGS (FULL VIEW WITH DATES & BOOKING ID FILTERS) ── */}
+      {/* ── TAB: ACTIVE BOOKINGS (FULL DEDICATED VIEW WITH DATES & BOOKING ID FILTERS) ── */}
       {activeTab === 'active_bookings' && (
         <div className="cd-tab-content cd-main-container animate-fade-in">
           <div className="cd-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -1903,7 +2046,7 @@ const CustomerDashboard = () => {
                 onClick={() => setActiveTab('overview')}
                 style={{ background: 'transparent', border: 'none', color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', padding: 0, marginBottom: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
               >
-                ‹ Back to Booking
+                ‹ Back to Overview
               </button>
               <h1 className="cd-page-title">Active Service Bookings</h1>
               <p className="cd-page-subtitle">Full real-time chart of scheduled concierge dispatches, specialist profiles, and 30-minute security PINs</p>
@@ -1960,14 +2103,26 @@ const CustomerDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {customerActiveBookings
-                  .filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
-                  .filter(b => {
-                    const matchId = !activeBookingIdFilter || (b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
-                    const matchDate = !activeBookingDateFilter || b.date === activeBookingDateFilter
-                    return matchId && matchDate
-                  })
-                  .map((b) => {
+                {(() => {
+                  const filteredActive = customerActiveBookings
+                    .filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
+                    .filter(b => {
+                      const matchId = !activeBookingIdFilter || (b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
+                      const matchDate = !activeBookingDateFilter || b.date === activeBookingDateFilter
+                      return matchId && matchDate
+                    })
+
+                  if (filteredActive.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#888', fontSize: '0.88rem' }}>
+                          No active service bookings found.
+                        </td>
+                      </tr>
+                    )
+                  }
+
+                  return filteredActive.map((b) => {
                     const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
                     const isSelectedRow = selectedBookingId === b.id
                     return (
@@ -2072,136 +2227,171 @@ const CustomerDashboard = () => {
                         )}
                       </React.Fragment>
                     )
-                  })}
+                  })
+                })()}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* ── TAB 3: HISTORY ── */}
-      {activeTab === 'history' && (
+      {/* ── TAB: TRANSACTION HISTORY (FULL DEDICATED VIEW WITH DATE, PACKAGE & INVOICE NUMBER FILTERS) ── */}
+      {activeTab === 'transaction_history' && (
         <div className="cd-tab-content cd-main-container animate-fade-in">
-          <div className="cd-page-header">
-            <h1 className="cd-page-title">Booking &amp; Transaction History</h1>
-            <p className="cd-page-subtitle">Real-time log of your concierge packages, renewals, and payments</p>
-          </div>
-
-          {/* Top Summary Cards */}
-          <div className="cd-history-summary">
-            <div className="cd-hstat-card">
-              <div className="cd-hstat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M17 6h6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div>
-                <span className="cd-hstat-label">Total Spent</span>
-                <div className="cd-hstat-val">{formattedTotalSpent}</div>
-              </div>
+          <div className="cd-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div>
+              <button
+                onClick={() => setActiveTab('booking')}
+                style={{ background: 'transparent', border: 'none', color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', padding: 0, marginBottom: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                ‹ Back to Subscription Plans
+              </button>
+              <h1 className="cd-page-title">Transaction History Log</h1>
+              <p className="cd-page-subtitle">Full real-time log of all concierge payments, invoice references, and downloadable PDF receipts</p>
             </div>
 
-            <div className="cd-hstat-card">
-              <div className="cd-hstat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </div>
+            {/* Interactive Filters Bar */}
+            <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexWrap: 'wrap', background: '#141414', border: '1px solid #282828', padding: '0.85rem 1.1rem', borderRadius: '14px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+              {/* Filter by Invoice Ref */}
               <div>
-                <span className="cd-hstat-label">Total Transactions</span>
-                <div className="cd-hstat-val">{historyData.length}</div>
+                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>INVOICE NUMBER:</label>
+                <input
+                  type="text"
+                  placeholder="Filter Invoice (e.g. INV-2026)..."
+                  value={historySearchInvoice}
+                  onChange={(e) => setHistorySearchInvoice(e.target.value)}
+                  style={{ background: '#1c1c1c', color: '#fff', border: '1px solid #333', padding: '0.5rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem', width: '180px', outline: 'none' }}
+                />
               </div>
-            </div>
 
-            <div className="cd-hstat-card">
-              <div className="cd-hstat-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 20v-6M6 20V10M18 20V4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </div>
+
+
+              {/* Filter by Date */}
               <div>
-                <span className="cd-hstat-label">Avg. Transaction</span>
-                <div className="cd-hstat-val">{avgPerMonth}</div>
+                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>FILTER BY DATE:</label>
+                <input
+                  type="date"
+                  value={historySearchDate}
+                  onChange={(e) => setHistorySearchDate(e.target.value)}
+                  style={{ background: '#1c1c1c', color: '#fff', border: '1px solid #333', padding: '0.5rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem', outline: 'none' }}
+                />
               </div>
+
+              {/* Clear Filters Button */}
+              {(historySearchInvoice || historySearchPackage || historySearchDate) && (
+                <button
+                  onClick={() => { setHistorySearchInvoice(''); setHistorySearchPackage(''); setHistorySearchDate('') }}
+                  style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 0.9rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Clear Filters ✕
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Filter Pills */}
-          <div className="cd-filter-pills">
+          {/* Package Breakdown Quick Pill Selector Bar */}
+          <div className="cd-filter-pills" style={{ marginBottom: '1.25rem' }}>
             <button
-              className={`cd-filter-pill ${historyFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setHistoryFilter('all')}
+              className={`cd-filter-pill ${historySearchPackage === '' ? 'active' : ''}`}
+              onClick={() => setHistorySearchPackage('')}
             >
-              All Services ({historyData.length})
+              All Packages ({historyData.length})
             </button>
             <button
-              className={`cd-filter-pill ${historyFilter === 'auto' ? 'active' : ''}`}
-              onClick={() => setHistoryFilter('auto')}
+              className={`cd-filter-pill ${historySearchPackage === 'auto' ? 'active' : ''}`}
+              onClick={() => setHistorySearchPackage('auto')}
             >
-              Auto Care ({historyData.filter(h => h.cat === 'auto').length})
+              🚗 Auto Care ({historyData.filter(h => h.cat === 'auto').length})
             </button>
             <button
-              className={`cd-filter-pill ${historyFilter === 'garden' ? 'active' : ''}`}
-              onClick={() => setHistoryFilter('garden')}
+              className={`cd-filter-pill ${historySearchPackage === 'garden' ? 'active' : ''}`}
+              onClick={() => setHistorySearchPackage('garden')}
             >
-              Garden Care ({historyData.filter(h => h.cat === 'garden').length})
+              🌿 Garden Care ({historyData.filter(h => h.cat === 'garden').length})
             </button>
             <button
-              className={`cd-filter-pill ${historyFilter === 'pet' ? 'active' : ''}`}
-              onClick={() => setHistoryFilter('pet')}
+              className={`cd-filter-pill ${historySearchPackage === 'pet' ? 'active' : ''}`}
+              onClick={() => setHistorySearchPackage('pet')}
             >
-              Pet Care ({historyData.filter(h => h.cat === 'pet').length})
+              🐾 Pet Care ({historyData.filter(h => h.cat === 'pet').length})
+            </button>
+            <button
+              className={`cd-filter-pill ${historySearchPackage === 'combo' ? 'active' : ''}`}
+              onClick={() => setHistorySearchPackage('combo')}
+            >
+              👑 VIP Combo ({historyData.filter(h => h.cat === 'system' || (h.service || '').toLowerCase().includes('combo') || (h.tier || '').toLowerCase().includes('vip')).length})
             </button>
           </div>
 
-          {/* History Table */}
-          <div className="cd-table-wrap">
-            <table className="cd-table">
+          {/* Full Interactive History Table */}
+          <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
+            <table className="cd-table" style={{ margin: 0 }}>
               <thead>
-                <tr>
-                  <th>DATE</th>
-                  <th>SERVICE / PACKAGE</th>
-                  <th>TIER / PLAN</th>
-                  <th>INVOICE REF</th>
-                  <th>AMOUNT</th>
-                  <th>STATUS</th>
-                  <th>ACTION</th>
+                <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
+                  <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', padding: '0.95rem 1rem' }}>DATE</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>SERVICE / PACKAGE</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>TIER / PLAN</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>INVOICE REF</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>AMOUNT</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>STATUS</th>
+                  <th style={{ fontSize: '0.78rem', padding: '0.95rem 1rem' }}>ACTION</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.map((item) => (
-                  <tr key={item.id}>
-                    <td className="cd-cell-date">{item.date}</td>
-                    <td className="cd-cell-service">
-                      <span className="cd-service-badge">
-                        {item.cat === 'auto' && <CarIcon />}
-                        {item.cat === 'garden' && <LeafIcon />}
-                        {item.cat === 'pet' && <PawIcon />}
-                        {item.cat === 'system' && <ShieldIcon />}
-                        {item.service}
-                      </span>
-                    </td>
-                    <td className="cd-cell-tier">{item.tier}</td>
-                    <td className="cd-cell-ref">{item.ref}</td>
-                    <td className="cd-cell-amount">{item.amount}</td>
-                    <td>
-                      <span className={`cd-status-tag ${item.status === 'Cancelled' ? 'cd-status-tag--cancelled' : 'cd-status-tag--completed'}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td>
-                      {item.status === 'Completed' ? (
-                        <button className="cd-btn-view-receipt" onClick={() => setSelectedReceiptItem(item)}>
-                          Receipt 🧾
-                        </button>
-                      ) : (
-                        <span style={{ color: '#666', fontSize: '0.78rem' }}>N/A</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {(() => {
+                  const filteredFullHistory = historyData.filter(item => {
+                    const matchInvoice = !historySearchInvoice || (item.ref || '').toLowerCase().includes(historySearchInvoice.toLowerCase())
+                    const matchPackage = !historySearchPackage ||
+                      (item.cat === historySearchPackage) ||
+                      (historySearchPackage === 'combo' && (item.cat === 'system' || (item.service || '').toLowerCase().includes('combo') || (item.tier || '').toLowerCase().includes('vip'))) ||
+                      (item.service || '').toLowerCase().includes(historySearchPackage.toLowerCase()) ||
+                      (item.tier || '').toLowerCase().includes(historySearchPackage.toLowerCase())
+                    const matchDate = !historySearchDate || (item.date || '').includes(historySearchDate)
+                    return matchInvoice && matchPackage && matchDate
+                  })
+
+                  if (filteredFullHistory.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#888', fontSize: '0.88rem' }}>
+                          No transaction history records matching your search criteria.
+                        </td>
+                      </tr>
+                    )
+                  }
+
+                  return filteredFullHistory.map(item => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid #202020' }}>
+                      <td className="cd-cell-date">{item.date}</td>
+                      <td className="cd-cell-service">
+                        <span className="cd-service-badge">
+                          {item.cat === 'auto' && <CarIcon />}
+                          {item.cat === 'garden' && <LeafIcon />}
+                          {item.cat === 'pet' && <PawIcon />}
+                          {item.cat === 'system' && <ShieldIcon />}
+                          {item.service}
+                        </span>
+                      </td>
+                      <td className="cd-cell-tier">{item.tier}</td>
+                      <td className="cd-cell-ref" style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>{item.ref}</td>
+                      <td className="cd-cell-amount">{item.amount}</td>
+                      <td>
+                        <span className={`cd-status-tag ${item.status === 'Cancelled' ? 'cd-status-tag--cancelled' : 'cd-status-tag--completed'}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td>
+                        {item.status === 'Completed' ? (
+                          <button className="cd-btn-view-receipt" onClick={() => setSelectedReceiptItem(item)}>
+                            Receipt 🧾
+                          </button>
+                        ) : (
+                          <span style={{ color: '#666', fontSize: '0.78rem' }}>N/A</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                })()}
               </tbody>
             </table>
           </div>

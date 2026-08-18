@@ -87,6 +87,7 @@ const Signup = () => {
       localStorage.setItem('luxora_customer_bookings_' + userEmail, JSON.stringify([]))
       localStorage.setItem('custom_requests_' + userEmail, JSON.stringify([]))
       localStorage.setItem('notifications_' + userEmail, JSON.stringify([]))
+      localStorage.setItem('history_' + userEmail, JSON.stringify([]))
 
       sessionStorage.setItem('token', data.token || 'demo-token')
       sessionStorage.setItem('user', JSON.stringify(userData))
