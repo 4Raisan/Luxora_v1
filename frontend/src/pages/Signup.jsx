@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { apiRequest } from '../services/api'
 import './Auth.css'
 import '../components/Footer.css'
 
@@ -43,24 +44,14 @@ const Signup = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.fullName,
-          email: form.email,
-          phone: form.phone,
-          password: form.password,
-          role: 'customer',
-        }),
+      const data = await apiRequest('/auth/register', 'POST', {
+        name: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        role: 'customer',
       })
-      const data = await res.json()
       setLoading(false)
-
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Registration failed. Please try again.')
-        return
-      }
 
       const userData = data.user || {}
       userData.name = data.user?.name || form.fullName || 'New Customer'

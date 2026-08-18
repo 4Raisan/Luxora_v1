@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { apiRequest } from '../services/api'
 import './Auth.css'
 
 const Login = () => {
@@ -28,9 +29,7 @@ const Login = () => {
     setForgotLoading(true)
     setForgotErrorMsg('')
     try {
-      const response = await fetch('/api/auth/password-reset/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: forgotEmail }) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Could not send reset email')
+      await apiRequest('/auth/password-reset/request', 'POST', { email: forgotEmail })
       setForgotSuccessMsg('If that account exists, a password reset link has been sent by email.')
       setTimeout(() => setShowForgotModal(false), 3500)
     } catch (error) {
@@ -81,18 +80,8 @@ const Login = () => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, password: form.password, role: tab }),
-      })
-      const data = await res.json()
+      const data = await apiRequest('/auth/login', 'POST', { email: form.email, password: form.password })
       setLoading(false)
-
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Login failed. Please check your credentials.')
-        return
-      }
 
       // Resolve name from localStorage or format from email
       let nameToUse = ''
