@@ -15,6 +15,7 @@ import CustomerDashboard from './pages/CustomerDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import BookService from './pages/BookService'
 import Reviews from './pages/Reviews'
+import ResetPassword from './pages/ResetPassword'
 import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
@@ -48,6 +49,7 @@ function App() {
           <Route path="/provider-dashboard" element={<ErrorBoundary><ProviderDashboard /></ErrorBoundary>} />
           <Route path="/book-service" element={<ErrorBoundary><BookService /></ErrorBoundary>} />
           <Route path="/reviews" element={<ErrorBoundary><Reviews /></ErrorBoundary>} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </div>
     </BrowserRouter>
