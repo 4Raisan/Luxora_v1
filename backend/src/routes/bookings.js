@@ -343,6 +343,9 @@ router.put('/:id/schedule', async (req, res) => {
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   const booking = await prisma.booking.findFirst({ where: { id: Number(req.params.id), providerId: provider.id } });
   if (!booking) return res.status(404).json({ error: 'Booking not found or not assigned to you' });
+  if (!booking.autoAssigned) {
+    return res.status(400).json({ error: 'Expected end time is only used for auto-assigned bookings' });
+  }
 
   const expectedEndTime = new Date(req.body.expected_end_time);
   const start = bookingStart(booking.bookingDate, booking.bookingTime);
