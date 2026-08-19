@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node src/index.js",
-    "start": "node src/index.js",
+    "start": "npx prisma migrate deploy && node src/index.js",
     "prisma:generate": "prisma generate",
     "db:push": "node prisma/migrate-service-towns.js && prisma db push",
     "db:migrate-service-towns": "node prisma/migrate-service-towns.js",
