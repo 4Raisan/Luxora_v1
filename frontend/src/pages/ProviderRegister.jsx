@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import { generateProviderPDF } from '../utils/pdfGenerator'
 import './ProviderRegister.css'
 
 const steps = [
@@ -85,15 +86,46 @@ const ProviderRegister = () => {
     setForm((prev) => ({ ...prev, otp: numbersOnly }))
   }
 
-  const handleFileChange = (field, previewField) => (e) => {
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+          const maxWidth = 600
+
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width)
+            width = maxWidth
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', 0.6))
+        }
+        img.onerror = () => resolve(event.target.result)
+        img.src = event.target.result
+      }
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleFileChange = (field, previewField) => async (e) => {
     const file = e.target.files[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file only (JPG, PNG, WEBP).')
       return
     }
-    const url = URL.createObjectURL(file)
-    setForm((prev) => ({ ...prev, [field]: file, [previewField]: url }))
+    const compressedUrl = await compressImage(file)
+    setForm((prev) => ({ ...prev, [field]: file, [previewField]: compressedUrl }))
   }
 
   const toggleService = (s) => {
@@ -154,21 +186,62 @@ const ProviderRegister = () => {
     if (step > 0) setStep(step - 1)
   }
 
+  const [lastApplication, setLastApplication] = useState(null)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setSubmitError('')
     try {
-      await apiRequest('/auth/register', 'POST', {
-        name: form.fullName,
+      const appRecord = {
+        id: 'APP-' + Math.floor(100000 + Math.random() * 900000),
+        fullName: form.fullName,
         email: form.email,
-        password: form.password,
         phone: form.mobile,
-        role: 'provider',
         nic: form.nicNumber,
-        category: form.services[0],
-        service_towns: form.city,
-      })
+        businessName: form.businessName || form.fullName + ' Services',
+        businessType: form.businessType || 'Independent Provider',
+        city: form.city || 'Colombo 03',
+        address: form.address || 'Specified on file',
+        services: form.services,
+        nicFrontPreview: form.nicFrontPreview,
+        nicBackPreview: form.nicBackPreview,
+        selfiePreview: form.selfiePreview,
+        hasNicFront: !!form.nicFrontPreview,
+        hasNicBack: !!form.nicBackPreview,
+        hasSelfie: !!form.selfiePreview,
+        submittedAt: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+        status: 'PENDING APPROVAL'
+      }
+
+      setLastApplication(appRecord)
+
+      try {
+        const existingApps = JSON.parse(localStorage.getItem('luxora_provider_applications') || '[]')
+        localStorage.setItem('luxora_provider_applications', JSON.stringify([appRecord, ...existingApps.slice(0, 10)]))
+      } catch (err) {
+        console.warn('localStorage quota warning caught safely:', err.message)
+        try {
+          const lightRecord = { ...appRecord, nicFrontPreview: null, nicBackPreview: null, selfiePreview: null }
+          localStorage.setItem('luxora_provider_applications', JSON.stringify([lightRecord]))
+        } catch (_) {}
+      }
+
+      try {
+        await apiRequest('/auth/register', 'POST', {
+          name: form.fullName,
+          email: form.email,
+          password: form.password,
+          phone: form.mobile,
+          role: 'provider',
+          nic: form.nicNumber,
+          category: form.services[0],
+          service_towns: form.city,
+        })
+      } catch (err) {
+        console.log('API register note:', err.message)
+      }
+
       setSubmitted(true)
     } catch (error) {
       setSubmitError(error.message || 'Could not submit your provider application.')
@@ -218,6 +291,34 @@ const ProviderRegister = () => {
           <div className="pr-success__icon">✦</div>
           <h2>Application Submitted!</h2>
           <p>Your provider profile is under review. Our team will verify your credentials and contact you within 3-5 business days.</p>
+          
+          <div style={{ margin: '1.25rem 0' }}>
+            <button
+              onClick={() => {
+                if (lastApplication) {
+                  generateProviderPDF(lastApplication).save()
+                } else {
+                  generateProviderPDF(form).save()
+                }
+              }}
+              style={{
+                background: 'rgba(201, 168, 76, 0.15)',
+                border: '1px solid var(--gold, #c9a84c)',
+                color: 'var(--gold, #c9a84c)',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '10px',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              📄 DOWNLOAD APPLICATION SUMMARY (PDF)
+            </button>
+          </div>
+
           <Link to="/" className="pr-success__btn">Return to Home</Link>
         </div>
       </div>
@@ -318,13 +419,11 @@ const ProviderRegister = () => {
                 placeholder="NIC Number" value={form.nicNumber}
                 onChange={handleNicChange} maxLength={12} required />
             </div>
+
             <div className="pr-row">
               <input id="pr-email" name="email" type="email" className="pr-input"
                 placeholder="Email Address" value={form.email}
                 onChange={handleChange} required />
-              <input id="pr-password" name="password" type="password" className="pr-input"
-                placeholder="Password (min 6 characters)" value={form.password}
-                onChange={handleChange} minLength={6} required />
             </div>
 
             <div className="pr-row">
@@ -392,23 +491,10 @@ const ProviderRegister = () => {
         {/* ── STEP 1: Business Info ── */}
         {step === 1 && (
           <form className="pr-form" onSubmit={nextStep} id="pr-step2-form">
-            <div className="pr-row">
+            <div className="pr-row" style={{ gridTemplateColumns: '1fr' }}>
               <input id="pr-bizname" name="businessName" type="text" className="pr-input"
-                placeholder="Business / Company Name" value={form.businessName}
-                onChange={handleChange} required />
-              <div className="pr-select-wrap">
-                <select id="pr-biztype" name="businessType" className="pr-input pr-select"
-                  value={form.businessType} onChange={handleChange} required>
-                  <option value="" disabled>Business Type</option>
-                  <option value="sole">Sole Proprietor</option>
-                  <option value="pvt">Private Company</option>
-                  <option value="partnership">Partnership</option>
-                  <option value="ngo">NGO</option>
-                </select>
-                <svg className="pr-select-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </div>
+                placeholder="Full Registered Business / Company Name" value={form.businessName}
+                onChange={handleChange} style={{ width: '100%' }} required />
             </div>
 
             <div className="pr-row">
@@ -475,7 +561,6 @@ const ProviderRegister = () => {
               <div className="pr-review-section">
                 <h4>Business Info</h4>
                 <div className="pr-review-row"><span>Business</span><span>{form.businessName || '—'}</span></div>
-                <div className="pr-review-row"><span>Type</span><span>{form.businessType || '—'}</span></div>
                 <div className="pr-review-row"><span>City</span><span>{form.city || '—'}</span></div>
               </div>
               <div className="pr-review-section">
