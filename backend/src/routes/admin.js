@@ -3,12 +3,35 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
+import { getPlatformSettings, providerCanTakeBooking } from '../services/scheduling.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
 
 const PROVIDER_PAYOUT_RATE = 0.85;
-const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'IN_PROGRESS', 'CANCELLED'], IN_PROGRESS: ['COMPLETED', 'CANCELLED'], CANCELLED: ['PENDING'], COMPLETED: [] };
+// Admins can assign, unassign, or cancel operational work, but cannot bypass
+// the provider's photo + PIN verification stages.
+const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'CANCELLED'], IN_PROGRESS: ['CANCELLED'], CANCELLED: ['PENDING'], COMPLETED: [] };
+
+async function requireSuperAdmin(req, res, next) {
+  const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { isSuperAdmin: true } });
+  if (!user?.isSuperAdmin) return res.status(403).json({ error: 'Super Admin access is required' });
+  next();
+}
+
+router.get('/settings/scheduling', requireSuperAdmin, async (_req, res) => res.json(await getPlatformSettings(prisma)));
+router.put('/settings/scheduling', requireSuperAdmin, async (req, res) => {
+  const cooldown = Number(req.body.auto_assignment_cooldown_hours);
+  const start = Number(req.body.auto_assignment_start_hour);
+  const end = Number(req.body.auto_assignment_end_hour);
+  if (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 24 || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > 23 || start > end) return res.status(400).json({ error: 'Use cooldown 1-24 hours and valid start/end hours (0-23)' });
+  const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1, autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end }, update: { autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end } });
+  res.json(setting);
+});
+router.post('/settings/scheduling/restore-defaults', requireSuperAdmin, async (_req, res) => {
+  const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1 }, update: { autoAssignmentCooldownHours: 6, autoAssignmentStartHour: 7, autoAssignmentEndHour: 16 } });
+  res.json(setting);
+});
 
 router.get('/providers', async (_req, res) => {
   const providers = await prisma.provider.findMany({ include: { user: true } });
@@ -181,8 +204,13 @@ router.put('/bookings/:id', async (req, res) => {
     if (!nextProviderId) return res.status(400).json({ error: 'provider_id must be a positive integer' });
     const p = await prisma.provider.findUnique({ where: { id: nextProviderId } });
     if (!p) return res.status(400).json({ error: 'Invalid provider' });
+    const service = await prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } });
+    const eligibility = await providerCanTakeBooking(prisma, p, { ...booking, service }, { ignoreBookingId: booking.id });
+    if (!eligibility.ok) return res.status(409).json({ error: eligibility.error });
   }
 
+  if (nextProviderId && nextStatus === undefined && booking.status === 'PENDING') nextStatus = 'ASSIGNED';
+  if (nextProviderId && nextStatus === 'CANCELLED') return res.status(400).json({ error: 'A cancelled booking cannot be assigned' });
   if (nextStatus === undefined && nextProviderId === undefined) return res.status(400).json({ error: 'status or provider_id is required' });
   if (nextStatus === 'COMPLETED' && !(nextProviderId ?? booking.providerId)) return res.status(400).json({ error: 'A provider is required before completing a booking' });
 

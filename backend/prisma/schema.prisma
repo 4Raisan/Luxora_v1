@@ -17,6 +17,7 @@ model User {
   town String?
   role Role @default(CUSTOMER)
   active Boolean @default(true)
+  isSuperAdmin Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   bookings Booking[]
@@ -130,6 +131,9 @@ model UserSubscription {
   startDate DateTime @default(now())
   endDate DateTime
   status String @default("active")
+  autoRenew Boolean @default(false)
+  renewalIntervalDays Int @default(30)
+  nextRenewalDate DateTime?
   plan SubscriptionPlan @relation(fields: [planId], references: [id])
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   bookings Booking[]
@@ -154,6 +158,8 @@ model Booking {
   pinCode String?
   startPinHash String?
   completionPinHash String?
+  customerStartPinCipher String?
+  customerCompletionPinCipher String?
   pinExpiresAt DateTime?
   startPinUsedAt DateTime?
   completionPinUsedAt DateTime?
@@ -178,6 +184,16 @@ model Booking {
   @@index([status])
   @@index([providerId, bookingDate])
   @@map("bookings")
+}
+
+model PlatformSetting {
+  id Int @id @default(1)
+  autoAssignmentCooldownHours Int @default(6)
+  autoAssignmentStartHour Int @default(7)
+  autoAssignmentEndHour Int @default(16)
+  paymentMode String @default("payhere")
+  updatedAt DateTime @updatedAt
+  @@map("platform_settings")
 }
 
 model ServicePhoto {
@@ -312,6 +328,7 @@ enum BookingStatus {
 enum PaymentGateway {
   PAYHERE
   PAYPAL
+  DEMO
 }
 enum PaymentStatus {
   PENDING

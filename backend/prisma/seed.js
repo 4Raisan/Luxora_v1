@@ -56,10 +56,10 @@ async function main() {
     const pwHash = bcrypt.hashSync(password, 10);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, role, town } });
+      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, role, town, isSuperAdmin: email === 'admin@luxora.lk' } });
       return;
     }
-    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', town, role } });
+    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', town, role, isSuperAdmin: email === 'admin@luxora.lk' } });
     if (role === 'PROVIDER') {
       await prisma.provider.upsert({
         where: { userId: user.id },

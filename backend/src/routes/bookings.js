@@ -7,6 +7,8 @@ import { notify } from '../services/notify.js';
 import { sendEmail } from '../services/integrations.js';
 import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 import { findBookableEntitlement } from '../services/entitlements.js';
+import { JWT_SECRET } from '../middleware/auth.js';
+import { bookingStart, bookingEndsAt, getPlatformSettings, hasTimeConflict, isInAutoAssignmentWindow, providerCanTakeBooking, servesTown } from '../services/scheduling.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -14,14 +16,14 @@ router.use(authenticateToken);
 const PROVIDER_PAYOUT_RATE = 0.85;
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
-const AUTO_ASSIGNMENT_START_HOUR = 7;
-const AUTO_ASSIGNMENT_END_HOUR = 16;
-const AUTO_ASSIGNMENT_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const pinKey = crypto.createHash('sha256').update(JWT_SECRET).digest();
+function encryptPin(pin) { const iv = crypto.randomBytes(12); const cipher = crypto.createCipheriv('aes-256-gcm', pinKey, iv); return Buffer.concat([iv, cipher.update(pin, 'utf8'), cipher.final(), cipher.getAuthTag()]).toString('base64'); }
+function decryptPin(value) { const data = Buffer.from(value, 'base64'); const iv = data.subarray(0, 12); const tag = data.subarray(data.length - 16); const decipher = crypto.createDecipheriv('aes-256-gcm', pinKey, iv); decipher.setAuthTag(tag); return Buffer.concat([decipher.update(data.subarray(12, data.length - 16)), decipher.final()]).toString('utf8'); }
 
 // Legal status transitions a provider can perform (admin has an override endpoint).
 const PROVIDER_TRANSITIONS = {
   PENDING: ['ASSIGNED'],
-  ASSIGNED: ['IN_PROGRESS', 'COMPLETED'],
+  ASSIGNED: ['IN_PROGRESS'],
   IN_PROGRESS: ['COMPLETED'],
 };
 
@@ -29,40 +31,18 @@ function normalizeTown(town) {
   return typeof town === 'string' && town.trim() ? town.trim().replace(/\s+/g, ' ') : null;
 }
 
-function servesTown(provider, town) {
-  if (!town) return false;
-  const wanted = town.toLocaleLowerCase();
-  return provider.serviceTowns.split(',').some((servedTown) => servedTown.trim().toLocaleLowerCase() === wanted);
-}
-
-function bookingStart(date, time) {
-  const match = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-  if (!match) return null;
-  let hour = Number(match[1]);
-  const minute = Number(match[2]);
-  const meridiem = match[3]?.toUpperCase();
-  if (meridiem === 'AM' && hour === 12) hour = 0;
-  if (meridiem === 'PM' && hour !== 12) hour += 12;
-  return new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
-}
-
-function isInAutoAssignmentWindow(date, time) {
-  const start = bookingStart(date, time);
-  return Boolean(start) && start.getHours() >= AUTO_ASSIGNMENT_START_HOUR && start.getHours() <= AUTO_ASSIGNMENT_END_HOUR;
-}
-
-function cooldownEndsAt(booking) {
+function cooldownEndsAt(booking, cooldownHours) {
   const start = bookingStart(booking.bookingDate, booking.bookingTime);
-  const sixHoursAfterStart = new Date(start.getTime() + AUTO_ASSIGNMENT_COOLDOWN_MS);
+  const cooldownEnd = new Date(start.getTime() + cooldownHours * 60 * 60 * 1000);
   // A provider may only shorten the default cooldown, never extend it.
-  return booking.expectedEndTime && new Date(booking.expectedEndTime) < sixHoursAfterStart
+  return booking.expectedEndTime && new Date(booking.expectedEndTime) < cooldownEnd
     ? new Date(booking.expectedEndTime)
-    : sixHoursAfterStart;
+    : cooldownEnd;
 }
 
 // Pick the least-loaded approved+available provider matching the booking town.
 // A provider's latest same-day auto assignment governs their cooldown.
-async function pickProvider(client, categoryName, town, bookingDate, bookingTime) {
+async function pickProvider(client, categoryName, town, bookingDate, bookingTime, service, settings) {
   const candidates = await client.provider.findMany({
     where: { category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' },
     select: { id: true, userId: true, serviceTowns: true },
@@ -89,22 +69,28 @@ async function pickProvider(client, categoryName, town, bookingDate, bookingTime
   }
   const eligible = townCandidates.filter((provider) => {
     const latestAssignment = latestAutoAssignmentByProvider.get(provider.id);
-    const cooldownEnd = latestAssignment && cooldownEndsAt(latestAssignment);
+    const cooldownEnd = latestAssignment && cooldownEndsAt(latestAssignment, settings.autoAssignmentCooldownHours);
     return !cooldownEnd || scheduledStart >= cooldownEnd;
   });
-  if (eligible.length === 0) return null;
+  const requested = { bookingDate, bookingTime, town, serviceId: service.id, service };
+  const conflictFree = [];
+  for (const provider of eligible) {
+    const fullProvider = { ...provider, category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' };
+    if ((await providerCanTakeBooking(client, fullProvider, requested)).ok) conflictFree.push(provider);
+  }
+  if (conflictFree.length === 0) return null;
 
   const load = await client.booking.groupBy({
     by: ['providerId'],
     where: {
-      providerId: { in: eligible.map((c) => c.id) },
+      providerId: { in: conflictFree.map((c) => c.id) },
       status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
     },
     _count: { _all: true },
   });
   const loadMap = new Map(load.map((l) => [l.providerId, l._count._all]));
 
-  return eligible.reduce((best, c) =>
+  return conflictFree.reduce((best, c) =>
     (loadMap.get(c.id) || 0) < (loadMap.get(best.id) || 0) ? c : best
   );
 }
@@ -134,7 +120,8 @@ router.post('/', async (req, res) => {
 
   const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true, email: true, name: true } });
   const town = normalizeTown(customer?.town);
-  const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time);
+  const settings = await getPlatformSettings(prisma);
+  const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time, settings);
   const booking = await prisma.$transaction(async (tx) => {
     const normalizedTime = booking_time.trim().toUpperCase();
     const duplicate = await tx.booking.findFirst({ where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } }, select: { id: true } });
@@ -143,7 +130,7 @@ router.post('/', async (req, res) => {
       error.statusCode = 409;
       throw error;
     }
-    const provider = shouldAutoAssign ? await pickProvider(tx, service.category.name, town, booking_date, booking_time) : null;
+    const provider = shouldAutoAssign ? await pickProvider(tx, service.category.name, town, booking_date, booking_time, service, settings) : null;
     const scheduled = bookingStart(booking_date, booking_time);
     return tx.booking.create({
       data: {
@@ -158,6 +145,8 @@ router.post('/', async (req, res) => {
         autoAssigned: Boolean(provider),
         startPinHash: await bcrypt.hash(startPin, 12),
         completionPinHash: await bcrypt.hash(completionPin, 12),
+        customerStartPinCipher: encryptPin(startPin),
+        customerCompletionPinCipher: encryptPin(completionPin),
         pinExpiresAt: scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null,
         totalPrice: service.price,
       },
@@ -238,6 +227,13 @@ router.get('/assigned', async (req, res) => {
   })));
 });
 
+router.get('/:id/pins', async (req, res) => {
+  const booking = await prisma.booking.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
+  if (!booking || ['CANCELLED', 'COMPLETED'].includes(booking.status)) return res.status(404).json({ error: 'Active booking PINs not found' });
+  if (!booking.customerStartPinCipher || !booking.customerCompletionPinCipher) return res.status(409).json({ error: 'PIN recovery is unavailable for this legacy booking' });
+  try { res.json({ start_pin: decryptPin(booking.customerStartPinCipher), completion_pin: decryptPin(booking.customerCompletionPinCipher), expires_at: booking.pinExpiresAt }); } catch (_) { res.status(500).json({ error: 'Could not recover booking PINs' }); }
+});
+
 // Update status (provider, with PIN for start/complete)
 router.put('/:id/status', async (req, res) => {
   const { id } = req.params;
@@ -270,6 +266,8 @@ router.put('/:id/status', async (req, res) => {
     if (booking.town && !servesTown(provider, booking.town)) {
       return res.status(403).json({ error: 'You do not serve this booking town' });
     }
+    const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, service: svc });
+    if (!eligibility.ok) return res.status(409).json({ error: eligibility.error });
   }
 
   const allowedNext = PROVIDER_TRANSITIONS[booking.status] || [];
@@ -278,6 +276,9 @@ router.put('/:id/status', async (req, res) => {
   }
 
   if (nextStatus === 'COMPLETED' || nextStatus === 'IN_PROGRESS') {
+    const requiredPhotoKind = nextStatus === 'IN_PROGRESS' ? 'BEFORE' : 'AFTER';
+    const requiredPhotos = await prisma.servicePhoto.count({ where: { bookingId: booking.id, kind: requiredPhotoKind } });
+    if (!requiredPhotos) return res.status(400).json({ error: `${requiredPhotoKind.toLowerCase()} photo upload is required before this status change` });
     // PIN lockout check
     if (booking.pinLockedUntil && new Date(booking.pinLockedUntil) > new Date()) {
       const remainingMin = Math.ceil((new Date(booking.pinLockedUntil) - new Date()) / 60000);
@@ -379,10 +380,14 @@ router.put('/:id/schedule', async (req, res) => {
 
   const expectedEndTime = new Date(req.body.expected_end_time);
   const start = bookingStart(booking.bookingDate, booking.bookingTime);
-  const latestAllowed = new Date(start.getTime() + AUTO_ASSIGNMENT_COOLDOWN_MS);
+  const settings = await getPlatformSettings(prisma);
+  const latestAllowed = new Date(start.getTime() + settings.autoAssignmentCooldownHours * 60 * 60 * 1000);
   if (Number.isNaN(expectedEndTime.getTime()) || expectedEndTime <= start || expectedEndTime > latestAllowed) {
     return res.status(400).json({ error: 'expected_end_time must be after the booking start and no later than its 6-hour cooldown end' });
   }
+  const service = await prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } });
+  const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, service, expectedEndTime }, { ignoreBookingId: booking.id });
+  if (!eligibility.ok) return res.status(409).json({ error: eligibility.error });
   await prisma.booking.update({ where: { id: booking.id }, data: { expectedEndTime } });
   res.json({ message: 'Expected end time saved', expected_end_time: expectedEndTime });
 });
@@ -410,7 +415,12 @@ router.put('/:id/reschedule', async (req, res) => {
   if (reason.length < 3 || reason.length > 500) return res.status(400).json({ error: 'reason must be 3-500 characters' });
   const booking = await prisma.booking.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
   if (!booking || !['PENDING', 'ASSIGNED'].includes(booking.status)) return res.status(404).json({ error: 'Reschedulable booking not found' });
-  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), rescheduleReason: reason } });
+  if (booking.providerId) {
+    const [provider, service] = await Promise.all([prisma.provider.findUnique({ where: { id: booking.providerId } }), prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } })]);
+    const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, service }, { ignoreBookingId: booking.id });
+    if (!eligibility.ok) return res.status(409).json({ error: `Reschedule unavailable: ${eligibility.error}` });
+  }
+  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, rescheduleReason: reason } });
   if (booking.providerId) { const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } }); if (provider) await notify(provider.userId, `Booking #${booking.id} has been rescheduled by the customer.`); }
   await notify(booking.userId, `Booking #${booking.id} has been rescheduled.`);
   res.json({ id: updated.id, status: updated.status.toLowerCase(), booking_date: updated.bookingDate, booking_time: updated.bookingTime });

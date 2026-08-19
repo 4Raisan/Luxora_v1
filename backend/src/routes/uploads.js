@@ -43,7 +43,7 @@ router.post('/bookings/:id/photos', authenticateToken, requireRole('PROVIDER'), 
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   const booking = provider && await prisma.booking.findFirst({ where: { id: bookingId, providerId: provider.id } });
   if (!booking) { removeFiles(files); return res.status(403).json({ error: 'This booking is not assigned to you' }); }
-  if ((kind === 'BEFORE' && booking.status !== 'IN_PROGRESS') || (kind === 'AFTER' && booking.status !== 'COMPLETED')) { removeFiles(files); return res.status(400).json({ error: `${kind} photos can only be uploaded at the appropriate service stage` }); }
+  if ((kind === 'BEFORE' && booking.status !== 'ASSIGNED') || (kind === 'AFTER' && booking.status !== 'IN_PROGRESS')) { removeFiles(files); return res.status(400).json({ error: `${kind} photos can only be uploaded at the appropriate service stage` }); }
   const photos = await prisma.servicePhoto.createManyAndReturn({ data: files.map((file) => ({ bookingId, kind, filePath: file.filename, originalName: file.originalname, mimeType: file.mimetype, sizeBytes: file.size })) });
   res.status(201).json({ photos: photos.map((p) => ({ id: p.id, kind: p.kind, original_name: p.originalName, url: `/api/uploads/photos/${p.id}` })) });
 });

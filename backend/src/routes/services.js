@@ -25,13 +25,43 @@ router.get('/subscriptions', async (_req, res) => {
   res.json(plans.map((p) => ({ ...p, features: JSON.parse(p.features || '[]'), entitlements: p.entitlements.map((item) => ({ category_id: item.categoryId, category_name: item.category.name, units: item.units })) })));
 });
 
-router.get('/subscriptions/entitlements', authenticateToken, async (req, res) => res.json({ entitlements: await getEntitlementSnapshot(prisma, req.user.id) }));
+async function renewDueDemoSubscriptions(userId) {
+  if (String(process.env.PAYMENT_MODE || 'payhere').toLowerCase() !== 'demo') return 0;
+  const due = await prisma.userSubscription.findMany({ where: { userId, status: 'active', autoRenew: true, nextRenewalDate: { lte: new Date() } }, include: { plan: true } });
+  for (const subscription of due) {
+    await prisma.$transaction(async (tx) => {
+      const fresh = await tx.userSubscription.findUnique({ where: { id: subscription.id }, include: { plan: true } });
+      if (!fresh || fresh.status !== 'active' || !fresh.autoRenew || !fresh.nextRenewalDate || fresh.nextRenewalDate > new Date()) return;
+      const startDate = fresh.nextRenewalDate;
+      const endDate = new Date(startDate.getTime() + fresh.renewalIntervalDays * 86400000);
+      const orderId = `LUX-DEMO-RENEW-${fresh.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const renewed = await tx.userSubscription.create({ data: { userId, planId: fresh.planId, startDate, endDate, status: 'active', autoRenew: true, renewalIntervalDays: fresh.renewalIntervalDays, nextRenewalDate: endDate } });
+      await tx.userSubscription.update({ where: { id: fresh.id }, data: { status: 'expired', autoRenew: false } });
+      await tx.payment.create({ data: { userId, planId: fresh.planId, subscriptionId: renewed.id, gateway: 'DEMO', gatewayOrderId: orderId, idempotencyKey: orderId, status: 'COMPLETED', expectedAmount: fresh.plan.priceMonthly, expectedCurrency: 'LKR', capturedAmount: fresh.plan.priceMonthly, capturedCurrency: 'LKR', webhookPayload: { mode: 'demo', renewal: true } } });
+    });
+  }
+  return due.length;
+}
+
+router.get('/subscriptions/entitlements', authenticateToken, async (req, res) => {
+  const renewed = await renewDueDemoSubscriptions(req.user.id);
+  if (renewed) await sendEmail({ to: (await prisma.user.findUnique({ where: { id: req.user.id } }))?.email, subject: 'Luxora demo subscription renewed', html: '<p>Your demo subscription has been renewed. No real money was charged.</p>' }).catch(() => {});
+  res.json({ entitlements: await getEntitlementSnapshot(prisma, req.user.id), renewed });
+});
+
+router.put('/subscriptions/:id/auto-renew', authenticateToken, async (req, res) => {
+  if (typeof req.body.auto_renew !== 'boolean') return res.status(400).json({ error: 'auto_renew must be true or false' });
+  const subscription = await prisma.userSubscription.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id, status: 'active' } });
+  if (!subscription) return res.status(404).json({ error: 'Active subscription not found' });
+  const updated = await prisma.userSubscription.update({ where: { id: subscription.id }, data: { autoRenew: req.body.auto_renew, nextRenewalDate: req.body.auto_renew ? (subscription.nextRenewalDate || subscription.endDate) : null } });
+  res.json({ id: updated.id, auto_renew: updated.autoRenew, next_renewal_date: updated.nextRenewalDate });
+});
 
 router.put('/subscriptions/:id/cancel', authenticateToken, async (req, res) => {
   if (req.body.confirmed !== true) return res.status(400).json({ error: 'Cancellation confirmation is required' });
   const subscription = await prisma.userSubscription.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
   if (!subscription || subscription.status !== 'active') return res.status(404).json({ error: 'Active subscription not found' });
-  await prisma.userSubscription.update({ where: { id: subscription.id }, data: { status: 'cancelled' } });
+  await prisma.userSubscription.update({ where: { id: subscription.id }, data: { status: 'cancelled', autoRenew: false, nextRenewalDate: null } });
   res.json({ status: 'cancelled', subscription_id: subscription.id });
 });
 

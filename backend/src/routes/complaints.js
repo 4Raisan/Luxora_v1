@@ -7,6 +7,11 @@ import { notify } from '../services/notify.js';
 const router = Router();
 router.use(authenticateToken);
 
+router.get('/my', async (req, res) => {
+  const complaints = await prisma.complaint.findMany({ where: { userId: req.user.id }, include: { booking: { select: { id: true, bookingDate: true, bookingTime: true, service: { select: { title: true } } } } }, orderBy: { updatedAt: 'desc' } });
+  res.json(complaints.map((item) => ({ id: item.id, subject: item.subject, description: item.description, status: item.status.toLowerCase(), admin_note: item.adminNote, created_at: item.createdAt, updated_at: item.updatedAt, booking: item.booking && { id: item.booking.id, date: item.booking.bookingDate, time: item.booking.bookingTime, service: item.booking.service?.title } })));
+});
+
 router.post('/', async (req, res) => {
   const { booking_id, subject, description } = req.body;
 
