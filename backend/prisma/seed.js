@@ -49,32 +49,9 @@ async function main() {
         { title: 'Luxora Tri-Combo Luxury Suite', type: 'combo', priceMonthly: 32000, description: 'Complete home concierge covering Auto, Garden, and Pet Care under one subscription.', features: JSON.stringify(['2x Auto Wash + Vacuum', '4x Garden Care & Lawn Mowing', '2x Pet Spa Bathing or Aquarium Service', 'Zero cancellation fees', 'VIP concierge hotline support']) },
       ],
     });
-    }
-
-  const plans = await prisma.subscriptionPlan.findMany();
-  const categoryByName = new Map((await prisma.category.findMany()).map((category) => [category.name, category]));
-  const entitlementUnits = (title, categoryName) => {
-    const normalized = title.toLowerCase();
-    if (normalized.includes('tri-combo')) return { 'Auto Care': 2, 'Garden Care': 4, 'Pet Care': 2 }[categoryName] || 0;
-    if (normalized.includes('auto') && categoryName === 'Auto Care') return 2;
-    if (normalized.includes('garden') && categoryName === 'Garden Care') return 4;
-    if (normalized.includes('pet') && categoryName === 'Pet Care') return 2;
-    return 0;
-  };
-  for (const plan of plans) {
-    for (const categoryName of ['Auto Care', 'Garden Care', 'Pet Care']) {
-      const category = categoryByName.get(categoryName);
-      if (!category) continue;
-      await prisma.subscriptionEntitlement.upsert({
-        where: { planId_categoryId: { planId: plan.id, categoryId: category.id } },
-        update: { units: entitlementUnits(plan.title, categoryName) },
-        create: { planId: plan.id, categoryId: category.id, units: entitlementUnits(plan.title, categoryName) },
-      });
-    }
   }
 
   // Demo accounts — every password is bcrypt-hashed (10 rounds) before storage
-
   const ensure = async (name, email, phone, role, nic, category, password, town = null, serviceTowns = '') => {
     const pwHash = bcrypt.hashSync(password, 10);
     const existing = await prisma.user.findUnique({ where: { email } });

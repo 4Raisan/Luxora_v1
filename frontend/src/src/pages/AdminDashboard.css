@@ -1,0 +1,687 @@
+/* ─── Admin Dashboard Master Layout ─────────────────────────── */
+.ad-wrapper {
+  display: flex;
+  min-height: 100vh;
+  background: #080808;
+  color: #e0e0e0;
+  font-family: var(--font-primary, system-ui, sans-serif);
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────── */
+.ad-sidebar {
+  width: 260px;
+  background: #0d0d0d;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.ad-sidebar__logo {
+  padding: 1.5rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ad-logo-img {
+  height: 48px;
+  object-fit: contain;
+}
+
+.ad-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 0.75rem;
+  flex: 1;
+}
+
+.ad-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border: none;
+  background: transparent;
+  color: #777;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  position: relative;
+  width: 100%;
+}
+
+.ad-nav__item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #ccc;
+}
+
+.ad-nav__item--active {
+  background: rgba(201, 168, 76, 0.1);
+  color: var(--gold, #c9a84c);
+  font-weight: 700;
+  border-left: 3px solid var(--gold, #c9a84c);
+}
+
+.ad-nav__icon {
+  font-size: 0.9rem;
+  width: 20px;
+  display: inline-block;
+  text-align: center;
+}
+
+.ad-nav__label {
+  flex: 1;
+}
+
+.ad-nav__badge {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--gold, #c9a84c);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+/* ─── Main ──────────────────────────────────────────────────── */
+.ad-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.ad-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background: #0a0a0a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ad-topbar__eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: #666;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ad-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.ad-topbar__notif-btn {
+  background: #141414;
+  border: 1px solid #222;
+  color: #aaa;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.ad-notif-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--gold, #c9a84c);
+  color: #000;
+  font-size: 0.6rem;
+  font-weight: 800;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ad-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #121212;
+  border: 1px solid #222;
+  padding: 0.35rem 0.85rem;
+  border-radius: 30px;
+}
+
+.ad-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gold, #c9a84c);
+  color: #000;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+.ad-user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-user-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.ad-user-role {
+  font-size: 0.62rem;
+  color: #888;
+  font-weight: 600;
+}
+
+.ad-user-dot {
+  color: #4ade80;
+  font-size: 0.55rem;
+  margin-left: 2px;
+}
+
+.ad-logout-btn {
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ad-logout-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* ─── Content Workspace ─────────────────────────────────────── */
+.ad-content {
+  padding: 1.75rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* Hero Banner */
+.ad-hero {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(8, 8, 8, 0.95) 0%, rgba(8, 8, 8, 0.7) 45%, rgba(8, 8, 8, 0.2) 100%), url('/dark_luxury_mansion.jpg') no-repeat center center;
+  background-size: cover;
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  padding: 2.75rem 2.75rem;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(201, 168, 76, 0.1) inset;
+}
+
+.ad-hero__eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--gold, #c9a84c);
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.ad-hero__title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.35rem 0;
+  letter-spacing: -0.02em;
+}
+
+.ad-hero__sub {
+  font-size: 0.85rem;
+  color: #888;
+  margin: 0;
+}
+
+/* ─── Metrics Grid ──────────────────────────────────────────── */
+.ad-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1rem;
+}
+
+.ad-metric-card {
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ad-metric-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ad-metric-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: #777;
+  font-weight: 700;
+}
+
+.ad-metric-icon {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.ad-metric-val {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.ad-metric-trend {
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.ad-trend--up {
+  color: #4ade80;
+}
+
+/* ─── Tables Grid Layout (2 Column) ─────────────────────────── */
+.ad-tables-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.ad-table-card {
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.ad-table-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  color: #aaa;
+  font-weight: 700;
+  margin: 0 0 1.25rem 0;
+  text-transform: uppercase;
+}
+
+.ad-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.ad-data-table th {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: #666;
+  font-weight: 700;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ad-data-table td {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.82rem;
+}
+
+/* Status & Priority Badges */
+.ad-badge-status {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.ad-badge-priority {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.ad-badge-fill {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.ad-btn-approve {
+  background: #059669;
+  color: #fff;
+  border: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ad-btn-reject {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Responsive Grid Adjustments */
+@media (max-width: 1400px) {
+  .ad-metrics-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .ad-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ad-tables-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Notification Modal Popup ────────────────────────────────── */
+.ad-notif-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.ad-notif-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #111111;
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(201, 168, 76, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ad-notif-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 1rem;
+}
+
+.ad-notif-modal__eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  color: var(--gold, #c9a84c);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.ad-notif-modal__title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.ad-notif-modal__close {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  color: #aaa;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.ad-notif-modal__close:hover {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+
+.ad-notif-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.ad-notif-empty {
+  text-align: center;
+  color: #777;
+  font-size: 0.85rem;
+  padding: 2rem 0;
+  margin: 0;
+}
+
+.ad-notif-card {
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  transition: all 0.2s;
+}
+
+.ad-notif-card.unread {
+  border-left: 3px solid var(--gold, #c9a84c);
+  background: rgba(201, 168, 76, 0.04);
+}
+
+.ad-notif-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.ad-notif-card__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ad-notif-card__time {
+  font-size: 0.7rem;
+  color: #777;
+}
+
+.ad-notif-card__desc {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin: 0;
+}
+
+.ad-notif-modal__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 1rem;
+}
+
+.ad-notif-clear-btn {
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ad-notif-clear-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.ad-notif-close-btn {
+  background: var(--gold, #c9a84c);
+  border: none;
+  color: #000;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ad-notif-close-btn:hover {
+  background: #d4b55c;
+}
+
+.ad-reset-btn {
+  background: transparent;
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  color: var(--gold, #c9a84c);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ad-reset-btn:hover {
+  background: rgba(201, 168, 76, 0.1);
+  border-color: var(--gold, #c9a84c);
+}
+
+/* ── Mobile Optimization & Responsive Layout Rules ── */
+@media (max-width: 768px) {
+  .ad-dashboard {
+    flex-direction: column;
+  }
+
+  .ad-sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1rem;
+  }
+
+  .ad-sidebar__nav {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ad-nav__item {
+    white-space: nowrap;
+    padding: 0.5rem 0.85rem;
+    min-height: 44px;
+  }
+
+  .ad-main {
+    padding: 1rem;
+  }
+
+  .ad-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .ad-topbar__actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .ad-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .ad-table-card {
+    padding: 1rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ad-data-table {
+    min-width: 620px;
+  }
+
+  .ad-notif-modal {
+    width: 95vw;
+    padding: 1.25rem;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .ad-main {
+    padding: 0.75rem;
+  }
+
+  .ad-topbar__eyebrow {
+    font-size: 0.7rem;
+  }
+
+  .ad-hero-banner {
+    padding: 1.5rem 1rem;
+  }
+
+  .ad-hero-banner h1 {
+    font-size: 1.35rem;
+  }
+}

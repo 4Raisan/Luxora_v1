@@ -1,0 +1,200 @@
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Background */
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  background:
+    url('https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1800&q=80') center / cover no-repeat;
+  transform: scale(1.05);
+  animation: heroZoom 20s ease-in-out infinite alternate;
+}
+
+@keyframes heroZoom {
+  from { transform: scale(1.05); }
+  to   { transform: scale(1.12); }
+}
+
+.hero__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(10, 10, 10, 0.88) 0%,
+    rgba(10, 10, 10, 0.65) 50%,
+    rgba(10, 10, 10, 0.3) 100%
+  );
+}
+
+/* Content */
+.hero__content {
+  position: relative;
+  z-index: 2;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 4rem;
+  padding-top: 72px;
+  width: 100%;
+}
+
+/* Badge */
+.hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(201, 168, 76, 0.1);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.4rem 1rem;
+  border-radius: 50px;
+  margin-bottom: 2rem;
+  animation: fadeInUp 0.7s ease 0.1s both;
+}
+
+.hero__badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: pulse-gold 2s ease infinite;
+}
+
+/* Heading */
+.hero__heading {
+  font-family: var(--font-primary);
+  font-size: clamp(2.8rem, 6vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--white);
+  margin-bottom: 1.5rem;
+  opacity: 0;
+}
+
+.hero__heading-accent {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Subtitle */
+.hero__subtitle {
+  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 480px;
+  line-height: 1.75;
+  margin-bottom: 2.8rem;
+  opacity: 0;
+}
+
+/* Actions */
+.hero__actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  opacity: 0;
+}
+
+.hero__btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--gold-btn);
+  color: var(--dark);
+  border: none;
+  padding: 0.9rem 2rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero__btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.15) 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.hero__btn-primary:hover {
+  background: var(--gold-light);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(201, 168, 76, 0.4);
+}
+
+.hero__btn-primary:hover::before {
+  opacity: 1;
+}
+
+.hero__btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--white);
+  padding: 0.9rem 1.8rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: var(--transition);
+}
+
+.hero__btn-secondary:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+/* Scroll Indicator */
+.hero__scroll {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  z-index: 2;
+  animation: float 3s ease infinite;
+}
+
+.hero__scroll-line {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, rgba(201, 168, 76, 0.5));
+}
+
+@media (max-width: 768px) {
+  .hero__content {
+    padding: 0 1.5rem;
+    padding-top: 72px;
+  }
+  .hero__heading {
+    font-size: 2.5rem;
+  }
+  .hero__subtitle {
+    font-size: 0.95rem;
+  }
+  .hero__actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

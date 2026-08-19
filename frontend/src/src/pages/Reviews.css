@@ -1,0 +1,65 @@
+.rv {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 5% 4rem;
+  background: radial-gradient(900px 500px at 50% -10%, rgba(201,168,76,0.1), transparent), var(--dark);
+}
+.rv-card {
+  width: 100%;
+  max-width: 540px;
+  background: linear-gradient(160deg, var(--dark-card), #151515);
+  border: 1px solid var(--dark-border);
+  border-radius: 22px;
+  padding: 2.6rem;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+}
+.rv-eyebrow { font-size: 0.7rem; letter-spacing: 0.3em; color: var(--gold); margin-bottom: 0.6rem; }
+.rv-title { font-family: var(--font-display); font-size: 2.2rem; font-weight: 400; margin-bottom: 1.6rem; }
+.rv-empty { color: var(--text-muted); }
+
+.rv-label {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-bottom: 0.5rem;
+}
+.rv-select, .rv-textarea {
+  width: 100%;
+  background: #0e0e0e;
+  border: 1px solid var(--dark-border);
+  color: var(--white);
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  margin-bottom: 1.4rem;
+  transition: var(--transition);
+}
+.rv-select:focus, .rv-textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.12); }
+.rv-select option { background: #161616; }
+.rv-textarea { resize: vertical; }
+
+.rv-stars { display: flex; gap: 0.4rem; margin-bottom: 1.4rem; }
+.rv-star {
+  background: none; border: none; cursor: pointer;
+  font-size: 2rem; color: #3a3a3a; transition: transform 0.15s, color 0.15s;
+  line-height: 1;
+}
+.rv-star--on { color: var(--gold); }
+.rv-star:hover { transform: scale(1.15); }
+
+.rv-error { background: rgba(255,122,122,0.1); border: 1px solid rgba(255,122,122,0.4); color: #ff9a9a; padding: 0.7rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; }
+.rv-ok { background: rgba(107,214,160,0.1); border: 1px solid rgba(107,214,160,0.4); color: #8ee6b4; padding: 0.7rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; }
+
+.rv-submit {
+  width: 100%;
+  background: linear-gradient(135deg, var(--gold), #b8933c);
+  color: #1a1305; border: none; padding: 0.95rem; border-radius: 10px;
+  font-weight: 600; font-size: 0.95rem; letter-spacing: 0.05em; cursor: pointer;
+  transition: var(--transition);
+}
+.rv-submit:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }

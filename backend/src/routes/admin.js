@@ -9,24 +9,8 @@ router.use(authenticateToken, requireRole('ADMIN'));
 
 const PROVIDER_PAYOUT_RATE = 0.85;
 
-const ADMIN_TRANSITIONS = {
-  PENDING: ['ASSIGNED', 'CANCELLED'],
-  ASSIGNED: ['PENDING', 'IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
-  CANCELLED: ['PENDING'],
-  COMPLETED: [],
-};
-
-function normalizeReason(reason) {
-  if (typeof reason !== 'string') return null;
-  const value = reason.trim();
-  return value.length >= 3 && value.length <= 500 ? value : null;
-}
-
 router.get('/providers', async (_req, res) => {
-  const providers = await prisma.provider.findMany({
-    include: { user: { select: { id: true, name: true, email: true, phone: true, role: true } } },
-  });
+  const providers = await prisma.provider.findMany({ include: { user: true } });
   res.json(providers.map((p) => ({
     ...p,
     id: p.id,
@@ -67,40 +51,26 @@ router.get('/stats', async (_req, res) => {
 
 router.get('/bookings', async (_req, res) => {
   const bookings = await prisma.booking.findMany({
-    include: {
-      service: { include: { category: true } },
-      user: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, role: true } } } },
-    },
+    include: { service: { include: { category: true } }, user: true, provider: { include: { user: true } } },
     orderBy: { createdAt: 'desc' },
   });
   res.json(bookings.map((b) => ({
     ...b,
     pinCode: undefined,
-    pinAttempts: undefined,
-    pinLockedUntil: undefined,
-    expectedEndTime: undefined,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
     category_name: b.service?.category?.name,
     customer_name: b.user?.name,
     customer_email: b.user?.email,
     provider_name: b.provider?.user?.name,
-        total_price: b.totalPrice,
-    cancellation_reason: b.cancellationReason,
-    reschedule_reason: b.rescheduleReason,
-
+    total_price: b.totalPrice,
   })));
 });
 
 // Admin override booking status / reassign
 router.put('/bookings/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, provider_id, reason, confirmed } = req.body;
-
-  if (confirmed !== true) return res.status(400).json({ error: 'Admin confirmation is required' });
-  const normalizedReason = normalizeReason(reason);
-  if (!normalizedReason) return res.status(400).json({ error: 'reason must be between 3 and 500 characters' });
+  const { status, provider_id } = req.body;
 
   const booking = await prisma.booking.findUnique({ where: { id: Number(id) } });
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
@@ -109,10 +79,6 @@ router.put('/bookings/:id', async (req, res) => {
   if (status !== undefined && status !== null && status !== '') {
     nextStatus = toEnum(status, BOOKING_STATUSES);
     if (!nextStatus) return res.status(400).json({ error: `Invalid status. Allowed: ${BOOKING_STATUSES.map((s) => s.toLowerCase()).join(', ')}` });
-    const allowed = ADMIN_TRANSITIONS[booking.status] || [];
-    if (nextStatus !== booking.status && !allowed.includes(nextStatus)) {
-      return res.status(400).json({ error: `Cannot move booking from ${booking.status.toLowerCase()} to ${nextStatus.toLowerCase()}` });
-    }
   }
 
   let nextProviderId = undefined;
@@ -121,12 +87,6 @@ router.put('/bookings/:id', async (req, res) => {
     if (!nextProviderId) return res.status(400).json({ error: 'provider_id must be a positive integer' });
     const p = await prisma.provider.findUnique({ where: { id: nextProviderId } });
     if (!p) return res.status(400).json({ error: 'Invalid provider' });
-  }
-  if (nextStatus === undefined && nextProviderId === undefined) {
-    return res.status(400).json({ error: 'status or provider_id is required' });
-  }
-  if (nextStatus === 'COMPLETED' && !(nextProviderId ?? booking.providerId)) {
-    return res.status(400).json({ error: 'A provider is required before completing a booking' });
   }
 
   // Pay out exactly once, only when transitioning INTO COMPLETED
@@ -138,33 +98,25 @@ router.put('/bookings/:id', async (req, res) => {
     });
   }
 
-  const updated = await prisma.booking.update({
+  await prisma.booking.update({
     where: { id: booking.id },
-    data: {
-      status: nextStatus,
-      providerId: nextProviderId,
-      cancellationReason: nextStatus === 'CANCELLED' ? normalizedReason : (nextStatus === 'PENDING' && booking.status === 'CANCELLED' ? null : undefined),
-    },
+    data: { status: nextStatus, providerId: nextProviderId },
   });
 
   if (nextStatus && nextStatus !== booking.status) {
-    const action = nextStatus === 'CANCELLED' ? 'cancelled' : nextStatus === 'PENDING' && booking.status === 'CANCELLED' ? 'recovered for reassignment' : `status is now ${nextStatus.toLowerCase()}`;
-    await notify(booking.userId, `Your booking #${id} ${action}. Reason: ${normalizedReason}`);
+    await notify(booking.userId, `Your booking #${id} status is now ${nextStatus.toLowerCase()}.`);
   }
   if (nextProviderId && nextProviderId !== booking.providerId) {
     const provider = await prisma.provider.findUnique({ where: { id: nextProviderId } });
     if (provider) await notify(provider.userId, `Booking #${id} has been assigned to you.`);
   }
 
-  res.json({ message: `Booking #${id} updated`, status: updated.status.toLowerCase(), reason: updated.cancellationReason });
+  res.json({ message: `Booking #${id} updated` });
 });
 
 router.get('/complaints', async (_req, res) => {
   const complaints = await prisma.complaint.findMany({
-    include: {
-      user: { select: { id: true, name: true, email: true, phone: true, role: true } },
-      booking: { include: { service: true } },
-    },
+    include: { user: true, booking: { include: { service: true } } },
     orderBy: { createdAt: 'desc' },
   });
   res.json(complaints.map((c) => ({

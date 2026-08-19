@@ -1,7 +1,7 @@
 // Minimal dependency-free rate limiter (per-IP, in-memory).
 // Intended for auth endpoints to slow brute-force attempts.
 
-export function rateLimit({ windowMs = 15 * 60 * 1000, max = 10, message = 'Too many attempts, try again later', keyGenerator } = {}) {
+export function rateLimit({ windowMs = 15 * 60 * 1000, max = 10, message = 'Too many attempts, try again later' } = {}) {
   const hits = new Map();
 
   // Periodic cleanup so the map does not grow forever.
@@ -14,13 +14,12 @@ export function rateLimit({ windowMs = 15 * 60 * 1000, max = 10, message = 'Too 
 
   return (req, res, next) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const key = keyGenerator ? String(keyGenerator(req) || ip) : ip;
     const now = Date.now();
-    let entry = hits.get(key);
+    let entry = hits.get(ip);
 
     if (!entry || now > entry.resetAt) {
       entry = { count: 0, resetAt: now + windowMs };
-      hits.set(key, entry);
+      hits.set(ip, entry);
     }
     entry.count += 1;
 

@@ -13,7 +13,6 @@ model User {
   email         String             @unique
   passwordHash  String
   phone         String?
-  phoneVerified Boolean            @default(false)
   town          String?
   role          Role               @default(CUSTOMER)
   createdAt     DateTime           @default(now())
@@ -23,23 +22,8 @@ model User {
   provider      Provider?
   reviews       Review[]
   subscriptions UserSubscription[]
-  passwordResetTokens PasswordResetToken[]
-  payments      Payment[]
 
   @@map("users")
-}
-
-model PasswordResetToken {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  tokenHash String   @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, expiresAt])
-  @@map("password_reset_tokens")
 }
 
 model Provider {
@@ -63,7 +47,6 @@ model Category {
   description String?
   icon        String?
   services    Service[]
-  subscriptionEntitlements SubscriptionEntitlement[]
 
   @@map("categories")
 }
@@ -89,23 +72,8 @@ model SubscriptionPlan {
   description       String?
   features          String
   userSubscriptions UserSubscription[]
-  entitlements      SubscriptionEntitlement[]
-  payments          Payment[]
 
   @@map("subscription_plans")
-}
-
-model SubscriptionEntitlement {
-  id       Int              @id @default(autoincrement())
-  planId   Int
-  categoryId Int
-  units    Int              @default(0)
-  plan     SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  category Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@unique([planId, categoryId])
-  @@index([categoryId])
-  @@map("subscription_entitlements")
 }
 
 model UserSubscription {
@@ -117,8 +85,6 @@ model UserSubscription {
   status    String           @default("active")
   plan      SubscriptionPlan @relation(fields: [planId], references: [id])
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bookings  Booking[]
-  payments  Payment[]
 
   @@map("user_subscriptions")
 }
@@ -128,13 +94,10 @@ model Booking {
   userId         Int
   providerId     Int?
   serviceId      Int
-  subscriptionId Int?
   bookingDate    String
   bookingTime    String
-  status             BookingStatus @default(PENDING)
-  cancellationReason String?
-  rescheduleReason   String?
-  pinCode            String
+  status         BookingStatus @default(PENDING)
+  pinCode        String
   pinAttempts    Int           @default(0)
   pinLockedUntil DateTime?
   beforePhoto    String?
@@ -143,58 +106,14 @@ model Booking {
   createdAt      DateTime      @default(now())
   provider       Provider?     @relation(fields: [providerId], references: [id])
   service        Service       @relation(fields: [serviceId], references: [id])
-  subscription   UserSubscription? @relation(fields: [subscriptionId], references: [id])
   user           User          @relation(fields: [userId], references: [id])
   complaints     Complaint[]
   review         Review?
-  payments       Payment[]
 
   @@index([userId])
   @@index([providerId])
-  @@index([subscriptionId])
   @@index([status])
   @@map("bookings")
-}
-
-model Payment {
-  id               Int             @id @default(autoincrement())
-  userId           Int
-  planId           Int?
-  bookingId        Int?
-  subscriptionId   Int?
-  gateway          PaymentGateway
-  gatewayOrderId   String          @unique
-  status           PaymentStatus   @default(PENDING)
-  expectedAmount   Float
-  expectedCurrency String
-  capturedAmount   Float?
-  capturedCurrency String?
-  webhookPayload   Json?
-  idempotencyKey   String          @unique
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan             SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: Restrict)
-  booking          Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  subscription     UserSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-
-  @@index([userId, status])
-  @@index([planId])
-  @@index([bookingId])
-  @@index([subscriptionId])
-  @@map("payments")
-}
-
-enum PaymentGateway {
-  PAYHERE
-  PAYPAL
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
 }
 
 model Review {

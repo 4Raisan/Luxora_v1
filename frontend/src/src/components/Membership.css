@@ -1,0 +1,318 @@
+.membership {
+  background: var(--off-white);
+  padding: 7rem 2rem;
+}
+
+.membership__inner {
+  max-width: 1300px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 6rem;
+  align-items: start;
+}
+
+/* Left Info */
+.membership__title {
+  font-size: clamp(2rem, 3.5vw, 2.8rem);
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+  margin: 1rem 0 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.membership__desc {
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  max-width: 360px;
+  margin-bottom: 2.5rem;
+}
+
+/* Contacts */
+.membership__contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.membership__contact-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  color: #444;
+  font-size: 0.9rem;
+  transition: var(--transition);
+  font-weight: 500;
+}
+
+.membership__contact-item:hover {
+  color: var(--gold);
+}
+
+.membership__contact-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--dark);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+
+.membership__contact-item:hover .membership__contact-icon {
+  background: var(--gold);
+  color: var(--dark);
+  transform: scale(1.05);
+}
+
+/* Decor */
+.membership__decor {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  color: #aaa;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.membership__decor-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(0,0,0,0.1);
+}
+
+/* Steps */
+.membership__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.membership__step {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #555;
+  font-size: 0.875rem;
+}
+
+.membership__step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--dark);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Form Wrap */
+.membership__form-wrap {
+  background: var(--dark-card);
+  border-radius: 20px;
+  padding: 2.5rem;
+  border: 1px solid var(--dark-border);
+}
+
+/* Form */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.form-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: #777;
+  text-transform: uppercase;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  color: var(--white);
+  font-family: var(--font-primary);
+  font-size: 0.9rem;
+  padding: 0.85rem 1rem;
+  transition: border-color 0.25s, box-shadow 0.25s;
+  outline: none;
+  width: 100%;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.08);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #444;
+}
+
+/* Select */
+.form-select-wrap {
+  position: relative;
+}
+
+.form-select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 2.5rem;
+}
+
+.form-select option {
+  background: #1a1a1a;
+  color: var(--white);
+}
+
+.form-select-arrow {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #555;
+  pointer-events: none;
+}
+
+/* Textarea */
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Submit */
+.form-submit {
+  width: 100%;
+  padding: 1.1rem;
+  background: var(--gold-btn);
+  border: none;
+  border-radius: 8px;
+  color: var(--dark);
+  font-family: var(--font-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  margin-top: 0.5rem;
+}
+
+.form-submit:hover:not(:disabled) {
+  background: var(--gold-light);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(201, 168, 76, 0.35);
+}
+
+.form-submit.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.form-submit__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-top-color: var(--dark);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Success */
+.membership__success {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.membership__success-icon {
+  font-size: 2.5rem;
+  color: var(--gold);
+  margin-bottom: 1.5rem;
+  animation: float 3s ease infinite;
+  display: block;
+}
+
+.membership__success h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 1rem;
+}
+
+.membership__success p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+
+.membership__success-btn {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  padding: 0.7rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.membership__success-btn:hover {
+  background: var(--gold);
+  color: var(--dark);
+}
+
+@media (max-width: 960px) {
+  .membership__inner {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .membership {
+    padding: 4rem 1.5rem;
+  }
+  .membership__form-wrap {
+    padding: 1.75rem;
+  }
+}
