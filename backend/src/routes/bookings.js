@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
 import { sendEmail } from '../services/integrations.js';
 import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
+import { findBookableEntitlement } from '../services/entitlements.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -18,9 +19,19 @@ const AUTO_ASSIGNMENT_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 // Legal status transitions a provider can perform (admin has an override endpoint).
 const PROVIDER_TRANSITIONS = {
   PENDING: ['ASSIGNED'],
-  ASSIGNED: ['IN_PROGRESS', 'COMPLETED'],
+  ASSIGNED: ['IN_PROGRESS'],
   IN_PROGRESS: ['COMPLETED'],
 };
+
+const CUSTOMER_RESCHEDULABLE_STATUSES = new Set(['PENDING', 'ASSIGNED']);
+
+function normalizeReason(reason, fieldName = 'reason') {
+  if (typeof reason !== 'string') return { error: `${fieldName} is required` };
+  const value = reason.trim();
+  if (value.length < 3) return { error: `${fieldName} must be at least 3 characters` };
+  if (value.length > 500) return { error: `${fieldName} must be at most 500 characters` };
+  return { value };
+}
 
 function normalizeTown(town) {
   return typeof town === 'string' && town.trim() ? town.trim().replace(/\s+/g, ' ') : null;
@@ -121,7 +132,15 @@ router.post('/', async (req, res) => {
     where: { id: serviceId },
     include: { category: true },
   });
-  if (!service) return res.status(404).json({ error: 'Service not found' });
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+
+  const entitlement = await findBookableEntitlement(prisma, userId, service.categoryId);
+  if (!entitlement) {
+    return res.status(403).json({
+      error: `An active ${service.category.name} entitlement with remaining service units is required to book this service`,
+      category: service.category.name,
+    });
+  }
 
   const pin_code = Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -136,8 +155,10 @@ router.post('/', async (req, res) => {
     data: {
       userId,
       providerId: provider_id,
-      serviceId,
+            serviceId,
+      subscriptionId: entitlement.subscriptionId,
       bookingDate: booking_date,
+
       bookingTime: booking_time.trim().toUpperCase(),
       town,
       status,
@@ -157,7 +178,9 @@ router.post('/', async (req, res) => {
     pin_code,
     status: status.toLowerCase(),
     total_price: service.price,
-    message: 'Booking placed successfully',
+        message: 'Booking placed successfully',
+    entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits - 1 },
+
   });
 });
 
@@ -166,7 +189,10 @@ router.post('/', async (req, res) => {
 router.get('/my', async (req, res) => {
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
-    include: { service: { include: { category: true } }, provider: { include: { user: true } } },
+    include: {
+      service: { include: { category: true } },
+      provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, role: true } } } },
+    },
     orderBy: { id: 'desc' },
   });
   res.json(bookings.map((b) => ({
@@ -181,6 +207,8 @@ router.get('/my', async (req, res) => {
     category_name: b.service?.category?.name,
     provider_name: b.provider?.user?.name,
     provider_phone: b.provider?.user?.phone,
+    cancellation_reason: b.cancellationReason,
+    reschedule_reason: b.rescheduleReason,
   })));
 });
 
@@ -197,7 +225,10 @@ router.get('/assigned', async (req, res) => {
         { status: 'PENDING', service: { category: { name: provider.category } } },
       ],
     },
-    include: { service: { include: { category: true } }, user: true },
+    include: {
+      service: { include: { category: true } },
+      user: { select: { id: true, name: true, email: true, phone: true, role: true } },
+    },
     orderBy: { id: 'desc' },
   });
   res.json(bookings
@@ -213,6 +244,8 @@ router.get('/assigned', async (req, res) => {
     category_name: b.service?.category?.name,
     customer_name: b.user?.name,
     customer_phone: b.user?.phone,
+    cancellation_reason: b.cancellationReason,
+    reschedule_reason: b.rescheduleReason,
   })));
 });
 
@@ -359,17 +392,68 @@ router.put('/:id/schedule', async (req, res) => {
 
 // Cancel own pending/assigned booking (customer)
 router.put('/:id/cancel', async (req, res) => {
+  if (req.body.confirmed !== true) return res.status(400).json({ error: 'Cancellation confirmation is required' });
+  const reason = normalizeReason(req.body.reason, 'cancellation reason');
+  if (reason.error) return res.status(400).json({ error: reason.error });
+
   const booking = await prisma.booking.findFirst({ where: { id: Number(req.params.id), userId: req.user.id } });
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.status !== 'PENDING' && booking.status !== 'ASSIGNED') {
     return res.status(400).json({ error: 'Only pending or assigned bookings can be cancelled' });
   }
-  await prisma.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED' } });
+
+  await prisma.booking.update({
+    where: { id: booking.id },
+    data: { status: 'CANCELLED', cancellationReason: reason.value },
+  });
+  await notify(booking.userId, `Booking #${booking.id} has been cancelled. Reason: ${reason.value}`);
   if (booking.providerId) {
     const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
-    if (provider) await notify(provider.userId, `Booking #${booking.id} has been cancelled by the customer.`);
+    if (provider) await notify(provider.userId, `Booking #${booking.id} has been cancelled by the customer. Reason: ${reason.value}`);
   }
-  res.json({ message: 'Booking cancelled' });
+  res.json({ message: 'Booking cancelled', status: 'cancelled', reason: reason.value });
+});
+
+// Reschedule own pending/assigned booking without changing the provider/PIN workflow.
+router.put('/:id/reschedule', async (req, res) => {
+  if (req.body.confirmed !== true) return res.status(400).json({ error: 'Reschedule confirmation is required' });
+  const reason = normalizeReason(req.body.reason, 'reschedule reason');
+  if (reason.error) return res.status(400).json({ error: reason.error });
+  if (!isDate(req.body.booking_date)) return res.status(400).json({ error: 'booking_date must be YYYY-MM-DD' });
+  if (!isTime(req.body.booking_time)) return res.status(400).json({ error: 'booking_time must be HH:MM (e.g. 09:00 or 10:00 AM)' });
+  if (!isTodayOrFuture(req.body.booking_date)) return res.status(400).json({ error: 'booking_date cannot be in the past' });
+
+  const booking = await prisma.booking.findFirst({ where: { id: Number(req.params.id), userId: req.user.id } });
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (!CUSTOMER_RESCHEDULABLE_STATUSES.has(booking.status)) {
+    return res.status(400).json({ error: 'Only pending or assigned bookings can be rescheduled' });
+  }
+  const bookingTime = String(req.body.booking_time).trim().toUpperCase();
+  if (booking.bookingDate === req.body.booking_date && booking.bookingTime === bookingTime) {
+    return res.status(400).json({ error: 'Choose a different booking date or time' });
+  }
+
+  const updated = await prisma.booking.update({
+    where: { id: booking.id },
+    data: {
+      bookingDate: req.body.booking_date,
+      bookingTime,
+      rescheduleReason: reason.value,
+    },
+  });
+  await notify(booking.userId, `Booking #${booking.id} was rescheduled to ${updated.bookingDate} at ${updated.bookingTime}. Reason: ${reason.value}`);
+  if (booking.providerId) {
+    const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
+    if (provider) await notify(provider.userId, `Booking #${booking.id} was rescheduled to ${updated.bookingDate} at ${updated.bookingTime}.`);
+  }
+  res.json({
+    message: 'Booking rescheduled',
+    id: updated.id,
+    booking_date: updated.bookingDate,
+    booking_time: updated.bookingTime,
+    status: updated.status.toLowerCase(),
+    reason: updated.rescheduleReason,
+  });
 });
 
 export default router;

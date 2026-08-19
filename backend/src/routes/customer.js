@@ -29,7 +29,10 @@ router.get('/dashboard', async (req, res) => {
 
   const bookings = await prisma.booking.findMany({
     where: { userId },
-    include: { service: { include: { category: true } }, provider: { include: { user: true } } },
+    include: {
+      service: { include: { category: true } },
+      provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, role: true } } } },
+    },
     orderBy: [{ bookingDate: 'asc' }, { bookingTime: 'asc' }],
   });
 
@@ -44,7 +47,10 @@ router.get('/dashboard', async (req, res) => {
   // Review has no direct service relation — go through the booking
   const reviews = await prisma.review.findMany({
     where: { userId },
-    include: { booking: { include: { service: true } }, provider: { include: { user: true } } },
+    include: {
+      booking: { include: { service: true } },
+      provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, role: true } } } },
+    },
     orderBy: { createdAt: 'desc' },
   });
 
