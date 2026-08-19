@@ -194,7 +194,7 @@ const ProviderRegister = () => {
     setSubmitError('')
     try {
       const appRecord = {
-        id: 'APP-' + Math.floor(100000 + Math.random() * 900000),
+        id: 'PENDING',
         fullName: form.fullName,
         email: form.email,
         phone: form.mobile,
@@ -216,19 +216,7 @@ const ProviderRegister = () => {
 
       setLastApplication(appRecord)
 
-      try {
-        const existingApps = JSON.parse(localStorage.getItem('luxora_provider_applications') || '[]')
-        localStorage.setItem('luxora_provider_applications', JSON.stringify([appRecord, ...existingApps.slice(0, 10)]))
-      } catch (err) {
-        console.warn('localStorage quota warning caught safely:', err.message)
-        try {
-          const lightRecord = { ...appRecord, nicFrontPreview: null, nicBackPreview: null, selfiePreview: null }
-          localStorage.setItem('luxora_provider_applications', JSON.stringify([lightRecord]))
-        } catch (_) {}
-      }
-
-      try {
-        await apiRequest('/auth/register', 'POST', {
+      const registration = await apiRequest('/auth/register', 'POST', {
           name: form.fullName,
           email: form.email,
           password: form.password,
@@ -238,9 +226,16 @@ const ProviderRegister = () => {
           category: form.services[0],
           service_towns: form.city,
         })
-      } catch (err) {
-        console.log('API register note:', err.message)
+      const uploadDocument = async (file, documentType) => {
+        if (!file) return
+        const payload = new FormData()
+        payload.append('document_type', documentType)
+        payload.append('documents', file)
+        await apiRequest('/provider/kyc-documents', 'POST', payload, registration.token)
       }
+      await uploadDocument(form.nicFront, 'NIC')
+      await uploadDocument(form.nicBack, 'NIC')
+      await uploadDocument(form.selfie, 'SELFIE')
 
       setSubmitted(true)
     } catch (error) {

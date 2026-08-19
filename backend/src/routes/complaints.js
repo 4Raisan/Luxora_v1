@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { toPositiveInt, isNonEmptyString } from '../middleware/validators.js';
+import { notify } from '../services/notify.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -20,9 +21,11 @@ router.post('/', async (req, res) => {
     if (!booking) return res.status(400).json({ error: 'Booking not found among your bookings' });
   }
 
-  await prisma.complaint.create({
+  const complaint = await prisma.complaint.create({
     data: { userId: req.user.id, bookingId, subject: subject.trim(), description: description.trim() },
   });
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
+  await Promise.all(admins.map((admin) => notify(admin.id, `New complaint #${complaint.id}: ${complaint.subject}`, '/admin-dashboard')));
   res.status(201).json({ message: 'Complaint registered successfully. Admin will review shortly.' });
 });
 

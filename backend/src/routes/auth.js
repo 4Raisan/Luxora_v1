@@ -7,6 +7,7 @@ import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
 import { sendEmail } from '../services/integrations.js';
+import { notify } from '../services/notify.js';
 
 const router = Router();
 
@@ -48,6 +49,8 @@ router.post('/register', authLimiter, async (req, res) => {
       await prisma.provider.create({
         data: { userId: user.id, nic: nic || '', category: providerCategory, serviceTowns: providerTowns || '', kycStatus: 'PENDING' },
       });
+      const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
+      await Promise.all(admins.map((admin) => notify(admin.id, `New provider awaiting KYC approval: ${user.name}.`, '/admin-dashboard')));
     }
 
     const token = jwt.sign({ id: user.id, email: normalizedEmail, role: userRole, name }, JWT_SECRET, { expiresIn: '7d' });

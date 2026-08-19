@@ -395,11 +395,25 @@ router.put('/:id/cancel', async (req, res) => {
     return res.status(400).json({ error: 'Only pending or assigned bookings can be cancelled' });
   }
   await prisma.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED' } });
+  await notify(booking.userId, `Booking #${booking.id} has been cancelled.`);
   if (booking.providerId) {
     const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
     if (provider) await notify(provider.userId, `Booking #${booking.id} has been cancelled by the customer.`);
   }
   res.json({ message: 'Booking cancelled' });
+});
+
+router.put('/:id/reschedule', async (req, res) => {
+  if (req.body.confirmed !== true) return res.status(400).json({ error: 'Reschedule confirmation is required' });
+  if (!isDate(req.body.booking_date) || !isTime(req.body.booking_time) || !isTodayOrFuture(req.body.booking_date)) return res.status(400).json({ error: 'Use a future valid date and time' });
+  const reason = String(req.body.reason || '').trim();
+  if (reason.length < 3 || reason.length > 500) return res.status(400).json({ error: 'reason must be 3-500 characters' });
+  const booking = await prisma.booking.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
+  if (!booking || !['PENDING', 'ASSIGNED'].includes(booking.status)) return res.status(404).json({ error: 'Reschedulable booking not found' });
+  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), rescheduleReason: reason } });
+  if (booking.providerId) { const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } }); if (provider) await notify(provider.userId, `Booking #${booking.id} has been rescheduled by the customer.`); }
+  await notify(booking.userId, `Booking #${booking.id} has been rescheduled.`);
+  res.json({ id: updated.id, status: updated.status.toLowerCase(), booking_date: updated.bookingDate, booking_time: updated.bookingTime });
 });
 
 export default router;

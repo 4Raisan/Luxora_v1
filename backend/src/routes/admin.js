@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
 
 const PROVIDER_PAYOUT_RATE = 0.85;
+const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'IN_PROGRESS', 'CANCELLED'], IN_PROGRESS: ['COMPLETED', 'CANCELLED'], CANCELLED: ['PENDING'], COMPLETED: [] };
 
 router.get('/providers', async (_req, res) => {
   const providers = await prisma.provider.findMany({ include: { user: true } });
@@ -170,6 +171,7 @@ router.put('/bookings/:id', async (req, res) => {
   if (status !== undefined && status !== null && status !== '') {
     nextStatus = toEnum(status, BOOKING_STATUSES);
     if (!nextStatus) return res.status(400).json({ error: `Invalid status. Allowed: ${BOOKING_STATUSES.map((s) => s.toLowerCase()).join(', ')}` });
+    if (nextStatus !== booking.status && !(ADMIN_TRANSITIONS[booking.status] || []).includes(nextStatus)) return res.status(400).json({ error: `Cannot move booking from ${booking.status.toLowerCase()} to ${nextStatus.toLowerCase()}` });
   }
 
   let nextProviderId = undefined;
@@ -179,6 +181,9 @@ router.put('/bookings/:id', async (req, res) => {
     const p = await prisma.provider.findUnique({ where: { id: nextProviderId } });
     if (!p) return res.status(400).json({ error: 'Invalid provider' });
   }
+
+  if (nextStatus === undefined && nextProviderId === undefined) return res.status(400).json({ error: 'status or provider_id is required' });
+  if (nextStatus === 'COMPLETED' && !(nextProviderId ?? booking.providerId)) return res.status(400).json({ error: 'A provider is required before completing a booking' });
 
   // Pay out exactly once, only when transitioning INTO COMPLETED
   if (nextStatus === 'COMPLETED' && booking.status !== 'COMPLETED' && (nextProviderId ?? booking.providerId)) {
@@ -227,7 +232,9 @@ router.put('/complaints/:id', async (req, res) => {
   const complaint = await prisma.complaint.findUnique({ where: { id: Number(req.params.id) } });
   if (!complaint) return res.status(404).json({ error: 'Complaint not found' });
 
-  await prisma.complaint.update({ where: { id: complaint.id }, data: { status } });
+  const adminNote = req.body.admin_note === undefined ? undefined : String(req.body.admin_note).trim();
+  if (adminNote !== undefined && adminNote.length > 2000) return res.status(400).json({ error: 'admin_note must be at most 2000 characters' });
+  await prisma.complaint.update({ where: { id: complaint.id }, data: { status, adminNote } });
   if (status === 'RESOLVED') {
     await notify(complaint.userId, `Your complaint #${complaint.id} has been resolved.`);
   }
