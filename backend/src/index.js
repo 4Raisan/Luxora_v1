@@ -74,7 +74,11 @@ app.use((err, _req, res, _next) => {
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
+    if (Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 600) {
+    return res.status(err.statusCode).json({ error: err.message || 'Integration request failed' });
+  }
   switch (err?.code) {
+
     case 'P2002':
       return res.status(409).json({ error: 'A record with this value already exists' });
     case 'P2025':
