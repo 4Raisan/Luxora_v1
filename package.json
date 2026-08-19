@@ -14,7 +14,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "framer-motion": "^11.18.2"
+    "framer-motion": "^11.18.2",
+    "jspdf": "^4.2.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.4",
