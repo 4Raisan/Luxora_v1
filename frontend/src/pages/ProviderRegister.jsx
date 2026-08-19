@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import { generateProviderPDF } from '../utils/pdfGenerator'
 import './ProviderRegister.css'
 
 const steps = [
@@ -34,7 +35,10 @@ const ProviderRegister = () => {
   const [step, setStep] = useState(0)
   const [otpSent, setOtpSent] = useState(false)
   const [isOtpVerified, setIsOtpVerified] = useState(false)
+  const [otpChallengeId, setOtpChallengeId] = useState('')
+  const [otpVerificationToken, setOtpVerificationToken] = useState('')
   const [otpError, setOtpError] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -54,7 +58,7 @@ const ProviderRegister = () => {
     selfiePreview: null,
     // Step 2
     businessName: '',
-    businessType: '',
+    businessType: 'sole',
     city: '',
     address: '',
     website: '',
@@ -81,19 +85,50 @@ const ProviderRegister = () => {
   }
 
   const handleOtpChange = (e) => {
-    const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 4)
+    const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 10)
     setForm((prev) => ({ ...prev, otp: numbersOnly }))
   }
 
-  const handleFileChange = (field, previewField) => (e) => {
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+          const maxWidth = 600
+
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width)
+            width = maxWidth
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', 0.6))
+        }
+        img.onerror = () => resolve(event.target.result)
+        img.src = event.target.result
+      }
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleFileChange = (field, previewField) => async (e) => {
     const file = e.target.files[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file only (JPG, PNG, WEBP).')
       return
     }
-    const url = URL.createObjectURL(file)
-    setForm((prev) => ({ ...prev, [field]: file, [previewField]: url }))
+    const compressedUrl = await compressImage(file)
+    setForm((prev) => ({ ...prev, [field]: file, [previewField]: compressedUrl }))
   }
 
   const toggleService = (s) => {
@@ -105,24 +140,50 @@ const ProviderRegister = () => {
     }))
   }
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (!form.mobile || form.mobile.length !== 10) {
-      alert('Please enter a valid 10-digit mobile number before requesting OTP.')
+      setOtpError('Please enter a valid 10-digit mobile number before requesting OTP.')
       return
     }
-    setOtpSent(true)
-    setIsOtpVerified(false)
+    setOtpLoading(true)
     setOtpError('')
-    if (!form.otp) setForm(prev => ({ ...prev, otp: '1234' }))
+    setIsOtpVerified(false)
+    setOtpVerificationToken('')
+    try {
+      const response = await apiRequest('/auth/register/phone/send', 'POST', { phone: form.mobile })
+      setOtpChallengeId(response.challenge_id || '')
+      setOtpSent(true)
+      setForm((prev) => ({ ...prev, otp: '' }))
+    } catch (error) {
+      setOtpSent(false)
+      setOtpError(error.message || 'Could not send OTP. Please try again.')
+    } finally {
+      setOtpLoading(false)
+    }
   }
 
-  const handleVerifyOtp = () => {
-    if (!form.otp || form.otp.length !== 4) {
-      setOtpError('Please enter a valid 4-digit OTP code.')
+  const handleVerifyOtp = async () => {
+    if (!otpChallengeId) {
+      setOtpError('Request a new OTP before verifying.')
       return
     }
-    setIsOtpVerified(true)
+    if (!form.otp || form.otp.length < 4) {
+      setOtpError('Please enter the OTP code sent to your phone.')
+      return
+    }
+    setOtpLoading(true)
     setOtpError('')
+    try {
+      const response = await apiRequest('/auth/register/phone/verify', 'POST', { phone: form.mobile, code: form.otp, challenge_id: otpChallengeId })
+      setOtpVerificationToken(response.verification_token || '')
+      setIsOtpVerified(response.phoneVerified === true)
+    } catch (error) {
+      setIsOtpVerified(false)
+      setOtpVerificationToken('')
+      setOtpError(error.message || 'Could not verify OTP. Request a new code if it has expired.')
+    } finally {
+      setOtpLoading(false)
+    }
   }
 
   const nextStep = (e) => {
@@ -154,21 +215,64 @@ const ProviderRegister = () => {
     if (step > 0) setStep(step - 1)
   }
 
+  const [lastApplication, setLastApplication] = useState(null)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setSubmitError('')
     try {
-      await apiRequest('/auth/register', 'POST', {
-        name: form.fullName,
+      const appRecord = {
+        id: 'APP-' + Math.floor(100000 + Math.random() * 900000),
+        fullName: form.fullName,
         email: form.email,
-        password: form.password,
         phone: form.mobile,
-        role: 'provider',
         nic: form.nicNumber,
-        category: form.services[0],
-        service_towns: form.city,
-      })
+        businessName: form.businessName || form.fullName + ' Services',
+        businessType: form.businessType || 'Independent Provider',
+        city: form.city || 'Colombo 03',
+        address: form.address || 'Specified on file',
+        services: form.services,
+        nicFrontPreview: form.nicFrontPreview,
+        nicBackPreview: form.nicBackPreview,
+        selfiePreview: form.selfiePreview,
+        hasNicFront: !!form.nicFrontPreview,
+        hasNicBack: !!form.nicBackPreview,
+        hasSelfie: !!form.selfiePreview,
+        submittedAt: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+        status: 'PENDING APPROVAL'
+      }
+
+      setLastApplication(appRecord)
+
+      try {
+        const existingApps = JSON.parse(localStorage.getItem('luxora_provider_applications') || '[]')
+        localStorage.setItem('luxora_provider_applications', JSON.stringify([appRecord, ...existingApps.slice(0, 10)]))
+      } catch (err) {
+        console.warn('localStorage quota warning caught safely:', err.message)
+        try {
+          const lightRecord = { ...appRecord, nicFrontPreview: null, nicBackPreview: null, selfiePreview: null }
+          localStorage.setItem('luxora_provider_applications', JSON.stringify([lightRecord]))
+        } catch (_) {}
+      }
+
+      try {
+        await apiRequest('/auth/register', 'POST', {
+          name: form.fullName,
+          email: form.email,
+          password: form.password,
+          phone: form.mobile,
+          role: 'provider',
+          nic: form.nicNumber,
+          category: form.services[0],
+          service_towns: form.city,
+          phone_verification_token: otpVerificationToken,
+        })
+      } catch (err) {
+        setSubmitError(err.message || 'Could not create the provider account. Please try again.')
+        return
+      }
+
       setSubmitted(true)
     } catch (error) {
       setSubmitError(error.message || 'Could not submit your provider application.')
@@ -218,6 +322,34 @@ const ProviderRegister = () => {
           <div className="pr-success__icon">✦</div>
           <h2>Application Submitted!</h2>
           <p>Your provider profile is under review. Our team will verify your credentials and contact you within 3-5 business days.</p>
+          
+          <div style={{ margin: '1.25rem 0' }}>
+            <button
+              onClick={() => {
+                if (lastApplication) {
+                  generateProviderPDF(lastApplication).save()
+                } else {
+                  generateProviderPDF(form).save()
+                }
+              }}
+              style={{
+                background: 'rgba(201, 168, 76, 0.15)',
+                border: '1px solid var(--gold, #c9a84c)',
+                color: 'var(--gold, #c9a84c)',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '10px',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              📄 DOWNLOAD APPLICATION SUMMARY (PDF)
+            </button>
+          </div>
+
           <Link to="/" className="pr-success__btn">Return to Home</Link>
         </div>
       </div>
@@ -318,6 +450,7 @@ const ProviderRegister = () => {
                 placeholder="NIC Number" value={form.nicNumber}
                 onChange={handleNicChange} maxLength={12} required />
             </div>
+
             <div className="pr-row">
               <input id="pr-email" name="email" type="email" className="pr-input"
                 placeholder="Email Address" value={form.email}
@@ -345,12 +478,12 @@ const ProviderRegister = () => {
             <div className="pr-row pr-row--otp">
               <input id="pr-mobile" name="mobile" type="tel" className="pr-input"
                 placeholder="Mobile Number" value={form.mobile}
-                onChange={(e) => { handleMobileChange(e); setIsOtpVerified(false); setOtpSent(false) }}
+                onChange={(e) => { handleMobileChange(e); setIsOtpVerified(false); setOtpSent(false); setOtpChallengeId(''); setOtpVerificationToken('') }}
                 maxLength={10} inputMode="numeric" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" required />
               <button type="button" id="pr-send-otp-btn"
                 className={`pr-otp-btn ${isOtpVerified ? 'pr-otp-btn--sent' : otpSent ? 'pr-otp-btn--sent' : ''}`}
-                onClick={handleSendOtp} disabled={isOtpVerified}>
-                {isOtpVerified ? 'VERIFIED ✓' : otpSent ? 'RESEND OTP' : 'SEND OTP'}
+                onClick={handleSendOtp} disabled={isOtpVerified || otpLoading}>
+                {otpLoading ? 'SENDING…' : isOtpVerified ? 'VERIFIED ✓' : otpSent ? 'RESEND OTP' : 'SEND OTP'}
               </button>
             </div>
 
@@ -358,16 +491,16 @@ const ProviderRegister = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#111', padding: '0.85rem', borderRadius: '8px', border: '1px solid #222' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--gold)', fontSize: '0.75rem', fontWeight: '600' }}>
-                    📱 Enter OTP sent to +94 {form.mobile}
+                    Enter the verification code sent to +94 {form.mobile}
                   </span>
-                  <small style={{ color: '#888', fontSize: '0.7rem' }}>Demo OTP: <strong style={{ color: '#fff' }}>1234</strong></small>
+                  <small style={{ color: '#888', fontSize: '0.7rem' }}>Code expires in 10 minutes</small>
                 </div>
                 <div className="pr-row" style={{ gridTemplateColumns: '1fr auto', gap: '0.6rem' }}>
                   <input id="pr-otp" name="otp" type="text" className="pr-input"
-                    placeholder="Enter 4-Digit OTP" value={form.otp}
-                    onChange={(e) => { handleOtpChange(e); setOtpError('') }} required maxLength={4} inputMode="numeric" pattern="[0-9]{4}" title="Please enter a 4-digit OTP code" />
-                  <button type="button" className="pr-otp-btn" style={{ background: 'var(--gold)', color: '#000', fontWeight: '800' }} onClick={handleVerifyOtp}>
-                    VERIFY OTP
+                    placeholder="Enter OTP code" value={form.otp}
+                    onChange={(e) => { handleOtpChange(e); setOtpError('') }} required maxLength={10} inputMode="numeric" pattern="[0-9]{4,10}" title="Please enter the OTP code" />
+                  <button type="button" className="pr-otp-btn" style={{ background: 'var(--gold)', color: '#000', fontWeight: '800' }} onClick={handleVerifyOtp} disabled={otpLoading}>
+                    {otpLoading ? 'VERIFYING…' : 'VERIFY OTP'}
                   </button>
                 </div>
                 {otpError && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{otpError}</span>}
@@ -394,7 +527,7 @@ const ProviderRegister = () => {
           <form className="pr-form" onSubmit={nextStep} id="pr-step2-form">
             <div className="pr-row">
               <input id="pr-bizname" name="businessName" type="text" className="pr-input"
-                placeholder="Business / Company Name" value={form.businessName}
+                placeholder="Full Registered Business / Company Name" value={form.businessName}
                 onChange={handleChange} required />
               <div className="pr-select-wrap">
                 <select id="pr-biztype" name="businessType" className="pr-input pr-select"
@@ -413,7 +546,7 @@ const ProviderRegister = () => {
 
             <div className="pr-row">
               <input id="pr-city" name="city" type="text" className="pr-input"
-                placeholder="City / Region" value={form.city}
+                placeholder="City / Region (e.g. Colombo)" value={form.city}
                 onChange={handleChange} required />
               <input id="pr-website" name="website" type="url" className="pr-input"
                 placeholder="Website (optional)" value={form.website}
@@ -469,6 +602,7 @@ const ProviderRegister = () => {
                 <h4>Personal Details</h4>
                 <div className="pr-review-row"><span>Name</span><span>{form.fullName || '—'}</span></div>
                 <div className="pr-review-row"><span>NIC</span><span>{form.nicNumber || '—'}</span></div>
+                <div className="pr-review-row"><span>Email</span><span>{form.email || '—'}</span></div>
                 <div className="pr-review-row"><span>Mobile</span><span>{form.mobile || '—'}</span></div>
                 <div className="pr-review-row"><span>Selfie Photo</span><span>{form.selfiePreview ? '✓ Uploaded' : 'Not Uploaded'}</span></div>
               </div>
