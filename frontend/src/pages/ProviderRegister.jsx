@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { apiRequest } from '../services/api'
 import './ProviderRegister.css'
 
 const steps = [
@@ -36,9 +37,12 @@ const ProviderRegister = () => {
   const [otpError, setOtpError] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const [form, setForm] = useState({
     fullName: '',
+    email: '',
+    password: '',
     nicNumber: '',
     mobile: '',
     otp: '',
@@ -150,41 +154,27 @@ const ProviderRegister = () => {
     if (step > 0) setStep(step - 1)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-
+    setSubmitError('')
     try {
-      const stored = localStorage.getItem('luxora_all_users')
-      const existing = stored ? JSON.parse(stored) : []
-      const newProvRecord = {
-        id: `USR-${String(existing.length + 7).padStart(3, '0')}`,
-        name: `${form.firstName} ${form.lastName}`.trim() || 'New Provider',
+      await apiRequest('/auth/register', 'POST', {
+        name: form.fullName,
         email: form.email,
-        role: 'Provider',
-        registered: new Date().toISOString().split('T')[0],
-        category: form.services.join(', ') || 'Concierge'
-      }
-      localStorage.setItem('luxora_all_users', JSON.stringify([newProvRecord, ...existing]))
-
-      const newProvItem = {
-        id: existing.length + 6,
-        name: `${form.firstName} ${form.lastName}`.trim() || 'New Provider',
-        email: form.email,
-        category: form.services.join(', ') || 'Auto Care',
-        nic: form.nic || '199512345678',
-        kyc_status: 'pending',
-        rating: '5.0 / 5.0'
-      }
-      const storedP = localStorage.getItem('luxora_all_providers')
-      const existingP = storedP ? JSON.parse(storedP) : []
-      localStorage.setItem('luxora_all_providers', JSON.stringify([newProvItem, ...existingP]))
-    } catch (_) {}
-
-    setTimeout(() => {
-      setLoading(false)
+        password: form.password,
+        phone: form.mobile,
+        role: 'provider',
+        nic: form.nicNumber,
+        category: form.services[0],
+        service_towns: form.city,
+      })
       setSubmitted(true)
-    }, 2000)
+    } catch (error) {
+      setSubmitError(error.message || 'Could not submit your provider application.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const progress = ((step) / (steps.length - 1)) * 100
@@ -328,6 +318,14 @@ const ProviderRegister = () => {
                 placeholder="NIC Number" value={form.nicNumber}
                 onChange={handleNicChange} maxLength={12} required />
             </div>
+            <div className="pr-row">
+              <input id="pr-email" name="email" type="email" className="pr-input"
+                placeholder="Email Address" value={form.email}
+                onChange={handleChange} required />
+              <input id="pr-password" name="password" type="password" className="pr-input"
+                placeholder="Password (min 6 characters)" value={form.password}
+                onChange={handleChange} minLength={6} required />
+            </div>
 
             <div className="pr-row">
               <UploadBox label="NIC FRONT PHOTO (IMAGE ONLY)" id="nic-front"
@@ -465,6 +463,7 @@ const ProviderRegister = () => {
         {/* ── STEP 3: Review & Submit ── */}
         {step === 3 && (
           <form className="pr-form" onSubmit={handleSubmit} id="pr-step4-form">
+            {submitError && <p style={{ color: '#ef4444', margin: 0, fontSize: '0.85rem' }}>{submitError}</p>}
             <div className="pr-review">
               <div className="pr-review-section">
                 <h4>Personal Details</h4>
