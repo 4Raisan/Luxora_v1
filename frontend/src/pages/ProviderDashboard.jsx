@@ -245,7 +245,7 @@ const ProviderDashboard = () => {
     }
 
     const token = sessionStorage.getItem('token')
-    if (token && token !== 'demo-token') {
+    if (token) {
       try {
         await apiRequest('/provider/service-towns', 'PUT', { service_towns: settingsForm.town }, token)
       } catch (error) {
@@ -275,24 +275,37 @@ const ProviderDashboard = () => {
 
   useEffect(() => {
     const token = sessionStorage.getItem('token')
-    if (!token || token === 'demo-token') return
-    apiRequest('/bookings/assigned', 'GET', null, token).then((rows) => {
-      setBookingsList(rows.map((booking) => {
-        const date = new Date(`${booking.bookingDate}T00:00:00`)
-        return {
-          apiId: booking.id,
-          month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
-          day: String(date.getDate()),
-          title: booking.service_title || 'Service booking',
-          sub: `${booking.customer_name || 'Customer'}${booking.town ? ` • ${booking.town}` : ''}`,
-          status: booking.status.toUpperCase(),
-          color: booking.status === 'pending' ? '#eab308' : '#4ade80',
-          bookingDate: booking.bookingDate,
-          bookingTime: booking.bookingTime,
-        }
-      }))
-    }).catch((error) => console.warn('Could not load provider bookings.', error))
-  }, [])
+    if (!token || token === 'demo-token' || token === 'demo-admin-token') {
+      navigate('/login', { replace: true })
+      return
+    }
+
+    apiRequest('/provider/earnings', 'GET', null, token)
+      .then(() => apiRequest('/bookings/assigned', 'GET', null, token))
+      .then((rows) => {
+        setBookingsList(rows.map((booking) => {
+          const date = new Date(`${booking.bookingDate}T00:00:00`)
+          return {
+            apiId: booking.id,
+            month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+            day: String(date.getDate()),
+            title: booking.service_title || 'Service booking',
+            sub: `${booking.customer_name || 'Customer'}${booking.town ? ` • ${booking.town}` : ''}`,
+            status: booking.status.toUpperCase(),
+            color: booking.status === 'pending' ? '#eab308' : '#4ade80',
+            bookingDate: booking.bookingDate,
+            bookingTime: booking.bookingTime,
+          }
+        }))
+      })
+      .catch((error) => {
+        sessionStorage.removeItem('token')
+        sessionStorage.removeItem('user')
+        sessionStorage.removeItem('isProviderLoggedIn')
+        localStorage.removeItem('luxora_token')
+        navigate('/login', { replace: true, state: { authError: error.message } })
+      })
+  }, [navigate])
 
   const handleClaimBooking = async (booking) => {
     const token = sessionStorage.getItem('token')

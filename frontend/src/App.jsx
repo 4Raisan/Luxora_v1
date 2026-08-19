@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import Stats from './components/Stats'
@@ -21,6 +21,7 @@ import './App.css'
 
 // Main landing page layout
 const HomePage = () => (
+
   <>
     <Navbar />
     <main>
@@ -35,7 +36,29 @@ const HomePage = () => (
   </>
 )
 
+function RequireRole({ role, children }) {
+  const location = useLocation()
+  let user = null
+
+  try {
+    user = JSON.parse(sessionStorage.getItem('user') || 'null')
+  } catch (_) {
+    user = null
+  }
+
+  const token = sessionStorage.getItem('token')
+  const actualRole = String(user?.role || '').toUpperCase()
+  const hasValidSession = Boolean(token) && token !== 'demo-token' && token !== 'demo-admin-token'
+
+  if (!hasValidSession || actualRole !== role) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
+  return children
+}
+
 function App() {
+
   return (
     <BrowserRouter>
       <div className="app">
@@ -44,11 +67,11 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/provider-register" element={<ProviderRegister />} />
-          <Route path="/customer-dashboard" element={<ErrorBoundary><CustomerDashboard /></ErrorBoundary>} />
-          <Route path="/admin-dashboard" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
-          <Route path="/provider-dashboard" element={<ErrorBoundary><ProviderDashboard /></ErrorBoundary>} />
-          <Route path="/book-service" element={<ErrorBoundary><BookService /></ErrorBoundary>} />
-          <Route path="/reviews" element={<ErrorBoundary><Reviews /></ErrorBoundary>} />
+          <Route path="/customer-dashboard" element={<RequireRole role="CUSTOMER"><ErrorBoundary><CustomerDashboard /></ErrorBoundary></RequireRole>} />
+          <Route path="/admin-dashboard" element={<RequireRole role="ADMIN"><ErrorBoundary><AdminDashboard /></ErrorBoundary></RequireRole>} />
+          <Route path="/provider-dashboard" element={<RequireRole role="PROVIDER"><ErrorBoundary><ProviderDashboard /></ErrorBoundary></RequireRole>} />
+          <Route path="/book-service" element={<RequireRole role="CUSTOMER"><ErrorBoundary><BookService /></ErrorBoundary></RequireRole>} />
+          <Route path="/reviews" element={<RequireRole role="CUSTOMER"><ErrorBoundary><Reviews /></ErrorBoundary></RequireRole>} />
           <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </div>

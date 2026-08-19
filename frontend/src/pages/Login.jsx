@@ -14,8 +14,7 @@ const Login = () => {
   // Forgot Password State
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [forgotStep, setForgotStep] = useState(1) // 1: Email, 2: New Password
+
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState('')
   const [forgotErrorMsg, setForgotErrorMsg] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
@@ -39,30 +38,7 @@ const Login = () => {
     }
   }
 
-  const handleResetPasswordSubmit = (e) => {
-    e.preventDefault()
-    if (!newPassword || newPassword.length < 6) {
-      setForgotErrorMsg('Password must be at least 6 characters.')
-      return
-    }
 
-    try {
-      const savedUserStr = localStorage.getItem('user_' + forgotEmail)
-      let userObj = savedUserStr ? JSON.parse(savedUserStr) : { email: forgotEmail, name: forgotEmail.split('@')[0] }
-      userObj.password = newPassword
-      localStorage.setItem('user_' + forgotEmail, JSON.stringify(userObj))
-    } catch (_) {}
-
-    setForgotSuccessMsg('Password updated successfully! You can now log in with your new password.')
-    setTimeout(() => {
-      setShowForgotModal(false)
-      setForm(prev => ({ ...prev, email: forgotEmail, password: newPassword }))
-      setForgotStep(1)
-      setForgotEmail('')
-      setNewPassword('')
-      setForgotSuccessMsg('')
-    }, 2000)
-  }
 
   const tabs = [
     { id: 'customer', label: 'Customer' },
@@ -75,75 +51,46 @@ const Login = () => {
 
   const [errorMsg, setErrorMsg] = useState('')
 
+  const clearAuthState = () => {
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
+    sessionStorage.removeItem('isAdminLoggedIn')
+    sessionStorage.removeItem('isProviderLoggedIn')
+    sessionStorage.removeItem('isCustomerLoggedIn')
+    localStorage.removeItem('luxora_token')
+    localStorage.removeItem('luxora_role')
+    localStorage.removeItem('luxora_email')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
+    clearAuthState()
+
     try {
       const data = await apiRequest('/auth/login', 'POST', { email: form.email, password: form.password })
-      setLoading(false)
+      const user = data.user
+      const token = data.token
+      const role = String(user?.role || '').toUpperCase()
 
-      // Resolve name from localStorage or format from email
-      let nameToUse = ''
-      if (form.email) {
-        try {
-          const savedUser = localStorage.getItem('user_' + form.email)
-          if (savedUser) {
-            const parsedSaved = JSON.parse(savedUser)
-            if (parsedSaved.name) nameToUse = parsedSaved.name
-          }
-        } catch (_) {}
+      if (!user || !token || !['CUSTOMER', 'PROVIDER', 'ADMIN'].includes(role)) {
+        throw new Error('The server returned an invalid login response.')
       }
 
-      if (!nameToUse && form.email) {
-        const rawPrefix = form.email.split('@')[0]
-        nameToUse = rawPrefix
-          .replace(/[._-]/g, ' ')
-          .split(' ')
-          .filter(Boolean)
-          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join(' ')
-      }
+      const userObj = { ...user, role }
+      if (data.provider) userObj.provider = data.provider
 
-      if (!nameToUse) nameToUse = 'Member'
-
-      const userObj = data.user || {
-        name: nameToUse,
-        email: form.email || 'tester@gmail.com',
-        phone: '+94 77 234 5678',
-        id: 'CUS-2026-0421'
-      }
-      if (data.provider) {
-        userObj.serviceTowns = data.provider.serviceTowns || ''
-        userObj.town = data.provider.town || ''
-      }
-      if (!userObj.name) userObj.name = nameToUse
-      const userRole = String(data.user?.role || '').toLowerCase()
-
-      // Save token and user info
-      sessionStorage.setItem('token', data.token || 'demo-token')
+      sessionStorage.setItem('token', token)
       sessionStorage.setItem('user', JSON.stringify(userObj))
       localStorage.setItem('user_' + userObj.email, JSON.stringify(userObj))
       localStorage.setItem('luxora_email', userObj.email)
-      localStorage.setItem('luxora_role', userRole || tab)
-      if (data.token) localStorage.setItem('luxora_token', data.token)
+      localStorage.setItem('luxora_role', role.toLowerCase())
 
-      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
-
-      if (userRole === 'admin' || isInputAdmin) {
-        const adminObj = {
-          name: 'Deshan Ganganath',
-          title: 'Super Admin',
-          email: form.email || 'deshan@luxora.com',
-          role: 'admin',
-          phone: '+94 77 987 6543'
-        }
-        sessionStorage.setItem('token', data.token || 'demo-admin-token')
-        sessionStorage.setItem('user', JSON.stringify(adminObj))
-        localStorage.setItem('user_' + adminObj.email, JSON.stringify(adminObj))
+      if (role === 'ADMIN') {
         sessionStorage.setItem('isAdminLoggedIn', 'true')
         navigate('/admin-dashboard')
-      } else if (userRole === 'provider' || tab === 'provider') {
+      } else if (role === 'PROVIDER') {
         sessionStorage.setItem('isProviderLoggedIn', 'true')
         navigate('/provider-dashboard')
       } else {
@@ -151,92 +98,10 @@ const Login = () => {
         navigate('/customer-dashboard')
       }
     } catch (err) {
+      clearAuthState()
+      setErrorMsg(err.message || 'Unable to sign in. Please check your credentials and try again.')
+    } finally {
       setLoading(false)
-      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
-
-      if (isInputAdmin) {
-        const adminObj = {
-          name: 'Deshan Ganganath',
-          title: 'Super Admin',
-          email: form.email || 'deshan@luxora.com',
-          role: 'admin',
-          phone: '+94 77 987 6543'
-        }
-        sessionStorage.setItem('token', 'demo-admin-token')
-        sessionStorage.setItem('user', JSON.stringify(adminObj))
-        localStorage.setItem('user_' + adminObj.email, JSON.stringify(adminObj))
-        sessionStorage.setItem('isAdminLoggedIn', 'true')
-        navigate('/admin-dashboard')
-      } else if (tab === 'provider') {
-        // Resolve name from localStorage or format from email
-        let nameToUse = ''
-        if (form.email) {
-          try {
-            const savedUser = localStorage.getItem('user_' + form.email)
-            if (savedUser) {
-              const parsedSaved = JSON.parse(savedUser)
-              if (parsedSaved.name) nameToUse = parsedSaved.name
-            }
-          } catch (_) {}
-        }
-
-        if (!nameToUse && form.email) {
-          const rawPrefix = form.email.split('@')[0]
-          nameToUse = rawPrefix
-            .replace(/[._-]/g, ' ')
-            .split(' ')
-            .filter(Boolean)
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-            .join(' ')
-        }
-
-        if (!nameToUse) nameToUse = 'Member'
-
-        const mockUser = {
-          name: nameToUse,
-          email: form.email || 'tester@gmail.com',
-          phone: '+94 77 234 5678',
-          id: 'PRO-2026-0421'
-        }
-        sessionStorage.setItem('user', JSON.stringify(mockUser))
-        localStorage.setItem('user_' + mockUser.email, JSON.stringify(mockUser))
-        sessionStorage.setItem('isProviderLoggedIn', 'true')
-        navigate('/provider-dashboard')
-      } else {
-        let nameToUse = ''
-        if (form.email) {
-          try {
-            const savedUser = localStorage.getItem('user_' + form.email)
-            if (savedUser) {
-              const parsedSaved = JSON.parse(savedUser)
-              if (parsedSaved.name) nameToUse = parsedSaved.name
-            }
-          } catch (_) {}
-        }
-
-        if (!nameToUse && form.email) {
-          const rawPrefix = form.email.split('@')[0]
-          nameToUse = rawPrefix
-            .replace(/[._-]/g, ' ')
-            .split(' ')
-            .filter(Boolean)
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-            .join(' ')
-        }
-
-        if (!nameToUse) nameToUse = 'Member'
-
-        const mockUser = {
-          name: nameToUse,
-          email: form.email || 'tester@gmail.com',
-          phone: '+94 77 234 5678',
-          id: 'CUS-2026-0421'
-        }
-        sessionStorage.setItem('user', JSON.stringify(mockUser))
-        localStorage.setItem('user_' + mockUser.email, JSON.stringify(mockUser))
-        sessionStorage.setItem('isCustomerLoggedIn', 'true')
-        navigate('/customer-dashboard')
-      }
     }
   }
 
@@ -374,7 +239,7 @@ const Login = () => {
               type="button"
               onClick={() => {
                 setShowForgotModal(true)
-                setForgotStep(1)
+
                 setForgotErrorMsg('')
                 setForgotSuccessMsg('')
                 if (form.email) setForgotEmail(form.email)
@@ -487,59 +352,29 @@ const Login = () => {
               </div>
             )}
 
-            {forgotStep === 1 && (
-              <form onSubmit={handleSendResetLink} className="auth-form" style={{ marginTop: '1rem' }}>
-                <div className="auth-field">
-                  <label style={{ display: 'block', color: '#888', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>ACCOUNT EMAIL ADDRESS</label>
-                  <input
-                    type="email"
-                    className="auth-input"
-                    placeholder="Enter registered email (e.g. tester@gmail.com)"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    required
-                  />
-                </div>
+            <form onSubmit={handleSendResetLink} className="auth-form" style={{ marginTop: '1rem' }}>
+              <div className="auth-field">
+                <label style={{ display: 'block', color: '#888', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>ACCOUNT EMAIL ADDRESS</label>
+                <input
+                  type="email"
+                  className="auth-input"
+                  placeholder="Enter registered email (e.g. tester@gmail.com)"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  required
+                />
+              </div>
 
-                <button
-                  type="submit"
-                  className={`auth-submit ${forgotLoading ? 'loading' : ''}`}
-                  style={{ marginTop: '1.2rem' }}
-                  disabled={forgotLoading}
-                >
-                  {forgotLoading ? 'VERIFYING...' : 'SEND RESET CODE →'}
-                </button>
-              </form>
-            )}
+              <button
+                type="submit"
+                className={`auth-submit ${forgotLoading ? 'loading' : ''}`}
+                style={{ marginTop: '1.2rem' }}
+                disabled={forgotLoading}
+              >
+                {forgotLoading ? 'SENDING...' : 'SEND RESET LINK →'}
+              </button>
+            </form>
 
-            {forgotStep === 2 && (
-              <form onSubmit={handleResetPasswordSubmit} className="auth-form" style={{ marginTop: '1rem' }}>
-                <div style={{ background: 'rgba(201, 168, 76, 0.1)', border: '1px solid rgba(201, 168, 76, 0.3)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1.25rem', color: 'var(--gold, #c9a84c)', fontSize: '0.82rem', lineHeight: '1.5' }}>
-                  🔑 Reset link verified for <strong>{forgotEmail}</strong>. Please enter your new password below:
-                </div>
-
-                <div className="auth-field">
-                  <label style={{ display: 'block', color: '#888', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>NEW PASSWORD</label>
-                  <input
-                    type="password"
-                    className="auth-input"
-                    placeholder="Enter new password (min 6 characters)"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="auth-submit"
-                  style={{ marginTop: '1.2rem' }}
-                >
-                  CONFIRM NEW PASSWORD
-                </button>
-              </form>
-            )}
           </div>
         </div>
       )}

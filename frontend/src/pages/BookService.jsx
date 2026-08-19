@@ -6,9 +6,10 @@ import './BookService.css'
 
 export default function BookService() {
   const navigate = useNavigate()
-  const [token] = useState(localStorage.getItem('luxora_token') || sessionStorage.getItem('token') || '')
+  const [token] = useState(() => sessionStorage.getItem('token') || '')
   const [services, setServices] = useState([])
   const [categories, setCategories] = useState([])
+  const [entitlements, setEntitlements] = useState([])
   const [serviceId, setServiceId] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('09:00')
@@ -18,15 +19,28 @@ export default function BookService() {
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
-    apiRequest('/services').then(setServices).catch(() => {})
-    apiRequest('/categories').then(setCategories).catch(() => {})
+        Promise.all([
+      apiRequest('/services'),
+      apiRequest('/categories'),
+      apiRequest('/subscriptions/entitlements', 'GET', null, token),
+    ]).then(([serviceRows, categoryRows, entitlementResponse]) => {
+      setServices(serviceRows)
+      setCategories(categoryRows)
+      setEntitlements(entitlementResponse.entitlements || [])
+    }).catch((error) => setError(error.message || 'Could not load booking availability.'))
+
   }, [token])
 
   const submit = async (e) => {
     e.preventDefault()
     setError(''); setResult(null); setLoading(true)
     try {
+            const selected = services.find((service) => service.id === Number(serviceId))
+      if (!selected || (unitsByCategory[selected.category_name] || 0) <= 0) {
+        throw new Error(`An active ${selected?.category_name || 'service category'} entitlement with remaining units is required to book this service.`)
+      }
       const r = await apiRequest('/bookings', 'POST', { service_id: Number(serviceId), booking_date: date, booking_time: time }, token)
+
       setResult(r)
     } catch (err) {
       setError(err.message)
@@ -35,8 +49,10 @@ export default function BookService() {
     }
   }
 
+  const unitsByCategory = Object.fromEntries(entitlements.map((item) => [item.category_name, item.remaining_units]))
   const grouped = categories.map((c) => ({
     ...c,
+    remainingUnits: unitsByCategory[c.name] || 0,
     items: services.filter((s) => s.category_id === c.id),
   }))
 
@@ -68,8 +84,8 @@ export default function BookService() {
               {grouped.map((g) => (
                 <optgroup key={g.id} label={g.name}>
                   {g.items.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.title} — LKR {Number(s.price).toLocaleString()}
+                    <option key={s.id} value={s.id} disabled={g.remainingUnits <= 0}>
+                      {s.title} — LKR {Number(s.price).toLocaleString()} {g.remainingUnits <= 0 ? '(Not included or no units remaining)' : `(${g.remainingUnits} unit${g.remainingUnits === 1 ? '' : 's'} available)`}
                     </option>
                   ))}
                 </optgroup>
