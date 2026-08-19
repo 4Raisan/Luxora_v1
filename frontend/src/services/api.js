@@ -1,5 +1,7 @@
-// API base URL helper
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Deployments may supply either the server origin or an origin that already
+// includes /api. Normalise both forms so every request reaches the API router.
+const configuredApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+export const API_BASE = configuredApiUrl.endsWith('/api') ? configuredApiUrl : `${configuredApiUrl}/api`;
 
 export async function apiRequest(endpoint, method = 'GET', data = null, token = null) {
   const isFormData = data instanceof FormData;
