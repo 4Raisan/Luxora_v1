@@ -58,63 +58,13 @@ const Signup = () => {
       userData.email = data.user?.email || form.email
       userData.phone = data.user?.phone || form.phone
 
-      // Save newly registered user into luxora_all_users for Admin User Management
-      try {
-        const stored = localStorage.getItem('luxora_all_users')
-        const existing = stored ? JSON.parse(stored) : []
-        const newUserRecord = {
-          id: `USR-${String(existing.length + 7).padStart(3, '0')}`,
-          name: userData.name || form.fullName || 'New Customer',
-          email: userData.email || form.email,
-          role: 'Customer',
-          registered: new Date().toISOString().split('T')[0],
-          plan: 'Single Auto Elite'
-        }
-        localStorage.setItem('luxora_all_users', JSON.stringify([newUserRecord, ...existing]))
-      } catch (_) {}
-
-      const userEmail = (userData.email || form.email).toLowerCase()
-      localStorage.setItem('activePackages_' + userEmail, JSON.stringify([]))
-      localStorage.setItem('luxora_customer_bookings_' + userEmail, JSON.stringify([]))
-      localStorage.setItem('custom_requests_' + userEmail, JSON.stringify([]))
-      localStorage.setItem('notifications_' + userEmail, JSON.stringify([]))
-      localStorage.setItem('history_' + userEmail, JSON.stringify([]))
-
-      sessionStorage.setItem('token', data.token || 'demo-token')
+      if (!data.token || !data.user?.id) throw new Error('Registration response was incomplete.')
+      sessionStorage.setItem('token', data.token)
       sessionStorage.setItem('user', JSON.stringify(userData))
-      sessionStorage.setItem('isCustomerLoggedIn', 'true')
-      sessionStorage.setItem('isFirstTimeSignup', 'true')
       navigate('/customer-dashboard')
     } catch (err) {
       setLoading(false)
-      // Save user to luxora_all_users for Admin User Management even in fallback mode
-      try {
-        const stored = localStorage.getItem('luxora_all_users')
-        const existing = stored ? JSON.parse(stored) : []
-        const newUserRecord = {
-          id: `USR-${String(existing.length + 7).padStart(3, '0')}`,
-          name: form.fullName || 'New Customer',
-          email: form.email,
-          role: 'Customer',
-          registered: new Date().toISOString().split('T')[0],
-          plan: 'Single Auto Elite'
-        }
-        localStorage.setItem('luxora_all_users', JSON.stringify([newUserRecord, ...existing]))
-      } catch (_) {}
-
-      const userEmail = form.email.toLowerCase()
-      localStorage.setItem('activePackages_' + userEmail, JSON.stringify([]))
-      localStorage.setItem('luxora_customer_bookings_' + userEmail, JSON.stringify([]))
-
-      // Demo / fallback mode if backend API is not responding
-      sessionStorage.setItem('isCustomerLoggedIn', 'true')
-      sessionStorage.setItem('isFirstTimeSignup', 'true')
-      sessionStorage.setItem('user', JSON.stringify({
-        name: form.fullName || 'New Customer',
-        email: form.email,
-        phone: form.phone
-      }))
-      navigate('/customer-dashboard')
+      setErrorMsg(err.message || 'Unable to create your account.')
     }
   }
 
