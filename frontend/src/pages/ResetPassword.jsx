@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { apiRequest } from '../services/api'
 import './Auth.css'
 
 export default function ResetPassword() {
@@ -14,9 +15,7 @@ export default function ResetPassword() {
     event.preventDefault(); setError(''); setMessage('')
     if (password.length < 6 || password !== confirm) { setError('Passwords must match and be at least 6 characters.'); return }
     try {
-      const response = await fetch('/api/auth/password-reset/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: params.get('reset_token'), password }) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Reset failed')
+      await apiRequest('/auth/password-reset/confirm', 'POST', { token: params.get('reset_token'), password })
       setMessage('Password updated. You can now log in.')
       setTimeout(() => navigate('/login'), 1500)
     } catch (err) { setError(err.message) }

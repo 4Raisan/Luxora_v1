@@ -937,19 +937,12 @@ const CustomerDashboard = () => {
     // Send API booking request if token is present
     const token = sessionStorage.getItem('token')
     if (token) {
-      fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      apiRequest('/bookings', 'POST', {
           service_id: pkg.service_id || 1,
           booking_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
           booking_time: '10:00 AM',
           special_notes: `Subscribed package: ${pkg.title} (${pkg.tier || 'Standard'})`
-        })
-      }).catch(() => {})
+        }, token).catch(() => {})
     }
 
     setSelectedPackageToBook(null)
@@ -998,17 +991,10 @@ const CustomerDashboard = () => {
     const token = sessionStorage.getItem('token')
     if (token) {
       try {
-        await fetch('/api/complaints', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
+        await apiRequest('/complaints', 'POST', {
             subject: supportCategory,
             description: supportMessage
-          })
-        })
+          }, token)
       } catch (_) {}
     }
 
