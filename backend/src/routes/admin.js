@@ -123,13 +123,14 @@ router.get('/reports', async (req, res) => {
   const to = req.query.to ? new Date(`${req.query.to}T23:59:59.999Z`) : new Date();
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return res.status(400).json({ error: 'Use valid from/to dates' });
   const dateRange = { createdAt: { gte: from, lte: to } };
+  const subscriptionDateRange = { startDate: { gte: from, lte: to } };
   const [customers, providers, bookings, completedBookings, payments, subscriptions, complaints, ratings, popularServices, providerPerformance] = await Promise.all([
     prisma.user.count({ where: { role: 'CUSTOMER', ...dateRange } }),
     prisma.provider.count({ where: { user: { is: dateRange } } }),
     prisma.booking.count({ where: dateRange }),
     prisma.booking.count({ where: { ...dateRange, status: 'COMPLETED' } }),
     prisma.payment.aggregate({ where: { ...dateRange, status: 'COMPLETED' }, _sum: { capturedAmount: true }, _count: { id: true } }),
-    prisma.userSubscription.count({ where: { ...dateRange, status: 'active' } }),
+    prisma.userSubscription.count({ where: { ...subscriptionDateRange, status: 'active' } }),
     prisma.complaint.count({ where: dateRange }),
     prisma.review.aggregate({ where: dateRange, _avg: { rating: true }, _count: { rating: true } }),
     prisma.booking.groupBy({ by: ['serviceId'], where: dateRange, _count: { id: true }, orderBy: { _count: { id: 'desc' } }, take: 10 }),

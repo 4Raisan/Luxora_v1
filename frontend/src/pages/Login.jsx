@@ -14,8 +14,6 @@ const Login = () => {
   // Forgot Password State
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [forgotStep, setForgotStep] = useState(1) // 1: Email, 2: New Password
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState('')
   const [forgotErrorMsg, setForgotErrorMsg] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
@@ -37,31 +35,6 @@ const Login = () => {
     } finally {
       setForgotLoading(false)
     }
-  }
-
-  const handleResetPasswordSubmit = (e) => {
-    e.preventDefault()
-    if (!newPassword || newPassword.length < 6) {
-      setForgotErrorMsg('Password must be at least 6 characters.')
-      return
-    }
-
-    try {
-      const savedUserStr = localStorage.getItem('user_' + forgotEmail)
-      let userObj = savedUserStr ? JSON.parse(savedUserStr) : { email: forgotEmail, name: forgotEmail.split('@')[0] }
-      userObj.password = newPassword
-      localStorage.setItem('user_' + forgotEmail, JSON.stringify(userObj))
-    } catch (_) {}
-
-    setForgotSuccessMsg('Password updated successfully! You can now log in with your new password.')
-    setTimeout(() => {
-      setShowForgotModal(false)
-      setForm(prev => ({ ...prev, email: forgotEmail, password: newPassword }))
-      setForgotStep(1)
-      setForgotEmail('')
-      setNewPassword('')
-      setForgotSuccessMsg('')
-    }, 2000)
   }
 
   const tabs = [
@@ -347,8 +320,7 @@ const Login = () => {
               </div>
             )}
 
-            {forgotStep === 1 && (
-              <form onSubmit={handleSendResetLink} className="auth-form" style={{ marginTop: '1rem' }}>
+            <form onSubmit={handleSendResetLink} className="auth-form" style={{ marginTop: '1rem' }}>
                 <div className="auth-field">
                   <label style={{ display: 'block', color: '#888', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>ACCOUNT EMAIL ADDRESS</label>
                   <input
@@ -367,39 +339,9 @@ const Login = () => {
                   style={{ marginTop: '1.2rem' }}
                   disabled={forgotLoading}
                 >
-                  {forgotLoading ? 'VERIFYING...' : 'SEND RESET CODE →'}
+                  {forgotLoading ? 'SENDING...' : 'SEND RESET LINK →'}
                 </button>
-              </form>
-            )}
-
-            {forgotStep === 2 && (
-              <form onSubmit={handleResetPasswordSubmit} className="auth-form" style={{ marginTop: '1rem' }}>
-                <div style={{ background: 'rgba(201, 168, 76, 0.1)', border: '1px solid rgba(201, 168, 76, 0.3)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1.25rem', color: 'var(--gold, #c9a84c)', fontSize: '0.82rem', lineHeight: '1.5' }}>
-                  🔑 Reset link verified for <strong>{forgotEmail}</strong>. Please enter your new password below:
-                </div>
-
-                <div className="auth-field">
-                  <label style={{ display: 'block', color: '#888', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>NEW PASSWORD</label>
-                  <input
-                    type="password"
-                    className="auth-input"
-                    placeholder="Enter new password (min 6 characters)"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="auth-submit"
-                  style={{ marginTop: '1.2rem' }}
-                >
-                  CONFIRM NEW PASSWORD
-                </button>
-              </form>
-            )}
+            </form>
           </div>
         </div>
       )}
