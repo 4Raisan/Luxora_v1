@@ -81,16 +81,6 @@ const CoinIcon = () => (
   </svg>
 )
 
-/* ── Mock Data ───────────────────────────────────────── */
-const HISTORY_DATA = [
-  { id: 1, date: 'Aug 1, 2026', service: 'Auto Care', icon: <CarIcon />, tier: 'Standard ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-  { id: 2, date: 'Jul 15, 2026', service: 'Garden Care', icon: <LeafIcon />, tier: 'Basic', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-  { id: 3, date: 'Jul 1, 2026', service: 'Auto Care', icon: <CarIcon />, tier: 'Standard ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-  { id: 4, date: 'Jun 20, 2026', service: 'Pet Care', icon: <PawIcon />, tier: 'Premium', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' },
-  { id: 5, date: 'Jun 1, 2026', service: 'Garden Care', icon: <LeafIcon />, tier: 'Basic', ref: 'INV-2026-0061', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-  { id: 6, date: 'May 15, 2026', service: 'Pet Care', icon: <PawIcon />, tier: 'Standard ★', ref: 'INV-2026-0055', amount: 'LKR 11,000', status: 'Completed', cat: 'pet' },
-]
-
 const SRI_LANKA_TOWNS = [
   { name: "Colombo", province: "Western" },
   { name: "Sri Jayawardenepura Kotte", province: "Western" },
@@ -354,6 +344,7 @@ const CustomerDashboard = () => {
   const [activeBookingDateFilter, setActiveBookingDateFilter] = useState('')
   const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
   const [customerActiveBookings, setCustomerActiveBookings] = useState([])
+  const [historyData, setHistoryData] = useState([])
 
   const refreshCustomerBookings = async () => {
     const token = sessionStorage.getItem('token')
@@ -380,6 +371,18 @@ const CustomerDashboard = () => {
       isSession: true,
     }))
     setCustomerActiveBookings(mapped)
+    setHistoryData(mapped.map((booking) => ({
+      id: booking.id,
+      date: booking.date,
+      service: booking.service,
+      tier: 'Service Booking',
+      ref: `BOOK-${booking.id}`,
+      amount: booking.amount,
+      status: booking.status === 'CANCELLED'
+        ? 'Cancelled'
+        : `${booking.status.charAt(0)}${booking.status.slice(1).toLowerCase()}`,
+      cat: categoryKey(booking.service),
+    })))
     return mapped
   }
 
@@ -485,6 +488,7 @@ const CustomerDashboard = () => {
         booking_date: serviceBookingForm.date,
         booking_time: selectedTimeFormatted,
       }, token)
+      if (!created?.booking_id) throw new Error('Booking API returned no booking identifier.')
       await refreshCustomerBookings()
       const newB = {
         id: created.booking_id,
@@ -560,15 +564,6 @@ const CustomerDashboard = () => {
     const updated = [newReq, ...customRequests]
     setCustomRequests(updated)
     try { localStorage.setItem('custom_requests_' + email, JSON.stringify(updated)) } catch (_) {}
-
-    addHistoryRecord({
-      service: `Custom Request: ${customForm.title}`,
-      tier: 'Custom Request',
-      ref: newReq.id,
-      amount: 'Quotation Pending',
-      status: 'In Review',
-      cat: 'system'
-    })
 
     addNotification({
       title: 'Custom Request Submitted',
@@ -737,58 +732,6 @@ const CustomerDashboard = () => {
 
 
   // Dynamic History Data State
-  const [historyData, setHistoryData] = useState(() => {
-    const email = getUserEmail()
-    const saved = localStorage.getItem('history_' + email)
-    const isDemoAccount = ['tester@gmail.com', 'customer@luxora.lk', 'deshan@luxora.com', 'ashan@gmail.com'].includes(email)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && (parsed.length > 4 || !isDemoAccount)) return parsed
-      } catch (_) {}
-    }
-    if (isDemoAccount) {
-      const defaultHistory = [
-        { id: 1, date: 'Aug 1, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-        { id: 2, date: 'Jul 15, 2026', service: 'Garden Care Package', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-        { id: 3, date: 'Jul 1, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-        { id: 4, date: 'Jun 20, 2026', service: 'Pet Care Package', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' },
-        { id: 5, date: 'Jun 5, 2026', service: 'VIP Combo Suite Package', tier: 'VIP Estate Suite 👑', ref: 'INV-2026-0058', amount: 'LKR 34,500', status: 'Completed', cat: 'system' },
-        { id: 6, date: 'May 18, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0044', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-        { id: 7, date: 'May 2, 2026', service: 'Garden Care Package', tier: 'Basic Plan', ref: 'INV-2026-0039', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-        { id: 8, date: 'Apr 12, 2026', service: 'Pet Care Package', tier: 'Premium Plan', ref: 'INV-2026-0021', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
-      ]
-      try { localStorage.setItem('history_' + email, JSON.stringify(defaultHistory)) } catch (_) {}
-      return defaultHistory
-    }
-    return []
-  })
-
-  const addHistoryRecord = (rec) => {
-    const email = getUserEmail()
-    const now = new Date()
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const dateStr = `${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`
-    const randomRef = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`
-
-    const newRecord = {
-      id: Date.now(),
-      date: dateStr,
-      service: rec.service || 'Service Subscription',
-      tier: rec.tier || 'Standard',
-      ref: rec.ref || randomRef,
-      amount: rec.amount || 'LKR 9,000',
-      status: rec.status || 'Completed',
-      cat: rec.cat || 'system'
-    }
-
-    setHistoryData((prev) => {
-      const updated = [newRecord, ...prev]
-      localStorage.setItem('history_' + email, JSON.stringify(updated))
-      return updated
-    })
-  }
-
   // Notification Drawer State
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
   const [notifications, setNotifications] = useState(() => {
