@@ -81,162 +81,22 @@ const Login = () => {
     setErrorMsg('')
     try {
       const data = await apiRequest('/auth/login', 'POST', { email: form.email, password: form.password })
-      setLoading(false)
-
-      // Resolve name from localStorage or format from email
-      let nameToUse = ''
-      if (form.email) {
-        try {
-          const savedUser = localStorage.getItem('user_' + form.email)
-          if (savedUser) {
-            const parsedSaved = JSON.parse(savedUser)
-            if (parsedSaved.name) nameToUse = parsedSaved.name
-          }
-        } catch (_) {}
-      }
-
-      if (!nameToUse && form.email) {
-        const rawPrefix = form.email.split('@')[0]
-        nameToUse = rawPrefix
-          .replace(/[._-]/g, ' ')
-          .split(' ')
-          .filter(Boolean)
-          .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join(' ')
-      }
-
-      if (!nameToUse) nameToUse = 'Member'
-
-      const userObj = data.user || {
-        name: nameToUse,
-        email: form.email || 'tester@gmail.com',
-        phone: '+94 77 234 5678',
-        id: 'CUS-2026-0421'
-      }
-      if (data.provider) {
-        userObj.serviceTowns = data.provider.serviceTowns || ''
-        userObj.town = data.provider.town || ''
-      }
-      if (!userObj.name) userObj.name = nameToUse
-      const userRole = String(data.user?.role || '').toLowerCase()
-
-      // Save token and user info
-      sessionStorage.setItem('token', data.token || 'demo-token')
+      if (!data.token || !data.user?.role) throw new Error('Login response was incomplete')
+      const userObj = { ...data.user, ...(data.provider ? { provider: data.provider } : {}) }
+      const userRole = String(data.user.role).toLowerCase()
+      sessionStorage.setItem('token', data.token)
       sessionStorage.setItem('user', JSON.stringify(userObj))
-      localStorage.setItem('user_' + userObj.email, JSON.stringify(userObj))
-      localStorage.setItem('luxora_email', userObj.email)
-      localStorage.setItem('luxora_role', userRole || tab)
-      if (data.token) localStorage.setItem('luxora_token', data.token)
-
-      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
-
-      if (userRole === 'admin' || isInputAdmin) {
-        const adminObj = {
-          name: 'Deshan Ganganath',
-          title: 'Super Admin',
-          email: form.email || 'deshan@luxora.com',
-          role: 'admin',
-          phone: '+94 77 987 6543'
-        }
-        sessionStorage.setItem('token', data.token || 'demo-admin-token')
-        sessionStorage.setItem('user', JSON.stringify(adminObj))
-        localStorage.setItem('user_' + adminObj.email, JSON.stringify(adminObj))
-        sessionStorage.setItem('isAdminLoggedIn', 'true')
+      if (userRole === 'admin') {
         navigate('/admin-dashboard')
-      } else if (userRole === 'provider' || tab === 'provider') {
-        sessionStorage.setItem('isProviderLoggedIn', 'true')
+      } else if (userRole === 'provider') {
         navigate('/provider-dashboard')
       } else {
-        sessionStorage.setItem('isCustomerLoggedIn', 'true')
         navigate('/customer-dashboard')
       }
     } catch (err) {
+      setErrorMsg(err.message || 'Unable to sign in.')
+    } finally {
       setLoading(false)
-      const isInputAdmin = form.email.toLowerCase().includes('admin') || form.email.toLowerCase().includes('deshan') || form.email.toLowerCase().includes('tariq')
-
-      if (isInputAdmin) {
-        const adminObj = {
-          name: 'Deshan Ganganath',
-          title: 'Super Admin',
-          email: form.email || 'deshan@luxora.com',
-          role: 'admin',
-          phone: '+94 77 987 6543'
-        }
-        sessionStorage.setItem('token', 'demo-admin-token')
-        sessionStorage.setItem('user', JSON.stringify(adminObj))
-        localStorage.setItem('user_' + adminObj.email, JSON.stringify(adminObj))
-        sessionStorage.setItem('isAdminLoggedIn', 'true')
-        navigate('/admin-dashboard')
-      } else if (tab === 'provider') {
-        // Resolve name from localStorage or format from email
-        let nameToUse = ''
-        if (form.email) {
-          try {
-            const savedUser = localStorage.getItem('user_' + form.email)
-            if (savedUser) {
-              const parsedSaved = JSON.parse(savedUser)
-              if (parsedSaved.name) nameToUse = parsedSaved.name
-            }
-          } catch (_) {}
-        }
-
-        if (!nameToUse && form.email) {
-          const rawPrefix = form.email.split('@')[0]
-          nameToUse = rawPrefix
-            .replace(/[._-]/g, ' ')
-            .split(' ')
-            .filter(Boolean)
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-            .join(' ')
-        }
-
-        if (!nameToUse) nameToUse = 'Member'
-
-        const mockUser = {
-          name: nameToUse,
-          email: form.email || 'tester@gmail.com',
-          phone: '+94 77 234 5678',
-          id: 'PRO-2026-0421'
-        }
-        sessionStorage.setItem('user', JSON.stringify(mockUser))
-        localStorage.setItem('user_' + mockUser.email, JSON.stringify(mockUser))
-        sessionStorage.setItem('isProviderLoggedIn', 'true')
-        navigate('/provider-dashboard')
-      } else {
-        let nameToUse = ''
-        if (form.email) {
-          try {
-            const savedUser = localStorage.getItem('user_' + form.email)
-            if (savedUser) {
-              const parsedSaved = JSON.parse(savedUser)
-              if (parsedSaved.name) nameToUse = parsedSaved.name
-            }
-          } catch (_) {}
-        }
-
-        if (!nameToUse && form.email) {
-          const rawPrefix = form.email.split('@')[0]
-          nameToUse = rawPrefix
-            .replace(/[._-]/g, ' ')
-            .split(' ')
-            .filter(Boolean)
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-            .join(' ')
-        }
-
-        if (!nameToUse) nameToUse = 'Member'
-
-        const mockUser = {
-          name: nameToUse,
-          email: form.email || 'tester@gmail.com',
-          phone: '+94 77 234 5678',
-          id: 'CUS-2026-0421'
-        }
-        sessionStorage.setItem('user', JSON.stringify(mockUser))
-        localStorage.setItem('user_' + mockUser.email, JSON.stringify(mockUser))
-        sessionStorage.setItem('isCustomerLoggedIn', 'true')
-        navigate('/customer-dashboard')
-      }
     }
   }
 

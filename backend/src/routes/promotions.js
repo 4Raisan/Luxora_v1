@@ -26,6 +26,11 @@ router.get('/', async (_req, res) => {
 
 router.use(authenticateToken, requireRole('ADMIN'));
 
+router.get('/all', async (_req, res) => {
+  const promotions = await prisma.promotion.findMany({ orderBy: { createdAt: 'desc' } });
+  res.json(promotions.map(serialize));
+});
+
 router.post('/', async (req, res) => {
   const { title, description, code, discount_pct, starts_at, ends_at } = req.body;
   if (!isNonEmptyString(title, 150)) return res.status(400).json({ error: 'Title required' });

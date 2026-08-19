@@ -25,7 +25,7 @@ const UploadBox = ({ label, id, onChange, preview }) => (
           <span>Click to upload image file (JPG, PNG)</span>
         </>
       )}
-      <input id={id} type="file" accept="image/png, image/jpeg, image/webp, image/*" style={{ display: 'none' }} onChange={onChange} />
+      <input id={id} type="file" accept="image/png,image/jpeg" style={{ display: 'none' }} onChange={onChange} />
     </label>
   </div>
 )
@@ -36,6 +36,7 @@ const ProviderRegister = () => {
   const [otpSent, setOtpSent] = useState(false)
   const [isOtpVerified, setIsOtpVerified] = useState(false)
   const [otpError, setOtpError] = useState('')
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -137,24 +138,31 @@ const ProviderRegister = () => {
     }))
   }
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (!form.mobile || form.mobile.length !== 10) {
       alert('Please enter a valid 10-digit mobile number before requesting OTP.')
       return
     }
-    setOtpSent(true)
-    setIsOtpVerified(false)
-    setOtpError('')
-    if (!form.otp) setForm(prev => ({ ...prev, otp: '1234' }))
+    try {
+      await apiRequest('/auth/register/phone/send', 'POST', { phone: form.mobile })
+      setOtpSent(true)
+      setIsOtpVerified(false)
+      setPhoneVerificationToken('')
+      setOtpError('')
+    } catch (error) { setOtpError(error.message || 'Could not send OTP.') }
   }
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (!form.otp || form.otp.length !== 4) {
       setOtpError('Please enter a valid 4-digit OTP code.')
       return
     }
-    setIsOtpVerified(true)
-    setOtpError('')
+    try {
+      const result = await apiRequest('/auth/register/phone/verify', 'POST', { phone: form.mobile, code: form.otp })
+      setPhoneVerificationToken(result.verification_token)
+      setIsOtpVerified(true)
+      setOtpError('')
+    } catch (error) { setOtpError(error.message || 'OTP verification failed.') }
   }
 
   const nextStep = (e) => {
@@ -225,6 +233,7 @@ const ProviderRegister = () => {
           nic: form.nicNumber,
           category: form.services[0],
           service_towns: form.city,
+          phone_verification_token: phoneVerificationToken,
         })
       const uploadDocument = async (file, documentType) => {
         if (!file) return
