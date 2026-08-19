@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { apiRequest } from '../services/api'
-import { generateProviderPDF } from '../utils/pdfGenerator'
 import './AdminDashboard.css'
 
 /* ── Clean Vector SVG Icons (No Emojis) ── */
@@ -67,9 +66,6 @@ export default function AdminDashboard() {
   const [showAddUserModal, setShowAddUserModal] = useState(false)
   const [showAddProviderModal, setShowAddProviderModal] = useState(false)
   const [showAdminProfileModal, setShowAdminProfileModal] = useState(false)
-  const [viewingAppModal, setViewingAppModal] = useState(null)
-  const [kycPopupModal, setKycPopupModal] = useState(null)
-  const [approvalSearchTerm, setApprovalSearchTerm] = useState('')
   const [newUserForm, setNewUserForm] = useState({ name: '', email: '', role: 'Customer', planOrCategory: 'Single Auto Elite' })
   const [newProviderForm, setNewProviderForm] = useState({ name: '', email: '', category: 'Auto Care', nic: '199512345678' })
 
@@ -78,7 +74,7 @@ export default function AdminDashboard() {
       const stored = localStorage.getItem('luxora_subscriptions')
       if (stored) {
         const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length >= 9) {
+        if (Array.isArray(parsed) && parsed.length >= 12) {
           return parsed
         }
       }
@@ -91,12 +87,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Auto Care',
         tier: 'Basic',
-        visits: '1 visit',
+        visits: '1 token',
         tokens: 1,
         price: 5000,
         subscribers: 142,
         popular: false,
-        inclusives: ['1 visit / month', 'Exterior foam wash & wheel shine', 'Interior vacuuming', '1 Service Token (×1)']
+        inclusives: ['1 Service Token / month', 'Exterior wash', 'Interior vacuum', 'Basic tire shine', 'Window cleaning']
       },
       {
         id: 'SUB-002',
@@ -104,12 +100,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Auto Care',
         tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
+        visits: '2 tokens',
+        tokens: 2,
         price: 9000,
         subscribers: 428,
         popular: true,
-        inclusives: ['2 visits / month', 'Full vehicle wash & wax', 'Interior deep clean & leather conditioning', '3 Service Tokens (×3)', 'Priority booking slot']
+        inclusives: ['2 Service Tokens / month', 'Exterior wash', 'Interior vacuum', 'Basic tire shine', 'Window cleaning']
       },
       {
         id: 'SUB-003',
@@ -117,12 +113,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Auto Care',
         tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
+        visits: '4 tokens',
+        tokens: 4,
         price: 15000,
         subscribers: 215,
         popular: false,
-        inclusives: ['Unlimited visits / month', 'Ceramic windshield & paint protection', 'Engine bay detailing & tire gloss', '6 Service Tokens (×6)', 'VIP emergency dispatch']
+        inclusives: ['4 Service Tokens / month', 'Exterior wash', 'Interior vacuum', 'Basic tire shine', 'Window cleaning']
       },
 
       // ── Garden Care Single Packages ──
@@ -132,12 +128,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Garden Care',
         tier: 'Basic',
-        visits: '1 visit',
+        visits: '1 token',
         tokens: 1,
         price: 7500,
         subscribers: 98,
         popular: false,
-        inclusives: ['1 visit / month', 'Lawn mowing & edging', 'Weed removal & basic pruning', '1 Service Token (×1)']
+        inclusives: ['1 Service Token / month', 'Garden size: Below 10 perches / 250 m²', 'Lawn mowing', 'Lawn edging', 'Basic weeding', 'Fertilizer application', 'Basic visual plant health check', 'Basic pruning']
       },
       {
         id: 'SUB-005',
@@ -145,12 +141,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Garden Care',
         tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
+        visits: '2 tokens',
+        tokens: 2,
         price: 14000,
         subscribers: 382,
         popular: true,
-        inclusives: ['2 visits / month', 'Precision lawn care & bush sculpting', 'Organic fertilizer & soil treatment', '3 Service Tokens (×3)', 'Seasonal planting advice']
+        inclusives: ['2 Service Tokens / month', 'Garden size: 10–20 perches / 250–500 m²', 'Lawn mowing', 'Lawn edging', 'Basic weeding', 'Fertilizer application', 'Basic visual plant health check', 'Basic pruning']
       },
       {
         id: 'SUB-006',
@@ -158,12 +154,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Garden Care',
         tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
-        price: 25000,
+        visits: '4 tokens',
+        tokens: 4,
+        price: 24000,
         subscribers: 175,
         popular: false,
-        inclusives: ['Unlimited visits / month', 'Full landscape maintenance & irrigation check', 'Pest control & tree pruning', '6 Service Tokens (×6)', 'Dedicated gardener']
+        inclusives: ['4 Service Tokens / month', 'Garden size: Over 20–30 perches', 'Lawn mowing', 'Lawn edging', 'Basic weeding', 'Fertilizer application', 'Basic visual plant health check', 'Basic pruning', 'Gardens above 30 perches: Requested Service']
       },
 
       // ── Pet Care Single Packages ──
@@ -173,12 +169,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Pet Care',
         tier: 'Basic',
-        visits: '1 visit',
+        visits: '1 token',
         tokens: 1,
         price: 6000,
         subscribers: 85,
         popular: false,
-        inclusives: ['1 visit / month', 'Basic pet bath & coat brushing', 'Nail trimming & ear cleaning', '1 Service Token (×1)']
+        inclusives: ['1 Service Token / month', '1 pet', 'Basic spa wash', 'Blow-dry', 'Nail trimming', 'Ear cleaning', 'Brushing', 'Coat fluff', 'Basic flea & tick check']
       },
       {
         id: 'SUB-008',
@@ -186,12 +182,12 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Pet Care',
         tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
+        visits: '2 tokens',
+        tokens: 2,
         price: 11000,
         subscribers: 290,
         popular: true,
-        inclusives: ['2 visits / month', 'Full spa grooming, bath & blow dry', 'Flea & tick preventative treatment', '3 Service Tokens (×3)', 'Annual vet checkup voucher']
+        inclusives: ['2 Service Tokens / month', 'Up to 2 pets', 'Basic spa wash', 'Blow-dry', 'Nail trimming', 'Ear cleaning', 'Brushing', 'Coat fluff', 'Basic flea & tick check', '1 token = 1 pet service session']
       },
       {
         id: 'SUB-009',
@@ -199,32 +195,56 @@ export default function AdminDashboard() {
         type: 'Single Package',
         cat: 'Pet Care',
         tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
+        visits: '4 tokens',
+        tokens: 4,
         price: 18000,
         subscribers: 160,
         popular: false,
-        inclusives: ['Unlimited visits / month', 'Styling grooming, teeth cleaning & coat shine', '24/7 emergency pet transportation', '6 Service Tokens (×6)', 'Nutritional plan']
+        inclusives: ['4 Service Tokens / month', 'Up to 4 pets', 'Basic spa wash', 'Blow-dry', 'Nail trimming', 'Ear cleaning', 'Brushing', 'Coat fluff', 'Basic flea & tick check', '1 token = 1 pet service session']
       },
 
       // ── Combo Packages ──
       {
         id: 'SUB-010',
-        title: 'Combo Package: Dual Auto + Garden Elite',
+        title: 'Combo Package: Luxora Home',
         type: 'Combo Package',
-        cat: 'Auto + Garden',
-        price: 24000,
+        cat: 'Auto + Garden + Pet',
+        price: 18000,
         subscribers: 310,
-        inclusives: ['Complete Auto Care & Garden Care features', '15% Bundle savings discount applied', 'Dedicated VIP estate manager']
+        inclusives: [
+          '2 Auto Care Tokens', '1 Garden Care Token', '1 Pet Care Token',
+          'Auto Care: Exterior wash, Interior vacuum, Basic tire shine, Window cleaning',
+          'Garden Care: Lawn mowing, Lawn edging, Basic weeding, Fertilizer application, Basic visual plant health check, Basic pruning',
+          'Pet Care: Basic spa wash, Blow-dry, Nail trimming, Ear cleaning, Brushing, Coat fluff, Basic flea & tick check'
+        ]
       },
       {
         id: 'SUB-011',
-        title: 'Combo Package: Tri-Combo Luxury Suite',
+        title: 'Combo Package: Luxora Family',
         type: 'Combo Package',
         cat: 'Auto + Garden + Pet',
-        price: 32000,
+        price: 28000,
         subscribers: 282,
-        inclusives: ['All Auto, Garden & Pet Care benefits included', '24/7 VIP priority emergency dispatch', 'Free quarterly high-pressure driveway wash']
+        inclusives: [
+          '4 Auto Care Tokens', '2 Garden Care Tokens', '2 Pet Care Tokens',
+          'Auto Care: Exterior wash, Interior vacuum, Basic tire shine, Window cleaning',
+          'Garden Care: Lawn mowing, Lawn edging, Basic weeding, Fertilizer application, Basic visual plant health check, Basic pruning',
+          'Pet Care: Basic spa wash, Blow-dry, Nail trimming, Ear cleaning, Brushing, Coat fluff, Basic flea & tick check'
+        ]
+      },
+      {
+        id: 'SUB-012',
+        title: 'Combo Package: Luxora Prestige',
+        type: 'Combo Package',
+        cat: 'Auto + Garden + Pet',
+        price: 40000,
+        subscribers: 198,
+        inclusives: [
+          '4 Auto Care Tokens', '4 Garden Care Tokens', '4 Pet Care Tokens',
+          'Auto Care: Exterior wash, Interior vacuum, Basic tire shine, Window cleaning',
+          'Garden Care: Lawn mowing, Lawn edging, Basic weeding, Fertilizer application, Basic visual plant health check, Basic pruning',
+          'Pet Care: Basic spa wash, Blow-dry, Nail trimming, Ear cleaning, Brushing, Coat fluff, Basic flea & tick check'
+        ]
       }
     ]
     try { localStorage.setItem('luxora_subscriptions', JSON.stringify(defaultSubs)) } catch (_) {}
@@ -514,29 +534,6 @@ export default function AdminDashboard() {
         if (storedP) customProviders = JSON.parse(storedP)
       } catch (_) {}
 
-      let submittedApps = []
-      try {
-        const storedApps = localStorage.getItem('luxora_provider_applications')
-        if (storedApps) {
-          const parsed = JSON.parse(storedApps)
-          submittedApps = parsed.map(app => ({
-            id: app.id,
-            name: app.fullName || app.name,
-            email: app.email,
-            phone: app.phone || app.mobile,
-            category: Array.isArray(app.services) ? app.services.join(', ') : (app.services || 'Auto Care'),
-            nic: app.nic,
-            businessName: app.businessName,
-            city: app.city,
-            address: app.address,
-            kyc_status: app.status === 'APPROVED' ? 'approved' : (app.status === 'REJECTED' ? 'rejected' : 'pending'),
-            rating: '5.0 / 5.0 (New)',
-            pdfDataUrl: app.pdfDataUrl,
-            rawApp: app
-          }))
-        }
-      } catch (_) {}
-
       const defaultProvidersList = [
         { id: 1, name: 'Kamal Perera', email: 'kamal@luxora.com', category: 'Garden Care', nic: '198812345678', kyc_status: 'approved', rating: '4.9 / 5.0' },
         { id: 2, name: 'Nimal Silva', email: 'nimal@luxora.com', category: 'Auto Care', nic: '199287654321', kyc_status: 'pending', rating: '4.8 / 5.0' },
@@ -545,7 +542,7 @@ export default function AdminDashboard() {
         { id: 5, name: 'Ashan Silva', email: 'ashan@luxora.com', category: 'Garden Care', nic: '199456789012', kyc_status: 'pending', rating: '4.7 / 5.0' }
       ]
 
-      setProviders([...submittedApps, ...customProviders, ...defaultProvidersList])
+      setProviders([...customProviders, ...defaultProvidersList])
 
       let customBookings = []
       try {
@@ -589,25 +586,15 @@ export default function AdminDashboard() {
   const handleKyc = async (id, status) => {
     try { await apiRequest(`/admin/providers/${id}/kyc`, 'PUT', { status }, token) } catch (_) {}
 
-    const target = providers.find(p => String(p.id) === String(id))
-
     setProviders(prev => {
-      const updated = prev.map(p => String(p.id) === String(id) ? { ...p, kyc_status: status } : p)
+      const updated = prev.map(p => p.id === id ? { ...p, kyc_status: status } : p)
       try {
         localStorage.setItem('luxora_all_providers', JSON.stringify(updated))
       } catch (_) {}
       return updated
     })
 
-    try {
-      const storedApps = localStorage.getItem('luxora_provider_applications')
-      if (storedApps) {
-        const apps = JSON.parse(storedApps)
-        const updatedApps = apps.map(a => String(a.id) === String(id) ? { ...a, status: status.toUpperCase() } : a)
-        localStorage.setItem('luxora_provider_applications', JSON.stringify(updatedApps))
-      }
-    } catch (_) {}
-
+    const target = providers.find(p => p.id === id)
     if (target) {
       setUsers(prev => {
         const updatedUsers = prev.map(u => u.email === target.email ? { ...u, role: 'Provider', category: target.category } : u)
@@ -616,12 +603,8 @@ export default function AdminDashboard() {
         } catch (_) {}
         return updatedUsers
       })
+      alert(`✅ Provider ${target.name} has been ${status.toUpperCase()}! They are now fully active in the Providers Directory.`)
     }
-
-    setKycPopupModal({
-      message: `Provider ${target ? target.name : 'Applicant'} has been set to ${status.toUpperCase()}!`,
-      status: status
-    })
   }
 
   const handleComplaintStatus = (id, newStatus) => {
@@ -987,80 +970,34 @@ export default function AdminDashboard() {
 
           {activeNav === 'approvals' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h3 className="ad-table-title" style={{ margin: 0 }}>PENDING PROVIDER KYC APPROVALS &amp; DOCUMENTS</h3>
-              </div>
+              <h3 className="ad-table-title">PENDING PROVIDER KYC APPROVALS</h3>
               <table className="ad-data-table">
                 <thead>
                   <tr>
                     <th>ID</th>
                     <th>NAME</th>
-                    <th>EMAIL &amp; PHONE</th>
-                    <th>APPLICATION PDF</th>
-                    <th>APPROVED OR REJECTED</th>
+                    <th>EMAIL</th>
+                    <th>CATEGORY</th>
+                    <th>NIC DOCUMENT</th>
+                    <th>STATUS</th>
+                    <th>ACTION</th>
                   </tr>
                 </thead>
                 <tbody>
                   {providers.map((p) => (
                     <tr key={p.id}>
-                      <td style={{ color: 'var(--gold)', fontWeight: 700 }}>{String(p.id).startsWith('APP-') ? p.id : `PRO-00${p.id}`}</td>
+                      <td style={{ color: 'var(--gold)' }}>PRO-00{p.id}</td>
                       <td style={{ color: '#fff', fontWeight: 600 }}>{p.name}</td>
-                      <td style={{ color: '#aaa', fontSize: '0.82rem' }}>
-                        <div>{p.email}</div>
-                        <div style={{ color: '#888', fontSize: '0.75rem' }}>{p.phone || p.mobile || '0771234567'}</div>
-                      </td>
+                      <td style={{ color: '#aaa' }}>{p.email}</td>
+                      <td style={{ color: '#ccc' }}>{p.category}</td>
+                      <td style={{ fontFamily: 'monospace' }}>{p.nic || '199287654321'}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'nowrap' }}>
-                          <button
-                            type="button"
-                            onClick={() => setViewingAppModal(p)}
-                            style={{
-                              background: '#1a1a20',
-                              border: '1px solid #333',
-                              color: '#fff',
-                              padding: '0.4rem 0.75rem',
-                              borderRadius: '8px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title="Click to view details & image documents"
-                          >
-                            👁️ View Details
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (p.rawApp) {
-                                generateProviderPDF(p.rawApp).save()
-                              } else {
-                                generateProviderPDF(p).save()
-                              }
-                            }}
-                            style={{
-                              background: 'rgba(201, 168, 76, 0.15)',
-                              border: '1px solid var(--gold, #c9a84c)',
-                              color: 'var(--gold, #c9a84c)',
-                              padding: '0.4rem 0.85rem',
-                              borderRadius: '8px',
-                              fontSize: '0.75rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title="Click to download generated Application PDF summary"
-                          >
-                            📄 Download PDF
-                          </button>
-                        </div>
+                        <span className="ad-badge-status" style={{
+                          borderColor: p.kyc_status === 'approved' ? '#4ade80' : '#eab308',
+                          color: p.kyc_status === 'approved' ? '#4ade80' : '#eab308'
+                        }}>
+                          {p.kyc_status.toUpperCase()}
+                        </span>
                       </td>
                       <td>
                         {p.kyc_status === 'pending' ? (
@@ -1069,12 +1006,7 @@ export default function AdminDashboard() {
                             <button className="ad-btn-reject" onClick={() => handleKyc(p.id, 'rejected')}>Reject</button>
                           </div>
                         ) : (
-                          <span className="ad-badge-status" style={{
-                            borderColor: p.kyc_status === 'approved' ? '#4ade80' : '#ef4444',
-                            color: p.kyc_status === 'approved' ? '#4ade80' : '#ef4444'
-                          }}>
-                            {p.kyc_status === 'approved' ? 'APPROVED ✓' : 'REJECTED ✕'}
-                          </span>
+                          <span style={{ color: '#4ade80', fontSize: '0.75rem', fontWeight: 700 }}>Verified</span>
                         )}
                       </td>
                     </tr>
@@ -1798,181 +1730,6 @@ export default function AdminDashboard() {
               <button type="button" className="ad-notif-clear-btn" onClick={handleSignOut}>Sign Out</button>
               <button type="button" className="ad-notif-close-btn" onClick={() => setShowAdminProfileModal(false)}>Close Profile</button>
             </div>
-          </div>
-        </div>
-      )}
-      {/* ── View Application & KYC Image Document Modal ── */}
-      {viewingAppModal && (
-        <div className="ad-notif-overlay" onClick={() => setViewingAppModal(null)}>
-          <div className="ad-notif-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '720px', width: '92%', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="ad-notif-modal__header">
-              <div>
-                <span className="ad-notif-modal__eyebrow" style={{ color: 'var(--gold)' }}>PROVIDER KYC AUDIT DOCUMENT</span>
-                <h3 className="ad-notif-modal__title">Application Summary &amp; Attached Images</h3>
-              </div>
-              <button className="ad-notif-modal__close" onClick={() => setViewingAppModal(null)}>✕</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '0.5rem' }}>
-              {/* Ref ID & Status Banner */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#16161c', padding: '0.85rem 1.25rem', borderRadius: '10px', border: '1px solid #2a2a32' }}>
-                <div>
-                  <span style={{ fontSize: '0.72rem', color: '#aaa', fontWeight: 600, display: 'block' }}>APPLICATION REF ID</span>
-                  <span style={{ color: 'var(--gold)', fontSize: '1.1rem', fontWeight: 800 }}>{String(viewingAppModal.id).startsWith('APP-') ? viewingAppModal.id : `PRO-00${viewingAppModal.id}`}</span>
-                </div>
-                <div>
-                  <span className="ad-badge-status" style={{
-                    borderColor: viewingAppModal.kyc_status === 'approved' ? '#4ade80' : (viewingAppModal.kyc_status === 'rejected' ? '#ef4444' : '#eab308'),
-                    color: viewingAppModal.kyc_status === 'approved' ? '#4ade80' : (viewingAppModal.kyc_status === 'rejected' ? '#ef4444' : '#eab308')
-                  }}>
-                    {viewingAppModal.kyc_status.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Text Information Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
-                <div style={{ background: '#181818', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #282828' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 600, display: 'block' }}>FULL NAME</span>
-                  <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700 }}>{viewingAppModal.name}</span>
-                </div>
-                <div style={{ background: '#181818', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #282828' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 600, display: 'block' }}>NIC NUMBER</span>
-                  <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, fontFamily: 'monospace' }}>{viewingAppModal.nic || '199287654321'}</span>
-                </div>
-                <div style={{ background: '#181818', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #282828' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 600, display: 'block' }}>MOBILE NUMBER</span>
-                  <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700 }}>{viewingAppModal.phone || viewingAppModal.mobile || '0771234567'}</span>
-                </div>
-                <div style={{ background: '#181818', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #282828' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 600, display: 'block' }}>EMAIL ADDRESS</span>
-                  <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700 }}>{viewingAppModal.email}</span>
-                </div>
-                <div style={{ background: '#181818', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #282828' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 600, display: 'block' }}>BUSINESS NAME</span>
-                  <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700 }}>{viewingAppModal.businessName || viewingAppModal.name + ' Services'}</span>
-                </div>
-                <div style={{ background: '#181818', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #282828' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 600, display: 'block' }}>SERVICES &amp; CITY</span>
-                  <span style={{ color: 'var(--gold)', fontSize: '0.9rem', fontWeight: 700 }}>{viewingAppModal.category} ({viewingAppModal.city || 'Colombo'})</span>
-                </div>
-              </div>
-
-              {/* Attached Images Grid Section */}
-              <div>
-                <h4 style={{ color: 'var(--gold)', fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '0.05em' }}>
-                  ATTACHED VERIFIED KYC IMAGES:
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                  {/* NIC Front Image */}
-                  <div style={{ background: '#141418', border: '1px solid #2a2a32', borderRadius: '10px', padding: '0.75rem', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', color: '#aaa', fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>NIC FRONT PHOTO</span>
-                    {viewingAppModal.rawApp?.nicFrontPreview ? (
-                      <img src={viewingAppModal.rawApp.nicFrontPreview} alt="NIC Front" style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '6px', objectFit: 'contain', border: '1px solid #333' }} />
-                    ) : (
-                      <div style={{ background: '#1c1c22', color: '#4ade80', padding: '2rem 1rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700 }}>✓ Verified Document Uploaded on File</div>
-                    )}
-                  </div>
-
-                  {/* NIC Back Image */}
-                  <div style={{ background: '#141418', border: '1px solid #2a2a32', borderRadius: '10px', padding: '0.75rem', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', color: '#aaa', fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>NIC BACK PHOTO</span>
-                    {viewingAppModal.rawApp?.nicBackPreview ? (
-                      <img src={viewingAppModal.rawApp.nicBackPreview} alt="NIC Back" style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '6px', objectFit: 'contain', border: '1px solid #333' }} />
-                    ) : (
-                      <div style={{ background: '#1c1c22', color: '#4ade80', padding: '2rem 1rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700 }}>✓ Verified Document Uploaded on File</div>
-                    )}
-                  </div>
-
-                  {/* Provider Selfie Photo */}
-                  <div style={{ background: '#141418', border: '1px solid #2a2a32', borderRadius: '10px', padding: '0.75rem', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', color: '#aaa', fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>PROVIDER SELFIE PHOTO</span>
-                    {viewingAppModal.rawApp?.selfiePreview ? (
-                      <img src={viewingAppModal.rawApp.selfiePreview} alt="Selfie" style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '6px', objectFit: 'contain', border: '1px solid #333' }} />
-                    ) : (
-                      <div style={{ background: '#1c1c22', color: '#4ade80', padding: '2rem 1rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700 }}>✓ Verified Live Selfie Uploaded</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="ad-notif-modal__footer" style={{ marginTop: '1.25rem', gap: '0.75rem', justifyContent: 'space-between' }}>
-              <button
-                type="button"
-                className="ad-notif-clear-btn"
-                onClick={() => {
-                  if (viewingAppModal.rawApp) {
-                    generateProviderPDF(viewingAppModal.rawApp).save()
-                  } else {
-                    generateProviderPDF(viewingAppModal).save()
-                  }
-                }}
-                style={{ background: 'rgba(201, 168, 76, 0.15)', border: '1px solid var(--gold)', color: 'var(--gold)', fontWeight: 800 }}
-              >
-                📄 Download Official PDF Document
-              </button>
-
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {viewingAppModal.kyc_status === 'pending' && (
-                  <>
-                    <button type="button" className="ad-btn-approve" onClick={() => { handleKyc(viewingAppModal.id, 'approved'); setViewingAppModal(null); }}>
-                      Approve Provider
-                    </button>
-                    <button type="button" className="ad-btn-reject" onClick={() => { handleKyc(viewingAppModal.id, 'rejected'); setViewingAppModal(null); }}>
-                      Reject
-                    </button>
-                  </>
-                )}
-                <button type="button" className="ad-notif-close-btn" onClick={() => setViewingAppModal(null)}>Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── KYC Status Confirmation Popup Modal ── */}
-      {kycPopupModal && (
-        <div className="ad-notif-overlay" onClick={() => setKycPopupModal(null)}>
-          <div className="ad-notif-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', textAlign: 'center' }}>
-            <div style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              background: kycPopupModal.status === 'approved' ? 'rgba(74, 222, 128, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-              border: `2px solid ${kycPopupModal.status === 'approved' ? '#4ade80' : '#ef4444'}`,
-              color: kycPopupModal.status === 'approved' ? '#4ade80' : '#ef4444',
-              fontSize: '2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1rem auto'
-            }}>
-              {kycPopupModal.status === 'approved' ? '✓' : '✕'}
-            </div>
-            <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, margin: '0 0 0.5rem 0' }}>
-              KYC Status Updated
-            </h3>
-            <p style={{ color: '#ccc', fontSize: '0.95rem', margin: '0 0 1.25rem 0', lineHeight: 1.5 }}>
-              {kycPopupModal.message}
-            </p>
-            <button
-              type="button"
-              onClick={() => setKycPopupModal(null)}
-              style={{
-                width: '100%',
-                background: 'var(--gold, #c9a84c)',
-                color: '#000',
-                fontWeight: 800,
-                padding: '0.75rem',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.9rem'
-              }}
-            >
-              OK
-            </button>
           </div>
         </div>
       )}

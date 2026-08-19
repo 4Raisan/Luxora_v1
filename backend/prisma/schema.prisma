@@ -13,7 +13,6 @@ model User {
   email         String             @unique
   passwordHash  String
   phone         String?
-  town          String?
   role          Role               @default(CUSTOMER)
   createdAt     DateTime           @default(now())
   bookings      Booking[]

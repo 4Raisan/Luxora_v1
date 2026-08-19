@@ -264,23 +264,22 @@ const CustomerDashboard = () => {
       const titleLower = (pkg.title || '').toLowerCase()
 
       let tokenVal = 1 // default Basic = 1 token
-      if (tierLower.includes('standard')) tokenVal = 3
-      else if (tierLower.includes('premium')) tokenVal = 6
+      if (tierLower.includes('standard')) tokenVal = 2
+      else if (tierLower.includes('premium')) tokenVal = 4
       else if (tierLower.includes('basic')) tokenVal = 1
 
-      if (titleLower.includes('full home suite')) {
-        auto += 3
-        garden += 3
-        pet += 3
-      } else if (titleLower.includes('auto & garden')) {
-        auto += 3
-        garden += 3
-      } else if (titleLower.includes('auto & pet')) {
-        auto += 3
-        pet += 3
-      } else if (titleLower.includes('garden & pet')) {
-        garden += 3
-        pet += 3
+      if (titleLower.includes('luxora prestige')) {
+        auto += 4
+        garden += 4
+        pet += 4
+      } else if (titleLower.includes('luxora family')) {
+        auto += 4
+        garden += 2
+        pet += 2
+      } else if (titleLower.includes('luxora home')) {
+        auto += 2
+        garden += 1
+        pet += 1
       } else if (pkg.cat === 'auto' || titleLower.includes('auto')) {
         auto += tokenVal
       } else if (pkg.cat === 'garden' || titleLower.includes('garden')) {
@@ -336,7 +335,7 @@ const CustomerDashboard = () => {
       const stored = localStorage.getItem('luxora_subscriptions')
       if (stored) {
         const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length >= 9) return parsed
+        if (Array.isArray(parsed) && parsed.length >= 12) return parsed
       }
     } catch (_) {}
     return [
@@ -346,12 +345,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Auto Care',
         tier: 'Basic',
-        visits: '1 visit',
+        visits: '1 token',
         tokens: 1,
         price: 5000,
         subscribers: 142,
         popular: false,
-        inclusives: ['1 visit / month', 'Exterior foam wash & wheel shine', 'Interior vacuuming', '1 Service Token (×1)']
+        inclusives: ['1 Service Token / month', 'Exterior wash', 'Interior vacuum', 'Basic tire shine', 'Window cleaning']
       },
       {
         id: 'SUB-002',
@@ -359,12 +358,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Auto Care',
         tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
+        visits: '2 tokens',
+        tokens: 2,
         price: 9000,
         subscribers: 428,
         popular: true,
-        inclusives: ['2 visits / month', 'Full vehicle wash & wax', 'Interior deep clean & leather conditioning', '3 Service Tokens (×3)', 'Priority booking slot']
+        inclusives: ['2 Service Tokens / month', 'Exterior wash', 'Interior vacuum', 'Basic tire shine', 'Window cleaning']
       },
       {
         id: 'SUB-003',
@@ -372,12 +371,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Auto Care',
         tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
+        visits: '4 tokens',
+        tokens: 4,
         price: 15000,
         subscribers: 215,
         popular: false,
-        inclusives: ['Unlimited visits / month', 'Ceramic windshield & paint protection', 'Engine bay detailing & tire gloss', '6 Service Tokens (×6)', 'VIP emergency dispatch']
+        inclusives: ['4 Service Tokens / month', 'Exterior wash', 'Interior vacuum', 'Basic tire shine', 'Window cleaning']
       },
       {
         id: 'SUB-004',
@@ -385,12 +384,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Garden Care',
         tier: 'Basic',
-        visits: '1 visit',
+        visits: '1 token',
         tokens: 1,
         price: 7500,
         subscribers: 98,
         popular: false,
-        inclusives: ['1 visit / month', 'Lawn mowing & edging', 'Weed removal & basic pruning', '1 Service Token (×1)']
+        inclusives: ['1 Service Token / month', 'Garden size: Below 10 perches / 250 m²', 'Lawn mowing', 'Lawn edging', 'Basic weeding', 'Fertilizer application', 'Basic visual plant health check', 'Basic pruning']
       },
       {
         id: 'SUB-005',
@@ -398,12 +397,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Garden Care',
         tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
+        visits: '2 tokens',
+        tokens: 2,
         price: 14000,
         subscribers: 382,
         popular: true,
-        inclusives: ['2 visits / month', 'Precision lawn care & bush sculpting', 'Organic fertilizer & soil treatment', '3 Service Tokens (×3)', 'Seasonal planting advice']
+        inclusives: ['2 Service Tokens / month', 'Garden size: 10–20 perches / 250–500 m²', 'Lawn mowing', 'Lawn edging', 'Basic weeding', 'Fertilizer application', 'Basic visual plant health check', 'Basic pruning']
       },
       {
         id: 'SUB-006',
@@ -411,12 +410,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Garden Care',
         tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
-        price: 25000,
+        visits: '4 tokens',
+        tokens: 4,
+        price: 24000,
         subscribers: 175,
         popular: false,
-        inclusives: ['Unlimited visits / month', 'Full landscape maintenance & irrigation check', 'Pest control & tree pruning', '6 Service Tokens (×6)', 'Dedicated gardener']
+        inclusives: ['4 Service Tokens / month', 'Garden size: Over 20–30 perches', 'Lawn mowing', 'Lawn edging', 'Basic weeding', 'Fertilizer application', 'Basic visual plant health check', 'Basic pruning', 'Gardens above 30 perches: Requested Service']
       },
       {
         id: 'SUB-007',
@@ -424,12 +423,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Pet Care',
         tier: 'Basic',
-        visits: '1 visit',
+        visits: '1 token',
         tokens: 1,
         price: 6000,
         subscribers: 85,
         popular: false,
-        inclusives: ['1 visit / month', 'Basic pet bath & coat brushing', 'Nail trimming & ear cleaning', '1 Service Token (×1)']
+        inclusives: ['1 Service Token / month', '1 pet', 'Basic spa wash', 'Blow-dry', 'Nail trimming', 'Ear cleaning', 'Brushing', 'Coat fluff', 'Basic flea & tick check']
       },
       {
         id: 'SUB-008',
@@ -437,12 +436,12 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Pet Care',
         tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
+        visits: '2 tokens',
+        tokens: 2,
         price: 11000,
         subscribers: 290,
         popular: true,
-        inclusives: ['2 visits / month', 'Full spa grooming, bath & blow dry', 'Flea & tick preventative treatment', '3 Service Tokens (×3)', 'Annual vet checkup voucher']
+        inclusives: ['2 Service Tokens / month', 'Up to 2 pets', 'Basic spa wash', 'Blow-dry', 'Nail trimming', 'Ear cleaning', 'Brushing', 'Coat fluff', 'Basic flea & tick check', '1 token = 1 pet service session']
       },
       {
         id: 'SUB-009',
@@ -450,30 +449,54 @@ const CustomerDashboard = () => {
         type: 'Single Package',
         cat: 'Pet Care',
         tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
+        visits: '4 tokens',
+        tokens: 4,
         price: 18000,
         subscribers: 160,
         popular: false,
-        inclusives: ['Unlimited visits / month', 'Styling grooming, teeth cleaning & coat shine', '24/7 emergency pet transportation', '6 Service Tokens (×6)', 'Nutritional plan']
+        inclusives: ['4 Service Tokens / month', 'Up to 4 pets', 'Basic spa wash', 'Blow-dry', 'Nail trimming', 'Ear cleaning', 'Brushing', 'Coat fluff', 'Basic flea & tick check', '1 token = 1 pet service session']
       },
       {
         id: 'SUB-010',
-        title: 'Combo Package: Dual Auto + Garden Elite',
+        title: 'Combo Package: Luxora Home',
         type: 'Combo Package',
-        cat: 'Auto + Garden',
-        price: 24000,
+        cat: 'Auto + Garden + Pet',
+        price: 18000,
         subscribers: 310,
-        inclusives: ['Complete Auto Care & Garden Care features', '15% Bundle savings discount applied', 'Dedicated VIP estate manager']
+        inclusives: [
+          '2 Auto Care Tokens', '1 Garden Care Token', '1 Pet Care Token',
+          'Auto Care: Exterior wash, Interior vacuum, Basic tire shine, Window cleaning',
+          'Garden Care: Lawn mowing, Lawn edging, Basic weeding, Fertilizer application, Basic visual plant health check, Basic pruning',
+          'Pet Care: Basic spa wash, Blow-dry, Nail trimming, Ear cleaning, Brushing, Coat fluff, Basic flea & tick check'
+        ]
       },
       {
         id: 'SUB-011',
-        title: 'Combo Package: Tri-Combo Luxury Suite',
+        title: 'Combo Package: Luxora Family',
         type: 'Combo Package',
         cat: 'Auto + Garden + Pet',
-        price: 32000,
+        price: 28000,
         subscribers: 282,
-        inclusives: ['All Auto, Garden & Pet Care benefits included', '24/7 VIP priority emergency dispatch', 'Free quarterly high-pressure driveway wash']
+        inclusives: [
+          '4 Auto Care Tokens', '2 Garden Care Tokens', '2 Pet Care Tokens',
+          'Auto Care: Exterior wash, Interior vacuum, Basic tire shine, Window cleaning',
+          'Garden Care: Lawn mowing, Lawn edging, Basic weeding, Fertilizer application, Basic visual plant health check, Basic pruning',
+          'Pet Care: Basic spa wash, Blow-dry, Nail trimming, Ear cleaning, Brushing, Coat fluff, Basic flea & tick check'
+        ]
+      },
+      {
+        id: 'SUB-012',
+        title: 'Combo Package: Luxora Prestige',
+        type: 'Combo Package',
+        cat: 'Auto + Garden + Pet',
+        price: 40000,
+        subscribers: 198,
+        inclusives: [
+          '4 Auto Care Tokens', '4 Garden Care Tokens', '4 Pet Care Tokens',
+          'Auto Care: Exterior wash, Interior vacuum, Basic tire shine, Window cleaning',
+          'Garden Care: Lawn mowing, Lawn edging, Basic weeding, Fertilizer application, Basic visual plant health check, Basic pruning',
+          'Pet Care: Basic spa wash, Blow-dry, Nail trimming, Ear cleaning, Brushing, Coat fluff, Basic flea & tick check'
+        ]
       }
     ]
   })
