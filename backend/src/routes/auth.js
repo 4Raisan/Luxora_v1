@@ -104,10 +104,14 @@ router.post('/login', authLimiter, async (req, res) => {
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
+  if (!user.active) return res.status(403).json({ error: 'This account has been deactivated. Contact Luxora support.' });
 
   let provider = null;
   if (user.role === 'PROVIDER') {
     provider = await prisma.provider.findUnique({ where: { userId: user.id } });
+    if (!provider || provider.kycStatus !== 'APPROVED') {
+      return res.status(403).json({ error: provider?.kycStatus === 'REJECTED' ? 'Your provider verification was rejected. Contact Luxora support.' : 'Your provider verification is still pending.' });
+    }
   }
 
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '7d' });

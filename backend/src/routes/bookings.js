@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
 import { sendEmail } from '../services/integrations.js';
 import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
+import { findBookableEntitlement } from '../services/entitlements.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -59,8 +62,8 @@ function cooldownEndsAt(booking) {
 
 // Pick the least-loaded approved+available provider matching the booking town.
 // A provider's latest same-day auto assignment governs their cooldown.
-async function pickProvider(categoryName, town, bookingDate, bookingTime) {
-  const candidates = await prisma.provider.findMany({
+async function pickProvider(client, categoryName, town, bookingDate, bookingTime) {
+  const candidates = await client.provider.findMany({
     where: { category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' },
     select: { id: true, userId: true, serviceTowns: true },
   });
@@ -68,7 +71,7 @@ async function pickProvider(categoryName, town, bookingDate, bookingTime) {
   const townCandidates = candidates.filter((provider) => servesTown(provider, town));
   if (townCandidates.length === 0) return null;
 
-  const priorAutoAssignments = await prisma.booking.findMany({
+  const priorAutoAssignments = await client.booking.findMany({
     where: {
       providerId: { in: townCandidates.map((provider) => provider.id) },
       bookingDate,
@@ -91,7 +94,7 @@ async function pickProvider(categoryName, town, bookingDate, bookingTime) {
   });
   if (eligible.length === 0) return null;
 
-  const load = await prisma.booking.groupBy({
+  const load = await client.booking.groupBy({
     by: ['providerId'],
     where: {
       providerId: { in: eligible.map((c) => c.id) },
@@ -123,41 +126,60 @@ router.post('/', async (req, res) => {
   });
   if (!service) return res.status(404).json({ error: 'Service not found' });
 
-  const pin_code = Math.floor(1000 + Math.random() * 9000).toString();
+  const entitlement = await findBookableEntitlement(prisma, userId, service.categoryId);
+  if (!entitlement) return res.status(403).json({ error: `An active ${service.category.name} entitlement with remaining service units is required to book this service` });
+
+  const startPin = crypto.randomInt(100000, 1000000).toString();
+  const completionPin = crypto.randomInt(100000, 1000000).toString();
 
   const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true, email: true, name: true } });
   const town = normalizeTown(customer?.town);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time);
-  const provider = shouldAutoAssign ? await pickProvider(service.category.name, town, booking_date, booking_time) : null;
-  const provider_id = provider ? provider.id : null;
-  const status = provider_id ? 'ASSIGNED' : 'PENDING';
+  const booking = await prisma.$transaction(async (tx) => {
+    const normalizedTime = booking_time.trim().toUpperCase();
+    const duplicate = await tx.booking.findFirst({ where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } }, select: { id: true } });
+    if (duplicate) {
+      const error = new Error('You already have this service booked for the selected date and time');
+      error.statusCode = 409;
+      throw error;
+    }
+    const provider = shouldAutoAssign ? await pickProvider(tx, service.category.name, town, booking_date, booking_time) : null;
+    const scheduled = bookingStart(booking_date, booking_time);
+    return tx.booking.create({
+      data: {
+        userId,
+        providerId: provider?.id || null,
+        serviceId,
+        subscriptionId: entitlement.subscriptionId,
+        bookingDate: booking_date,
+        bookingTime: normalizedTime,
+        town,
+        status: provider ? 'ASSIGNED' : 'PENDING',
+        autoAssigned: Boolean(provider),
+        startPinHash: await bcrypt.hash(startPin, 12),
+        completionPinHash: await bcrypt.hash(completionPin, 12),
+        pinExpiresAt: scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null,
+        totalPrice: service.price,
+      },
+    });
+  }, { isolationLevel: 'Serializable' });
 
-  const booking = await prisma.booking.create({
-    data: {
-      userId,
-      providerId: provider_id,
-      serviceId,
-      bookingDate: booking_date,
-      bookingTime: booking_time.trim().toUpperCase(),
-      town,
-      status,
-      autoAssigned: Boolean(provider_id),
-      pinCode: pin_code,
-      totalPrice: service.price,
-    },
-  });
-
-  if (provider_id) {
-    await notify(provider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
+  if (booking.providerId) {
+    const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
+    if (provider) await notify(provider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
   }
-  sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your ${service.title} booking is scheduled for ${booking_date} at ${booking_time}.</p><p>Booking status: ${status.toLowerCase()}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
+  sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your ${service.title} booking is scheduled for ${booking_date} at ${booking_time}.</p><p>Booking status: ${booking.status.toLowerCase()}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
   res.status(201).json({
     booking_id: booking.id,
-    pin_code,
-    status: status.toLowerCase(),
+    pin_code: startPin,
+    start_pin: startPin,
+    completion_pin: completionPin,
+    pin_expires_at: booking.pinExpiresAt,
+    status: booking.status.toLowerCase(),
     total_price: service.price,
     message: 'Booking placed successfully',
+    entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits - 1 },
   });
 });
 
@@ -275,7 +297,13 @@ router.put('/:id/status', async (req, res) => {
       booking.pinAttempts = 0;
     }
 
-    if (booking.pinCode !== String(pin_code)) {
+    if (booking.pinExpiresAt && booking.pinExpiresAt < new Date()) {
+      return res.status(400).json({ error: 'The verification PIN has expired. Contact Luxora support.' });
+    }
+    const expectedHash = nextStatus === 'IN_PROGRESS' ? booking.startPinHash : booking.completionPinHash;
+    const legacyPinMatches = !expectedHash && booking.pinCode === String(pin_code);
+    const pinMatches = expectedHash ? await bcrypt.compare(String(pin_code || ''), expectedHash) : legacyPinMatches;
+    if (!pinMatches) {
       const newAttempts = booking.pinAttempts + 1;
       const isLocked = newAttempts >= MAX_PIN_ATTEMPTS;
       const lockUntil = isLocked ? new Date(Date.now() + PIN_LOCKOUT_MS) : null;
@@ -316,6 +344,8 @@ router.put('/:id/status', async (req, res) => {
       providerId: provider.id,
       beforePhoto: before_photo || undefined,
       afterPhoto: after_photo || undefined,
+      startPinUsedAt: nextStatus === 'IN_PROGRESS' ? new Date() : undefined,
+      completionPinUsedAt: nextStatus === 'COMPLETED' ? new Date() : undefined,
     },
   });
 

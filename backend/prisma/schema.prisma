@@ -8,164 +8,286 @@ datasource db {
 }
 
 model User {
-  id            Int                @id @default(autoincrement())
-  name          String
-  email         String             @unique
-  passwordHash  String
-  phone         String?
-  town          String?
-  role          Role               @default(CUSTOMER)
-  createdAt     DateTime           @default(now())
-  bookings      Booking[]
-  complaints    Complaint[]
+  id Int @id @default(autoincrement())
+  name String
+  email String @unique
+  passwordHash String
+  phone String?
+  phoneVerified Boolean @default(false)
+  town String?
+  role Role @default(CUSTOMER)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bookings Booking[]
+  complaints Complaint[]
   notifications Notification[]
-  provider      Provider?
-  reviews       Review[]
+  provider Provider?
+  reviews Review[]
   subscriptions UserSubscription[]
-
+  passwordResetTokens PasswordResetToken[]
+  payments Payment[]
+  supportTickets SupportTicket[]
   @@map("users")
 }
 
-model Provider {
-  id                 Int       @id @default(autoincrement())
-  userId             Int       @unique
-  nic                String?
-  kycStatus          KycStatus @default(PENDING)
-  category           String
-  availabilityStatus String    @default("available")
-  earnings           Float     @default(0.0)
-  bookings           Booking[]
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviews            Review[]
+model PasswordResetToken {
+  id Int @id @default(autoincrement())
+  userId Int
+  tokenHash String @unique
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
 
+model Provider {
+  id Int @id @default(autoincrement())
+  userId Int @unique
+  nic String?
+  kycStatus KycStatus @default(PENDING)
+  kycRejectionReason String?
+  category String
+  serviceTowns String @default("")
+  availabilityStatus String @default("available")
+  earnings Float @default(0.0)
+  bookings Booking[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews Review[]
+  kycDocuments KycDocument[]
   @@map("providers")
 }
 
-model Category {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?
-  icon        String?
-  services    Service[]
+model KycDocument {
+  id Int @id @default(autoincrement())
+  providerId Int
+  documentType String
+  filePath String
+  originalName String
+  mimeType String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  @@index([providerId])
+  @@map("kyc_documents")
+}
 
+model Category {
+  id Int @id @default(autoincrement())
+  name String @unique
+  description String?
+  icon String?
+  services Service[]
+  subscriptionEntitlements SubscriptionEntitlement[]
   @@map("categories")
 }
 
 model Service {
-  id           Int       @id @default(autoincrement())
-  categoryId   Int
-  title        String
-  description  String?
-  price        Float
-  durationMins Int       @default(60)
-  bookings     Booking[]
-  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
+  id Int @id @default(autoincrement())
+  categoryId Int
+  title String
+  description String?
+  price Float
+  durationMins Int @default(60)
+  bookings Booking[]
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   @@map("services")
 }
 
 model SubscriptionPlan {
-  id                Int                @id @default(autoincrement())
-  title             String
-  type              String
-  priceMonthly      Float
-  description       String?
-  features          String
+  id Int @id @default(autoincrement())
+  title String
+  type String
+  priceMonthly Float
+  durationDays Int @default(30)
+  active Boolean @default(true)
+  description String?
+  features String
   userSubscriptions UserSubscription[]
-
+  entitlements SubscriptionEntitlement[]
+  payments Payment[]
   @@map("subscription_plans")
 }
 
-model UserSubscription {
-  id        Int              @id @default(autoincrement())
-  userId    Int
-  planId    Int
-  startDate DateTime         @default(now())
-  endDate   DateTime
-  status    String           @default("active")
-  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+model SubscriptionEntitlement {
+  id Int @id @default(autoincrement())
+  planId Int
+  categoryId Int
+  units Int @default(0)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  @@unique([planId, categoryId])
+  @@index([categoryId])
+  @@map("subscription_entitlements")
+}
 
+model UserSubscription {
+  id Int @id @default(autoincrement())
+  userId Int
+  planId Int
+  startDate DateTime @default(now())
+  endDate DateTime
+  status String @default("active")
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+  payments Payment[]
   @@map("user_subscriptions")
 }
 
 model Booking {
-  id             Int           @id @default(autoincrement())
-  userId         Int
-  providerId     Int?
-  serviceId      Int
-  bookingDate    String
-  bookingTime    String
-  status         BookingStatus @default(PENDING)
-  pinCode        String
-  pinAttempts    Int           @default(0)
+  id Int @id @default(autoincrement())
+  userId Int
+  providerId Int?
+  serviceId Int
+  subscriptionId Int?
+  bookingDate String
+  bookingTime String
+  town String?
+  status BookingStatus @default(PENDING)
+  cancellationReason String?
+  rescheduleReason String?
+  autoAssigned Boolean @default(false)
+  expectedEndTime DateTime?
+  pinCode String?
+  startPinHash String?
+  completionPinHash String?
+  pinExpiresAt DateTime?
+  startPinUsedAt DateTime?
+  completionPinUsedAt DateTime?
+  pinAttempts Int @default(0)
   pinLockedUntil DateTime?
-  beforePhoto    String?
-  afterPhoto     String?
-  totalPrice     Float
-  createdAt      DateTime      @default(now())
-  provider       Provider?     @relation(fields: [providerId], references: [id])
-  service        Service       @relation(fields: [serviceId], references: [id])
-  user           User          @relation(fields: [userId], references: [id])
-  complaints     Complaint[]
-  review         Review?
-
+  beforePhoto String?
+  afterPhoto String?
+  totalPrice Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  provider Provider? @relation(fields: [providerId], references: [id])
+  service Service @relation(fields: [serviceId], references: [id])
+  subscription UserSubscription? @relation(fields: [subscriptionId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  complaints Complaint[]
+  review Review?
+  payments Payment[]
+  photos ServicePhoto[]
   @@index([userId])
   @@index([providerId])
+  @@index([subscriptionId])
   @@index([status])
+  @@index([providerId, bookingDate])
   @@map("bookings")
 }
 
-model Review {
-  id         Int      @id @default(autoincrement())
-  bookingId  Int      @unique
-  userId     Int
-  providerId Int
-  rating     Int
-  comment    String?
-  createdAt  DateTime @default(now())
-  booking    Booking  @relation(fields: [bookingId], references: [id])
-  provider   Provider @relation(fields: [providerId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+model ServicePhoto {
+  id Int @id @default(autoincrement())
+  bookingId Int
+  kind PhotoKind
+  filePath String
+  originalName String
+  mimeType String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  @@index([bookingId, kind])
+  @@map("service_photos")
+}
 
+model Payment {
+  id Int @id @default(autoincrement())
+  userId Int
+  planId Int?
+  bookingId Int?
+  subscriptionId Int?
+  gateway PaymentGateway
+  gatewayOrderId String @unique
+  status PaymentStatus @default(PENDING)
+  expectedAmount Float
+  expectedCurrency String
+  capturedAmount Float?
+  capturedCurrency String?
+  webhookPayload Json?
+  idempotencyKey String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: Restrict)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  subscription UserSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  @@index([userId, status])
+  @@index([planId])
+  @@index([bookingId])
+  @@index([subscriptionId])
+  @@map("payments")
+}
+
+model Review {
+  id Int @id @default(autoincrement())
+  bookingId Int @unique
+  userId Int
+  providerId Int
+  rating Int
+  comment String?
+  createdAt DateTime @default(now())
+  booking Booking @relation(fields: [bookingId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id])
+  user User @relation(fields: [userId], references: [id])
   @@index([providerId])
   @@map("reviews")
 }
 
 model Complaint {
-  id          Int             @id @default(autoincrement())
-  userId      Int
-  bookingId   Int?
-  subject     String
+  id Int @id @default(autoincrement())
+  userId Int
+  bookingId Int?
+  subject String
   description String
-  status      ComplaintStatus @default(OPEN)
-  createdAt   DateTime        @default(now())
-  booking     Booking?        @relation(fields: [bookingId], references: [id])
-  user        User            @relation(fields: [userId], references: [id])
-
+  status ComplaintStatus @default(OPEN)
+  adminNote String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  user User @relation(fields: [userId], references: [id])
   @@map("complaints")
 }
 
 model Promotion {
-  id          Int     @id @default(autoincrement())
-  title       String
+  id Int @id @default(autoincrement())
+  title String
   description String?
-  code        String?
-  discountPct Float   @default(0)
-  active      Boolean @default(true)
-
+  code String? @unique
+  discountPct Float @default(0)
+  active Boolean @default(true)
+  startsAt DateTime?
+  endsAt DateTime?
+  createdAt DateTime @default(now())
   @@map("promotions")
 }
 
-model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  message   String
-  link      String?
-  read      Boolean  @default(false)
+model SupportTicket {
+  id Int @id @default(autoincrement())
+  userId Int
+  subject String
+  message String
+  status TicketStatus @default(OPEN)
+  priority TicketPriority @default(NORMAL)
+  adminResponse String?
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, status])
+  @@map("support_tickets")
+}
 
+model Notification {
+  id Int @id @default(autoincrement())
+  userId Int
+  message String
+  link String?
+  read Boolean @default(false)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
   @@map("notifications")
 }
@@ -175,13 +297,11 @@ enum Role {
   PROVIDER
   ADMIN
 }
-
 enum KycStatus {
   PENDING
   APPROVED
   REJECTED
 }
-
 enum BookingStatus {
   PENDING
   ASSIGNED
@@ -189,9 +309,34 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
 }
-
+enum PaymentGateway {
+  PAYHERE
+  PAYPAL
+}
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
 enum ComplaintStatus {
   OPEN
   IN_REVIEW
   RESOLVED
+}
+enum PhotoKind {
+  BEFORE
+  AFTER
+}
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }

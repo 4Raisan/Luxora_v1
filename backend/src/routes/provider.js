@@ -5,6 +5,12 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticateToken, requireRole('PROVIDER'));
 
+router.get('/availability', async (req, res) => {
+  const provider = await prisma.provider.findUnique({ where: { userId: req.user.id }, select: { availabilityStatus: true, serviceTowns: true, category: true } });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  res.json({ availability_status: provider.availabilityStatus, service_towns: provider.serviceTowns, category: provider.category });
+});
+
 router.put('/service-towns', async (req, res) => {
   const towns = String(req.body.service_towns || '').split(',').map((town) => town.trim().replace(/\s+/g, ' ')).filter(Boolean);
   const uniqueTowns = [...new Map(towns.map((town) => [town.toLocaleLowerCase(), town])).values()];
@@ -34,7 +40,7 @@ router.get('/earnings', async (req, res) => {
   const completedJobs = await prisma.booking.count({ where: { providerId: provider.id, status: 'COMPLETED' } });
   const history = await prisma.booking.findMany({
     where: { providerId: provider.id },
-    include: { service: true },
+    include: { service: true, user: { select: { name: true } }, payments: { where: { status: 'COMPLETED' }, select: { status: true } } },
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
@@ -43,7 +49,7 @@ router.get('/earnings', async (req, res) => {
     completedJobs,
     history: history.map((h) => ({
       id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
-      service_title: h.service?.title, total_price: h.totalPrice, status: h.status.toLowerCase(),
+      service_title: h.service?.title, customer_name: h.user?.name, total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.totalPrice * 0.85 : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
     })),
   });
 });

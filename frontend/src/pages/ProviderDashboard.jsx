@@ -305,6 +305,18 @@ const ProviderDashboard = () => {
     }
   }
 
+  const handleServiceStatus = async (booking, status) => {
+    const token = sessionStorage.getItem('token')
+    const pin = window.prompt(status === 'in_progress' ? 'Enter the customer start PIN:' : 'Enter the customer completion PIN:')
+    if (pin === null || !pin.trim()) return
+    try {
+      await apiRequest(`/bookings/${booking.apiId}/status`, 'PUT', { status, pin_code: pin.trim() }, token)
+      setBookingsList((items) => items.map((item) => item.apiId === booking.apiId ? { ...item, status: status.toUpperCase(), color: status === 'completed' ? '#4ade80' : '#60a5fa' } : item))
+    } catch (error) {
+      alert(error.message || 'Could not update the booking status.')
+    }
+  }
+
   const handleBookingClick = (dayStr) => {
     const d = parseInt(dayStr, 10)
     if (!isNaN(d)) {
@@ -641,6 +653,12 @@ const ProviderDashboard = () => {
                         >
                           CLAIM BOOKING
                         </button>
+                      )}
+                      {b.status === 'ASSIGNED' && b.apiId && (
+                        <button type="button" className="pd-cr-btn-accept" onClick={() => handleServiceStatus(b, 'in_progress')}>START WITH PIN</button>
+                      )}
+                      {b.status === 'IN_PROGRESS' && b.apiId && (
+                        <button type="button" className="pd-cr-btn-accept" onClick={() => handleServiceStatus(b, 'completed')}>COMPLETE WITH PIN</button>
                       )}
                       {b.status !== 'CANCELLED' ? (
                         <button
