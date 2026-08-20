@@ -243,6 +243,9 @@
   color: var(--gold);
 }
 
+/* Ownership and booking information lead; lower-frequency support remains calm. */
+.cd-wrapper.luxora-shell{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:1rem;align-content:start}.cd-wrapper .portal-hero{grid-column:1/-1}.cd-wrapper>section{grid-column:1/-1;margin:0!important;min-width:0}.cd-wrapper>section:nth-of-type(2),.cd-wrapper>section:nth-of-type(3),.cd-wrapper>section:nth-of-type(4){grid-column:span 6}.cd-wrapper .membership-row{gap:1rem;align-items:center}.cd-wrapper .membership-row>div{min-width:0}.cd-wrapper .credit-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.65rem;padding:0;list-style:none}.cd-wrapper .credit-list li{border:1px solid var(--line);border-radius:10px;padding:.75rem}@media(max-width:850px){.cd-wrapper.luxora-shell{display:block}.cd-wrapper.luxora-shell>section,.cd-wrapper .portal-hero{margin-bottom:1rem!important}}
+
 /* Functional dashboard presentation layer */
 .cd-wrapper { min-height:100vh; background:radial-gradient(circle at 90% 0,rgba(201,168,76,.10),transparent 25%),#0b0b0b; }
 .portal-hero { display:flex; justify-content:space-between; gap:2rem; align-items:flex-start; padding:2.4rem; margin-bottom:1.5rem; border:1px solid rgba(201,168,76,.22); border-radius:20px; background:linear-gradient(105deg,rgba(21,21,21,.98),rgba(18,18,18,.75)),url('/dark_luxury_mansion.jpg') center/cover; }

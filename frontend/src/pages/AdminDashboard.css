@@ -7,6 +7,9 @@
   font-family: var(--font-primary, system-ui, sans-serif);
 }
 
+/* Existing operations become a responsive workspace without changing actions. */
+.ad-wrapper.luxora-shell{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:1rem;align-content:start}.ad-wrapper.luxora-shell .portal-hero{grid-column:1/-1}.ad-wrapper.luxora-shell>section{grid-column:span 6;margin:0!important;min-width:0}.ad-wrapper.luxora-shell>section:nth-of-type(1),.ad-wrapper.luxora-shell>section:nth-of-type(2){grid-column:1/-1}.ad-wrapper.luxora-shell article{overflow-wrap:anywhere}.ad-wrapper.luxora-shell input,.ad-wrapper.luxora-shell textarea,.ad-wrapper.luxora-shell select{max-width:100%;box-sizing:border-box}@media(max-width:900px){.ad-wrapper.luxora-shell{display:block}.ad-wrapper.luxora-shell>section,.ad-wrapper.luxora-shell .portal-hero{margin-bottom:1rem!important}}
+
 /* Current functional admin actions, organised as an operational workspace. */
 .ad-wrapper.luxora-shell { display:block; max-width:1280px; background:radial-gradient(circle at 90% 0,rgba(201,168,76,.1),transparent 26%),#0b0b0b; }
 .ad-wrapper.luxora-shell section { background:rgba(20,20,20,.92)!important; border:1px solid var(--line)!important; border-radius:16px!important; padding:1.35rem!important; }

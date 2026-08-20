@@ -1413,6 +1413,11 @@
   border-color: #dc2626;
 }
 
+/* Functional provider workspace: existing API-driven sections, visually grouped. */
+.pd.luxora-shell { max-width:1240px; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr); gap:1rem; align-content:start; }
+.pd .portal-hero { grid-column:1/-1; }.pd > section:nth-of-type(3),.pd > section:nth-of-type(4){grid-column:1/-1}.pd .booking-row{align-items:center}.pd .booking-row>div:last-child{display:flex;flex-wrap:wrap;gap:.45rem}.pd .booking-row>div:last-child>*{margin:0!important}
+@media(max-width:800px){.pd.luxora-shell{display:block}.pd.luxora-shell>section,.pd .portal-hero{margin-bottom:1rem}.pd .booking-row>div:last-child{width:100%}}
+
 .pd { min-height:100vh; background:radial-gradient(circle at 80% 0,rgba(201,168,76,.10),transparent 24%),#0b0b0b; }
 .pd section { background:rgba(20,20,20,.92)!important; border:1px solid var(--line)!important; border-radius:16px!important; padding:1.35rem!important; }
 .pd h2 { font-family:var(--font-display); font-size:1.55rem; margin:.25rem 0 1rem; }.pd h3{color:#aaa;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;margin-top:1.2rem}
