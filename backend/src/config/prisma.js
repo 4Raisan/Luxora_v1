@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 // otherwise use Prisma's CPU-derived default pool, which is too aggressive for
 // the small managed database used by the demo when multiple app processes are
 // present.  Preserve an explicit operator setting, but keep the safe default
-// to one connection per Node process (replicas must be budgeted separately).
+// to five connections per Node process (replicas must be budgeted separately).
 function applySafePoolDefaults() {
   const value = process.env.DATABASE_URL;
   if (!value || !/^(postgres|postgresql):\/\//i.test(value)) return;
@@ -12,7 +12,7 @@ function applySafePoolDefaults() {
     const url = new URL(value);
     const configuredLimit = Number.parseInt(process.env.PRISMA_CONNECTION_LIMIT, 10);
     const configuredTimeout = Number.parseInt(process.env.PRISMA_POOL_TIMEOUT, 10);
-    if (!url.searchParams.has('connection_limit')) url.searchParams.set('connection_limit', String(Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 1));
+    if (!url.searchParams.has('connection_limit')) url.searchParams.set('connection_limit', String(Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 5));
     if (!url.searchParams.has('pool_timeout')) url.searchParams.set('pool_timeout', String(Number.isInteger(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 10));
     process.env.DATABASE_URL = url.toString();
   } catch {
