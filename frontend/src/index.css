@@ -20,7 +20,24 @@
   --font-display: 'Playfair Display', serif;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --shadow-gold: 0 0 30px rgba(201, 168, 76, 0.15);
+  --surface: #121212;
+  --surface-raised: #181818;
+  --line: rgba(255,255,255,.09);
+  --success: #5fbd8b;
+  --danger: #df7a78;
 }
+
+/* Shared product primitives. Pages use these tokens rather than a second UI kit. */
+.luxora-shell { max-width: 1280px; margin: 0 auto; padding: clamp(1rem,3vw,2.5rem); }
+.luxora-eyebrow { color: var(--gold); font-size: .68rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+.luxora-heading { font-family: var(--font-display); font-size: clamp(2rem,4vw,3.4rem); letter-spacing: -.035em; line-height: 1.05; }
+.luxora-card { background: linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012)); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 18px 40px rgba(0,0,0,.18); }
+.luxora-badge { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; padding:.28rem .58rem; font-size:.67rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; background:rgba(201,168,76,.13); color:var(--gold-light); border:1px solid rgba(201,168,76,.25); }
+.luxora-badge[data-status="completed"], .luxora-badge[data-status="resolved"] { color:var(--success); background:rgba(95,189,139,.1); border-color:rgba(95,189,139,.25); }
+.luxora-badge[data-status="pending"], .luxora-badge[data-status="open"] { color:#e8c96b; }
+.luxora-badge[data-status="cancelled"] { color:var(--danger); background:rgba(223,122,120,.1); border-color:rgba(223,122,120,.25); }
+.luxora-button { border:1px solid transparent; border-radius:9px; padding:.62rem .9rem; font-weight:800; transition:transform .18s ease, background .18s ease, border-color .18s ease; }
+.luxora-button:hover { transform:translateY(-1px); }
 
 html {
   scroll-behavior: smooth;

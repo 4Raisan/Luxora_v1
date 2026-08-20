@@ -1413,6 +1413,13 @@
   border-color: #dc2626;
 }
 
+.pd { min-height:100vh; background:radial-gradient(circle at 80% 0,rgba(201,168,76,.10),transparent 24%),#0b0b0b; }
+.pd section { background:rgba(20,20,20,.92)!important; border:1px solid var(--line)!important; border-radius:16px!important; padding:1.35rem!important; }
+.pd h2 { font-family:var(--font-display); font-size:1.55rem; margin:.25rem 0 1rem; }.pd h3{color:#aaa;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;margin-top:1.2rem}
+.pd select,.pd input { background:#101010; color:#eee; border:1px solid #3a3936; border-radius:8px; padding:.55rem; }
+.pd .booking-row { display:flex; justify-content:space-between; gap:1rem; padding:1rem 0; border-top:1px solid var(--line); }.pd .booking-row strong{display:block;margin:.55rem 0 .25rem}.pd .booking-row small{display:block;color:#999}.pd .empty-copy{color:#8f8b83;padding:1rem 0}
+@media(max-width:700px){.pd .booking-row{flex-direction:column}.pd section{padding:1rem!important}}
+
 /* ── Mobile Optimization Rules ── */
 @media (max-width: 1024px) {
   .pd-stats-grid {

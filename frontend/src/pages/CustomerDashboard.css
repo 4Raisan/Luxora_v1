@@ -243,6 +243,24 @@
   color: var(--gold);
 }
 
+/* Functional dashboard presentation layer */
+.cd-wrapper { min-height:100vh; background:radial-gradient(circle at 90% 0,rgba(201,168,76,.10),transparent 25%),#0b0b0b; }
+.portal-hero { display:flex; justify-content:space-between; gap:2rem; align-items:flex-start; padding:2.4rem; margin-bottom:1.5rem; border:1px solid rgba(201,168,76,.22); border-radius:20px; background:linear-gradient(105deg,rgba(21,21,21,.98),rgba(18,18,18,.75)),url('/dark_luxury_mansion.jpg') center/cover; }
+.portal-hero p:not(.luxora-eyebrow) { color:#b9b5ac; max-width:42rem; margin-top:.7rem; }
+.portal-signout { background:transparent; color:#d6d1c8; border:1px solid #4a4539; border-radius:9px; padding:.6rem .85rem; font-weight:700; }
+.cd-wrapper section { background:rgba(20,20,20,.92)!important; border:1px solid var(--line)!important; border-radius:16px!important; padding:1.35rem!important; box-shadow:none!important; }
+.cd-wrapper h2 { font-family:var(--font-display); font-size:1.55rem; margin:.25rem 0 1rem; }
+.cd-wrapper input,.cd-wrapper select,.cd-wrapper textarea { border-color:#3a3936!important; background:#101010!important; border-radius:8px!important; }
+.cd-wrapper button { transition:transform .18s ease,filter .18s ease; }
+.cd-wrapper button:hover { transform:translateY(-1px); filter:brightness(1.07); }
+.membership-row,.booking-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 0; border-top:1px solid var(--line); }
+.membership-row strong,.booking-row strong { display:block; margin:.55rem 0 .25rem; }
+.membership-row small,.booking-row small { display:block; color:#999; }
+.credit-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; list-style:none; padding:1rem 0 0; }
+.credit-list li { padding:1rem; border:1px solid var(--line); border-radius:11px; background:#101010; }
+.credit-list span,.credit-list b,.credit-list small { display:block; }.credit-list b { color:var(--gold-light); font-size:1.25rem; margin:.25rem 0; }.credit-list small,.empty-copy { color:#8f8b83; }
+@media(max-width:700px){.portal-hero,.membership-row,.booking-row{flex-direction:column;align-items:flex-start}.portal-hero{padding:1.5rem}.cd-wrapper section{padding:1rem!important}}
+
 /* ─── Main Containers & Animation ───────────────────────── */
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;

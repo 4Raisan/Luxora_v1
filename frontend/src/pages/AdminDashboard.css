@@ -7,6 +7,14 @@
   font-family: var(--font-primary, system-ui, sans-serif);
 }
 
+/* Current functional admin actions, organised as an operational workspace. */
+.ad-wrapper.luxora-shell { display:block; max-width:1280px; background:radial-gradient(circle at 90% 0,rgba(201,168,76,.1),transparent 26%),#0b0b0b; }
+.ad-wrapper.luxora-shell section { background:rgba(20,20,20,.92)!important; border:1px solid var(--line)!important; border-radius:16px!important; padding:1.35rem!important; }
+.ad-wrapper.luxora-shell h2 { font-family:var(--font-display); margin:.25rem 0 1rem; font-size:1.55rem; }.ad-wrapper.luxora-shell h3{color:#aaa;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;margin-top:1.2rem}
+.admin-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.75rem; }.admin-kpis>div { background:#101010;border:1px solid var(--line);border-radius:11px;padding:1rem; }.admin-kpis small{display:block;color:#8f8b83;text-transform:capitalize}.admin-kpis strong{display:block;font-size:1.45rem;color:var(--gold-light);margin-top:.35rem}
+.ad-wrapper.luxora-shell article,.ad-wrapper.luxora-shell p { border-bottom:1px solid var(--line); padding:.65rem 0; }.ad-wrapper.luxora-shell input,.ad-wrapper.luxora-shell select,.ad-wrapper.luxora-shell textarea{border-radius:8px}
+@media(max-width:700px){.admin-kpis{grid-template-columns:repeat(2,1fr)}}
+
 /* ─── Sidebar ────────────────────────────────────────────────── */
 .ad-sidebar {
   width: 260px;
