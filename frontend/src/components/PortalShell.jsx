@@ -22,7 +22,7 @@ export function LoadingState({ title = 'Preparing your workspace' }) {
   return <main className="portal-loading"><div className="portal-loader-brand">L</div><p>{title}</p><div className="portal-skeletons"><i /><i /><i /></div></main>
 }
 
-export default function PortalShell({ role, title, subtitle, userName, navItems, onSignOut, children, actions, notice }) {
+export default function PortalShell({ role, title, heroTitle = title, subtitle, userName, navItems, onSignOut, children, actions, notice }) {
   const isCustomer = role.toLowerCase() === 'customer'
   const [active, setActive] = useState(navItems[0]?.id)
   const [open, setOpen] = useState(false)
@@ -137,7 +137,7 @@ export default function PortalShell({ role, title, subtitle, userName, navItems,
         {isCustomer && <nav className="portal-header-nav" aria-label="Customer sections">{navItems.map((item) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}>{item.label}</button>)}</nav>}
         <div className="portal-top-actions">{actions}<span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span><div className="portal-session"><b>{(userName || role).slice(0, 1).toUpperCase()}</b><span><strong>{userName || role}</strong><small>{role}</small></span></div><button className="portal-signout portal-signout--top" onClick={onSignOut}>Sign out</button></div><i className="portal-scroll-progress" aria-hidden="true" />
       </header>
-      <div className="portal-content"><div className={`portal-intro portal-intro--${role.toLowerCase()}`}><div><p className="portal-kicker">Private service, beautifully managed</p><h2>{title}</h2><p>{subtitle}</p></div><div className="portal-intro-mark">L</div></div>{notice && <div role="status" className="portal-notice">{notice}</div>}{children}</div>
+      <div className="portal-content"><div className={`portal-intro portal-intro--${role.toLowerCase()}`}><div><p className="portal-kicker">Private service, beautifully managed</p><h2>{heroTitle}</h2><p>{subtitle}</p></div><div className="portal-intro-mark">L</div></div>{notice && <div role="status" className="portal-notice">{notice}</div>}{children}</div>
       <nav className="portal-mobile-nav" aria-label="Mobile navigation">{navItems.slice(0, 5).map((item, index) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}><i>{glyphs[index]}</i><span>{item.label}</span></button>)}</nav>
     </main>
   </div>

@@ -24,6 +24,13 @@ The browser talks to `VITE_API_URL` when it is set; otherwise `frontend/src/serv
 - Motion must remain disabled for `prefers-reduced-motion` and must not be required to reach a control.
 - Customer desktop navigation belongs in the fixed top header, matching OG-Luxora. Admin and Provider retain the fixed left workspace rail. At `900px` and below, all roles use the drawer plus bottom navigation so controls never sit under the viewport.
 
+### OG layout translation
+
+- Keep the OG hierarchy: a focused hero, compact summaries, dense operational records, and purposeful whitespace. Do not turn every content region into an oversized rounded panel.
+- The top-bar label and the hero headline are intentionally separate (`title` and `heroTitle` on `PortalShell`). Use the former for compact navigation context and the latter for the page’s main story.
+- Customer uses the OG full-width member arrival moment, then active memberships, booking, packages, service history, support, and profile. Admin uses compact metrics and operational tables; Provider uses a short welcome, three live summary metrics, then its work queue.
+- Preserve `id` values in dashboard sections. Header/rail/mobile navigation relies on them for scroll navigation and active-state tracking.
+
 ## Route and API map
 
 | Route | Screen owner | Existing reads | Existing writes/actions |
