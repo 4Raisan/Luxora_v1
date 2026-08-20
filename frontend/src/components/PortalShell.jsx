@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import './PortalShell.css'
 import './PortalPolish.css'
 import './PortalMotion.css'
+import './PortalSpatial.css'
 
 const glyphs = ['◈', '◌', '◇', '▣', '◫', '○', '⋮', '◐', '□', '◎', '△']
 
@@ -41,10 +42,65 @@ export default function PortalShell({ role, title, subtitle, userName, navItems,
     const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add('is-revealed'); observer.unobserve(entry.target) } }), { threshold: 0.08, rootMargin: '0px 0px -5%' })
     revealTargets.forEach((target) => observer.observe(target))
     const magneticButtons = root.querySelectorAll('.ui-button--primary')
-    const moveButton = (event) => { const button = event.currentTarget; const rect = button.getBoundingClientRect(); button.style.setProperty('--magnet-x', `${(event.clientX - rect.left - rect.width / 2) * 0.08}px`); button.style.setProperty('--magnet-y', `${(event.clientY - rect.top - rect.height / 2) * 0.08}px`) }
-    const leaveButton = (event) => { event.currentTarget.style.setProperty('--magnet-x', '0px'); event.currentTarget.style.setProperty('--magnet-y', '0px') }
+    const moveButton = (event) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return
+      const button = event.currentTarget
+      const rect = button.getBoundingClientRect()
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
+      button.style.setProperty('--magnet-x', `${(x - rect.width / 2) * 0.08}px`)
+      button.style.setProperty('--magnet-y', `${(y - rect.height / 2) * 0.08}px`)
+      button.style.setProperty('--button-x', `${(x / rect.width) * 100}%`)
+      button.style.setProperty('--button-y', `${(y / rect.height) * 100}%`)
+      button.style.setProperty('--button-tilt-x', `${((y / rect.height) - .5) * -1.4}deg`)
+      button.style.setProperty('--button-tilt-y', `${((x / rect.width) - .5) * 1.8}deg`)
+    }
+    const leaveButton = (event) => {
+      const button = event.currentTarget
+      button.style.setProperty('--magnet-x', '0px')
+      button.style.setProperty('--magnet-y', '0px')
+      button.style.setProperty('--button-tilt-x', '0deg')
+      button.style.setProperty('--button-tilt-y', '0deg')
+    }
     magneticButtons.forEach((button) => { button.addEventListener('pointermove', moveButton); button.addEventListener('pointerleave', leaveButton) })
     const hero = root.querySelector('.portal-intro')
+    const depthTargets = [
+      root.querySelector('.customer-next'),
+      root.querySelector('.package-card'),
+      root.querySelector('.execution-card'),
+      root.querySelector('.provider-availability'),
+    ].filter(Boolean)
+    depthTargets.forEach((target) => target.classList.add('spatial-surface'))
+    let pointerFrame
+    const moveEnvironment = (event) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return
+      cancelAnimationFrame(pointerFrame)
+      pointerFrame = requestAnimationFrame(() => {
+        const x = Math.round((event.clientX / window.innerWidth) * 100)
+        const y = Math.round((event.clientY / window.innerHeight) * 100)
+        root.style.setProperty('--mouse-x', `${x}%`)
+        root.style.setProperty('--mouse-y', `${y}%`)
+        root.style.setProperty('--mouse-shift-x', `${(x - 50) * .18}px`)
+        root.style.setProperty('--mouse-shift-y', `${(y - 50) * .15}px`)
+      })
+    }
+    const moveDepthSurface = (event) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return
+      const surface = event.currentTarget
+      const rect = surface.getBoundingClientRect()
+      const x = (event.clientX - rect.left) / rect.width
+      const y = (event.clientY - rect.top) / rect.height
+      surface.style.setProperty('--tilt-x', `${(y - .5) * -4}deg`)
+      surface.style.setProperty('--tilt-y', `${(x - .5) * 4}deg`)
+      surface.style.setProperty('--shadow-x', `${(x - .5) * -8}px`)
+      surface.style.setProperty('--surface-x', `${x * 100}%`)
+      surface.style.setProperty('--surface-y', `${y * 100}%`)
+    }
+    const leaveDepthSurface = (event) => {
+      event.currentTarget.style.setProperty('--tilt-x', '0deg')
+      event.currentTarget.style.setProperty('--tilt-y', '0deg')
+      event.currentTarget.style.setProperty('--shadow-x', '0px')
+    }
     const updateScrollProgress = () => {
       const height = document.documentElement.scrollHeight - window.innerHeight
       root.style.setProperty('--scroll-progress', String(height > 0 ? Math.min(1, window.scrollY / height) : 0))
@@ -52,11 +108,20 @@ export default function PortalShell({ role, title, subtitle, userName, navItems,
     let frame
     const moveHero = (event) => { if (!hero || event.pointerType !== 'mouse') return; cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { const rect = hero.getBoundingClientRect(); hero.style.setProperty('--hero-x', `${((event.clientX - rect.left) / rect.width - .5) * 7}px`); hero.style.setProperty('--hero-y', `${((event.clientY - rect.top) / rect.height - .5) * 5}px`) }) }
     const leaveHero = () => { hero?.style.setProperty('--hero-x', '0px'); hero?.style.setProperty('--hero-y', '0px') }
+    root.addEventListener('pointermove', moveEnvironment)
+    depthTargets.forEach((target) => { target.addEventListener('pointermove', moveDepthSurface); target.addEventListener('pointerleave', leaveDepthSurface) })
     hero?.addEventListener('pointermove', moveHero); hero?.addEventListener('pointerleave', leaveHero); updateScrollProgress(); window.addEventListener('scroll', updateScrollProgress, { passive: true })
-    return () => { observer.disconnect(); magneticButtons.forEach((button) => { button.removeEventListener('pointermove', moveButton); button.removeEventListener('pointerleave', leaveButton) }); hero?.removeEventListener('pointermove', moveHero); hero?.removeEventListener('pointerleave', leaveHero); window.removeEventListener('scroll', updateScrollProgress); cancelAnimationFrame(frame) }
+    return () => {
+      observer.disconnect()
+      magneticButtons.forEach((button) => { button.removeEventListener('pointermove', moveButton); button.removeEventListener('pointerleave', leaveButton) })
+      depthTargets.forEach((target) => { target.removeEventListener('pointermove', moveDepthSurface); target.removeEventListener('pointerleave', leaveDepthSurface); target.classList.remove('spatial-surface') })
+      root.removeEventListener('pointermove', moveEnvironment)
+      hero?.removeEventListener('pointermove', moveHero); hero?.removeEventListener('pointerleave', leaveHero); window.removeEventListener('scroll', updateScrollProgress); cancelAnimationFrame(frame); cancelAnimationFrame(pointerFrame)
+    }
   }, [role, children])
   const jump = (id) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setActive(id); setOpen(false) }
   return <div ref={rootRef} className={`portal-app portal-app--${role.toLowerCase()}`}>
+    <div className="portal-environment" aria-hidden="true"><i /><i /><i /></div>
     <aside className={`portal-rail ${open ? 'is-open' : ''}`} aria-label={`${role} navigation`}>
       <button className="portal-wordmark" onClick={() => jump(navItems[0]?.id)} aria-label="Go to dashboard"><b>L</b><span>Luxora</span></button>
       <p className="portal-role">{role} portal</p>
