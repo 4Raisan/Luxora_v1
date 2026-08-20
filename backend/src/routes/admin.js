@@ -113,17 +113,17 @@ router.get('/subscriptions', async (_req, res) => {
   res.json(plans);
 });
 
-router.post('/subscriptions', async (req, res) => {
+router.post('/subscriptions', requireSuperAdmin, async (req, res) => {
   const { title, type, price_monthly, description = '', features = [], duration_days = 30, entitlements = [] } = req.body;
   if (typeof title !== 'string' || !title.trim() || typeof type !== 'string' || !type.trim() || !Number.isFinite(Number(price_monthly)) || Number(price_monthly) <= 0 || !Number.isInteger(Number(duration_days)) || Number(duration_days) < 1 || Number(duration_days) > 365) return res.status(400).json({ error: 'title, type, a positive price_monthly and duration_days (1-365) are required' });
   if (!Array.isArray(features) || !Array.isArray(entitlements)) return res.status(400).json({ error: 'features and entitlements must be arrays' });
   const normalized = entitlements.map((item) => ({ categoryId: toPositiveInt(item.category_id), units: Number(item.units) }));
-  if (normalized.some((item) => !item.categoryId || !Number.isInteger(item.units) || item.units < 0)) return res.status(400).json({ error: 'Each entitlement requires category_id and non-negative integer units' });
+  if (!normalized.length || normalized.some((item) => !item.categoryId || !Number.isInteger(item.units) || item.units < 1)) return res.status(400).json({ error: 'A package requires at least one category entitlement with one or more units' });
   const plan = await prisma.subscriptionPlan.create({ data: { title: title.trim(), type: type.trim(), priceMonthly: Number(price_monthly), durationDays: Number(duration_days), description: String(description).slice(0, 1000), features: JSON.stringify(features), entitlements: { create: normalized } }, include: { entitlements: true } });
   res.status(201).json(plan);
 });
 
-router.put('/subscriptions/:id', async (req, res) => {
+router.put('/subscriptions/:id', requireSuperAdmin, async (req, res) => {
   const id = toPositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid plan id' });
   const data = {};

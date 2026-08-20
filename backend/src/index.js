@@ -19,6 +19,7 @@ import integrationRoutes from './routes/integrations.js';
 import profileRoutes from './routes/profile.js';
 import uploadRoutes from './routes/uploads.js';
 import supportRoutes from './routes/support.js';
+import refundRoutes from './routes/refunds.js';
 import { prisma } from './config/prisma.js';
 
 const app = express();
@@ -43,6 +44,7 @@ app.use('/api', integrationRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api', refundRoutes);
 app.use('/api', docsRoutes);
 
 // Health check (used by docker-compose / load balancers)
