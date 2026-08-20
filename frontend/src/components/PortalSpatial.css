@@ -27,3 +27,13 @@
 @keyframes luxora-drift-three{to{transform:translate3d(14px,-22px,0) scale(1.08)}}
 @media(max-width:900px){.portal-environment{background:radial-gradient(34rem 24rem at 80% 0,rgba(208,181,113,.04),transparent 70%)}.portal-environment i{animation:none}.spatial-surface{transform:none!important;box-shadow:none}.ui-button--primary{box-shadow:0 2px 0 color-mix(in srgb,var(--p-accent) 35%,#151511),0 6px 12px rgba(0,0,0,.14)!important}.ui-button--primary:hover:not(:disabled){transform:none!important}.portal-intro::after{opacity:.45}.portal-intro-mark{transform:translateZ(10px)}}
 @media(prefers-reduced-motion:reduce){.portal-environment{display:none}.portal-intro::after{display:none}.spatial-surface{transform:none!important;box-shadow:none}.ui-button--primary{transform:none!important}}
+
+/* Persistent workspace framing: navigation is a fixed control surface, not page content. */
+.portal-main{padding-top:78px}
+.portal-topbar{position:fixed;top:0;left:248px;right:0;z-index:30;padding-inline:clamp(20px,2vw,36px);background:rgba(11,12,12,.96)}
+.portal-content{max-width:none;margin:0;padding:clamp(20px,2vw,36px)}
+.portal-session{display:flex;align-items:center;gap:7px;padding-left:12px;border-left:1px solid var(--p-line);min-width:0}.portal-session>b{width:27px;height:27px;border:1px solid #515048;display:grid;place-items:center;border-radius:50%;color:var(--p-accent);font-size:11px}.portal-session strong,.portal-session small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.portal-session strong{font-size:11px;max-width:130px}.portal-session small{color:var(--p-muted);font-size:9px;margin-top:1px;text-transform:capitalize}.portal-signout--top{margin:0;border:1px solid #48483f;border-radius:5px;padding:7px 10px;color:#d4d2ca;font-size:11px}.portal-signout--top:hover{border-color:rgba(206,128,122,.55);background:rgba(206,128,122,.06)}
+@media(max-width:900px){.portal-main{padding-top:78px}.portal-topbar{left:0}.portal-content{padding:20px}.portal-session{padding-left:8px}.portal-rail{z-index:40}}
+@media(max-width:620px){.portal-session span{display:none}.portal-top-actions{gap:8px}.portal-signout--top{padding:7px 8px}}
+@media(max-width:520px){.portal-main{padding-top:67px}.portal-content{padding:18px 14px}.portal-topbar{height:67px}}
+@media(max-width:390px){.portal-session{display:none}.portal-signout--top{font-size:0;width:31px;height:31px;padding:0}.portal-signout--top::after{content:'↗';font-size:16px}}
