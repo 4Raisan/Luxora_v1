@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './PortalShell.css'
+import './PortalPolish.css'
 
 const glyphs = ['◈', '◌', '◇', '▣', '◫', '○', '⋮', '◐', '□', '◎', '△']
 
@@ -41,7 +42,7 @@ export default function PortalShell({ role, title, subtitle, userName, navItems,
     {open && <button className="portal-scrim" onClick={() => setOpen(false)} aria-label="Close navigation" />}
     <main className="portal-main">
       <header className="portal-topbar"><button className="portal-menu" onClick={() => setOpen(true)} aria-label="Open navigation">☰</button><div><p className="portal-kicker">{role} · Luxora</p><h1>{title}</h1></div><div className="portal-top-actions">{actions}<span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span></div></header>
-      <div className="portal-content"><div className="portal-intro"><div><p className="portal-kicker">Private service, beautifully managed</p><h2>{title}</h2><p>{subtitle}</p></div><div className="portal-intro-mark">L</div></div>{notice && <div role="status" className="portal-notice">{notice}</div>}{children}</div>
+      <div className="portal-content"><div className={`portal-intro portal-intro--${role.toLowerCase()}`}><div><p className="portal-kicker">Private service, beautifully managed</p><h2>{title}</h2><p>{subtitle}</p></div><div className="portal-intro-mark">L</div></div>{notice && <div role="status" className="portal-notice">{notice}</div>}{children}</div>
       <nav className="portal-mobile-nav" aria-label="Mobile navigation">{navItems.slice(0, 5).map((item, index) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}><i>{glyphs[index]}</i><span>{item.label}</span></button>)}</nav>
     </main>
   </div>
