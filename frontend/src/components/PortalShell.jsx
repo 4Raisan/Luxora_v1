@@ -23,6 +23,7 @@ export function LoadingState({ title = 'Preparing your workspace' }) {
 }
 
 export default function PortalShell({ role, title, subtitle, userName, navItems, onSignOut, children, actions, notice }) {
+  const isCustomer = role.toLowerCase() === 'customer'
   const [active, setActive] = useState(navItems[0]?.id)
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -122,14 +123,20 @@ export default function PortalShell({ role, title, subtitle, userName, navItems,
   const jump = (id) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setActive(id); setOpen(false) }
   return <div ref={rootRef} className={`portal-app portal-app--${role.toLowerCase()}`}>
     <div className="portal-environment" aria-hidden="true"><i /><i /><i /></div>
-    <aside className={`portal-rail ${open ? 'is-open' : ''}`} aria-label={`${role} navigation`}>
+    <aside className={`portal-rail ${isCustomer ? 'portal-rail--customer' : ''} ${open ? 'is-open' : ''}`} aria-label={`${role} navigation`}>
       <button className="portal-wordmark" onClick={() => jump(navItems[0]?.id)} aria-label="Go to dashboard"><b>L</b><span>Luxora</span></button>
       <p className="portal-role">{role} portal</p>
       <nav>{navItems.map((item, index) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}><i>{glyphs[index % glyphs.length]}</i><span>{item.label}</span></button>)}</nav>
     </aside>
     {open && <button className="portal-scrim" onClick={() => setOpen(false)} aria-label="Close navigation" />}
     <main className="portal-main">
-      <header className="portal-topbar"><button className="portal-menu" onClick={() => setOpen(true)} aria-label="Open navigation">☰</button><div><p className="portal-kicker">{role} · Luxora</p><h1>{title}</h1></div><div className="portal-top-actions">{actions}<span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span><div className="portal-session"><b>{(userName || role).slice(0, 1).toUpperCase()}</b><span><strong>{userName || role}</strong><small>{role}</small></span></div><button className="portal-signout portal-signout--top" onClick={onSignOut}>Sign out</button></div><i className="portal-scroll-progress" aria-hidden="true" /></header>
+      <header className={`portal-topbar ${isCustomer ? 'portal-topbar--customer' : ''}`}>
+        <button className="portal-menu" onClick={() => setOpen(true)} aria-label="Open navigation">☰</button>
+        {isCustomer && <button className="portal-header-brand" onClick={() => jump(navItems[0]?.id)} aria-label="Go to customer overview"><b>L</b><span>Luxora</span><em>Customer portal</em></button>}
+        <div className="portal-title-block"><p className="portal-kicker">{role} · Luxora</p><h1>{title}</h1></div>
+        {isCustomer && <nav className="portal-header-nav" aria-label="Customer sections">{navItems.map((item) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}>{item.label}</button>)}</nav>}
+        <div className="portal-top-actions">{actions}<span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span><div className="portal-session"><b>{(userName || role).slice(0, 1).toUpperCase()}</b><span><strong>{userName || role}</strong><small>{role}</small></span></div><button className="portal-signout portal-signout--top" onClick={onSignOut}>Sign out</button></div><i className="portal-scroll-progress" aria-hidden="true" />
+      </header>
       <div className="portal-content"><div className={`portal-intro portal-intro--${role.toLowerCase()}`}><div><p className="portal-kicker">Private service, beautifully managed</p><h2>{title}</h2><p>{subtitle}</p></div><div className="portal-intro-mark">L</div></div>{notice && <div role="status" className="portal-notice">{notice}</div>}{children}</div>
       <nav className="portal-mobile-nav" aria-label="Mobile navigation">{navItems.slice(0, 5).map((item, index) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}><i>{glyphs[index]}</i><span>{item.label}</span></button>)}</nav>
     </main>
