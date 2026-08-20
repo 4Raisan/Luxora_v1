@@ -10,8 +10,10 @@ function applySafePoolDefaults() {
   if (!value || !/^(postgres|postgresql):\/\//i.test(value)) return;
   try {
     const url = new URL(value);
-    if (!url.searchParams.has('connection_limit')) url.searchParams.set('connection_limit', '1');
-    if (!url.searchParams.has('pool_timeout')) url.searchParams.set('pool_timeout', '10');
+    const configuredLimit = Number.parseInt(process.env.PRISMA_CONNECTION_LIMIT, 10);
+    const configuredTimeout = Number.parseInt(process.env.PRISMA_POOL_TIMEOUT, 10);
+    if (!url.searchParams.has('connection_limit')) url.searchParams.set('connection_limit', String(Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 1));
+    if (!url.searchParams.has('pool_timeout')) url.searchParams.set('pool_timeout', String(Number.isInteger(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 10));
     process.env.DATABASE_URL = url.toString();
   } catch {
     // Leave an operator-provided URL untouched; Prisma will report malformed
