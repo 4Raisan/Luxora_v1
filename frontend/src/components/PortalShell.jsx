@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './PortalShell.css'
 import './PortalPolish.css'
+import './PortalMotion.css'
 
 const glyphs = ['◈', '◌', '◇', '▣', '◫', '○', '⋮', '◐', '□', '◎', '△']
 
@@ -23,6 +24,7 @@ export function LoadingState({ title = 'Preparing your workspace' }) {
 export default function PortalShell({ role, title, subtitle, userName, navItems, onSignOut, children, actions, notice }) {
   const [active, setActive] = useState(navItems[0]?.id)
   const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
   useEffect(() => {
     const onScroll = () => {
       const current = navItems.findLast?.((item) => document.getElementById(item.id)?.getBoundingClientRect().top < 170)
@@ -31,8 +33,30 @@ export default function PortalShell({ role, title, subtitle, userName, navItems,
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [navItems])
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+    const revealTargets = root.querySelectorAll('.portal-panel, .attention-strip, .customer-overview')
+    revealTargets.forEach((target, index) => { target.classList.add('motion-reveal'); target.style.setProperty('--reveal-delay', `${Math.min(index % 4, 3) * 55}ms`) })
+    const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add('is-revealed'); observer.unobserve(entry.target) } }), { threshold: 0.08, rootMargin: '0px 0px -5%' })
+    revealTargets.forEach((target) => observer.observe(target))
+    const magneticButtons = root.querySelectorAll('.ui-button--primary')
+    const moveButton = (event) => { const button = event.currentTarget; const rect = button.getBoundingClientRect(); button.style.setProperty('--magnet-x', `${(event.clientX - rect.left - rect.width / 2) * 0.08}px`); button.style.setProperty('--magnet-y', `${(event.clientY - rect.top - rect.height / 2) * 0.08}px`) }
+    const leaveButton = (event) => { event.currentTarget.style.setProperty('--magnet-x', '0px'); event.currentTarget.style.setProperty('--magnet-y', '0px') }
+    magneticButtons.forEach((button) => { button.addEventListener('pointermove', moveButton); button.addEventListener('pointerleave', leaveButton) })
+    const hero = root.querySelector('.portal-intro')
+    const updateScrollProgress = () => {
+      const height = document.documentElement.scrollHeight - window.innerHeight
+      root.style.setProperty('--scroll-progress', String(height > 0 ? Math.min(1, window.scrollY / height) : 0))
+    }
+    let frame
+    const moveHero = (event) => { if (!hero || event.pointerType !== 'mouse') return; cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { const rect = hero.getBoundingClientRect(); hero.style.setProperty('--hero-x', `${((event.clientX - rect.left) / rect.width - .5) * 7}px`); hero.style.setProperty('--hero-y', `${((event.clientY - rect.top) / rect.height - .5) * 5}px`) }) }
+    const leaveHero = () => { hero?.style.setProperty('--hero-x', '0px'); hero?.style.setProperty('--hero-y', '0px') }
+    hero?.addEventListener('pointermove', moveHero); hero?.addEventListener('pointerleave', leaveHero); updateScrollProgress(); window.addEventListener('scroll', updateScrollProgress, { passive: true })
+    return () => { observer.disconnect(); magneticButtons.forEach((button) => { button.removeEventListener('pointermove', moveButton); button.removeEventListener('pointerleave', leaveButton) }); hero?.removeEventListener('pointermove', moveHero); hero?.removeEventListener('pointerleave', leaveHero); window.removeEventListener('scroll', updateScrollProgress); cancelAnimationFrame(frame) }
+  }, [role, children])
   const jump = (id) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setActive(id); setOpen(false) }
-  return <div className={`portal-app portal-app--${role.toLowerCase()}`}>
+  return <div ref={rootRef} className={`portal-app portal-app--${role.toLowerCase()}`}>
     <aside className={`portal-rail ${open ? 'is-open' : ''}`} aria-label={`${role} navigation`}>
       <button className="portal-wordmark" onClick={() => jump(navItems[0]?.id)} aria-label="Go to dashboard"><b>L</b><span>Luxora</span></button>
       <p className="portal-role">{role} portal</p>
@@ -41,7 +65,7 @@ export default function PortalShell({ role, title, subtitle, userName, navItems,
     </aside>
     {open && <button className="portal-scrim" onClick={() => setOpen(false)} aria-label="Close navigation" />}
     <main className="portal-main">
-      <header className="portal-topbar"><button className="portal-menu" onClick={() => setOpen(true)} aria-label="Open navigation">☰</button><div><p className="portal-kicker">{role} · Luxora</p><h1>{title}</h1></div><div className="portal-top-actions">{actions}<span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span></div></header>
+      <header className="portal-topbar"><button className="portal-menu" onClick={() => setOpen(true)} aria-label="Open navigation">☰</button><div><p className="portal-kicker">{role} · Luxora</p><h1>{title}</h1></div><div className="portal-top-actions">{actions}<span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span></div><i className="portal-scroll-progress" aria-hidden="true" /></header>
       <div className="portal-content"><div className={`portal-intro portal-intro--${role.toLowerCase()}`}><div><p className="portal-kicker">Private service, beautifully managed</p><h2>{title}</h2><p>{subtitle}</p></div><div className="portal-intro-mark">L</div></div>{notice && <div role="status" className="portal-notice">{notice}</div>}{children}</div>
       <nav className="portal-mobile-nav" aria-label="Mobile navigation">{navItems.slice(0, 5).map((item, index) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}><i>{glyphs[index]}</i><span>{item.label}</span></button>)}</nav>
     </main>
