@@ -22,21 +22,23 @@ router.get('/dashboard', async (req, res) => {
   if (!profile) return res.status(404).json({ error: 'User not found' });
 
   const activeSubs = await prisma.userSubscription.findMany({
-    where: { userId, status: 'active' },
+    where: { userId, status: 'active', endDate: { gt: new Date() } },
     include: { plan: true },
     orderBy: { startDate: 'desc' },
   });
 
   const bookings = await prisma.booking.findMany({
     where: { userId },
-    include: { service: { include: { category: true } }, provider: { include: { user: true } } },
+    include: { service: { include: { category: true } }, provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } } },
     orderBy: [{ bookingDate: 'asc' }, { bookingTime: 'asc' }],
   });
 
   const now = new Date();
   const upcoming = bookings.filter((b) => {
     if (b.status === 'COMPLETED' || b.status === 'CANCELLED') return false;
-    const d = new Date(`${b.bookingDate}T${b.bookingTime || '00:00'}`);
+    const match = String(b.bookingTime || '00:00').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    let d = new Date(`${b.bookingDate}T00:00:00`);
+    if (match) { let hour = Number(match[1]); const minute = Number(match[2]); const meridiem = match[3]?.toUpperCase(); if (meridiem === 'AM' && hour === 12) hour = 0; if (meridiem === 'PM' && hour !== 12) hour += 12; d = new Date(`${b.bookingDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`); }
     return d >= now;
   });
   const past = bookings.filter((b) => !upcoming.includes(b));
@@ -44,13 +46,13 @@ router.get('/dashboard', async (req, res) => {
   // Review has no direct service relation — go through the booking
   const reviews = await prisma.review.findMany({
     where: { userId },
-    include: { booking: { include: { service: true } }, provider: { include: { user: true } } },
+    include: { booking: { include: { service: true } }, provider: { select: { user: { select: { name: true } } } } },
     orderBy: { createdAt: 'desc' },
   });
 
   // expectedEndTime is provider-only scheduling metadata. Keep this helper at
   // every customer-facing booking boundary, including nested review bookings.
-  const withoutProviderSchedule = (booking) => ({ ...booking, expectedEndTime: undefined });
+  const withoutProviderSchedule = (booking) => ({ ...booking, startPinHash: undefined, completionPinHash: undefined, customerStartPinCipher: undefined, customerCompletionPinCipher: undefined, pinCode: undefined, expectedEndTime: undefined });
   res.json({
     profile,
     activeSubscriptions: activeSubs,

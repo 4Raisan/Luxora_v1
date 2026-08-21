@@ -97,6 +97,7 @@ async function pickProvider(client, categoryName, town, bookingDate, bookingTime
 
 // Create booking
 router.post('/', async (req, res) => {
+  if (req.user.role !== 'CUSTOMER') return res.status(403).json({ error: 'Only customers can create bookings' });
   const { service_id, booking_date, booking_time } = req.body;
   const userId = req.user.id;
 
@@ -123,6 +124,10 @@ router.post('/', async (req, res) => {
   const settings = await getPlatformSettings(prisma);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time, settings);
   const booking = await prisma.$transaction(async (tx) => {
+    const lockedEntitlement = await findBookableEntitlement(tx, userId, service.categoryId);
+    if (!lockedEntitlement) { const error = new Error('No remaining entitlement units'); error.statusCode = 409; throw error; }
+    entitlement.subscriptionId = lockedEntitlement.subscriptionId;
+    entitlement.remainingUnits = lockedEntitlement.remainingUnits;
     const normalizedTime = booking_time.trim().toUpperCase();
     const duplicate = await tx.booking.findFirst({ where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } }, select: { id: true } });
     if (duplicate) {
@@ -177,11 +182,15 @@ router.post('/', async (req, res) => {
 router.get('/my', async (req, res) => {
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
-    include: { service: { include: { category: true } }, provider: { include: { user: true } } },
+    include: { service: { include: { category: true } }, provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } } },
     orderBy: { id: 'desc' },
   });
   res.json(bookings.map((b) => ({
     ...b,
+    startPinHash: undefined,
+    completionPinHash: undefined,
+    customerStartPinCipher: undefined,
+    customerCompletionPinCipher: undefined,
     pinCode: undefined,
     pinAttempts: undefined,
     pinLockedUntil: undefined,
@@ -200,6 +209,9 @@ router.get('/my', async (req, res) => {
 router.get('/assigned', async (req, res) => {
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  if (provider.kycStatus !== 'APPROVED') {
+    return res.status(403).json({ error: 'Your KYC must be approved before you can view assigned bookings' });
+  }
 
   const bookings = await prisma.booking.findMany({
     where: {
@@ -208,13 +220,17 @@ router.get('/assigned', async (req, res) => {
         { status: 'PENDING', service: { category: { name: provider.category } } },
       ],
     },
-    include: { service: { include: { category: true } }, user: true },
+    include: { service: { include: { category: true } }, user: { select: { id: true, name: true, phone: true, email: true } } },
     orderBy: { id: 'desc' },
   });
   res.json(bookings
     .filter((b) => b.providerId === provider.id || !b.town || servesTown(provider, b.town))
     .map((b) => ({
     ...b,
+    startPinHash: undefined,
+    completionPinHash: undefined,
+    customerStartPinCipher: undefined,
+    customerCompletionPinCipher: undefined,
     pinCode: undefined,
     pinAttempts: undefined,
     pinLockedUntil: undefined,
@@ -372,6 +388,9 @@ router.put('/:id/status', async (req, res) => {
 router.put('/:id/schedule', async (req, res) => {
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  if (provider.kycStatus !== 'APPROVED') {
+    return res.status(403).json({ error: 'Your KYC must be approved before you can manage schedules' });
+  }
   const booking = await prisma.booking.findFirst({ where: { id: Number(req.params.id), providerId: provider.id } });
   if (!booking) return res.status(404).json({ error: 'Booking not found or not assigned to you' });
   if (!booking.autoAssigned) {
