@@ -34,7 +34,7 @@ router.post('/settings/scheduling/restore-defaults', requireSuperAdmin, async (_
 });
 
 router.get('/providers', async (_req, res) => {
-  const providers = await prisma.provider.findMany({ include: { user: true } });
+  const providers = await prisma.provider.findMany({ include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } } } });
   res.json(providers.map((p) => ({
     ...p,
     id: p.id,
@@ -167,7 +167,7 @@ router.get('/reports', async (req, res) => {
 
 router.get('/bookings', async (_req, res) => {
   const bookings = await prisma.booking.findMany({
-    include: { service: { include: { category: true } }, user: true, provider: { include: { user: true } } },
+    include: { service: { include: { category: true } }, user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } } } } },
     orderBy: { createdAt: 'desc' },
   });
   res.json(bookings.map((b) => ({
@@ -241,7 +241,7 @@ router.put('/bookings/:id', async (req, res) => {
 
 router.get('/complaints', async (_req, res) => {
   const complaints = await prisma.complaint.findMany({
-    include: { user: true, booking: { include: { service: true } } },
+    include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, booking: { include: { service: true } } },
     orderBy: { createdAt: 'desc' },
   });
   res.json(complaints.map((c) => ({
