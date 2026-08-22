@@ -24,6 +24,6 @@ Booking consumes only the matching purchase entitlement. Expired/cancelled/disab
     npx prisma generate
     npx prisma migrate dev --name describe_change
     npx prisma migrate deploy
-Use db:push only for disposable local synchronization. Never rewrite applied migrations. Review foreign keys, delete behavior, uniqueness, indexes, and rollback/backup plans.
+The migration history is the single source of truth; never rewrite applied migrations and never use `prisma db push` against a database you want to keep. Local development runs against the Docker Compose PostgreSQL (named `pgdata` volume, healthchecked) — never point local tooling at the managed production database. Review foreign keys, delete behavior, uniqueness, indexes, and rollback/backup plans.
 ## Performance and safety
 Use the singleton Prisma client; never instantiate per request. Hosted DATABASE_URL should include connection_limit=5 and pool_timeout=10. Never commit env files, dumps, uploads, or real personal/payment data.

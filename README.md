@@ -9,17 +9,19 @@ Browser -> Vite React frontend (:3000 locally) -> Express API (:5000 locally) ->
 - backend/prisma/migrations: deployable migration history.
 - docs: API, database, integrations, requirements, and roadmap.
 ## Setup
-Prerequisites: Node 18+, npm, PostgreSQL, Git.
+Prerequisites: Node 18+, npm, Docker Desktop, Git. Local development uses only the Docker Compose PostgreSQL (`docker compose up -d postgres` from the repo root); the data persists in the named `pgdata` volume. Never point local tooling at the managed production database.
     Copy-Item backend/.env.example backend/.env
     Copy-Item frontend/.env.example frontend/.env.local
     npm install
     npm --prefix backend install
     npm --prefix frontend install
     npm --prefix backend run prisma:generate
-    npm --prefix backend run db:push
+    npm --prefix backend run db:migrate
     npm --prefix backend run seed
-Set DATABASE_URL, JWT_SECRET, PORT, FRONTEND_URL, CORS_ORIGIN, PAYMENT_MODE in backend/.env and VITE_API_URL=http://localhost:5000/api in frontend/.env.local. Optional: GOOGLE_CLIENT_ID (backend) plus the same value as VITE_GOOGLE_CLIENT_ID (frontend) enables Google Sign-In. Start with npm run backend and npm run frontend, or npm run dev:all.
+Set DATABASE_URL (local default: postgresql://luxora_user:luxora_pass@127.0.0.1:5432/luxoradb?schema=public), JWT_SECRET, PORT, FRONTEND_URL, CORS_ORIGIN, PAYMENT_MODE in backend/.env and VITE_API_URL=http://localhost:5000/api in frontend/.env.local. Optional: GOOGLE_CLIENT_ID (backend) plus the same value as VITE_GOOGLE_CLIENT_ID (frontend) enables Google Sign-In. Start with npm run backend and npm run frontend, or npm run dev:all.
 Health: GET /api/health. Docs: /api/docs and /api/openapi.json.
+## Schema changes
+Edit backend/prisma/schema.prisma, then run `npm --prefix backend run db:migrate:dev` (wraps `prisma migrate dev`; it creates a named migration from your change). Apply committed migrations to the local Docker database with `npm --prefix backend run db:migrate` (`prisma migrate deploy`). Do not use `prisma db push` for development — it bypasses the migration history that production relies on.
 ## Roles
 Customer: profile/town/phone, packages, entitlements, bookings, notifications, support, complaints, reviews, eligible refunds.
 Provider: KYC, towns/availability, assigned jobs, PIN/photo lifecycle, earnings.

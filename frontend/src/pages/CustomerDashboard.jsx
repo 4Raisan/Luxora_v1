@@ -75,6 +75,12 @@ export default function CustomerDashboard() {
   if (!data) return <LoadingState title={message || 'Preparing your private member portal'} />
 
   const rows = [...data.upcomingBookings, ...data.pastBookings]
+  // Every catalogue category gets a coin balance (zero-filled where no active
+  // package covers it) so the coin bar always shows Auto / Garden / Pet.
+  const coinCategories = (services.length
+    ? [...new Map(services.map((service) => [service.category_id, { category_id: service.category_id, category_name: service.category_name, category_icon: service.category_icon || null }])).values()]
+    : entitlements.map((item) => ({ category_id: item.category_id, category_name: item.category_name, category_icon: item.category_icon || null }))
+  ).map((category) => entitlements.find((item) => item.category_id === category.category_id) || { ...category, remaining_units: 0, entitled_units: 0, used_units: 0 })
   const bookingBase = showAllBookings ? rows : data.upcomingBookings
   const searched = serviceSearch.trim() ? bookingBase.filter((row) => [row.service?.title, row.provider?.user?.name, row.provider_name, `#${row.id}`, row.bookingDate].filter(Boolean).join(' ').toLowerCase().includes(serviceSearch.trim().toLowerCase())) : bookingBase
   const statusCounts = searched.reduce((counts, row) => { const key = String(row.status).toLowerCase(); counts[key] = (counts[key] || 0) + 1; return counts }, {})
@@ -98,8 +104,8 @@ export default function CustomerDashboard() {
 
     {page === 'booking' && <>
       <Panel id="booking" className="customer-credit-summary"><p className="portal-kicker">{memberSince}</p>
-        <div className="coin-bar">{entitlements.length ? entitlements.map((item) => <span key={item.category_id} className={`coin-pill ${item.remaining_units > 0 ? '' : 'is-empty'}`} title={`${item.remaining_units} of ${item.entitled_units} ${item.category_name} coins remaining`}><CategoryIcon icon={item.category_icon} name={item.category_name} size={15} /> {item.category_name} <b><Coin size={13} /> ×{item.remaining_units}</b></span>) : <span className="coin-pill is-empty"><Coin size={15} /> No coins yet</span>}</div>
-        <div className="credit-summary-grid">{entitlements.length ? entitlements.map((item) => <div key={item.category_id}><span><CategoryIcon icon={item.category_icon} name={item.category_name} size={15} /> {item.category_name}</span><strong>{item.remaining_units}</strong><small>of {item.entitled_units} coins · {item.used_units || 0} used</small></div>) : <EmptyState title="No coins yet">Add a package below to start collecting Luxora coins.</EmptyState>}</div>
+        <div className="coin-bar">{coinCategories.length ? coinCategories.map((item) => <span key={item.category_id} className={`coin-pill ${item.remaining_units > 0 ? '' : 'is-empty'}`} title={`${item.remaining_units} of ${item.entitled_units} ${item.category_name} coins remaining`}><CategoryIcon icon={item.category_icon} name={item.category_name} size={15} /> {item.category_name} <b><Coin size={13} /> ×{item.remaining_units}</b></span>) : <span className="coin-pill is-empty"><Coin size={15} /> No coins yet</span>}</div>
+        <div className="credit-summary-grid">{coinCategories.length ? coinCategories.map((item) => <div key={item.category_id}><span><CategoryIcon icon={item.category_icon} name={item.category_name} size={15} /> {item.category_name}</span><strong>{item.remaining_units}</strong><small>of {item.entitled_units} coins · {item.used_units || 0} used</small></div>) : <EmptyState title="No coins yet">Add a package below to start collecting Luxora coins.</EmptyState>}</div>
         <p className="coin-hint">1 coin = 1 service booking in that category. Coins come with your packages.</p>
       </Panel>
 
@@ -112,7 +118,7 @@ export default function CustomerDashboard() {
           <div className="booking-wizard">
             <div className="wizard-steps"><span className={wizard.step === 1 ? 'is-active' : ''}>01 · Category</span><span className={wizard.step === 2 ? 'is-active' : ''}>02 · Date & time</span><span className={wizard.step === 3 ? 'is-active' : ''}>03 · Confirm</span></div>
             {wizard.step === 1 && (entitlements.length
-              ? <div className="wizard-category-grid">{entitlements.map((item) => { const bookable = item.remaining_units > 0; return (<button key={item.category_id} type="button" disabled={!bookable} className={`wizard-category ${wizard.category?.category_id === item.category_id ? 'is-selected' : ''}`} onClick={() => (bookable ? setWizard({ ...wizard, category: item, service_id: '' }) : setDialog({ type: 'insufficientCoins', category: item }))}><i aria-hidden="true"><CategoryIcon icon={item.category_icon} name={item.category_name} size={24} /></i><b><span className="coin-inline"><Coin size={14} /> {item.category_name}</span></b><small>{bookable ? `${item.remaining_units} of ${item.entitled_units} coins available` : 'No coins left in this category'}</small></button>)})}</div>
+              ? <div className="wizard-category-grid">{coinCategories.map((item) => { const bookable = item.remaining_units > 0; return (<button key={item.category_id} type="button" aria-disabled={!bookable} className={`wizard-category ${wizard.category?.category_id === item.category_id ? 'is-selected' : ''}`} onClick={() => (bookable ? setWizard({ ...wizard, category: item, service_id: '' }) : setDialog({ type: 'insufficientCoins', category: item }))}><i aria-hidden="true"><CategoryIcon icon={item.category_icon} name={item.category_name} size={24} /></i><b><span className="coin-inline"><Coin size={14} /> {item.category_name}</span></b><small>{bookable ? `${item.remaining_units} of ${item.entitled_units} coins available` : 'No coins left in this category'}</small></button>)})}</div>
               : <EmptyState title="No coins available">Add a package to collect Luxora coins.</EmptyState>)}
             {wizard.step === 2 && <div className="luxora-form booking-form">
               <label><span>Service</span><select value={wizard.service_id} onChange={(event) => setWizard({ ...wizard, service_id: event.target.value })}><option value="">Select a service</option>{wizardServices.map((service) => <option key={service.id} value={service.id}>{service.title}</option>)}</select></label>
