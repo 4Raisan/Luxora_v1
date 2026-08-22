@@ -135,6 +135,49 @@ function normalizeServiceTowns(value) {
   return [...new Map(towns.map((town) => [town.toLocaleLowerCase(), town])).values()].join(', ');
 }
 
+// Google One Tap / button sign-in. The Google ID token (credential) is verified
+// by Google's tokeninfo endpoint; the audience must match this backend's
+// GOOGLE_CLIENT_ID and the email must be verified. New emails create a customer
+// account (providers still go through provider registration + KYC); existing
+// accounts keep their role and follow the same rules as password login.
+router.post('/google', authLimiter, async (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  if (!clientId) return res.status(503).json({ error: 'Google sign-in is not configured' })
+  const credential = String(req.body.credential || '')
+  if (!credential) return res.status(400).json({ error: 'Google credential is required' })
+  let profile
+  try {
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return res.status(401).json({ error: 'Invalid Google credential' });
+    profile = await response.json();
+  } catch (_) { return res.status(502).json({ error: 'Could not verify Google credential' }); }
+  const valid = profile
+    && profile.aud === clientId
+    && String(profile.email_verified) === 'true'
+    && Number(profile.exp) * 1000 > Date.now()
+    && isEmail(String(profile.email || '').toLowerCase());
+  if (!valid) return res.status(401).json({ error: 'Invalid Google credential' });
+  const email = String(profile.email).toLowerCase();
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    // No local password: the account signs in via Google; a password can be set
+    // later through the normal email reset flow.
+    const passwordHash = await bcrypt.hash(`${crypto.randomUUID()}${crypto.randomUUID()}`, 10);
+    user = await prisma.user.create({ data: { name: String(profile.name || email.split('@')[0]).slice(0, 100), email, passwordHash, phone: '', phoneVerified: false, role: 'CUSTOMER' } });
+    sendEmail({ to: email, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${user.name}.</p><p>Your concierge account is ready.</p>` }).catch(() => {});
+  }
+  if (!user.active) return res.status(403).json({ error: 'This account has been deactivated. Contact Luxora support.' });
+  let provider = null;
+  if (user.role === 'PROVIDER') {
+    provider = await prisma.provider.findUnique({ where: { userId: user.id } });
+    if (!provider || provider.kycStatus !== 'APPROVED') {
+      return res.status(403).json({ error: provider?.kycStatus === 'REJECTED' ? 'Your provider verification was rejected. Contact Luxora support.' : 'Your provider verification is still pending.' });
+    }
+  }
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, phoneVerified: user.phoneVerified, town: user.town }, provider });
+});
+
 // Login — every account authenticates through the normal bcrypt.compare flow
 router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;

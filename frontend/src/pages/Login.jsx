@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import GoogleSignIn from '../components/GoogleSignIn'
 import './Auth.css'
 
 const Login = () => {
   const navigate = useNavigate()
-  const [tab, setTab] = useState('customer')
   const [showPassword, setShowPassword] = useState(false)
   const [keepSigned, setKeepSigned] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
+  const googleConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
 
   // Forgot Password State
   const [showForgotModal, setShowForgotModal] = useState(false)
@@ -37,40 +38,40 @@ const Login = () => {
     }
   }
 
-  const tabs = [
-    { id: 'customer', label: 'Customer' },
-    { id: 'provider', label: 'Provider' },
-  ]
-
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
   const [errorMsg, setErrorMsg] = useState('')
 
+  // Shared session handling for password and Google sign-in: the backend owns
+  // the role, so both paths route identically after authentication.
+  const completeLogin = (data) => {
+    if (!data.token || !data.user?.role) throw new Error('Login response was incomplete')
+    const userObj = { ...data.user, ...(data.provider ? { provider: data.provider } : {}) }
+    const userRole = String(data.user.role).toLowerCase()
+    sessionStorage.setItem('token', data.token)
+    sessionStorage.setItem('user', JSON.stringify(userObj))
+    if (userRole === 'admin') navigate('/admin-dashboard')
+    else if (userRole === 'provider') navigate('/provider-dashboard')
+    else navigate('/customer-dashboard')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
     try {
-      const data = await apiRequest('/auth/login', 'POST', { email: form.email, password: form.password })
-      if (!data.token || !data.user?.role) throw new Error('Login response was incomplete')
-      const userObj = { ...data.user, ...(data.provider ? { provider: data.provider } : {}) }
-      const userRole = String(data.user.role).toLowerCase()
-      sessionStorage.setItem('token', data.token)
-      sessionStorage.setItem('user', JSON.stringify(userObj))
-      if (userRole === 'admin') {
-        navigate('/admin-dashboard')
-      } else if (userRole === 'provider') {
-        navigate('/provider-dashboard')
-      } else {
-        navigate('/customer-dashboard')
-      }
+      completeLogin(await apiRequest('/auth/login', 'POST', { email: form.email, password: form.password }))
     } catch (err) {
       setErrorMsg(err.message || 'Unable to sign in.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleGoogle = (data) => {
+    try { completeLogin(data) } catch (err) { setErrorMsg(err.message) }
   }
 
   return (
@@ -120,22 +121,7 @@ const Login = () => {
           <p className="auth-card__subtitle">Access your elite concierge suite</p>
         </div>
 
-        {/* Tabs */}
-        <div className="auth-tabs">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              id={`login-tab-${t.id}`}
-              className={`auth-tab ${tab === t.id ? 'auth-tab--active' : ''}`}
-              onClick={() => setTab(t.id)}
-              type="button"
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Form */}
+        {/* Form — one unified sign-in. Your account's role decides the portal. */}
         <form className="auth-form" onSubmit={handleSubmit} id="login-form">
           {errorMsg && (
             <div style={{ color: '#ef4444', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
@@ -148,7 +134,7 @@ const Login = () => {
               name="email"
               type="text"
               className="auth-input"
-              placeholder={tab === 'provider' ? 'Provider or Admin Email' : 'Username or Email'}
+              placeholder="Email or username"
               value={form.email}
               onChange={handleChange}
               required
@@ -207,7 +193,6 @@ const Login = () => {
               type="button"
               onClick={() => {
                 setShowForgotModal(true)
-                setForgotStep(1)
                 setForgotErrorMsg('')
                 setForgotSuccessMsg('')
                 if (form.email) setForgotEmail(form.email)
@@ -234,16 +219,28 @@ const Login = () => {
           </button>
         </form>
 
+        {/* Google sign-in — only rendered when configured */}
+        {googleConfigured && (
+          <>
+            <div className="auth-or"><span>or</span></div>
+            <GoogleSignIn onSuccess={handleGoogle} onError={setErrorMsg} />
+          </>
+        )}
+
         {/* Divider */}
         <div className="auth-divider">
           <span />
         </div>
 
-        {/* Footer */}
+        {/* Footer — sign-up and provider onboarding as first-class options */}
         <div className="auth-card__footer">
           <p className="auth-card__footer-text">New to the Luxora experience?</p>
           <Link to="/signup" className="auth-card__footer-link" id="login-goto-signup">
-            REQUEST MEMBERSHIP →
+            CREATE AN ACCOUNT →
+          </Link>
+          <p className="auth-card__footer-text" style={{ marginTop: '0.9rem' }}>Joining as a service partner?</p>
+          <Link to="/provider-register" className="auth-card__footer-link" id="login-goto-provider" style={{ color: '#c9a84c' }}>
+            APPLY AS A PROVIDER →
           </Link>
         </div>
       </div>

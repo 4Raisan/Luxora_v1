@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import GoogleSignIn from '../components/GoogleSignIn'
 import './Auth.css'
 import '../components/Footer.css'
 
@@ -30,6 +31,20 @@ const Signup = () => {
   }
 
   const [errorMsg, setErrorMsg] = useState('')
+  const googleConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
+
+  // Google sign-up signs in through the same backend verification and lands the
+  // new customer straight in the portal, mirroring the password flow above.
+  const handleGoogle = (data) => {
+    try {
+      if (!data.token || !data.user?.id) throw new Error('Google sign-in response was incomplete.')
+      sessionStorage.setItem('token', data.token)
+      sessionStorage.setItem('user', JSON.stringify(data.user))
+      navigate('/customer-dashboard')
+    } catch (err) {
+      setErrorMsg(err.message)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -287,6 +302,14 @@ const Signup = () => {
             }
           </button>
         </form>
+
+        {/* Google sign-up — only rendered when configured */}
+        {googleConfigured && (
+          <>
+            <div className="auth-or"><span>or</span></div>
+            <GoogleSignIn onSuccess={handleGoogle} onError={setErrorMsg} />
+          </>
+        )}
 
         {/* Divider */}
         <div className="auth-divider"><span /></div>

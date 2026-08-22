@@ -156,8 +156,17 @@ test('B3: pre-KYC provider token gets no operational access, but can upload KYC 
   assert.equal((await authJson(rejected.body.token, '/bookings/assigned')).status, 403);
 });
 
-test('B5: OTP and email senders are rate limited and return generic errors', async () => {
-  // 5 allowed, 6th must hit 429 — and none of the responses may leak provider details
+test('Google sign-in endpoint is guarded when unconfigured', async () => {
+  // The test server runs without GOOGLE_CLIENT_ID, so the endpoint must refuse
+  // cleanly instead of accepting unverified credentials.
+  const unconfigured = await json('/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: 'fake-token' }) });
+  assert.equal(unconfigured.status, 503);
+  assert.equal(unconfigured.body.error, 'Google sign-in is not configured');
+  // Route must exist (not the API 404) and never leaks stack details.
+  assert.ok(!String(unconfigured.body.error).includes('fetch'));
+});
+
+test('B5: OTP and email senders are rate limited and return generic errors', async () => {  // 5 allowed, 6th must hit 429 — and none of the responses may leak provider details
   let sawLimit = false;
   let sawGenericError = false;
   for (let i = 0; i < 6; i += 1) {
