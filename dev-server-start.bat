@@ -1,4 +1,6 @@
 @echo off
-:: Starts the Luxora backend API on port 5000 (assumes PostgreSQL is already up)
+title Luxora Backend API (:5000)
 cd /d "%~dp0backend"
-node src/index.js > "%TEMP%\luxora-server.log" 2>&1
+echo [i] Starting Luxora Backend API on http://localhost:5000 ...
+node src/index.js
+pause

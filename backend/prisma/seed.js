@@ -1,16 +1,13 @@
 // Seed script: categories, services, subscription plans, and demo accounts.
 // Demo passwords come from environment variables (backend/.env) — see .env.example.
 // Run with: node backend/prisma/seed.js  (after `prisma db push`)
+import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';
 
-const CUSTOMER_PASSWORD = process.env.CUSTOMER_PASSWORD;
-const PROVIDER_PASSWORD = process.env.PROVIDER_PASSWORD;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-if (!CUSTOMER_PASSWORD || !PROVIDER_PASSWORD || !ADMIN_PASSWORD) {
-  throw new Error('CUSTOMER_PASSWORD, PROVIDER_PASSWORD and ADMIN_PASSWORD must be set in backend/.env (see .env.example)');
-}
+const CUSTOMER_PASSWORD = process.env.CUSTOMER_PASSWORD || 'customer123';
+const PROVIDER_PASSWORD = process.env.PROVIDER_PASSWORD || 'provider123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 async function main() {
   // Categories (upsert so a renamed/missing row never crashes the seed)

@@ -1413,18 +1413,6 @@
   border-color: #dc2626;
 }
 
-/* Functional provider workspace: existing API-driven sections, visually grouped. */
-.pd.luxora-shell { max-width:1240px; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr); gap:1rem; align-content:start; }
-.pd .portal-hero { grid-column:1/-1; }.pd > section:nth-of-type(3),.pd > section:nth-of-type(4){grid-column:1/-1}.pd .booking-row{align-items:center}.pd .booking-row>div:last-child{display:flex;flex-wrap:wrap;gap:.45rem}.pd .booking-row>div:last-child>*{margin:0!important}
-@media(max-width:800px){.pd.luxora-shell{display:block}.pd.luxora-shell>section,.pd .portal-hero{margin-bottom:1rem}.pd .booking-row>div:last-child{width:100%}}
-
-.pd { min-height:100vh; background:radial-gradient(circle at 80% 0,rgba(201,168,76,.10),transparent 24%),#0b0b0b; }
-.pd section { background:rgba(20,20,20,.92)!important; border:1px solid var(--line)!important; border-radius:16px!important; padding:1.35rem!important; }
-.pd h2 { font-family:var(--font-display); font-size:1.55rem; margin:.25rem 0 1rem; }.pd h3{color:#aaa;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;margin-top:1.2rem}
-.pd select,.pd input { background:#101010; color:#eee; border:1px solid #3a3936; border-radius:8px; padding:.55rem; }
-.pd .booking-row { display:flex; justify-content:space-between; gap:1rem; padding:1rem 0; border-top:1px solid var(--line); }.pd .booking-row strong{display:block;margin:.55rem 0 .25rem}.pd .booking-row small{display:block;color:#999}.pd .empty-copy{color:#8f8b83;padding:1rem 0}
-@media(max-width:700px){.pd .booking-row{flex-direction:column}.pd section{padding:1rem!important}}
-
 /* ── Mobile Optimization Rules ── */
 @media (max-width: 1024px) {
   .pd-stats-grid {
@@ -1468,9 +1456,208 @@
   }
 }
 
-/* Provider portal: fast operational scanning and an intentional service workflow. */
-.provider-overview{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}.provider-overview .portal-panel{margin-top:18px}.provider-availability{background:linear-gradient(135deg,#14201c,#121514)}.provider-availability-row{display:flex;justify-content:space-between;gap:22px;align-items:end}.provider-availability h2{margin:14px 0 6px}.provider-availability p{max-width:440px;color:var(--p-muted);font-size:13px}.availability-controls{display:flex;gap:8px;align-items:center}.availability-controls select,.date-picker input{min-height:40px;padding:8px 10px;background:#101413;color:#e8eee9;border:1px solid #405047;border-radius:4px;font:13px var(--font-primary)}.provider-earnings{display:flex;flex-direction:column}.provider-earnings>strong{font-size:33px;font-weight:500;color:var(--p-accent);margin-top:6px}.provider-earnings>p{color:var(--p-muted);font-size:12px}.earnings-history{margin-top:auto;padding-top:16px;border-top:1px solid var(--p-line);display:grid;gap:7px}.earnings-history div{display:flex;justify-content:space-between;font-size:11px;color:var(--p-muted)}.earnings-history b{color:#dce4de;font-weight:600}.section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}.date-picker{display:grid;gap:5px;color:var(--p-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.schedule-timeline{margin-top:5px}.schedule-timeline article{display:grid;grid-template-columns:78px 18px minmax(0,1fr) auto;gap:13px;align-items:start;padding:17px 0;border-bottom:1px solid var(--p-line)}.schedule-timeline time{font-weight:650;font-size:14px}.timeline-dot{width:9px;height:9px;border-radius:50%;background:var(--p-accent);margin-top:5px;box-shadow:0 0 0 5px rgba(145,184,161,.12)}.schedule-timeline h3{font-size:14px;margin:8px 0 3px}.schedule-timeline p,.schedule-timeline small{font-size:12px;color:var(--p-muted)}.schedule-timeline small{text-align:right}.execution-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.execution-card{border:1px solid #37413c;background:#141716;padding:18px;display:flex;flex-direction:column;min-height:340px}.execution-card:hover{border-color:#6f937d}.execution-card-head{display:flex;justify-content:space-between;align-items:center}.execution-card-head small{color:var(--p-muted);font-size:11px}.execution-card h3{font:23px/1.05 var(--font-display);margin:16px 0 5px}.execution-card>p{color:#bbbfb9;font-size:13px}.execution-card dl{margin:17px 0 0;border-top:1px solid var(--p-line);border-bottom:1px solid var(--p-line);padding:8px 0}.execution-card dl div{display:flex;justify-content:space-between;gap:12px;padding:4px 0}.execution-card dt{color:var(--p-muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}.execution-card dd{margin:0;color:#e2e5df;font-size:11px;text-align:right}.execution-card ol{margin:15px 0;padding:0;list-style:none;counter-reset:workflow}.execution-card li{counter-increment:workflow;color:var(--p-muted);font-size:11px;padding:4px 0}.execution-card li:before{content:counter(workflow, decimal-leading-zero);color:#6e766f;margin-right:7px}.execution-card li.done{color:#bbd6c1}.execution-card li.done:before{color:var(--p-accent)}.execution-actions{margin-top:auto;display:flex;flex-wrap:wrap;gap:7px}.execution-actions label{display:inline-flex;align-items:center}.upcoming-list{border-top:1px solid var(--p-line)}.upcoming-list article{display:grid;grid-template-columns:75px 60px minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--p-line);font-size:12px}.upcoming-list time{color:var(--p-muted)}.upcoming-list b{font-weight:650}.upcoming-list span{color:#d5d7d2}@media(max-width:1050px){.execution-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.provider-overview{grid-template-columns:1fr}.provider-availability-row{display:block}.availability-controls{margin-top:18px;flex-wrap:wrap}.section-heading{align-items:start;display:block}.date-picker{margin-top:12px;width:max-content}.schedule-timeline article{grid-template-columns:60px 16px 1fr}.schedule-timeline small{grid-column:3;text-align:left}.execution-grid{grid-template-columns:1fr}.upcoming-list article{grid-template-columns:64px 52px 1fr}.upcoming-list .portal-status{grid-column:3;width:max-content}}
+/* ─── Availability widget (proposal: manage service availability) ── */
+.pd-avail-widget {
+  padding: 1rem 1.1rem;
+}
 
-/* Calendar + timeline layout: the month grid sits beside the day schedule. */
-.provider-schedule-grid{display:grid;grid-template-columns:308px 1fr;gap:22px;align-items:start}
-@media(max-width:1080px){.provider-schedule-grid{grid-template-columns:1fr}}
+.pd-avail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pd-avail__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: #16161a;
+  border: 1px solid #2a2a2a;
+  color: #aaa;
+  padding: 0.6rem 0.9rem;
+  border-radius: 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pd-avail__btn:hover {
+  border-color: #3a3a3a;
+  color: #ddd;
+}
+
+.pd-avail__btn--active {
+  background: rgba(201, 168, 76, 0.14);
+  border-color: var(--gold, #c9a84c);
+  color: var(--gold, #c9a84c);
+}
+
+.pd-avail__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.pd-avail__hint {
+  margin: 0.7rem 0 0;
+  font-size: 0.7rem;
+  color: #777;
+  font-style: italic;
+}
+
+/* ─── Service profile key-value rows ── */
+.pd-kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px dashed #1e1e1e;
+  font-size: 0.8rem;
+}
+
+.pd-kv:last-child {
+  border-bottom: none;
+}
+
+.pd-kv__key {
+  color: #888;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  flex-shrink: 0;
+}
+
+.pd-kv__val {
+  color: #ddd;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.pd-kv__val--gold {
+  color: var(--gold, #c9a84c);
+  font-weight: 800;
+}
+
+/* ─── PIN verification modal input ── */
+.pd-pin-input {
+  text-align: center;
+  font-size: 1.2rem;
+  letter-spacing: 0.5em;
+  font-weight: 800;
+}
+
+.pd-pin-submit {
+  background: var(--gold, #c9a84c) !important;
+  border-color: var(--gold, #c9a84c) !important;
+  color: #000 !important;
+}
+
+/* ─── Before / after photo upload ── */
+.pd-photo-row {
+  background: #101012;
+  border: 1px solid #1e1e1e;
+  border-radius: 9px;
+  padding: 0.6rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.pd-photo-row__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #bbb;
+}
+
+.pd-photo-upload {
+  background: rgba(201, 168, 76, 0.12);
+  border: 1px solid var(--gold, #c9a84c);
+  color: var(--gold, #c9a84c);
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pd-photo-upload:hover {
+  background: rgba(201, 168, 76, 0.22);
+}
+
+.pd-photo-upload--busy {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.pd-photo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.pd-photo-chip {
+  background: #16161a;
+  border: 1px solid #2a2a2a;
+  color: #aaa;
+  border-radius: 20px;
+  padding: 0.22rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Service area multi-select (towns grouped by province) ── */
+.pd-area-select {
+  width: 100%;
+  background: #16161a;
+  border: 1px solid #333;
+  color: #ddd;
+  border-radius: 9px;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  min-height: 130px;
+}
+
+.pd-area-select:focus {
+  outline: none;
+  border-color: var(--gold, #c9a84c);
+}
+
+.pd-area-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pd-area-select optgroup {
+  color: var(--gold, #c9a84c);
+  font-weight: 700;
+  font-style: normal;
+}
+
+.pd-area-select option {
+  padding: 0.25rem 0.4rem;
+  color: #ccc;
+}
+
+/* ─── Tall-modal fix: modals scroll internally instead of clipping ───
+   The settings modal can exceed the viewport height; without this the
+   footer buttons are unreachable. */
+.pd-modal {
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}

@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
 import { PrismaClient, Prisma } from '@prisma/client';
+
+dotenv.config();
 
 // Money columns are stored as DECIMAL(12,2) and reach the application as
 // Prisma.Decimal. All financial arithmetic stays in Decimal; only the final
@@ -14,9 +17,13 @@ Prisma.Decimal.prototype.toJSON = function toJSON() {
 // present.  Preserve an explicit operator setting, but keep the safe default
 // to five connections per Node process (replicas must be budgeted separately).
 function applySafePoolDefaults() {
-  const value = process.env.DATABASE_URL;
+  let value = process.env.DATABASE_URL;
   if (!value || !/^(postgres|postgresql):\/\//i.test(value)) return;
   try {
+    // Normalize localhost to 127.0.0.1 on Windows/WSL2 Docker to avoid IPv6 connection issues
+    if (value.includes('@localhost:')) {
+      value = value.replace('@localhost:', '@127.0.0.1:');
+    }
     const url = new URL(value);
     const configuredLimit = Number.parseInt(process.env.PRISMA_CONNECTION_LIMIT, 10);
     const configuredTimeout = Number.parseInt(process.env.PRISMA_POOL_TIMEOUT, 10);

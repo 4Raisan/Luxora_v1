@@ -24,8 +24,39 @@ import { prisma } from './config/prisma.js';
 
 const app = express();
 app.disable('x-powered-by');
-const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000,http://localhost:5173').split(',').map((origin) => origin.trim()).filter(Boolean);
-app.use(cors({ origin(origin, callback) { if (!origin || allowedOrigins.includes(origin)) return callback(null, true); return callback(new Error('Origin is not allowed by CORS')); }, credentials: true }));
+const defaultOrigins = [
+  `http://localhost:${PORT}`,
+  `http://127.0.0.1:${PORT}`,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+const envOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+const isLocalhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        allowedOrigins.includes('*') ||
+        isLocalhostRegex.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ extended: false, limit: '64kb' }));
 

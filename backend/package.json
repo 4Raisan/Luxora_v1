@@ -7,7 +7,7 @@
     "dev": "node src/index.js",
     "start": "npx prisma generate && npx prisma migrate deploy && node src/index.js",
     "prisma:generate": "prisma generate",
-    "db:push": "node prisma/migrate-service-towns.js && prisma db push",
+    "db:push": "node prisma/migrate-service-towns.js && prisma db push --accept-data-loss",
     "db:migrate-service-towns": "node prisma/migrate-service-towns.js",
     "seed": "node prisma/seed.js"
   },

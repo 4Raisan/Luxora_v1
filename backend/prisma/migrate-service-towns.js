@@ -1,5 +1,6 @@
 // One-time, idempotent compatibility migration for databases created before
 // Provider.serviceTowns replaced the old `towns` column.
+import 'dotenv/config';
 import { prisma } from '../src/config/prisma.js';
 
 try {
