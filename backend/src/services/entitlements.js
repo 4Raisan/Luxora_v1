@@ -34,6 +34,7 @@ export async function getEntitlementSnapshot(client, userId) {
       const existing = byCategory.get(entitlement.categoryId) || {
         category_id: entitlement.categoryId,
         category_name: entitlement.category.name,
+        category_icon: entitlement.category.icon || null,
         entitled_units: 0,
         used_units: 0,
         remaining_units: 0,

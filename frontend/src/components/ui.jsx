@@ -70,3 +70,42 @@ export function FilterPills({ options, value, onChange, ariaLabel = 'Filter' }) 
 export function SearchInput({ value, onChange, placeholder = 'Search', ariaLabel = 'Search' }) {
   return <div className="ui-search"><span aria-hidden="true">⌕</span><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-label={ariaLabel} /></div>
 }
+
+// The Luxora coin — one coin funds one service booking in its category
+// (Auto / Garden / Pet). Coins are the customer-facing face of the backend's
+// per-category entitlement units.
+export function Coin({ size = 18 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="luxora-coin">
+    <circle cx="12" cy="12" r="11" fill="#c9a84c" />
+    <circle cx="12" cy="12" r="8.4" fill="none" stroke="rgba(23,20,13,0.55)" strokeWidth="1.1" />
+    <circle cx="9.4" cy="8.6" r="3.1" fill="rgba(255,244,214,0.5)" />
+    <text x="12" y="16.1" textAnchor="middle" fontSize="10.5" fontWeight="800" fill="#17140d">L</text>
+  </svg>
+}
+
+// Per-category glyph for the coin display (Auto / Garden / Pet). The icon name
+// comes from the category row in the database via the entitlements API; the
+// category name is only a fallback hint when no icon is stored.
+export function CategoryIcon({ icon, name, size = 16 }) {
+  const hint = `${icon || ''} ${name || ''}`.toLowerCase()
+  let glyph
+  if (/(auto|car)/.test(hint)) {
+    glyph = <>
+      <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+      <circle cx="7" cy="17" r="2" /><path d="M9 17h6" /><circle cx="17" cy="17" r="2" />
+    </>
+  } else if (/(garden|tree|leaf|plant)/.test(hint)) {
+    glyph = <>
+      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+      <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+    </>
+  } else if (/(pet|dog|paw)/.test(hint)) {
+    glyph = <>
+      <circle cx="11" cy="4" r="2" /><circle cx="18" cy="8" r="2" /><circle cx="20" cy="16" r="2" />
+      <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
+    </>
+  } else {
+    glyph = <path d="M12 3l2.1 5L19 10l-4.9 2L12 17l-2.1-5L5 10l4.9-2Z" />
+  }
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="luxora-category-icon">{glyph}</svg>
+}
