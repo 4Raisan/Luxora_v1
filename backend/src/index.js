@@ -37,12 +37,15 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/customer', customerRoutes);
+// uploadRoutes owns /api/provider/kyc-documents, which pending-KYC providers
+// must reach; mount it before the KYC-gated provider router so the gate cannot
+// shadow the document-upload path.
+app.use('/api', uploadRoutes);
 app.use('/api/provider', providerRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api', integrationRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api', uploadRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api', refundRoutes);
 app.use('/api', docsRoutes);

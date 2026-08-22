@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
@@ -369,7 +370,7 @@ router.put('/:id/status', async (req, res) => {
   if (nextStatus === 'COMPLETED') {
     // Guard against double payout: only pay when transitioning from a non-COMPLETED state
     if (booking.status !== 'COMPLETED') {
-      const payout = booking.totalPrice * PROVIDER_PAYOUT_RATE;
+      const payout = new Prisma.Decimal(booking.totalPrice).mul(PROVIDER_PAYOUT_RATE).toDecimalPlaces(2);
       await prisma.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
     }
     await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');

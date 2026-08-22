@@ -79,7 +79,11 @@ router.get('/stats', async (_req, res) => {
     prisma.payment.aggregate({ where: { status: 'COMPLETED' }, _sum: { capturedAmount: true } }),
     prisma.review.aggregate({ _avg: { rating: true }, _count: { rating: true } }),
   ]);
-  res.json({ totalUsers, totalProviders, pendingProviders, activeSubscriptions, totalBookings, completedBookings, totalRevenue: completedPayments._sum.capturedAmount || agg._sum.totalPrice || 0, openComplaints, averageRating: rating._avg.rating || 0, ratingCount: rating._count.rating });
+  // Aggregates over DECIMAL columns return Decimal objects (always truthy),
+  // so the fallback chain must run on plain numbers.
+  const capturedRevenue = Number(completedPayments._sum.capturedAmount ?? 0) || 0;
+  const bookingRevenue = Number(agg._sum.totalPrice ?? 0) || 0;
+  res.json({ totalUsers, totalProviders, pendingProviders, activeSubscriptions, totalBookings, completedBookings, totalRevenue: capturedRevenue || bookingRevenue, openComplaints, averageRating: rating._avg.rating || 0, ratingCount: rating._count.rating });
 });
 
 router.get('/users', async (req, res) => {
@@ -162,7 +166,7 @@ router.get('/reports', async (req, res) => {
   const serviceIds = popularServices.map((item) => item.serviceId);
   const providerIds = providerPerformance.map((item) => item.providerId).filter(Boolean);
   const [services, providerRows] = await Promise.all([prisma.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, title: true } }), prisma.provider.findMany({ where: { id: { in: providerIds } }, include: { user: { select: { name: true } } } })]);
-  res.json({ from, to, summary: { customers, providers, bookings, completedBookings, revenue: payments._sum.capturedAmount || 0, completedPayments: payments._count.id, activeSubscriptions: subscriptions, complaints, averageRating: ratings._avg.rating || 0, ratingCount: ratings._count.rating }, servicePopularity: popularServices.map((item) => ({ serviceId: item.serviceId, service: services.find((service) => service.id === item.serviceId)?.title || 'Unknown', bookings: item._count.id })), providerPerformance: providerPerformance.map((item) => ({ providerId: item.providerId, provider: providerRows.find((provider) => provider.id === item.providerId)?.user.name || 'Unknown', completedBookings: item._count.id, serviceValue: item._sum.totalPrice || 0 })) });
+  res.json({ from, to, summary: { customers, providers, bookings, completedBookings, revenue: Number(payments._sum.capturedAmount ?? 0) || 0, completedPayments: payments._count.id, activeSubscriptions: subscriptions, complaints, averageRating: ratings._avg.rating || 0, ratingCount: ratings._count.rating }, servicePopularity: popularServices.map((item) => ({ serviceId: item.serviceId, service: services.find((service) => service.id === item.serviceId)?.title || 'Unknown', bookings: item._count.id })), providerPerformance: providerPerformance.map((item) => ({ providerId: item.providerId, provider: providerRows.find((provider) => provider.id === item.providerId)?.user.name || 'Unknown', completedBookings: item._count.id, serviceValue: Number(item._sum.totalPrice ?? 0) || 0 })) });
 });
 
 router.get('/bookings', async (_req, res) => {
@@ -172,7 +176,15 @@ router.get('/bookings', async (_req, res) => {
   });
   res.json(bookings.map((b) => ({
     ...b,
+    startPinHash: undefined,
+    completionPinHash: undefined,
+    customerStartPinCipher: undefined,
+    customerCompletionPinCipher: undefined,
     pinCode: undefined,
+    pinAttempts: undefined,
+    pinLockedUntil: undefined,
+    startPinUsedAt: undefined,
+    completionPinUsedAt: undefined,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
     category_name: b.service?.category?.name,

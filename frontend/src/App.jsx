@@ -17,6 +17,7 @@ import BookService from './pages/BookService'
 import Reviews from './pages/Reviews'
 import ResetPassword from './pages/ResetPassword'
 import ErrorBoundary from './components/ErrorBoundary'
+import RequireAuth from './components/RequireAuth'
 import './App.css'
 
 // Main landing page layout
@@ -44,11 +45,11 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/provider-register" element={<ProviderRegister />} />
-          <Route path="/customer-dashboard" element={<ErrorBoundary><CustomerDashboard /></ErrorBoundary>} />
-          <Route path="/admin-dashboard" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
-          <Route path="/provider-dashboard" element={<ErrorBoundary><ProviderDashboard /></ErrorBoundary>} />
-          <Route path="/book-service" element={<ErrorBoundary><BookService /></ErrorBoundary>} />
-          <Route path="/reviews" element={<ErrorBoundary><Reviews /></ErrorBoundary>} />
+          <Route path="/customer-dashboard" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><CustomerDashboard /></ErrorBoundary></RequireAuth>} />
+          <Route path="/admin-dashboard" element={<RequireAuth allow={['ADMIN']}><ErrorBoundary><AdminDashboard /></ErrorBoundary></RequireAuth>} />
+          <Route path="/provider-dashboard" element={<RequireAuth allow={['PROVIDER']}><ErrorBoundary><ProviderDashboard /></ErrorBoundary></RequireAuth>} />
+          <Route path="/book-service" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><BookService /></ErrorBoundary></RequireAuth>} />
+          <Route path="/reviews" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><Reviews /></ErrorBoundary></RequireAuth>} />
           <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </div>

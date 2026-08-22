@@ -1,14 +1,23 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/prisma.js';
 import { notify } from '../services/notify.js';
 import { createPayHereFields, sendEmail, sendVerificationCode, verifyCode, verifyPayHereWebhook } from '../services/integrations.js';
 import { toPositiveInt } from '../middleware/validators.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 
 const router = Router();
-const money = (value) => Math.round(Number(value) * 100) / 100;
-const sameMoney = (left, right) => Number.isFinite(Number(left)) && Math.round(Number(left) * 100) === Math.round(Number(right) * 100);
+// Money is normalized and compared as exact 2-decimal-place Decimals end to end.
+const money = (value) => new Prisma.Decimal(value).toDecimalPlaces(2);
+const sameMoney = (left, right) => {
+  try { return new Prisma.Decimal(left).toDecimalPlaces(2).equals(new Prisma.Decimal(right).toDecimalPlaces(2)); }
+  catch { return false; }
+};
+const otpSendLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
+const otpVerifyLimiter = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 });
+const emailLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 const environment = () => String(process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk').includes('sandbox') ? 'SANDBOX' : 'LIVE';
 // Demo checkout is opt-in at deployment time. It never calls PayHere and is
 // intentionally unavailable unless PAYMENT_MODE=demo is set on the backend.
@@ -31,28 +40,43 @@ router.post('/payments/payhere/webhook', async (req, res) => {
   if (!verifyPayHereWebhook(payload)) return res.status(400).send('Invalid signature');
   const payment = await prisma.payment.findUnique({ where: { gatewayOrderId: String(payload.order_id || '') } });
   if (!payment || payment.gateway !== 'PAYHERE') return res.status(404).send('Payment not found');
-  if (payment.status === 'COMPLETED') return res.status(200).send('OK');
+  const statusCode = Number(payload.status_code);
+  // Idempotency: PayHere retries webhooks, so duplicates of an already-processed
+  // state are acked without side effects. A refund (-3) after COMPLETED is a NEW
+  // transition, not a duplicate, and must still be processed.
+  const duplicateCharge = statusCode === 2 && ['COMPLETED', 'REFUNDED'].includes(payment.status);
+  const duplicateRefund = statusCode === -3 && payment.status === 'REFUNDED';
+  if (duplicateCharge || duplicateRefund) return res.status(200).send('OK');
   const amount = Number(payload.payhere_amount);
   const currency = String(payload.payhere_currency || '').toUpperCase();
   if (!sameMoney(amount, payment.expectedAmount) || currency !== payment.expectedCurrency) {
-    await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', webhookPayload: payload } });
+    if (payment.status === 'PENDING') await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', webhookPayload: payload } });
     return res.status(400).send('Amount or currency mismatch');
   }
-  const status = Number(payload.status_code);
-  if (status === 2) {
+  if (statusCode === 2) {
     const completed = await activateSubscription(payment, payload);
     if (completed) {
       await notify(completed.userId, 'Payment successful. Your Luxora membership is now active.', '/customer-dashboard');
       const user = await prisma.user.findUnique({ where: { id: completed.userId }, select: { email: true, name: true } });
       sendEmail({ to: user?.email, subject: 'Luxora payment successful', html: `<p>Hi ${user?.name || 'Customer'},</p><p>Your ${completed.plan.title} membership is active.</p>` }).catch(() => {});
     }
-  } else if (status === -1 || status === -2) {
-    await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', webhookPayload: payload } });
-    await notify(payment.userId, 'Your Luxora payment was not completed. You can try again.', '/customer-dashboard');
-  } else if (status === -3) {
-    await prisma.payment.update({ where: { id: payment.id }, data: { status: 'REFUNDED', webhookPayload: payload } });
-    await notify(payment.userId, 'Your Luxora payment has been refunded.', '/customer-dashboard');
-  } else {
+  } else if (statusCode === -1 || statusCode === -2) {
+    // Failures only apply to payments that never settled.
+    if (payment.status === 'PENDING') {
+      await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', webhookPayload: payload } });
+      await notify(payment.userId, 'Your Luxora payment was not completed. You can try again.', '/customer-dashboard');
+    }
+  } else if (statusCode === -3) {
+    // Refunds follow a settled charge: mark payment refunded and revoke the
+    // package atomically so entitlements stop immediately.
+    if (payment.status === 'COMPLETED') {
+      await prisma.$transaction([
+        prisma.payment.update({ where: { id: payment.id }, data: { status: 'REFUNDED', webhookPayload: payload } }),
+        ...(payment.subscriptionId ? [prisma.userSubscription.update({ where: { id: payment.subscriptionId }, data: { status: 'refunded', autoRenew: false, nextRenewalDate: null } })] : []),
+      ]);
+      await notify(payment.userId, 'Your Luxora payment has been refunded.', '/customer-dashboard');
+    }
+  } else if (payment.status === 'PENDING') {
     await prisma.payment.update({ where: { id: payment.id }, data: { webhookPayload: payload } });
   }
   res.status(200).send('OK');
@@ -108,12 +132,12 @@ router.get('/payments/my', authenticateToken, async (req, res) => {
   res.json({ environment: environment(), payments });
 });
 
-router.post('/email', authenticateToken, async (req, res) => {
+router.post('/email', authenticateToken, emailLimiter, async (req, res) => {
   if (!req.body.to || !req.body.subject || !req.body.html) return res.status(400).json({ error: 'to, subject and html are required' });
   if (req.body.to !== req.user.email && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'You can only email your own address' });
-  try { res.json(await sendEmail(req.body)); } catch (error) { res.status(502).json({ error: error.message }); }
+  try { res.json(await sendEmail(req.body)); } catch (error) { console.warn('[email] send failed:', error.message); res.status(502).json({ error: 'Email delivery failed' }); }
 });
-router.post('/otp/send', authenticateToken, async (req, res) => { try { res.json(await sendVerificationCode(req.body.phone)); } catch (error) { res.status(502).json({ error: error.message }); } });
-router.post('/otp/verify', authenticateToken, async (req, res) => { try { res.json(await verifyCode(req.body.phone, req.body.code)); } catch (error) { res.status(502).json({ error: error.message }); } });
+router.post('/otp/send', authenticateToken, otpSendLimiter, async (req, res) => { try { res.json(await sendVerificationCode(req.body.phone)); } catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); } });
+router.post('/otp/verify', authenticateToken, otpVerifyLimiter, async (req, res) => { try { res.json(await verifyCode(req.body.phone, req.body.code)); } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); } });
 
 export default router;

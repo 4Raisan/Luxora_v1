@@ -50,13 +50,26 @@ router.put('/admin/refunds/:id', authenticateToken, requireRole('ADMIN'), async 
   const adminNote = String(req.body.admin_note || '').trim();
   if (!['APPROVED', 'REJECTED'].includes(decision) || adminNote.length > 2000) return res.status(400).json({ error: 'status must be APPROVED or REJECTED and note up to 2000 characters' });
   const demo = refund.payment?.gateway === 'DEMO';
-  const finalStatus = decision === 'APPROVED' && demo ? 'REFUNDED' : decision;
+  // Business rule: PayHere money is only refunded on gateway confirmation (webhook
+  // status_code -3), which also disables the package. An admin approval on a real
+  // PayHere payment therefore stays APPROVED — awaiting gateway confirmation — and
+  // the package remains active until that webhook settles it atomically.
+  const alreadyRefundedByGateway = refund.subscription?.status === 'refunded';
+  const finalStatus = decision === 'APPROVED' && (demo || alreadyRefundedByGateway) ? 'REFUNDED' : decision;
   await prisma.$transaction(async (tx) => {
     await tx.refundRequest.update({ where: { id: refund.id }, data: { status: finalStatus, adminNote: adminNote || null, reviewedAt: new Date(), reviewedById: req.user.id } });
     if (finalStatus === 'REFUNDED') { await tx.userSubscription.update({ where: { id: refund.subscriptionId }, data: { status: 'refunded', autoRenew: false, nextRenewalDate: null } }); if (refund.paymentId) await tx.payment.update({ where: { id: refund.paymentId }, data: { status: 'REFUNDED' } }); }
   });
-  await notify(refund.userId, finalStatus === 'REFUNDED' ? `Demo refund completed for package purchase #${refund.subscriptionId}. No real money was moved.` : `Refund request #${refund.id} was ${finalStatus.toLowerCase()}.`, '/customer-dashboard');
-  res.json({ status: finalStatus.toLowerCase() });
+  const awaitingGateway = finalStatus === 'APPROVED' && refund.payment?.gateway === 'PAYHERE';
+  const message = finalStatus === 'REFUNDED' && demo
+    ? `Demo refund completed for package purchase #${refund.subscriptionId}. No real money was moved.`
+    : finalStatus === 'REFUNDED'
+      ? `Refund completed for package purchase #${refund.subscriptionId}. Your package has been disabled.`
+      : awaitingGateway
+        ? `Refund request #${refund.id} was approved. PayHere will confirm the refund; your package remains active until the gateway confirms it.`
+        : `Refund request #${refund.id} was ${finalStatus.toLowerCase()}.`;
+  await notify(refund.userId, message, '/customer-dashboard');
+  res.json({ status: finalStatus.toLowerCase(), ...(awaitingGateway ? { awaiting_gateway_confirmation: true } : {}) });
 });
 
 export default router;

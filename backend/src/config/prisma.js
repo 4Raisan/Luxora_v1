@@ -1,4 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
+
+// Money columns are stored as DECIMAL(12,2) and reach the application as
+// Prisma.Decimal. All financial arithmetic stays in Decimal; only the final
+// JSON serialization converts to a plain number so API responses keep their
+// existing shape (numbers, not strings).
+Prisma.Decimal.prototype.toJSON = function toJSON() {
+  return this.toNumber();
+};
 
 // Single shared Prisma client for the whole backend.  Direct PostgreSQL URLs
 // otherwise use Prisma's CPU-derived default pool, which is too aggressive for

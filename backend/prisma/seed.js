@@ -51,6 +51,24 @@ async function main() {
     });
   }
 
+  // Per-category service units each plan grants (mirrors the marketed features).
+  // Without these rows a purchased plan has no bookable entitlements.
+  if (await prisma.subscriptionEntitlement.count() === 0) {
+    const byTitle = async (title) => prisma.subscriptionPlan.findUniqueOrThrow({ where: { title } });
+    const [autoElite, gardenOasis, triCombo] = await Promise.all([
+      byTitle('Single Care - Auto Elite'), byTitle('Single Care - Garden Oasis'), byTitle('Luxora Tri-Combo Luxury Suite'),
+    ]);
+    await prisma.subscriptionEntitlement.createMany({
+      data: [
+        { planId: autoElite.id, categoryId: auto.id, units: 2 },
+        { planId: gardenOasis.id, categoryId: garden.id, units: 4 },
+        { planId: triCombo.id, categoryId: auto.id, units: 2 },
+        { planId: triCombo.id, categoryId: garden.id, units: 4 },
+        { planId: triCombo.id, categoryId: pet.id, units: 2 },
+      ],
+    });
+  }
+
   // Demo accounts — every password is bcrypt-hashed (10 rounds) before storage
   const ensure = async (name, email, phone, role, nic, category, password, town = null, serviceTowns = '') => {
     const pwHash = bcrypt.hashSync(password, 10);

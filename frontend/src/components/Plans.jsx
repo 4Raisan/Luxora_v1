@@ -213,7 +213,7 @@ const Plans = () => {
       const fullPlan = { ...plan, categoryLabel: catObj ? catObj.label : 'Auto', cat: activeCategory }
       sessionStorage.setItem('selected_home_plan', JSON.stringify(fullPlan))
 
-      const token = sessionStorage.getItem('token') || localStorage.getItem('luxora_token')
+      const token = sessionStorage.getItem('token')
       const user = sessionStorage.getItem('user')
 
       if (token && user) {

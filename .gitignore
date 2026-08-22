@@ -7,3 +7,6 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+
+# Uploaded KYC/booking files never belong in git
+private-uploads/

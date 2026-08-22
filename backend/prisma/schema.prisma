@@ -55,7 +55,7 @@ model Provider {
   category String
   serviceTowns String @default("")
   availabilityStatus String @default("available")
-  earnings Float @default(0.0)
+  earnings Decimal @default(0) @db.Decimal(12, 2)
   bookings Booking[]
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviews Review[]
@@ -92,7 +92,7 @@ model Service {
   categoryId Int
   title String
   description String?
-  price Float
+  price Decimal @db.Decimal(12, 2)
   durationMins Int @default(60)
   bookings Booking[]
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -103,7 +103,7 @@ model SubscriptionPlan {
   id Int @id @default(autoincrement())
   title String
   type String
-  priceMonthly Float
+  priceMonthly Decimal @db.Decimal(12, 2)
   durationDays Int @default(30)
   active Boolean @default(true)
   description String?
@@ -170,7 +170,7 @@ model Booking {
   pinLockedUntil DateTime?
   beforePhoto String?
   afterPhoto String?
-  totalPrice Float
+  totalPrice Decimal @db.Decimal(12, 2)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   provider Provider? @relation(fields: [providerId], references: [id])
@@ -222,9 +222,9 @@ model Payment {
   gateway PaymentGateway
   gatewayOrderId String @unique
   status PaymentStatus @default(PENDING)
-  expectedAmount Float
+  expectedAmount Decimal @db.Decimal(12, 2)
   expectedCurrency String
-  capturedAmount Float?
+  capturedAmount Decimal? @db.Decimal(12, 2)
   capturedCurrency String?
   webhookPayload Json?
   idempotencyKey String @unique

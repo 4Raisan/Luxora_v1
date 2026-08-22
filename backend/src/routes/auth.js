@@ -12,6 +12,7 @@ import { notify } from '../services/notify.js';
 const router = Router();
 
 const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
+const phoneOtpLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 
 const phoneForVerify = (value) => {
   const digits = String(value || '').replace(/\D/g, '');
@@ -19,14 +20,14 @@ const phoneForVerify = (value) => {
   return /^\+947\d{8}$/.test(String(value || '').trim()) ? String(value).trim() : null;
 };
 
-router.post('/register/phone/send', async (req, res) => {
+router.post('/register/phone/send', phoneOtpLimiter, async (req, res) => {
   const phone = phoneForVerify(req.body.phone);
   if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile number' });
   try {
     const result = await sendVerificationCode(phone);
     if (!result.configured) return res.status(503).json({ error: 'Phone verification is not configured' });
     res.json({ phone, status: result.status });
-  } catch (error) { res.status(502).json({ error: error.message || 'Could not send verification code' }); }
+  } catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); }
 });
 
 router.post('/register/phone/verify', async (req, res) => {
@@ -38,7 +39,7 @@ router.post('/register/phone/verify', async (req, res) => {
     if (!result.approved) return res.status(400).json({ error: 'Invalid verification code' });
     const verificationToken = jwt.sign({ scope: 'provider_phone_verified', phone }, JWT_SECRET, { expiresIn: '10m' });
     res.json({ verified: true, phone, verification_token: verificationToken });
-  } catch (error) { res.status(502).json({ error: error.message || 'Could not verify code' }); }
+  } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); }
 });
 
 // Register (customer or provider only — admin accounts are seeded, never self-registered)
@@ -96,15 +97,16 @@ router.post('/register', authLimiter, async (req, res) => {
   }
 });
 
-const resetTokens = new Map();
-router.post('/password-reset/request', async (req, res) => {
+const resetTokenHash = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
+const resetLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
+router.post('/password-reset/request', resetLimiter, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
   const user = await prisma.user.findUnique({ where: { email } });
   // Always return the same response to avoid account enumeration.
   if (user) {
     const token = `${crypto.randomUUID()}-${crypto.randomUUID()}`;
-    resetTokens.set(token, { userId: user.id, expiresAt: Date.now() + 15 * 60 * 1000 });
+    await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash: resetTokenHash(token), expiresAt: new Date(Date.now() + 15 * 60 * 1000) } });
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?reset_token=${encodeURIComponent(token)}`;
     sendEmail({ to: email, subject: 'Reset your Luxora password', html: `<p>We received a password reset request.</p><p><a href="${resetUrl}">Reset your password</a> (valid for 15 minutes).</p>` }).catch((error) => console.warn('[email] reset failed:', error.message));
   }
@@ -112,11 +114,13 @@ router.post('/password-reset/request', async (req, res) => {
 });
 
 router.post('/password-reset/confirm', async (req, res) => {
-  const record = resetTokens.get(req.body.token);
-  if (!record || record.expiresAt < Date.now() || !isPassword(req.body.password)) return res.status(400).json({ error: 'Invalid or expired reset token' });
+  const record = await prisma.passwordResetToken.findFirst({ where: { tokenHash: resetTokenHash(req.body.token), usedAt: null, expiresAt: { gt: new Date() } } });
+  if (!record || !isPassword(req.body.password)) return res.status(400).json({ error: 'Invalid or expired reset token' });
   const passwordHash = await bcrypt.hash(req.body.password, 10);
-  await prisma.user.update({ where: { id: record.userId }, data: { passwordHash } });
-  resetTokens.delete(req.body.token);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+    prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+  ]);
   res.json({ message: 'Password updated successfully' });
 });
 

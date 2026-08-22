@@ -1,6 +1,7 @@
 #!/bin/bash
 # Luxora API smoke test — full durability suite (demo accounts: @luxora.lk)
-B=http://localhost:5000/api
+# Target is overridable, e.g. SMOKE_BASE=http://127.0.0.1:5010/api bash smoke-test.sh
+B=${SMOKE_BASE:-http://localhost:5000/api}
 pass=0; fail=0
 RND=$RANDOM
 check() {
@@ -35,19 +36,21 @@ check "no token 401" 'Access token required' "$(curl -s $B/bookings/my)"
 check "malformed JSON 400" 'Invalid JSON body' "$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{bad json')"
 check "unknown endpoint JSON 404" 'Endpoint not found' "$(curl -s $B/nope)"
 
-echo "=== Subscribe ==="
-SUB=$(curl -s -X POST $B/subscriptions/subscribe -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"plan_id":1}')
-if echo "$SUB" | grep -qE 'Subscribed successfully|already have an active'; then pass=$((pass+1)); echo "PASS: subscribe (or already active from previous run)"; else fail=$((fail+1)); echo "FAIL: subscribe — $SUB"; fi
-check "duplicate rejected" 'already' "$(curl -s -X POST $B/subscriptions/subscribe -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"plan_id":1}')"
-check "subscribe requires auth" 'Access token required' "$(curl -s -X POST $B/subscriptions/subscribe -H 'Content-Type: application/json' -d '{"plan_id":1}')"
-check "bad plan 404" 'Plan not found' "$(curl -s -X POST $B/subscriptions/subscribe -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"plan_id":999}')"
+echo "=== Subscribe (demo checkout — direct activation is 410 by design) ==="
+check "direct subscribe is 410" 'Direct activation is disabled' "$(curl -s -X POST $B/subscriptions/subscribe -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"plan_id":1}')"
+ORD=$(curl -s -X POST $B/payments/demo/order -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"plan_id":1}')
+check "demo order created" '"payment_id"' "$ORD"
+PAYID=$(jget "$ORD" payment_id)
+check "demo payment completed" 'completed' "$(curl -s -X POST $B/payments/demo/$PAYID/complete -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"outcome":"success"}')"
+check "checkout requires auth" 'Access token required' "$(curl -s -X POST $B/payments/demo/order -H 'Content-Type: application/json' -d '{"plan_id":1}')"
+check "bad plan 404" 'Active plan not found' "$(curl -s -X POST $B/payments/demo/order -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"plan_id":999}')"
 
 echo "=== Booking lifecycle ==="
 TOMORROW=$(date -d "+1 day" +%Y-%m-%d 2>/dev/null || date -v+1d +%Y-%m-%d)
 BK=$(curl -s -X POST $B/bookings -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d "{\"service_id\":1,\"booking_date\":\"$TOMORROW\",\"booking_time\":\"09:00\"}")
 check "booking auto-assigned" '"status":"assigned"' "$BK"
-PIN=$(jget "$BK" pin_code); BID=$(jget "$BK" booking_id)
-echo "   booking id=$BID pin=$PIN"
+PIN=$(jget "$BK" pin_code); CPIN=$(jget "$BK" completion_pin); BID=$(jget "$BK" booking_id)
+echo "   booking id=$BID start_pin=$PIN completion_pin=$CPIN"
 check "past date rejected" 'cannot be in the past' "$(curl -s -X POST $B/bookings -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"service_id":1,"booking_date":"2020-01-01","booking_time":"09:00"}')"
 check "bad time rejected" 'booking_time' "$(curl -s -X POST $B/bookings -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d "{\"service_id\":1,\"booking_date\":\"$TOMORROW\",\"booking_time\":\"25:99\"}")"
 check "bad service id rejected" 'service_id' "$(curl -s -X POST $B/bookings -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d "{\"service_id\":\"abc\",\"booking_date\":\"$TOMORROW\",\"booking_time\":\"09:00\"}")"
@@ -56,20 +59,28 @@ MY=$(curl -s $B/bookings/my -H "Authorization: Bearer $CTOK")
 check "my bookings lowercase" '"status":"assigned"' "$MY"
 if echo "$MY" | grep -q '"pinCode":"'; then fail=$((fail+1)); echo "FAIL: PIN leaked"; else pass=$((pass+1)); echo "PASS: PIN hidden"; fi
 
-echo "=== Provider PIN flow ==="
+echo "=== Provider PIN flow (photo-gated lifecycle) ==="
+printf '\x89PNG\r\n\x1a\nLUXORA-PNG-BYTES' > luxora-smoke.png
+printf '#!/bin/sh\nrm -rf /' > luxora-smoke.txt
+check "spoofed photo rejected (text bytes, .png name)" 'genuine JPEG or PNG' "$(curl -s -X POST $B/bookings/$BID/photos -H "Authorization: Bearer $PTOK" -F 'kind=BEFORE' -F 'photos=@luxora-smoke.txt;type=image/png')"
+check "before photo uploaded" '"photos"' "$(curl -s -X POST $B/bookings/$BID/photos -H "Authorization: Bearer $PTOK" -F 'kind=BEFORE' -F 'photos=@luxora-smoke.png;type=image/png')"
 check "wrong PIN rejected" 'Invalid PIN' "$(curl -s -X PUT $B/bookings/$BID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d '{"status":"in_progress","pin_code":"0000"}')"
 check "correct PIN starts" 'in_progress' "$(curl -s -X PUT $B/bookings/$BID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d "{\"status\":\"in_progress\",\"pin_code\":\"$PIN\"}")"
+check "after photo uploaded" '"photos"' "$(curl -s -X POST $B/bookings/$BID/photos -H "Authorization: Bearer $PTOK" -F 'kind=AFTER' -F 'photos=@luxora-smoke.png;type=image/png')"
+check "correct PIN completes" 'completed' "$(curl -s -X PUT $B/bookings/$BID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d "{\"status\":\"completed\",\"pin_code\":\"$CPIN\"}")"
 
 echo "--- PIN lockout ---"
 LK_BK=$(curl -s -X POST $B/bookings -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d "{\"service_id\":1,\"booking_date\":\"$TOMORROW\",\"booking_time\":\"14:00\"}")
 LK_ID=$(jget "$LK_BK" booking_id)
 LK_PIN=$(jget "$LK_BK" pin_code)
+check "provider claims pending booking" 'assigned' "$(curl -s -X PUT $B/bookings/$LK_ID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d '{"status":"assigned"}')"
+curl -s -X POST $B/bookings/$LK_ID/photos -H "Authorization: Bearer $PTOK" -F 'kind=BEFORE' -F 'photos=@luxora-smoke.png;type=image/png' > /dev/null
 for i in 1 2 3 4 5; do curl -s -X PUT $B/bookings/$LK_ID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d '{"status":"in_progress","pin_code":"0000"}' > /dev/null; done
 check "5 wrong PINs → lockout" 'locked' "$(curl -s -X PUT $B/bookings/$LK_ID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d '{"status":"in_progress","pin_code":"0000"}')"
 check "correct PIN also blocked while locked" 'locked' "$(curl -s -X PUT $B/bookings/$LK_ID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d "{\"status\":\"in_progress\",\"pin_code\":\"$LK_PIN\"}")"
 PIN_LEAK=$(curl -s $B/bookings/my -H "Authorization: Bearer $CTOK" | grep -c '"pinAttempts"\|"pinLockedUntil"\|"pinCode"' || true)
 if [ "$PIN_LEAK" -eq 0 ]; then pass=$((pass+1)); echo "PASS: all PIN/security fields hidden"; else fail=$((fail+1)); echo "FAIL: pin fields leaked ($PIN_LEAK matches)"; fi
-check "re-complete blocked (double payout)" 'Cannot move' "$(curl -s -X PUT $B/bookings/$BID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d "{\"status\":\"completed\",\"pin_code\":\"$PIN\"}" ; curl -s -X PUT $B/bookings/$BID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d "{\"status\":\"completed\",\"pin_code\":\"$PIN\"}")"
+check "re-complete blocked (double payout)" 'Cannot move' "$(curl -s -X PUT $B/bookings/$BID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d "{\"status\":\"completed\",\"pin_code\":\"$CPIN\"}" ; curl -s -X PUT $B/bookings/$BID/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d "{\"status\":\"completed\",\"pin_code\":\"$CPIN\"}")"
 check "missing booking 404" 'Booking not found' "$(curl -s -X PUT $B/bookings/99999/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d '{"status":"completed","pin_code":"1234"}')"
 EARN=$(curl -s $B/provider/earnings -H "Authorization: Bearer $PTOK")
 if echo "$EARN" | grep -q '"earnings":'; then pass=$((pass+1)); echo "PASS: earnings endpoint (accumulates across runs)"; else fail=$((fail+1)); echo "FAIL: earnings — $EARN"; fi
@@ -81,7 +92,9 @@ check "duplicate rejected" 'already' "$(curl -s -X POST $B/reviews -H "Authoriza
 check "review others' booking rejected" 'not eligible' "$(curl -s -X POST $B/reviews -H "Authorization: Bearer $ATOK" -H 'Content-Type: application/json' -d "{\"booking_id\":$BID,\"rating\":3}")"
 
 echo "=== Complaints ==="
-check "complaint created" 'registered' "$(curl -s -X POST $B/complaints -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"subject":"Late","description":"30 min late."}')"
+CMP=$(curl -s -X POST $B/complaints -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"subject":"Late","description":"30 min late."}')
+check "complaint created" 'registered' "$CMP"
+CID=$(python -c "import sys,json;d=json.loads(sys.argv[1]);print(d.get('id') or d.get('complaint',{}).get('id',''))" "$CMP")
 check "empty subject rejected" 'required' "$(curl -s -X POST $B/complaints -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"subject":"","description":"x"}')"
 check "others' booking rejected" 'not found among your bookings' "$(curl -s -X POST $B/complaints -H "Authorization: Bearer $ATOK" -H 'Content-Type: application/json' -d "{\"booking_id\":$BID,\"subject\":\"S\",\"description\":\"D\"}")"
 
@@ -98,7 +111,7 @@ check "providers flattened" '"kyc_status"' "$PROVLIST"
 check "admin bookings lowercase" '"status":"completed"' "$(curl -s $B/admin/bookings -H "Authorization: Bearer $ATOK")"
 check "admin blocks provider" 'insufficient permissions' "$(curl -s $B/admin/stats -H "Authorization: Bearer $PTOK")"
 check "admin blocks customer" 'insufficient permissions' "$(curl -s $B/admin/stats -H "Authorization: Bearer $CTOK")"
-check "admin complaint lowercase update" 'in_review' "$(curl -s -X PUT $B/admin/complaints/1 -H "Authorization: Bearer $ATOK" -H 'Content-Type: application/json' -d '{"status":"in_review"}')"
+check "admin complaint lowercase update" 'in_review' "$(curl -s -X PUT $B/admin/complaints/$CID -H "Authorization: Bearer $ATOK" -H 'Content-Type: application/json' -d '{"status":"in_review"}')"
 check "admin booking invalid status rejected" 'Invalid status' "$(curl -s -X PUT $B/admin/bookings/$BID -H "Authorization: Bearer $ATOK" -H 'Content-Type: application/json' -d '{"status":"nonsense"}')"
 check "KYC invalid status rejected" 'must be one of' "$(curl -s -X PUT $B/admin/providers/1/kyc -H "Authorization: Bearer $ATOK" -H 'Content-Type: application/json' -d '{"status":"maybe"}')"
 
@@ -120,11 +133,15 @@ check "mark all read" 'All notifications' "$(curl -s -X PUT $B/notifications/rea
 check "mark read 404" 'not found' "$(curl -s -X PUT $B/notifications/999999/read -H "Authorization: Bearer $CTOK")"
 
 echo "=== Cancel flow ==="
+# The earlier bookings consumed the plan's Auto units — buy a fresh package first.
+ORD2=$(curl -s -X POST $B/payments/demo/order -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"plan_id":1}')
+curl -s -X POST $B/payments/demo/$(jget "$ORD2" payment_id)/complete -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d '{"outcome":"success"}' > /dev/null
 BK2=$(curl -s -X POST $B/bookings -H "Authorization: Bearer $CTOK" -H 'Content-Type: application/json' -d "{\"service_id\":2,\"booking_date\":\"$TOMORROW\",\"booking_time\":\"10:00\"}")
 BID2=$(jget "$BK2" pin_code >/dev/null; jget "$BK2" booking_id)
 check "cancel works" 'cancelled' "$(curl -s -X PUT $B/bookings/$BID2/cancel -H "Authorization: Bearer $CTOK")"
 check "cancel twice rejected" 'Only pending or assigned' "$(curl -s -X PUT $B/bookings/$BID2/cancel -H "Authorization: Bearer $CTOK")"
-check "provider notified of cancellation" 'cancelled by the customer' "$(curl -s $B/notifications -H "Authorization: Bearer $PTOK")"
+check "cancellation notified" 'has been cancelled' "$(curl -s $B/notifications -H "Authorization: Bearer $CTOK")"
+rm -f luxora-smoke.png luxora-smoke.txt
 
 echo "=== Edge / abuse ==="
 check "negative id handled" 'error' "$(curl -s -X PUT $B/bookings/-1/status -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' -d '{"status":"completed","pin_code":"1"}')"

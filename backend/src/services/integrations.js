@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { Prisma } from '@prisma/client';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
@@ -71,7 +72,9 @@ export function createPayHereFields({ amount, currency = 'LKR', orderId, custome
   if (required.length) throw new Error(`Missing env: ${required.join(', ')}`);
   const merchantId = process.env.PAYHERE_MERCHANT_ID;
   const md5 = (value) => crypto.createHash('md5').update(value).digest('hex').toUpperCase();
-  const value = Number(amount).toFixed(2);
+  // Amount may arrive as a Prisma.Decimal (exact money) — format it without a
+  // round-trip through binary floating point.
+  const value = Prisma.Decimal.isDecimal(amount) ? amount.toFixed(2) : Number(amount).toFixed(2);
   const hash = md5(merchantId + orderId + value + currency + md5(process.env.PAYHERE_MERCHANT_SECRET));
   return { merchant_id: merchantId, order_id: orderId, items: customer.items || 'Luxora service', amount: value, currency, first_name: customer.firstName || 'Luxora', last_name: customer.lastName || 'Customer', email: customer.email || '', phone: customer.phone || '', address: customer.address || '', city: customer.city || '', country: 'Sri Lanka', return_url: returnUrl, cancel_url: cancelUrl, hash };
 }
@@ -80,5 +83,8 @@ export function verifyPayHereWebhook({ merchant_id, order_id, payhere_amount, st
   if (!process.env.PAYHERE_MERCHANT_SECRET) return false;
   const md5 = (value) => crypto.createHash('md5').update(value).digest('hex').toUpperCase();
   const expected = md5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + md5(process.env.PAYHERE_MERCHANT_SECRET));
-  return merchant_id === process.env.PAYHERE_MERCHANT_ID && Boolean(md5sig) && md5sig.toUpperCase() === expected;
+  if (merchant_id !== process.env.PAYHERE_MERCHANT_ID || !md5sig) return false;
+  const provided = Buffer.from(String(md5sig).toUpperCase(), 'utf8');
+  const computed = Buffer.from(expected, 'utf8');
+  return provided.length === computed.length && crypto.timingSafeEqual(provided, computed);
 }
