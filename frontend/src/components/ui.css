@@ -1,0 +1,126 @@
+/* Shared dialog/filter primitives — reuse the portal --p-* tokens so dialogs
+   inherit each portal's accent colour. */
+
+.ui-overlay{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:22px;background:rgba(4,5,5,.66);backdrop-filter:blur(7px);animation:ui-fade .18s ease}
+.ui-modal{width:min(540px,100%);max-height:min(86vh,860px);display:flex;flex-direction:column;background:#141615;border:1px solid var(--p-line,#2a2d2c);border-radius:14px;box-shadow:0 30px 70px rgba(0,0,0,.5);animation:ui-pop .2s cubic-bezier(.22,1,.36,1)}
+.ui-modal--wide{width:min(880px,100%)}
+.ui-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px 24px 0}
+.ui-modal-head h3{margin:2px 0 0;font-size:19px;letter-spacing:-.02em}
+.ui-modal-head .portal-kicker{margin:0}
+.ui-modal-close{border:1px solid var(--p-line,#2a2d2c);background:#191b1a;color:#cfd0cb;width:30px;height:30px;border-radius:7px;font-size:12px}
+.ui-modal-close:hover{color:#fff;border-color:#4a4c48}
+.ui-modal-body{padding:16px 24px 20px;overflow:auto}
+.ui-modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:0 24px 20px}
+.ui-confirm-message{margin:2px 0 4px;color:#d6d4cc;font-size:14px;line-height:1.55}
+.ui-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ui-field{display:grid;gap:6px;min-width:0}
+.ui-field--full{grid-column:1/-1}
+.ui-field>span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--p-muted,#989b96)}
+.ui-field input,.ui-field select,.ui-field textarea{width:100%;box-sizing:border-box;background:#0e0f0f;border:1px solid var(--p-line,#2a2d2c);border-radius:8px;color:var(--p-text,#f3f1eb);padding:10px 12px;font:500 13.5px var(--font-primary,inherit)}
+.ui-field textarea{resize:vertical}
+.ui-field input:focus,.ui-field select:focus,.ui-field textarea:focus{outline:none;border-color:var(--p-accent,#c5a764)}
+.ui-field small{color:var(--p-muted,#989b96);font-size:11px}
+.ui-field-error{margin:10px 0 0;color:var(--p-red,#ce807a);font-size:12.5px}
+.ui-button--danger{background:var(--p-red,#ce807a);color:#1c0f0e;border:0;border-radius:8px;padding:10px 18px;font:700 13px var(--font-primary,inherit)}
+.ui-button--danger:hover{filter:brightness(1.06)}
+
+/* Filter pills + search */
+.ui-pills{display:flex;flex-wrap:wrap;gap:6px}
+.ui-pills button{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--p-line,#2a2d2c);background:#121413;color:#b9bab4;border-radius:999px;padding:6px 13px;font:650 11.5px var(--font-primary,inherit);transition:.18s ease}
+.ui-pills button b{font-size:10px;color:var(--p-muted,#989b96)}
+.ui-pills button:hover{color:#fff;border-color:#4a4c48}
+.ui-pills button.is-active{color:var(--p-accent,#c5a764);border-color:var(--p-accent,#c5a764);background:rgba(197,167,100,.07)}
+.ui-search{display:flex;align-items:center;gap:8px;background:#101211;border:1px solid var(--p-line,#2a2d2c);border-radius:9px;padding:8px 12px;min-width:220px}
+.ui-search span{color:var(--p-accent,#c5a764);font-size:15px;line-height:1}
+.ui-search input{background:none;border:0;color:var(--p-text,#f3f1eb);font:500 13px var(--font-primary,inherit);width:100%}
+.ui-search input:focus{outline:none}
+.ui-search input::placeholder{color:#6f726d}
+
+/* Notification bell (PortalShell topbar) */
+.portal-bell{position:relative;border:1px solid var(--p-line,#2a2d2c);background:#181a18;color:#d8d9d3;width:36px;height:36px;border-radius:9px;font-size:15px;line-height:1}
+.portal-bell:hover{border-color:#4a4c48;color:#fff}
+.portal-bell-badge{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--p-accent,#c5a764);color:var(--p-accent-ink,#17140d);font:800 10px/17px var(--font-primary,inherit);text-align:center}
+.ui-notification-list{display:grid;gap:8px;max-height:52vh;overflow:auto;padding-right:2px}
+.ui-notification-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;border:1px solid var(--p-line,#2a2d2c);background:#111312;border-radius:10px;padding:12px 14px;text-align:left;color:#d6d4cc;font-size:13px}
+.ui-notification-item.is-unread{border-color:rgba(197,167,100,.4)}
+.ui-notification-item>i{width:7px;height:7px;margin-top:6px;border-radius:50%;background:var(--p-accent,#c5a764)}
+.ui-notification-item small{display:block;color:var(--p-muted,#989b96);margin-top:4px;font-size:11px}
+
+/* Provider calendar */
+.provider-calendar{border:1px solid var(--p-line,#2a2d2c);border-radius:14px;background:#111212;padding:16px;align-self:start}
+.provider-calendar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.provider-calendar-head b{font-size:13.5px;letter-spacing:.02em;text-transform:capitalize}
+.provider-calendar-head button{border:1px solid var(--p-line,#2a2d2c);background:#181a18;color:#cfD0ca;width:28px;height:28px;border-radius:7px}
+.provider-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.provider-calendar-grid span{font:700 9.5px var(--font-primary,inherit);color:var(--p-muted,#989b96);text-align:center;text-transform:uppercase;letter-spacing:.08em;padding:4px 0}
+.provider-calendar-day{position:relative;border:0;background:none;color:#c9cac4;border-radius:8px;min-height:38px;font:600 12.5px var(--font-primary,inherit);display:grid;place-items:center;gap:0}
+.provider-calendar-day:hover{background:#1a1c1a;color:#fff}
+.provider-calendar-day.is-today{box-shadow:inset 0 0 0 1px var(--p-accent,#c5a764)}
+.provider-calendar-day.is-selected{background:var(--p-accent,#c5a764);color:var(--p-accent-ink,#17140d)}
+.provider-calendar-day.is-empty{visibility:hidden}
+.provider-calendar-day i{display:flex;gap:3px;position:absolute;bottom:5px}
+.provider-calendar-day i b{width:4px;height:4px;border-radius:50%;background:var(--p-accent,#c5a764)}
+.provider-calendar-day.is-selected i b{background:var(--p-accent-ink,#17140d)}
+.provider-calendar-foot{margin-top:10px;color:var(--p-muted,#989b96);font-size:11.5px}
+
+/* Customer booking wizard */
+.booking-wizard{display:grid;gap:18px}
+.wizard-steps{display:flex;gap:8px}
+.wizard-steps span{flex:1;border:1px solid var(--p-line,#2a2d2c);border-radius:999px;padding:6px 12px;font:700 10px var(--font-primary,inherit);letter-spacing:.1em;text-transform:uppercase;color:var(--p-muted,#989b96);text-align:center}
+.wizard-steps span.is-active{color:var(--p-accent,#c5a764);border-color:var(--p-accent,#c5a764)}
+.wizard-category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.wizard-category{border:1px solid var(--p-line,#2a2d2c);background:#111212;border-radius:13px;padding:18px;text-align:left;color:var(--p-text,#f3f1eb);transition:.18s ease}
+.wizard-category i{font-style:normal;color:var(--p-accent,#c5a764);font-size:19px}
+.wizard-category b{display:block;margin:9px 0 3px;font-size:15px}
+.wizard-category small{color:var(--p-muted,#989b96);font-size:11.5px}
+.wizard-category:hover{border-color:#4a4c48;transform:translateY(-1px)}
+.wizard-category.is-selected{border-color:var(--p-accent,#c5a764);box-shadow:0 0 0 1px var(--p-accent,#c5a764) inset}
+.wizard-review{display:grid;gap:9px;border:1px dashed var(--p-line,#2a2d2c);border-radius:12px;padding:16px 18px}
+.wizard-review div{display:flex;justify-content:space-between;gap:14px;font-size:13.5px}
+.wizard-review span{color:var(--p-muted,#989b96)}
+.wizard-review b{text-align:right}
+.wizard-actions{display:flex;justify-content:space-between;gap:10px}
+
+/* Booking confirmed / PIN display */
+.pin-display{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.pin-display div{border:1px solid rgba(197,167,100,.4);background:rgba(197,167,100,.06);border-radius:12px;padding:14px;text-align:center}
+.pin-display span{display:block;font-size:10px;font-weight:750;letter-spacing:.16em;text-transform:uppercase;color:var(--p-muted,#989b96)}
+.pin-display b{font:700 30px/1.2 var(--font-display,inherit);letter-spacing:.24em;color:var(--p-accent,#c5a764)}
+
+/* Receipt / invoice */
+.ui-receipt{font-size:13px;color:#d8d6ce}
+.ui-receipt-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--p-line,#2a2d2c);padding-bottom:14px;margin-bottom:14px}
+.ui-receipt-head b{font:700 20px var(--font-display,inherit);letter-spacing:.04em}
+.ui-receipt-head small{display:block;color:var(--p-muted,#989b96)}
+.ui-receipt dl{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin:0}
+.ui-receipt dl div{display:grid;gap:2px}
+.ui-receipt dt{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--p-muted,#989b96)}
+.ui-receipt dd{margin:0;font-weight:600}
+.ui-receipt-total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--p-line,#2a2d2c);margin-top:16px;padding-top:14px}
+.ui-receipt-total b{font-size:21px;color:var(--p-accent,#c5a764)}
+
+/* KYC viewer */
+.kyc-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.kyc-gallery button{border:1px solid var(--p-line,#2a2d2c);background:#121413;color:#c9cac4;border-radius:9px;padding:9px 13px;font:650 12px var(--font-primary,inherit)}
+.kyc-gallery button.is-active{color:var(--p-accent,#c5a764);border-color:var(--p-accent,#c5a764)}
+.kyc-preview{border:1px solid var(--p-line,#2a2d2c);border-radius:12px;overflow:hidden;background:#0c0d0d;min-height:260px;display:grid;place-items:center}
+.kyc-preview img{max-width:100%;max-height:52vh;display:block}
+.kyc-preview iframe{width:100%;height:52vh;border:0;background:#fff}
+.kyc-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:12px;color:var(--p-muted,#989b96);font-size:12.5px}
+.kyc-meta b{color:var(--p-text,#f3f1eb)}
+
+/* Print: only the receipt (or chosen print target) is printed */
+@media print{
+  body{background:#fff}
+  body *{visibility:hidden}
+  .print-target,.print-target *{visibility:visible}
+  .print-target{position:absolute;inset:0 auto auto 0;width:100%;max-height:none;border:0;box-shadow:none;background:#fff;color:#111;animation:none}
+  .print-target .ui-modal-close,.print-target .ui-modal-foot{display:none}
+  .print-target .ui-receipt,.print-target .ui-receipt *{color:#111!important}
+  .print-target dt,.print-target small,.print-target .kyc-meta{color:#555!important}
+  .print-target .ui-receipt-total b{color:#111!important}
+}
+
+@keyframes ui-fade{from{opacity:0}}
+@keyframes ui-pop{from{opacity:0;transform:translateY(9px) scale(.97)}}
+@media(prefers-reduced-motion:reduce){.ui-overlay,.ui-modal{animation:none}}

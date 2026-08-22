@@ -3,6 +3,8 @@ import './PortalShell.css'
 import './PortalPolish.css'
 import './PortalMotion.css'
 import './PortalSpatial.css'
+import { Modal } from './ui'
+import { useNotifications } from '../hooks/useNotifications'
 
 const glyphs = ['◈', '◌', '◇', '▣', '◫', '○', '⋮', '◐', '□', '◎', '△']
 
@@ -24,6 +26,7 @@ export function LoadingState({ title = 'Preparing your workspace' }) {
 
 export default function PortalShell({ role, title, heroTitle = title, subtitle, userName, navItems, onSignOut, children, actions, notice }) {
   const isCustomer = role.toLowerCase() === 'customer'
+  const notifications = useNotifications(sessionStorage.getItem('token'))
   const [active, setActive] = useState(navItems[0]?.id)
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -135,8 +138,20 @@ export default function PortalShell({ role, title, heroTitle = title, subtitle, 
         {isCustomer && <button className="portal-header-brand" onClick={() => jump(navItems[0]?.id)} aria-label="Go to customer overview"><b>L</b><span>Luxora</span><em>Customer portal</em></button>}
         <div className="portal-title-block"><p className="portal-kicker">{role} · Luxora</p><h1>{title}</h1></div>
         {isCustomer && <nav className="portal-header-nav" aria-label="Customer sections">{navItems.map((item) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}>{item.label}</button>)}</nav>}
-        <div className="portal-top-actions">{actions}<span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span><div className="portal-session"><b>{(userName || role).slice(0, 1).toUpperCase()}</b><span><strong>{userName || role}</strong><small>{role}</small></span></div><button className="portal-signout portal-signout--top" onClick={onSignOut}>Sign out</button></div><i className="portal-scroll-progress" aria-hidden="true" />
+        <div className="portal-top-actions">{actions}<button className="portal-bell" onClick={() => notifications.setOpen(true)} aria-label={`Notifications${notifications.unread ? ` (${notifications.unread} unread)` : ''}`}><span aria-hidden="true">🔔</span>{notifications.unread > 0 && <b className="portal-bell-badge">{notifications.unread > 9 ? '9+' : notifications.unread}</b>}</button><span className="portal-date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span><div className="portal-session"><b>{(userName || role).slice(0, 1).toUpperCase()}</b><span><strong>{userName || role}</strong><small>{role}</small></span></div><button className="portal-signout portal-signout--top" onClick={onSignOut}>Sign out</button></div><i className="portal-scroll-progress" aria-hidden="true" />
       </header>
+      {notifications.open && <Modal kicker="Stay informed" title="Notifications" onClose={() => notifications.setOpen(false)} footer={<>
+        <button className="ui-button ui-button--secondary" onClick={notifications.markAllRead} disabled={!notifications.unread}>Mark all as read</button>
+        <button className="ui-button ui-button--text" onClick={() => notifications.setOpen(false)}>Close</button>
+      </>}>
+        <div className="ui-notification-list">
+          {notifications.items.length ? notifications.items.map((item) => <button key={item.id} className={`ui-notification-item ${item.read ? '' : 'is-unread'}`} onClick={() => !item.read && notifications.markRead(item.id)}>
+            <i aria-hidden="true" />
+            <span>{item.message}</span>
+            <small>{item.read ? 'Read' : 'New'}<br />{item.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''}</small>
+          </button>) : <p className="quiet-copy" style={{ margin: 0 }}>There are no notifications yet.</p>}
+        </div>
+      </Modal>}
       <div className="portal-content"><div className={`portal-intro portal-intro--${role.toLowerCase()}`}><div><p className="portal-kicker">Private service, beautifully managed</p><h2>{heroTitle}</h2><p>{subtitle}</p></div><div className="portal-intro-mark">L</div></div>{notice && <div role="status" className="portal-notice">{notice}</div>}{children}</div>
       <nav className="portal-mobile-nav" aria-label="Mobile navigation">{navItems.slice(0, 5).map((item, index) => <button key={item.id} className={active === item.id ? 'is-active' : ''} onClick={() => jump(item.id)}><i>{glyphs[index]}</i><span>{item.label}</span></button>)}</nav>
     </main>
