@@ -24,20 +24,22 @@ export function LoadingState({ title = 'Preparing your workspace' }) {
   return <main className="portal-loading"><div className="portal-loader-brand">L</div><p>{title}</p><div className="portal-skeletons"><i /><i /><i /></div></main>
 }
 
-export default function PortalShell({ role, title, heroTitle = title, subtitle, userName, navItems, onSignOut, children, actions, notice }) {
+export default function PortalShell({ role, title, heroTitle = title, subtitle, userName, navItems, onSignOut, children, actions, notice, activeId, onNavigate }) {
   const isCustomer = role.toLowerCase() === 'customer'
   const notifications = useNotifications(sessionStorage.getItem('token'))
-  const [active, setActive] = useState(navItems[0]?.id)
+  const [internalActive, setInternalActive] = useState(navItems[0]?.id)
+  const active = activeId ?? internalActive
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   useEffect(() => {
+    if (onNavigate) return undefined // controlled page mode: the host decides what "active" means
     const onScroll = () => {
       const current = navItems.findLast?.((item) => document.getElementById(item.id)?.getBoundingClientRect().top < 170)
-      if (current) setActive(current.id)
+      if (current) setInternalActive(current.id)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [navItems])
+  }, [navItems, onNavigate])
   useEffect(() => {
     const root = rootRef.current
     if (!root || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
@@ -123,7 +125,11 @@ export default function PortalShell({ role, title, heroTitle = title, subtitle, 
       hero?.removeEventListener('pointermove', moveHero); hero?.removeEventListener('pointerleave', leaveHero); window.removeEventListener('scroll', updateScrollProgress); cancelAnimationFrame(frame); cancelAnimationFrame(pointerFrame)
     }
   }, [role, children])
-  const jump = (id) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setActive(id); setOpen(false) }
+  const jump = (id) => {
+    setOpen(false)
+    if (onNavigate) { onNavigate(id); return }
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setInternalActive(id)
+  }
   return <div ref={rootRef} className={`portal-app portal-app--${role.toLowerCase()}`}>
     <div className="portal-environment" aria-hidden="true"><i /><i /><i /></div>
     <aside className={`portal-rail ${isCustomer ? 'portal-rail--customer' : ''} ${open ? 'is-open' : ''}`} aria-label={`${role} navigation`}>
