@@ -113,6 +113,24 @@ const ProviderDashboard = () => {
   const [photoError, setPhotoError] = useState('')
   /* Settings form */
   const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', services: [], towns: [], provinces: [] })
+  const [townSearch, setTownSearch] = useState('')
+  const [areaMode, setAreaMode] = useState('towns')
+
+  const toggleSettingsTown = (town) => {
+    setSettingsForm((prev) => {
+      if (prev.towns.includes(town)) return { ...prev, towns: prev.towns.filter((t) => t !== town), provinces: [] }
+      if (prev.towns.length >= 10) return prev
+      return { ...prev, towns: [...prev.towns, town], provinces: [] }
+    })
+  }
+  const switchToProvinceMode = () => {
+    setAreaMode('provinces')
+    setSettingsForm((prev) => ({ ...prev, towns: [] }))
+  }
+  const switchToTownMode = () => {
+    setAreaMode('towns')
+    setSettingsForm((prev) => ({ ...prev, provinces: [] }))
+  }
 
   const mapBookingRow = (booking) => {
     const date = new Date(`${booking.bookingDate}T00:00:00`)
@@ -283,12 +301,12 @@ const ProviderDashboard = () => {
       ? { ...prev, provinces: prev.provinces.filter((p) => p !== prov) }
       : { ...prev, provinces: [...prev.provinces, prov], towns: [] })
   }
-  const changeSettingsTowns = (event) => {
-    setSettingsForm((prev) => ({ ...prev, towns: [...event.target.selectedOptions].map((o) => o.value), provinces: [] }))
-  }
 
   const openSettings = () => {
     const tokens = (serviceTowns || '').split(',').map((t) => t.trim()).filter(Boolean)
+    const provinces = tokens.filter((t) => t.endsWith('Province')).map((t) => t.replace(/ Province$/, ''))
+    setTownSearch('')
+    setAreaMode(provinces.length ? 'provinces' : 'towns')
     setSettingsForm({
       name: currentProvider.name || providerFullName,
       phone: savedProviderPhone() ?? (currentProvider.phone || currentProvider.mobile || ''),
@@ -1177,81 +1195,115 @@ const ProviderDashboard = () => {
                 </div>
               </div>
 
-              {/* Service area: towns XOR provinces */}
+              {/* Service area: mode switch — towns picker or province chips */}
               <div className="pd-edit-field">
-                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>
-                  SERVICE AREA — TOWNS <span style={{ color: '#888' }}>or</span> PROVINCES *
-                </label>
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>SERVICE AREA *</label>
 
-                <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                  {PROVINCE_NAMES.map((prov) => {
-                    const isSelected = settingsForm.provinces.includes(prov)
-                    const disabled = settingsForm.towns.length > 0
-                    return (
-                      <button
-                        key={prov}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => toggleSettingsProvince(prov)}
-                        title={disabled ? 'Clear town selection first' : `Serve all of ${prov} Province`}
-                        style={{
-                          background: isSelected ? 'rgba(201, 168, 76, 0.2)' : '#16161a',
-                          border: isSelected ? '1px solid var(--gold, #c9a84c)' : '1px solid #333',
-                          color: isSelected ? 'var(--gold, #c9a84c)' : disabled ? '#555' : '#aaa',
-                          padding: '0.35rem 0.75rem',
-                          borderRadius: '16px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: disabled ? 'not-allowed' : 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        {isSelected ? '✓ ' : ''}{prov}
-                      </button>
-                    )
-                  })}
+                <div className="pd-area-mode">
+                  <button
+                    type="button"
+                    className={`pd-area-mode__btn ${areaMode === 'towns' ? 'pd-area-mode__btn--active' : ''}`}
+                    onClick={switchToTownMode}
+                  >
+                    📍 SELECT BY TOWN
+                  </button>
+                  <button
+                    type="button"
+                    className={`pd-area-mode__btn ${areaMode === 'provinces' ? 'pd-area-mode__btn--active' : ''}`}
+                    onClick={switchToProvinceMode}
+                  >
+                    🗺 SELECT BY PROVINCE
+                  </button>
                 </div>
-                {settingsForm.provinces.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSettingsForm((prev) => ({ ...prev, provinces: [] }))}
-                    style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer', padding: 0, marginBottom: '0.4rem', display: 'block' }}
-                  >
-                    Clear province selection (re-enable towns)
-                  </button>
-                )}
 
-                <select
-                  multiple
-                  size={7}
-                  className="pd-area-select"
-                  disabled={settingsForm.provinces.length > 0}
-                  value={settingsForm.towns}
-                  onChange={changeSettingsTowns}
-                  title={settingsForm.provinces.length > 0 ? 'Clear province selection first' : 'Hold Ctrl / Cmd to select multiple towns'}
-                >
-                  {PROVINCE_NAMES.map((prov) => (
-                    <optgroup key={prov} label={`${prov} Province`}>
-                      {SRI_LANKA_AREAS[prov].map((town) => (
-                        <option key={town} value={town}>{town}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                {settingsForm.towns.length > 0 && settingsForm.provinces.length === 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSettingsForm((prev) => ({ ...prev, towns: [] }))}
-                    style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '0.7rem', textDecoration: 'underline', cursor: 'pointer', padding: 0, marginTop: '0.3rem', display: 'block' }}
-                  >
-                    Clear town selection (re-enable provinces)
-                  </button>
+                {areaMode === 'towns' ? (
+                  <>
+                    <input
+                      type="text"
+                      className="pd-edit-input"
+                      placeholder="🔍 Search towns…"
+                      value={townSearch}
+                      onChange={(e) => setTownSearch(e.target.value)}
+                      style={{ marginBottom: '0.5rem' }}
+                    />
+                    <div className="pd-town-list">
+                      {(() => {
+                        const q = townSearch.trim().toLowerCase()
+                        const groups = PROVINCE_NAMES
+                          .map((prov) => ({ prov, towns: SRI_LANKA_AREAS[prov].filter((t) => t.toLowerCase().includes(q)) }))
+                          .filter((g) => g.towns.length)
+                        if (!groups.length) return <p className="pd-avail__hint" style={{ padding: '0.6rem 0.4rem' }}>No towns match "{townSearch}".</p>
+                        return groups.map(({ prov, towns }) => (
+                          <div key={prov}>
+                            <div className="pd-town-group">{prov} Province</div>
+                            {towns.map((town) => (
+                              <label key={town} className="pd-town-check">
+                                <input
+                                  type="checkbox"
+                                  checked={settingsForm.towns.includes(town)}
+                                  onChange={() => toggleSettingsTown(town)}
+                                />
+                                <span>{town}</span>
+                                {settingsForm.towns.includes(town) && <span style={{ marginLeft: 'auto', color: 'var(--gold, #c9a84c)', fontSize: '0.7rem' }}>✓</span>}
+                              </label>
+                            ))}
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                    {settingsForm.towns.length > 0 && (
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                        {settingsForm.towns.map((town) => (
+                          <span key={town} className="pd-chip-x">
+                            {town}
+                            <button type="button" aria-label={`Remove ${town}`} onClick={() => toggleSettingsTown(town)}>✕</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.35rem' }}>
+                      {settingsForm.towns.length}/10 towns selected.
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                      {PROVINCE_NAMES.map((prov) => {
+                        const isSelected = settingsForm.provinces.includes(prov)
+                        return (
+                          <button
+                            key={prov}
+                            type="button"
+                            onClick={() => toggleSettingsProvince(prov)}
+                            style={{
+                              background: isSelected ? 'rgba(201, 168, 76, 0.2)' : '#16161a',
+                              border: isSelected ? '1px solid var(--gold, #c9a84c)' : '1px solid #333',
+                              color: isSelected ? 'var(--gold, #c9a84c)' : '#aaa',
+                              padding: '0.45rem 0.9rem',
+                              borderRadius: '16px',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            {isSelected ? '✓ ' : ''}{prov}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {settingsForm.provinces.length > 0 && (
+                      <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.35rem' }}>
+                        Covers every town in: {settingsForm.provinces.map((p) => `${p} Province`).join(', ')}.
+                      </small>
+                    )}
+                    {settingsForm.provinces.length === 0 && (
+                      <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.35rem' }}>
+                        Tap provinces to cover all their towns.
+                      </small>
+                    )}
+                  </>
                 )}
-                <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.3rem' }}>
-                  {settingsForm.provinces.length > 0
-                    ? `Province mode active — town selection disabled (${settingsForm.provinces.length} province(s) selected).`
-                    : `Town mode — hold Ctrl / Cmd to select up to 10 towns. Selected: ${settingsForm.towns.length ? `${settingsForm.towns.length} — ${settingsForm.towns.join(', ')}` : 'none'}`}
-                </small>
               </div>
 
               <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
