@@ -137,9 +137,9 @@ function normalizeServiceTowns(value) {
 
 // Google One Tap / button sign-in. The Google ID token (credential) is verified
 // by Google's tokeninfo endpoint; the audience must match this backend's
-// GOOGLE_CLIENT_ID and the email must be verified. New emails create a customer
-// account (providers still go through provider registration + KYC); existing
-// accounts keep their role and follow the same rules as password login.
+// GOOGLE_CLIENT_ID and the email must be verified. Google sign-in is for
+// CUSTOMER accounts only: new emails create a customer account, while existing
+// provider/admin accounts are asked to use their password sign-in instead.
 router.post('/google', authLimiter, async (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID
   if (!clientId) return res.status(503).json({ error: 'Google sign-in is not configured' })
@@ -159,6 +159,9 @@ router.post('/google', authLimiter, async (req, res) => {
   if (!valid) return res.status(401).json({ error: 'Invalid Google credential' });
   const email = String(profile.email).toLowerCase();
   let user = await prisma.user.findUnique({ where: { email } });
+  if (user && user.role !== 'CUSTOMER') {
+    return res.status(403).json({ error: 'This email belongs to a provider or admin account. Please sign in with your email and password.' });
+  }
   if (!user) {
     // No local password: the account signs in via Google; a password can be set
     // later through the normal email reset flow.
@@ -167,15 +170,8 @@ router.post('/google', authLimiter, async (req, res) => {
     sendEmail({ to: email, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${user.name}.</p><p>Your concierge account is ready.</p>` }).catch(() => {});
   }
   if (!user.active) return res.status(403).json({ error: 'This account has been deactivated. Contact Luxora support.' });
-  let provider = null;
-  if (user.role === 'PROVIDER') {
-    provider = await prisma.provider.findUnique({ where: { userId: user.id } });
-    if (!provider || provider.kycStatus !== 'APPROVED') {
-      return res.status(403).json({ error: provider?.kycStatus === 'REJECTED' ? 'Your provider verification was rejected. Contact Luxora support.' : 'Your provider verification is still pending.' });
-    }
-  }
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, phoneVerified: user.phoneVerified, town: user.town }, provider });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, phoneVerified: user.phoneVerified, town: user.town }, provider: null });
 });
 
 // Login — every account authenticates through the normal bcrypt.compare flow

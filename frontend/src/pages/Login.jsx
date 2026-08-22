@@ -10,7 +10,6 @@ const Login = () => {
   const [keepSigned, setKeepSigned] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
-  const googleConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
 
   // Forgot Password State
   const [showForgotModal, setShowForgotModal] = useState(false)
@@ -219,28 +218,20 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Google sign-in — only rendered when configured */}
-        {googleConfigured && (
-          <>
-            <div className="auth-or"><span>or</span></div>
-            <GoogleSignIn onSuccess={handleGoogle} onError={setErrorMsg} />
-          </>
-        )}
+        {/* Google sign-in for customer accounts */}
+        <div className="auth-or"><span>or</span></div>
+        <GoogleSignIn onSuccess={handleGoogle} onError={() => {}} />
 
         {/* Divider */}
         <div className="auth-divider">
           <span />
         </div>
 
-        {/* Footer — sign-up and provider onboarding as first-class options */}
+        {/* Footer */}
         <div className="auth-card__footer">
           <p className="auth-card__footer-text">New to the Luxora experience?</p>
           <Link to="/signup" className="auth-card__footer-link" id="login-goto-signup">
             CREATE AN ACCOUNT →
-          </Link>
-          <p className="auth-card__footer-text" style={{ marginTop: '0.9rem' }}>Joining as a service partner?</p>
-          <Link to="/provider-register" className="auth-card__footer-link" id="login-goto-provider" style={{ color: '#c9a84c' }}>
-            APPLY AS A PROVIDER →
           </Link>
         </div>
       </div>

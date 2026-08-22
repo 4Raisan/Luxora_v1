@@ -31,7 +31,6 @@ const Signup = () => {
   }
 
   const [errorMsg, setErrorMsg] = useState('')
-  const googleConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
 
   // Google sign-up signs in through the same backend verification and lands the
   // new customer straight in the portal, mirroring the password flow above.
@@ -303,13 +302,9 @@ const Signup = () => {
           </button>
         </form>
 
-        {/* Google sign-up — only rendered when configured */}
-        {googleConfigured && (
-          <>
-            <div className="auth-or"><span>or</span></div>
-            <GoogleSignIn onSuccess={handleGoogle} onError={setErrorMsg} />
-          </>
-        )}
+        {/* Google sign-up for customer accounts */}
+        <div className="auth-or"><span>or</span></div>
+        <GoogleSignIn onSuccess={handleGoogle} onError={() => {}} />
 
         {/* Divider */}
         <div className="auth-divider"><span /></div>

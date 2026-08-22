@@ -378,3 +378,12 @@
 .auth-or{display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:#8a8d88;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
 .auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.12)}
 .auth-google{display:flex;justify-content:center;margin-bottom:4px}
+
+/* Google sign-in option on the auth cards */
+.auth-or{display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:#8a8d88;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.12)}
+.auth-google{display:flex;flex-direction:column;align-items:center;gap:9px}
+.auth-google-fallback{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:320px;height:44px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:#f6f6f6;color:#1f1f1f;font:600 14px 'Inter',system-ui,sans-serif;cursor:pointer;transition:all .18s ease}
+.auth-google-fallback:hover{background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.auth-google-note{margin:0;color:#e0b937;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:8px 12px;font-size:11.5px;line-height:1.5;text-align:center;max-width:340px}
+.auth-google-caption{color:#7c7f7a;font-size:10.5px;letter-spacing:.03em;text-align:center}
