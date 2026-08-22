@@ -192,7 +192,7 @@ const PLANS = {
     {
       id: 'combo-home',
       tier: 'Luxora Home',
-      price: 18000,
+      price: 20000,
       highlight: false,
       summary: '4 total tokens across Auto, Garden & Pet',
       features: [
@@ -207,7 +207,7 @@ const PLANS = {
     {
       id: 'combo-family',
       tier: 'Luxora Family',
-      price: 27000,
+      price: 32000,
       highlight: true,
       summary: '8 total tokens across Auto, Garden & Pet',
       features: [
@@ -222,7 +222,7 @@ const PLANS = {
     {
       id: 'combo-prestige',
       tier: 'Luxora Prestige',
-      price: 36000,
+      price: 40000,
       highlight: false,
       summary: '12 total tokens across Auto, Garden & Pet',
       features: [
