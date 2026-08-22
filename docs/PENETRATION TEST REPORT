@@ -1,0 +1,160 @@
+WEB APPLICATION PENETRATION TEST REPORT
+
+Target: LUXORA — https://luxoralk.vercel.app/ Status: Checked report Prepared by: B.W.H.L. Bolukandura Student ID: CIT-24-02-0233 Course / Module: P:M: Date: 17 August 2026 Target Owner: Self-owned project (author-owned) Authorization: Granted by site owner (self)
+
+EXECUTIVE SUMMARY
+
+This report documents a security assessment performed against the web application hosted at https://luxoralk.vercel.app/ ("LUXORA"), carried out by the author as the site's own developer/owner for the purpose of a university security project. The objective was to evaluate the application's exposure to common web application vulnerabilities, following a methodology aligned with the OWASP Testing Guide and OWASP Top 10.
+
+This document is provided as a structured assessment template and working report. Sections 5 and 6 contain checklists that should be completed by executing the listed tools/tests against the target and recording the observed results, since live scanning requires tools (browser, Burp Suite / OWASP ZAP, SSL Labs, securityheaders.com, nmap) run from the tester's own machine or lab environment.
+
+Note on scope: because this is a lightweight, statically-hosted Vercel deployment, testing was restricted to non-destructive, passive/black-box techniques (reconnaissance, header analysis, configuration review). No exploitation, denial-of-service, brute-force, or destructive testing was performed or is recommended without additional written authorization.
+
+SCOPE & AUTHORIZATION
+Target: https://luxoralk.vercel.app/
+Owner: the author of this report (self-owned project)
+Authorization: verbal/self-authorization as the application owner, for academic assessment purposes only
+Testing window: [insert date/time of testing]
+Type of assessment: Grey-box, non-destructive web application security review
+Out of scope: underlying Vercel platform infrastructure, third-party services/APIs not controlled by the target, denial-of-service testing, social engineering
+METHODOLOGY
+
+The assessment follows the general phases recommended by the OWASP Web Security Testing Guide (WSTG):
+
+Reconnaissance & Information Gathering – identify technology stack, hosting, exposed metadata
+Mapping the Application – enumerate pages, routes, forms, and client-side assets
+Configuration & Deployment Management Testing – HTTP headers, TLS/SSL configuration, exposed files
+Identity, Authentication & Session Management Testing – if the app has login/session features
+Input Validation Testing – XSS, injection points in forms/query parameters
+Client-Side Testing – DOM XSS, exposed JavaScript source maps, hard-coded secrets
+Reporting – documenting findings, severity, and remediation guidance
+TOOLS RECOMMENDED FOR COMPLETING THIS ASSESSMENT
+securityheaders.com – automated HTTP response header analysis
+SSL Labs (ssllabs.com/ssltest) – TLS/SSL configuration grading
+OWASP ZAP or Burp Suite Community – automated + manual vulnerability scanning
+Browser DevTools (Network / Application tabs) – cookies, storage, exposed source maps
+nmap (from an authorized lab network) – open port / service enumeration, where permitted
+Wappalyzer / BuiltWith – technology stack fingerprinting
+RECONNAISSANCE — CONFIRMED FINDINGS
+
+(Confirmed through passive review of the publicly served page)
+
+Test Item	Result	Notes / Evidence
+Hosting platform	Vercel	Confirmed via Server header and x-vercel-id / x-vercel-cache headers
+Page title	"LUXORA | The Gold Standard of Modern Living"	
+Meta description	Present	"Bespoke concierge services for the world's most discerning homeowners..."
+Declared theme colour (meta)	
+#0b0b0d	
+IP Address	64.29.17.195	Vercel edge network IP (shared hosting, not a dedicated server)
+robots.txt present	Not tested	Recommend checking manually in browser
+sitemap.xml present	Not tested	Recommend checking manually in browser
+Authenticated area discovered	Yes	/customer-dashboard – requires sign-in; exposes account details (profile, phone verification, support, subscriptions) behind session auth
+SECURITY TESTING CHECKLIST
+6.1 HTTP Response Headers
+
+Tested using securityheaders.com (by Snyk) on 22 August 2026, 11:24 UTC. Overall grade returned: D.
+
+Test Item	Result	Notes / Evidence
+Content-Security-Policy present and restrictive	Fail	Header missing entirely – no protection against XSS/malicious asset loading
+Strict-Transport-Security (HSTS) present	Pass	max-age=63072000; includeSubDomains; preload
+X-Content-Type-Options: nosniff present	Fail	Header missing – browsers may MIME-sniff content
+X-Frame-Options / frame-ancestors set (clickjacking protection)	Fail	Header missing – page can potentially be framed/clickjacked
+Referrer-Policy configured	Fail	Header missing
+Permissions-Policy configured	Fail	Header missing
+Server / X-Powered-By header reveals version info	Partial	Server: Vercel (platform name disclosed, no specific software version)
+Access-Control-Allow-Origin (CORS)	Fail	Set to "*" (wildcard) – acceptable only for public static/CDN content, otherwise overly permissive
+Set-Cookie flags: Secure, HttpOnly, SameSite	N/A	No Set-Cookie header observed on this response (static page, no session in use)
+
+Summary: 5 of 6 recommended security headers are missing (only HSTS is correctly configured). This is the primary finding of this assessment – see Section 7.
+
+6.2 Transport Layer Security
+
+Tested using Qualys SSL Labs (ssllabs.com/ssltest) on 22 August 2026, 11:26 UTC.
+
+Test Item	Result	Notes / Evidence
+Valid TLS certificate, correct hostname	Pass	Confirmed independently – browser padlock shows a valid certificate and HTTPS loads without warnings
+TLS 1.2 / 1.3 only (no SSLv3/TLS 1.0/1.1)	Inconclusive	SSL Labs could not complete the handshake test against either backend IP (216.198.79.67, 64.29.17.67) – "Unexpected failure" / "Failed to communicate with the secure server"
+No mixed content (HTTP resources on HTTPS page)	Pass	No HTTP-loaded resources observed on the page
+HTTP → HTTPS redirect enforced	Pass	HSTS header present (Section 6.1) confirms HTTPS enforcement
+
+Note: Qualys SSL Labs was unable to complete its scan against luxoralk.vercel.app. This is a known limitation when scanning sites behind Vercel's shared edge/CDN network — SSL Labs' scanner sometimes cannot complete its full handshake battery against multi-tenant edge IPs that use SNI-based routing, and this is not itself evidence of a TLS misconfiguration. The certificate itself was independently verified as valid via the browser. For a conclusive TLS grade, this test should be re-run closer to the assessment date, or an alternative tool (e.g. testssl.sh from an authorized machine) should be used.
+
+6.3 Information Disclosure
+Test Item	Result	Notes / Evidence
+Exposed .env / config files		
+Exposed JavaScript source maps (.map files)		
+Verbose error messages / stack traces		
+Comments in HTML/JS revealing internal info		
+API keys or secrets visible in client-side bundle		
+Directory listing enabled anywhere		
+6.4 Input Validation & Client-Side Security
+Test Item	Result	Notes / Evidence
+Reflected XSS in forms / query parameters		
+Stored XSS in any user-generated content		
+DOM-based XSS in client-side scripts		
+CSRF protection on state-changing requests		
+Open redirect vulnerabilities		
+6.5 Authentication & Session Management (if applicable)
+
+Observed via browser DevTools on an authenticated session at /customer-dashboard, 22 August 2026.
+
+Test Item	Result	Notes / Evidence
+Passwords transmitted over HTTPS only	Pass	Entire session served over HTTPS; no HTTP fallback observed
+Dashboard route requires an authenticated session	Pass	/customer-dashboard renders account-specific data (name, email, phone) and a "Sign out" control, confirming a logged-in session gate
+Account lockout / rate limiting on login	Not tested	Would require repeated login attempts – out of scope for non-destructive testing
+Session tokens invalidated on logout	Not tested	Recommend manually confirming API calls return 401 after clicking "Sign out"
+Session tokens regenerated after login	Not tested	Requires comparing the cookie/token value before and after a fresh login
+No sensitive data stored in localStorage/sessionStorage	Not tested	Recommend checking DevTools → Application → Local/Session Storage while signed in
+
+Observation: the Profile tab pre-populates Name, Email and Phone directly from the account record, confirming the dashboard serves authenticated, user-specific data rather than static content. This data must only ever be served over an authenticated HTTPS session (confirmed above) and never cached at a shared/public layer.
+
+6.6 API & Third-Party Integration Security
+
+Observed via browser DevTools → Network tab while logged into the authenticated /customer-dashboard area.
+
+Test Item	Result	Notes / Evidence
+API endpoints require proper authentication	Likely Pass	Endpoints only returned data while an authenticated session was active; not independently verified by attempting unauthenticated access
+CORS policy correctly restricts allowed origins	Needs review	Preflight (OPTIONS) requests observed on every endpoint (support, dashboard, services, subscriptions, entitlements, notifications, mode) – confirm the Access-Control-Allow-Origin returned on these preflights is not "*", since Section 6.1 found a wildcard CORS header on the main page
+Rate limiting present on public API routes	Not tested	Would require repeated automated requests – out of scope for non-destructive testing
+No sensitive data over-exposed in API responses	Not fully tested	Response bodies were not inspected in detail; recommend checking the Preview/Response tab of each fetch call for over-exposed fields (e.g. internal IDs, other users' data)
+
+API surface discovered (via /customer-dashboard): endpoints named support, dashboard, services, subscriptions, entitlements, my, mode, and notifications, all called via fetch/XHR and fronted by CORS preflight checks. Status codes observed were normal (200/201/204/304), with no 4xx/5xx errors during this session, suggesting the endpoints are functioning as expected under authenticated use. A deeper test (e.g. attempting to call these endpoints without a valid session cookie/token, or from a different account) is recommended to properly verify authorization (IDOR/broken access control) — this was not performed here as it falls closer to active exploitation.
+
+FINDINGS SUMMARY
+
+(Complete this table once the checklists above have been executed, listing only genuine findings)
+
+Ref	Finding	Severity	Status
+F-01	Missing Content-Security-Policy header – no defence-in-depth against XSS/malicious script injection	Medium	Open
+F-02	Missing X-Frame-Options header – site can potentially be embedded in an iframe (clickjacking risk)	Low	Open
+F-03	Missing X-Content-Type-Options header – browsers may MIME-sniff responses	Low	Open
+F-04	Missing Referrer-Policy and Permissions-Policy headers	Informational	Open
+F-05	Access-Control-Allow-Origin set to wildcard (*)	Low	Open
+F-06	API endpoints (dashboard, services, subscriptions, entitlements, notifications) use CORS preflight but authorization/IDOR behaviour not independently verified	Medium	Needs further testing
+F-06	Authenticated API endpoints (/customer-dashboard) not tested for authorization (IDOR) or unauthenticated access – recommend follow-up testing	Informational	Needs further testing
+
+Suggested severity scale: Critical / High / Medium / Low / Informational (based on CVSS or OWASP Risk Rating Methodology).
+
+GENERAL RECOMMENDATIONS
+
+Based on the findings in Section 7, the following steps are recommended, in priority order:
+
+PRIORITY 1 – Add the missing security headers via next.config.js (async headers()) or a vercel.json headers block: Content-Security-Policy, X-Frame-Options (or CSP frame-ancestors), X-Content-Type-Options: nosniff, Referrer-Policy, and Permissions-Policy
+PRIORITY 2 – Restrict Access-Control-Allow-Origin to specific trusted origins instead of "*", unless this route is intentionally a public CDN asset
+Disable source map generation for production builds unless required, or restrict access to them
+Store all secrets/API keys as Vercel environment variables, never in client-side code
+Validate and sanitize all user input on both client and server (API routes)
+Enable Vercel's built-in DDoS/bot protection and consider a Web Application Firewall for public launch
+Keep Next.js, React and all npm dependencies patched (npm audit / Dependabot)
+Restrict CORS on any API routes to known origins only
+Review cookies/session tokens for Secure, HttpOnly and SameSite attributes
+CONCLUSION
+
+This report provides the structure and checklist required to carry out and document a non-destructive security assessment of the LUXORA web application. Once the tester (site owner) executes the recommended tools against the target and records the results in Sections 5–7, this document will constitute a complete university-project-ready penetration testing report.
+
+REFERENCES
+OWASP Web Security Testing Guide – owasp.org/www-project-web-security-testing-guide
+OWASP Top 10 – owasp.org/www-project-top-ten
+OWASP Risk Rating Methodology – owasp.org/www-community/OWASP_Risk_Rating_Methodology
+Mozilla Observatory / securityheaders.com documentation
+SSL Labs SSL Server Test documentation
