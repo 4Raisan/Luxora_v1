@@ -3,8 +3,18 @@ import { Prisma } from '@prisma/client';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
+// Password-reset/welcome emails are fire-and-forget, so a missing key would
+// otherwise vanish silently — warn once per process instead.
+let warnedEmailUnconfigured = false;
+
 export async function sendEmail({ to, subject, html, text = '' }) {
-  if (!to || !process.env.RESEND_API_KEY) return { configured: false };
+  if (!to || !process.env.RESEND_API_KEY || /^YOUR_/.test(process.env.RESEND_API_KEY)) {
+    if (!warnedEmailUnconfigured) {
+      warnedEmailUnconfigured = true;
+      console.warn('[email] sendEmail skipped: RESEND_API_KEY is not configured — emails will NOT be sent');
+    }
+    return { configured: false };
+  }
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
