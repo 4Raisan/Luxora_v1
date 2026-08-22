@@ -1,7 +1,7 @@
 # Luxora database design
 PostgreSQL is managed through Prisma. backend/prisma/schema.prisma is canonical; generated client code is not hand-edited.
 ## Relationship map
-User -> optional Provider, UserSubscription, Payment, Booking, Complaint, Review, SupportTicket, Notification, RefundRequest.
+User -> optional Provider, UserSubscription, Payment, Booking, Complaint, Review, SupportTicket, Notification, RefundRequest, PasswordResetToken.
 SubscriptionPlan -> SubscriptionEntitlement -> Category. UserSubscription -> plan, user, bookings, payments, and one RefundRequest. Booking -> Service -> Category, optional Provider/Subscription, Photos and Review. PlatformSetting is a singleton.
 ## Important models
 | Model | Meaning | Invariant |

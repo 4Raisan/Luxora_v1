@@ -9,7 +9,7 @@ React 19/Vite SPA. The frontend owns presentation, navigation, form state, and A
     npm run lint
 The root equivalents are npm run frontend, npm run build, and npm run lint.
 ## Environment
-VITE_API_URL is the complete API prefix, normally ending in /api, such as http://localhost:5000/api. Only VITE_ variables are exposed to the browser. Never put JWT, database, gateway, email, or SMS secrets here.
+VITE_API_URL is the complete API prefix, normally ending in /api, such as http://localhost:5000/api. VITE_GOOGLE_CLIENT_ID (optional) enables the Google Sign-In button on login/signup; it must equal backend GOOGLE_CLIENT_ID. Only VITE_ variables are exposed to the browser. Never put JWT, database, gateway, email, or SMS secrets here.
 ## Important paths
 - src/main.jsx: entry point and global styles.
 - src/App.jsx: router and protected role routes.

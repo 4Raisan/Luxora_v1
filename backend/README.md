@@ -9,7 +9,7 @@ Node.js + Express 5, Prisma 6.19, PostgreSQL. The backend owns authentication, a
     npm run dev
 The API listens on PORT (normally 5000). Verify GET /api/health, then /api/docs or /api/openapi.json. Production runs prisma generate, prisma migrate deploy, and node src/index.js; do not auto-seed production.
 ## Configuration
-Required: DATABASE_URL, JWT_SECRET, PORT, FRONTEND_URL, CORS_ORIGIN. Optional: PayHere, PayPal, Resend, Twilio. Hosted DATABASE_URL should include connection_limit=5&pool_timeout=10. Never log/commit the URL. CORS_ORIGIN rejects origins outside its explicit allow-list.
+Required: DATABASE_URL, JWT_SECRET, PORT, FRONTEND_URL, CORS_ORIGIN. Optional: PayHere, PayPal, Resend (email), Twilio (OTP), Google Sign-In (GOOGLE_CLIENT_ID). Hosted DATABASE_URL should include connection_limit=5&pool_timeout=10. Never log/commit the URL. CORS_ORIGIN rejects origins outside its explicit allow-list. Email is Resend-only: RESEND_API_KEY plus RESEND_FROM_EMAIL; onboarding@resend.dev delivers only to the Resend account owner, so production needs a verified sender domain. GOOGLE_CLIENT_ID must equal frontend VITE_GOOGLE_CLIENT_ID; unset it returns 503 on /auth/google.
 ## Source layout
 - src/index.js: middleware, CORS, body limits, mounts, health, errors, startup.
 - src/config: environment parsing and singleton Prisma client.

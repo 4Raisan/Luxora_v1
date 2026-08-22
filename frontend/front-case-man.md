@@ -35,8 +35,8 @@ The browser talks to `VITE_API_URL` when it is set; otherwise `frontend/src/serv
 
 | Route | Screen owner | Existing reads | Existing writes/actions |
 | --- | --- | --- | --- |
-| `/login` | `pages/Login.jsx` | none | `POST /auth/login`, password-reset request |
-| `/signup` | `pages/Signup.jsx` | none | customer registration |
+| `/login` | `pages/Login.jsx` | none | `POST /auth/login`, password-reset request, Google sign-in (`POST /auth/google` via `components/GoogleSignIn.jsx`) |
+| `/signup` | `pages/Signup.jsx` | none | customer registration, Google sign-in |
 | `/provider-register` | `pages/ProviderRegister.jsx` | categories where required | provider registration and uploads |
 | `/customer-dashboard` | `pages/CustomerDashboard.jsx` | dashboard, services, subscriptions, entitlements, payments, payment mode, notifications, support, complaints, refunds, profile | booking, membership controls, payment completion, refund, support, complaint, profile, OTP, notification actions |
 | `/provider-dashboard` | `pages/ProviderDashboard.jsx` | provider dashboard, assigned/claimable bookings, availability, towns, earnings | availability, booking status/PIN/proof actions, uploads |

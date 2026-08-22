@@ -6,6 +6,7 @@ Local base URL: http://localhost:5000/api. Protected requests use Authorization:
 | GET | /health | Database-backed health |
 | POST | /auth/register | Customer/provider registration |
 | POST | /auth/login | JWT login |
+| POST | /auth/google | Google Sign-In (customer accounts; 503 when unconfigured) |
 | POST | /auth/password-reset/request | Reset request |
 | POST | /auth/password-reset/confirm | Confirm reset |
 | GET | /categories, /services, /subscriptions | Catalogue |
