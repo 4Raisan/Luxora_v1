@@ -17,7 +17,7 @@ const Navbar = () => {
         { id: 'home', name: 'Home' },
         { id: 'services', name: 'Services' },
         { id: 'plans', name: 'Plans' },
-        { id: 'about', name: 'About' },
+        { id: 'membership', name: 'Membership' },
         { id: 'contact', name: 'Contact' }
       ]
 
@@ -40,7 +40,7 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const navLinks = ['Home', 'Services', 'Plans', 'About', 'Contact']
+  const navLinks = ['Home', 'Services', 'Plans', 'Membership', 'Contact']
 
   const handleNavClick = (link) => {
     setActiveLink(link)

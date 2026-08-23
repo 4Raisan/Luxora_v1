@@ -81,16 +81,8 @@ const CoinIcon = () => (
   </svg>
 )
 
-/* ── Mock Data ───────────────────────────────────────── */
-const HISTORY_DATA = [
-  { id: 1, date: 'Aug 1, 2026', service: 'Auto Care', icon: <CarIcon />, tier: 'Standard ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-  { id: 2, date: 'Jul 15, 2026', service: 'Garden Care', icon: <LeafIcon />, tier: 'Basic', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-  { id: 3, date: 'Jul 1, 2026', service: 'Auto Care', icon: <CarIcon />, tier: 'Standard ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-  { id: 4, date: 'Jun 20, 2026', service: 'Pet Care', icon: <PawIcon />, tier: 'Premium', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' },
-  { id: 5, date: 'Jun 1, 2026', service: 'Garden Care', icon: <LeafIcon />, tier: 'Basic', ref: 'INV-2026-0061', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-  { id: 6, date: 'May 15, 2026', service: 'Pet Care', icon: <PawIcon />, tier: 'Standard ★', ref: 'INV-2026-0055', amount: 'LKR 11,000', status: 'Completed', cat: 'pet' },
-]
-
+/* ── Sri Lanka towns/provinces for the delivery-address autocomplete.
+      Static reference data (like a country list), not business mock data. ── */
 const SRI_LANKA_TOWNS = [
   { name: "Colombo", province: "Western" },
   { name: "Sri Jayawardenepura Kotte", province: "Western" },
@@ -202,14 +194,10 @@ const CustomerDashboard = () => {
     try {
       const u = sessionStorage.getItem('user')
       const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-      const saved = localStorage.getItem('activePackages_' + email) || sessionStorage.getItem('activePackages')
+      // User-scoped key only — the old generic sessionStorage fallback leaked
+      // one account's packages into the next login on the same tab.
+      const saved = localStorage.getItem('activePackages_' + email)
       if (saved) return JSON.parse(saved)
-      if (email === 'tester@gmail.com' || email === 'customer@luxora.lk' || email === 'deshan@luxora.com') {
-        return [
-          { id: 1, title: 'Auto Care', tier: 'Standard Plan ★', price: 'LKR 9,000', period: '/month', cat: 'auto' },
-          { id: 2, title: 'Garden Care', tier: 'Basic Plan', price: 'LKR 7,500', period: '/month', cat: 'garden' }
-        ]
-      }
     } catch (_) {}
     return []
   })
@@ -221,35 +209,12 @@ const CustomerDashboard = () => {
     try {
       const savedPlanStr = sessionStorage.getItem('selected_home_plan')
       if (savedPlanStr) {
-        const plan = JSON.parse(savedPlanStr)
         sessionStorage.removeItem('selected_home_plan')
-
-        const planTitle = plan.categoryLabel ? `${plan.categoryLabel} Care` : (plan.title || `${plan.tier} Care`)
-        const planTier = `${plan.tier} Plan`
-        const planPrice = `LKR ${typeof plan.price === 'number' ? plan.price.toLocaleString() : plan.price}`
-
-        const exists = activePackages.some(p => p.title === planTitle && p.tier === planTier)
-        if (!exists) {
-          const newPkg = {
-            id: plan.id || Date.now(),
-            title: planTitle,
-            tier: planTier,
-            price: planPrice,
-            period: '/month',
-            cat: plan.cat || 'auto',
-            purchasedAt: Date.now()
-          }
-          const updated = [newPkg, ...activePackages]
-          setActivePackages(updated)
-
-          const u = sessionStorage.getItem('user')
-          const email = u ? JSON.parse(u).email : 'guest'
-          localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
-          sessionStorage.setItem('activePackages', JSON.stringify(updated))
-
-          setBookingSuccessMsg(`✨ Welcome! Your selected ${newPkg.title} (${newPkg.tier}) subscription has been activated.`)
-          setTimeout(() => setBookingSuccessMsg(''), 5000)
-        }
+        // A plan chosen on the marketing page is an INTENT, not a purchase.
+        // Never activate it locally — take the member to the real checkout.
+        setActiveTab('booking')
+        setBookingSuccessMsg('✨ Welcome! Complete your subscription below to activate your chosen package.')
+        setTimeout(() => setBookingSuccessMsg(''), 6000)
       }
     } catch (_) {}
   }, [])
@@ -316,9 +281,12 @@ const CustomerDashboard = () => {
     pet: Math.max(0, baseTokens.pet - (usedTokens.pet || 0))
   }
 
+  // Renewal/expiry dates follow the SERVER plan duration (durationDays),
+  // not a hardcoded 30-day cycle.
   const getRenewalDate = (pkg) => {
+    const days = (pkg && pkg.duration) || 30
     const base = pkg && pkg.purchasedAt ? pkg.purchasedAt : Date.now()
-    const expiry = new Date(base + 30 * 24 * 60 * 60 * 1000)
+    const expiry = new Date(base + days * 24 * 60 * 60 * 1000)
     const yyyy = expiry.getFullYear()
     const mm = String(expiry.getMonth() + 1).padStart(2, '0')
     const dd = String(expiry.getDate()).padStart(2, '0')
@@ -336,174 +304,10 @@ const CustomerDashboard = () => {
   const [paymentBusy, setPaymentBusy] = useState(false)
   const [selectedReceiptItem, setSelectedReceiptItem] = useState(null)
 
-  // Admin Panel Subscription Linkage State
-  const [adminSubscriptions, setAdminSubscriptions] = useState(() => {
-    try {
-      const stored = localStorage.getItem('luxora_subscriptions')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed) && parsed.length >= 9) return parsed
-      }
-    } catch (_) {}
-    return [
-      {
-        id: 'SUB-001',
-        title: 'Auto Care - Basic',
-        type: 'Single Package',
-        cat: 'Auto Care',
-        tier: 'Basic',
-        visits: '1 visit',
-        tokens: 1,
-        price: 5000,
-        subscribers: 142,
-        popular: false,
-        inclusives: ['1 visit / month', 'Exterior foam wash & wheel shine', 'Interior vacuuming', '1 Service Token (×1)']
-      },
-      {
-        id: 'SUB-002',
-        title: 'Auto Care - Standard ★',
-        type: 'Single Package',
-        cat: 'Auto Care',
-        tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
-        price: 9000,
-        subscribers: 428,
-        popular: true,
-        inclusives: ['2 visits / month', 'Full vehicle wash & wax', 'Interior deep clean & leather conditioning', '3 Service Tokens (×3)', 'Priority booking slot']
-      },
-      {
-        id: 'SUB-003',
-        title: 'Auto Care - Premium',
-        type: 'Single Package',
-        cat: 'Auto Care',
-        tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
-        price: 15000,
-        subscribers: 215,
-        popular: false,
-        inclusives: ['Unlimited visits / month', 'Ceramic windshield & paint protection', 'Engine bay detailing & tire gloss', '6 Service Tokens (×6)', 'VIP emergency dispatch']
-      },
-      {
-        id: 'SUB-004',
-        title: 'Garden Care - Basic',
-        type: 'Single Package',
-        cat: 'Garden Care',
-        tier: 'Basic',
-        visits: '1 visit',
-        tokens: 1,
-        price: 7500,
-        subscribers: 98,
-        popular: false,
-        inclusives: ['1 visit / month', 'Lawn mowing & edging', 'Weed removal & basic pruning', '1 Service Token (×1)']
-      },
-      {
-        id: 'SUB-005',
-        title: 'Garden Care - Standard ★',
-        type: 'Single Package',
-        cat: 'Garden Care',
-        tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
-        price: 14000,
-        subscribers: 382,
-        popular: true,
-        inclusives: ['2 visits / month', 'Precision lawn care & bush sculpting', 'Organic fertilizer & soil treatment', '3 Service Tokens (×3)', 'Seasonal planting advice']
-      },
-      {
-        id: 'SUB-006',
-        title: 'Garden Care - Premium',
-        type: 'Single Package',
-        cat: 'Garden Care',
-        tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
-        price: 25000,
-        subscribers: 175,
-        popular: false,
-        inclusives: ['Unlimited visits / month', 'Full landscape maintenance & irrigation check', 'Pest control & tree pruning', '6 Service Tokens (×6)', 'Dedicated gardener']
-      },
-      {
-        id: 'SUB-007',
-        title: 'Pet Care - Basic',
-        type: 'Single Package',
-        cat: 'Pet Care',
-        tier: 'Basic',
-        visits: '1 visit',
-        tokens: 1,
-        price: 6000,
-        subscribers: 85,
-        popular: false,
-        inclusives: ['1 visit / month', 'Basic pet bath & coat brushing', 'Nail trimming & ear cleaning', '1 Service Token (×1)']
-      },
-      {
-        id: 'SUB-008',
-        title: 'Pet Care - Standard ★',
-        type: 'Single Package',
-        cat: 'Pet Care',
-        tier: 'Standard ★',
-        visits: '2 visits',
-        tokens: 3,
-        price: 11000,
-        subscribers: 290,
-        popular: true,
-        inclusives: ['2 visits / month', 'Full spa grooming, bath & blow dry', 'Flea & tick preventative treatment', '3 Service Tokens (×3)', 'Annual vet checkup voucher']
-      },
-      {
-        id: 'SUB-009',
-        title: 'Pet Care - Premium',
-        type: 'Single Package',
-        cat: 'Pet Care',
-        tier: 'Premium',
-        visits: 'Unlimited',
-        tokens: 6,
-        price: 18000,
-        subscribers: 160,
-        popular: false,
-        inclusives: ['Unlimited visits / month', 'Styling grooming, teeth cleaning & coat shine', '24/7 emergency pet transportation', '6 Service Tokens (×6)', 'Nutritional plan']
-      },
-      {
-        id: 'SUB-010',
-        title: 'Combo Package: Dual Auto + Garden Elite',
-        type: 'Combo Package',
-        cat: 'Auto + Garden',
-        price: 24000,
-        subscribers: 310,
-        inclusives: ['Complete Auto Care & Garden Care features', '15% Bundle savings discount applied', 'Dedicated VIP estate manager']
-      },
-      {
-        id: 'SUB-011',
-        title: 'Combo Package: Tri-Combo Luxury Suite',
-        type: 'Combo Package',
-        cat: 'Auto + Garden + Pet',
-        price: 32000,
-        subscribers: 282,
-        inclusives: ['All Auto, Garden & Pet Care benefits included', '24/7 VIP priority emergency dispatch', 'Free quarterly high-pressure driveway wash']
-      }
-    ]
-  })
-
-  useEffect(() => {
-    const syncSubscriptions = () => {
-      try {
-        const stored = localStorage.getItem('luxora_subscriptions')
-        if (stored) {
-          setAdminSubscriptions(JSON.parse(stored))
-        }
-      } catch (_) {}
-    }
-
-    syncSubscriptions()
-    window.addEventListener('storage', syncSubscriptions)
-    window.addEventListener('luxora_subscriptions_updated', syncSubscriptions)
-    const interval = setInterval(syncSubscriptions, 1000)
-    return () => {
-      window.removeEventListener('storage', syncSubscriptions)
-      window.removeEventListener('luxora_subscriptions_updated', syncSubscriptions)
-      clearInterval(interval)
-    }
-  }, [activeTab, bookingType])
+  // Subscription plan catalogue — server-fed only (loadServerData maps
+  // GET /subscriptions into these cards). No hardcoded fallback catalogue
+  // and no localStorage cache, so the member always sees the real plans.
+  const [adminSubscriptions, setAdminSubscriptions] = useState([])
 
   // Customer Active Bookings Chart State & Filters
   const [selectedBookingId, setSelectedBookingId] = useState(null)
@@ -607,6 +411,8 @@ const CustomerDashboard = () => {
         payments history, reviews, profile management ── */
   const [serverSubscriptions, setServerSubscriptions] = useState([])
   const [paymentMode, setPaymentMode] = useState('demo')
+  // Membership opened in the manage popup (renewal + cancel actions).
+  const [selectedMembership, setSelectedMembership] = useState(null)
   const [reviewTarget, setReviewTarget] = useState(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
@@ -700,6 +506,7 @@ const CustomerDashboard = () => {
           const combo = ents.length > 1
           return {
             id: 'SUB-' + p.id,
+            serverId: p.id,
             title: p.title,
             type: combo ? 'Combo Package' : 'Single Package',
             cat: ents[0]?.category_name || 'Auto Care',
@@ -707,6 +514,7 @@ const CustomerDashboard = () => {
             visits: units + ' visit' + (units === 1 ? '' : 's') + ' / month',
             tokens: units,
             price: Number(p.priceMonthly) || 0,
+            duration: Number(p.durationDays) || 30,
             inclusives: ents.length
               ? ents.map((e) => e.category_name + ': ' + e.units + ' service coin' + (Number(e.units) === 1 ? '' : 's') + ' / month')
               : (p.description || 'Luxora care package'),
@@ -844,11 +652,14 @@ const CustomerDashboard = () => {
     }
 
     try {
-      const stored = localStorage.getItem('luxora_customer_bookings')
+      const u = sessionStorage.getItem('user')
+      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
+      const bookingsKey = 'luxora_customer_bookings_' + email
+      const stored = localStorage.getItem(bookingsKey)
       const existing = stored ? JSON.parse(stored) : []
       const updated = existing.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b)
 
-      localStorage.setItem('luxora_customer_bookings', JSON.stringify(updated))
+      localStorage.setItem(bookingsKey, JSON.stringify(updated))
       window.dispatchEvent(new Event('luxora_bookings_updated'))
 
       setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
@@ -920,7 +731,7 @@ const CustomerDashboard = () => {
     const existing = stored ? JSON.parse(stored) : []
     let newB = {
       id: `B-${String(existing.length + 11).padStart(3, '0')}`,
-      customer: (currentUser && currentUser.name) ? currentUser.name : 'Ashan Perera',
+      customer: (currentUser && currentUser.name) ? currentUser.name : 'Customer',
       service: serviceTitle,
       status: 'CONFIRMED',
       color: '#4ade80',
@@ -930,8 +741,9 @@ const CustomerDashboard = () => {
       pin: randomPin,
       endPin: randomEndPin,
       location: userLoc,
-      providerName: 'Nimal Silva',
-      providerRole: 'Lead Care Specialist',
+      // The server assigns (or defers) the provider; never a fake name.
+      providerName: 'Pending Assignment',
+      providerRole: '',
       isSession: true
     }
 
@@ -998,33 +810,9 @@ const CustomerDashboard = () => {
     loadServerData()
   }
 
-  // Custom Request State
+  // Custom Request State — real support tickets from GET /support/my only.
   const [showCustomRequestModal, setShowCustomRequestModal] = useState(false)
-  const [customRequests, setCustomRequests] = useState(() => {
-    const email = getUserEmail()
-    try {
-      const stored = localStorage.getItem('custom_requests_' + email)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) return parsed
-      }
-    } catch (_) {}
-    const isDemoAccount = ['tester@gmail.com', 'customer@luxora.lk', 'deshan@luxora.com', 'ashan@gmail.com'].includes(email)
-    if (isDemoAccount) {
-      return [
-        {
-          id: 'REQ-001',
-          title: 'Specialized Villa Deep Marble Polishing',
-          category: 'Home & Estate Care',
-          date: '2026-08-20',
-          time: '10:00 AM',
-          notes: 'High-gloss diamond pad restoration for ground floor living area.',
-          status: 'Under Concierge Review'
-        }
-      ]
-    }
-    return []
-  })
+  const [customRequests, setCustomRequests] = useState([])
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
 
@@ -1108,7 +896,6 @@ const CustomerDashboard = () => {
     setActivePackages(updated)
     try {
       localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
-      sessionStorage.setItem('activePackages', JSON.stringify(updated))
       window.dispatchEvent(new Event('luxora_packages_updated'))
       window.dispatchEvent(new Event('storage'))
     } catch (_) {}
@@ -1269,47 +1056,22 @@ const CustomerDashboard = () => {
 
 
 
-  // Dynamic History Data State
-  const [historyData, setHistoryData] = useState(() => {
-    const email = getUserEmail()
-    const saved = localStorage.getItem('history_' + email)
-    const isDemoAccount = ['tester@gmail.com', 'customer@luxora.lk', 'deshan@luxora.com', 'ashan@gmail.com'].includes(email)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && (parsed.length > 4 || !isDemoAccount)) return parsed
-      } catch (_) {}
-    }
-    if (isDemoAccount) {
-      const defaultHistory = [
-        { id: 1, date: 'Aug 1, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0081', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-        { id: 2, date: 'Jul 15, 2026', service: 'Garden Care Package', tier: 'Basic Plan', ref: 'INV-2026-0072', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-        { id: 3, date: 'Jul 1, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0071', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-        { id: 4, date: 'Jun 20, 2026', service: 'Pet Care Package', tier: 'Premium Plan', ref: 'INV-2026-0063', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' },
-        { id: 5, date: 'Jun 5, 2026', service: 'VIP Combo Suite Package', tier: 'VIP Estate Suite 👑', ref: 'INV-2026-0058', amount: 'LKR 34,500', status: 'Completed', cat: 'system' },
-        { id: 6, date: 'May 18, 2026', service: 'Auto Care Package', tier: 'Standard Plan ★', ref: 'INV-2026-0044', amount: 'LKR 9,000', status: 'Completed', cat: 'auto' },
-        { id: 7, date: 'May 2, 2026', service: 'Garden Care Package', tier: 'Basic Plan', ref: 'INV-2026-0039', amount: 'LKR 7,500', status: 'Completed', cat: 'garden' },
-        { id: 8, date: 'Apr 12, 2026', service: 'Pet Care Package', tier: 'Premium Plan', ref: 'INV-2026-0021', amount: 'LKR 18,000', status: 'Completed', cat: 'pet' }
-      ]
-      try { localStorage.setItem('history_' + email, JSON.stringify(defaultHistory)) } catch (_) {}
-      return defaultHistory
-    }
-    return []
-  })
+  // Dynamic History Data State — server payments only (see loadServerData);
+  // no seeded or cached rows so fake transactions can never render.
+  const [historyData, setHistoryData] = useState([])
 
   const addHistoryRecord = (rec) => {
     const email = getUserEmail()
     const now = new Date()
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     const dateStr = `${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`
-    const randomRef = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`
 
     const newRecord = {
       id: Date.now(),
       date: dateStr,
       service: rec.service || 'Service Subscription',
       tier: rec.tier || 'Standard',
-      ref: rec.ref || randomRef,
+      ref: rec.ref || '',
       amount: rec.amount || '',
       status: rec.status || 'Completed',
       cat: rec.cat || 'system'
@@ -1322,42 +1084,10 @@ const CustomerDashboard = () => {
     })
   }
 
-  // Notification Drawer State
+  // Notification Drawer State — server notifications only (see
+  // loadServerData); no seeded rows so fabricated alerts can never render.
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
-  const [notifications, setNotifications] = useState(() => {
-    const email = getUserEmail()
-    const saved = localStorage.getItem('notifications_' + email)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) return parsed
-      } catch (_) {}
-    }
-    const isDemoAccount = ['tester@gmail.com', 'customer@luxora.lk', 'deshan@luxora.com', 'ashan@gmail.com'].includes(email)
-    if (isDemoAccount) {
-      const defaultNotifs = [
-        {
-          id: 1,
-          title: 'Booking Confirmed',
-          message: 'Your Auto Care Premium session is confirmed for tomorrow at 10:00 AM.',
-          time: '10 mins ago',
-          unread: true,
-          category: 'auto'
-        },
-        {
-          id: 2,
-          title: 'Concierge Specialist Assigned',
-          message: 'Senior Specialist Kamal Perera has been assigned to your Garden Care package.',
-          time: '1 hour ago',
-          unread: true,
-          category: 'garden'
-        }
-      ]
-      try { localStorage.setItem('notifications_' + email, JSON.stringify(defaultNotifs)) } catch (_) {}
-      return defaultNotifs
-    }
-    return []
-  })
+  const [notifications, setNotifications] = useState([])
 
   const addNotification = (notif) => {
     const email = getUserEmail()
@@ -1427,12 +1157,6 @@ const CustomerDashboard = () => {
           id: parsed.id ? `CUS-2026-0${parsed.id}` : '',
           ...(saved ? JSON.parse(saved) : {})
         }
-        return {
-          name: parsed.name || 'Ashan Perera',
-          email: parsed.email || 'ashan.perera@gmail.com',
-          phone: parsed.phone || '+94 77 234 5678',
-          id: parsed.id ? `CUS-2026-0${parsed.id}` : 'CUS-2026-0421'
-        }
       }
     } catch (_) {}
     return {
@@ -1488,7 +1212,10 @@ const CustomerDashboard = () => {
     setShowAddressModal(false)
   }
 
-  const isGoldMember = activePackages.some((pkg) => {
+  const isGoldMember = serverSubscriptions.some((sub) => {
+    const titleLower = (sub.plan?.title || '').toLowerCase()
+    return Number(sub.plan?.priceMonthly || 0) >= 30000 || titleLower.includes('combo')
+  }) || activePackages.some((pkg) => {
     const tierLower = (pkg.tier || '').toLowerCase()
     const titleLower = (pkg.title || '').toLowerCase()
     return tierLower.includes('premium') || titleLower.includes('premium') || titleLower.includes('full home suite')
@@ -1497,12 +1224,20 @@ const CustomerDashboard = () => {
   const firstName = currentUser.name.trim().split(' ')[0] || 'Member'
   const initials = currentUser.name.trim().split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'AP'
 
+  // Next upcoming session for the hero banner (earliest non-cancelled
+  // booking dated today or later). Null → the banner invites a booking.
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const nextBooking = [...customerActiveBookings]
+    .filter(b => b.status !== 'CANCELLED' && b.date && b.date >= todayStr)
+    .sort((a, b) => `${a.date} ${a.time || ''}`.localeCompare(`${b.date} ${b.time || ''}`))[0] || null
+
   const totalTokensSum = (tokens.auto || 0) + (tokens.garden || 0) + (tokens.pet || 0)
 
-  const totalMonthlySpend = activePackages.reduce((sum, pkg) => {
-    const num = parseInt((pkg.price || '').replace(/[^0-9]/g, '')) || 0
-    return sum + num
-  }, 0)
+  const totalMonthlySpend = serverSubscriptions.reduce((sum, sub) => sum + (Number(sub.plan?.priceMonthly) || 0), 0)
+    + activePackages.reduce((sum, pkg) => {
+      const num = parseInt((pkg.price || '').replace(/[^0-9]/g, '')) || 0
+      return sum + num
+    }, 0)
 
   const filteredHistory = historyFilter === 'all'
     ? historyData
@@ -1553,8 +1288,9 @@ const CustomerDashboard = () => {
 
           {/* Header Right Actions */}
           <div className="cd-header__right">
-            {/* Token / coin counters (server entitlements) */}
-            <div className="cd-header-tokens" title="Remaining service coins (server entitlements)">
+            {/* Token / coin counters (server entitlements) — desktop copy;
+                the mobile header renders its own full-width strip below */}
+            <div className="cd-header-tokens cd-header-tokens--desktop" title="Remaining service coins (server entitlements)">
               <span className="cd-htoken" title={'Auto Care — ' + tokens.auto + ' coin(s) remaining'}>
                 <CarIcon /> <strong>×{tokens.auto}</strong>
               </span>
@@ -1615,6 +1351,20 @@ const CustomerDashboard = () => {
               <LogOutIcon />
             </button>
           </div>
+
+          {/* Token / coin counters — dedicated full-width mobile strip
+              (hidden on desktop, where the copy inside the actions group shows) */}
+          <div className="cd-header-tokens cd-header-tokens--mobile" title="Remaining service coins (server entitlements)">
+            <span className="cd-htoken" title={'Auto Care — ' + tokens.auto + ' coin(s) remaining'}>
+              <CarIcon /> <strong>×{tokens.auto}</strong>
+            </span>
+            <span className="cd-htoken" title={'Garden Care — ' + tokens.garden + ' coin(s) remaining'}>
+              <LeafIcon /> <strong>×{tokens.garden}</strong>
+            </span>
+            <span className="cd-htoken" title={'Pet Care — ' + tokens.pet + ' coin(s) remaining'}>
+              <PawIcon /> <strong>×{tokens.pet}</strong>
+            </span>
+          </div>
         </div>
       </header>
 
@@ -1634,89 +1384,105 @@ const CustomerDashboard = () => {
                 Welcome back, <span className="gold-accent">{firstName}</span>
               </h1>
 
+              {/* Next-booking banner: shows the member's next scheduled
+                  session, or invites them to book when none is upcoming.
+                  Carries a continuous gold sweep animation. */}
+              <div className="cd-next-booking" role="status">
+                {nextBooking ? (
+                  <span className="cd-next-booking__inner">
+                    <span className="cd-next-booking__label">⚡ NEXT SERVICE</span>
+                    <strong className="cd-next-booking__service">{nextBooking.service || 'Concierge Service'}</strong>
+                    <span className="cd-next-booking__when">
+                      {nextBooking.date}{nextBooking.time ? ` · ${nextBooking.time}` : ''}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="cd-next-booking__inner">
+                    <span className="cd-next-booking__label">⚡ NO UPCOMING SERVICE</span>
+                    <strong className="cd-next-booking__service">Please add a booking</strong>
+                    <button
+                      type="button"
+                      className="cd-next-booking__cta"
+                      onClick={() => document.getElementById('cd-scheduler-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                    >
+                      Book a session ›
+                    </button>
+                  </span>
+                )}
+              </div>
+
             </div>
           </section>
 
-          {/* Active Packages */}
+          {/* Active Packages — one section, driven by the real server
+              subscriptions (replaces the old separate MY MEMBERSHIPS block) */}
           <div className="cd-main-container">
             <section className="cd-section">
-              <h3 className="cd-section-label">ACTIVE PACKAGES ({activePackages.length})</h3>
+              <h3 className="cd-section-label">ACTIVE PACKAGES ({serverSubscriptions.length || activePackages.length})</h3>
               {bookingSuccessMsg && (
                 <div className="cd-booking-success-toast animate-fade-in">
                   {bookingSuccessMsg}
                 </div>
               )}
               <div className="cd-packages-grid">
-                {activePackages.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className="cd-package-card cd-active-pkg-clickable animate-fade-in"
-                    onClick={() => { setSelectedActivePackageToManage(pkg); setShowCancelConfirmStep(false) }}
-                    role="button"
-                    tabIndex={0}
-                    title="Click to manage or cancel subscription"
-                    style={{ position: 'relative' }}
-                  >
-                    <div className="cd-package-card__icon">
-                      {pkg.cat === 'auto' && <CarIcon />}
-                      {pkg.cat === 'garden' && <LeafIcon />}
-                      {pkg.cat === 'pet' && <PawIcon />}
-                      {pkg.cat === 'system' && <ShieldIcon />}
+                {serverSubscriptions.length > 0 ? (
+                  serverSubscriptions.map((sub) => (
+                    <div
+                      key={'srv-' + sub.id}
+                      className="cd-package-card cd-package-card--membership"
+                      onClick={() => setSelectedMembership(sub)}
+                      role="button"
+                      tabIndex={0}
+                      title="Click to manage membership"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="cd-package-card__icon"><ShieldIcon /></div>
+                      <div className="cd-package-card__info">
+                        <h4 className="cd-package-card__title">{sub.plan?.title || 'Luxora membership'}</h4>
+                        <p className="cd-package-card__tier">
+                          Active until {new Date(sub.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · {sub.autoRenew ? 'Auto-renews' : 'One-time'}
+                        </p>
+                      </div>
+                      <div className="cd-package-card__price">
+                        <span className="cd-price-amount">LKR {Number(sub.plan?.priceMonthly || 0).toLocaleString()}</span>
+                        <span className="cd-price-period">/month</span>
+                      </div>
                     </div>
-                    <div className="cd-package-card__info">
-                      <h4 className="cd-package-card__title">{pkg.title}</h4>
-                      <p className="cd-package-card__tier">{pkg.tier}</p>
+                  ))
+                ) : (
+                  activePackages.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className="cd-package-card cd-active-pkg-clickable animate-fade-in"
+                      onClick={() => { setSelectedActivePackageToManage(pkg); setShowCancelConfirmStep(false) }}
+                      role="button"
+                      tabIndex={0}
+                      title="Click to manage or cancel subscription"
+                      style={{ position: 'relative' }}
+                    >
+                      <div className="cd-package-card__icon">
+                        {pkg.cat === 'auto' && <CarIcon />}
+                        {pkg.cat === 'garden' && <LeafIcon />}
+                        {pkg.cat === 'pet' && <PawIcon />}
+                        {pkg.cat === 'system' && <ShieldIcon />}
+                      </div>
+                      <div className="cd-package-card__info">
+                        <h4 className="cd-package-card__title">{pkg.title}</h4>
+                        <p className="cd-package-card__tier">{pkg.tier}</p>
+                      </div>
+                      <div className="cd-package-card__price">
+                        <span className="cd-price-amount">{pkg.price}</span>
+                        <span className="cd-price-period">{pkg.period || '/month'}</span>
+                      </div>
                     </div>
-                    <div className="cd-package-card__price">
-                      <span className="cd-price-amount">{pkg.price}</span>
-                      <span className="cd-price-period">{pkg.period || '/month'}</span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
 
                 <button className="cd-package-card cd-package-card--add" onClick={() => setActiveTab('booking')}>
                   <span>+ Add a Package &rsaquo;</span>
                 </button>
               </div>
             </section>
-
-          {/* Server Memberships (proposal: membership management) */}
-          {serverSubscriptions.length > 0 && (
-            <section className="cd-section" style={{ marginTop: '1.75rem' }}>
-              <h3 className="cd-section-label">MY MEMBERSHIPS ({serverSubscriptions.length})</h3>
-              <div className="cd-packages-grid">
-                {serverSubscriptions.map((sub) => (
-                  <div key={sub.id} className="cd-package-card" style={{ cursor: 'default' }}>
-                    <div className="cd-package-card__icon"><ShieldIcon /></div>
-                    <div className="cd-package-card__info">
-                      <h4 className="cd-package-card__title">{sub.plan?.title || 'Luxora membership'}</h4>
-                      <p className="cd-package-card__tier">
-                        Active until {new Date(sub.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · {sub.autoRenew ? 'Auto-renews' : 'One-time'}
-                      </p>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
-                        <button
-                          onClick={() => toggleAutoRenew(sub)}
-                          style={{ background: 'rgba(201, 168, 76, 0.12)', border: '1px solid rgba(201, 168, 76, 0.4)', color: 'var(--gold, #c9a84c)', padding: '0.35rem 0.7rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          {sub.autoRenew ? '⏸ Pause renewal' : '↻ Enable renewal'}
-                        </button>
-                        <button
-                          onClick={() => cancelMembership(sub)}
-                          style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#ef4444', padding: '0.35rem 0.7rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          Cancel membership
-                        </button>
-                      </div>
-                    </div>
-                    <div className="cd-package-card__price">
-                      <span className="cd-price-amount">LKR {Number(sub.plan?.priceMonthly || 0).toLocaleString()}</span>
-                      <span className="cd-price-period">/month</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
 
             {/* ── SERVICE BOOKING & ACTIVE BOOKINGS DUO GRID LAYOUT ── */}
             <div
@@ -1731,7 +1497,8 @@ const CustomerDashboard = () => {
             >
               {/* ── LEFT COLUMN: SERVICE BOOKING LUXURY MODULE ── */}
               <section
-                className="cd-section animate-fade-in"
+                id="cd-scheduler-panel"
+                className="cd-section animate-fade-in cd-scheduler-panel"
                 style={{
                   background: 'linear-gradient(145deg, #121214 0%, #1a1a1f 100%)',
                   border: '1px solid rgba(201, 168, 76, 0.35)',
@@ -1772,7 +1539,7 @@ const CustomerDashboard = () => {
                     <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.05em' }}>SELECT CATEGORY:</span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem' }}>
+                  <div className="cd-cat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem' }}>
                     {[
                       { id: 'auto', title: 'Auto Care', icon: <CarIcon /> },
                       { id: 'garden', title: 'Garden Care', icon: <LeafIcon /> },
@@ -1851,7 +1618,7 @@ const CustomerDashboard = () => {
                       <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em' }}>TIME (HOURS, MIN, AM/PM)</span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem' }}>
+                    <div className="cd-time-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem' }}>
                       {/* Hours */}
                       <div>
                         <label style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>HOUR</label>
@@ -1955,7 +1722,7 @@ const CustomerDashboard = () => {
                 </div>
 
                 <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <table className="cd-table" style={{ margin: 0, height: '100%' }}>
+                  <table className="cd-table cd-bookings-table" style={{ margin: 0, height: '100%' }}>
                     <thead>
                       <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
                         <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', padding: '0.75rem 0.75rem' }}>BOOKING ID</th>
@@ -1996,8 +1763,8 @@ const CustomerDashboard = () => {
                               }}
                               title={b.status === 'CANCELLED' ? 'Booking cancelled' : 'Click row to view details'}
                             >
-                              <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
-                              <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
+                              <td data-label="Booking" style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
+                              <td data-label="Category" style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
                                 {b.service === 'Auto Care' || b.service === 'Garden Care' || b.service === 'Pet Care'
                                   ? b.service
                                   : ((b.service || b.cat || '').toLowerCase().includes('auto') || (b.service || b.cat || '').toLowerCase().includes('car')
@@ -2008,13 +1775,13 @@ const CustomerDashboard = () => {
                                               ? 'Pet Care'
                                               : (b.service || 'Service'))))}
                               </td>
-                              <td>
+                              <td data-label="Provider">
                                 <span style={{ color: '#eee', fontSize: '0.82rem', fontWeight: 700 }}>{b.providerName || 'Awaiting assignment'}</span>
                                 {b.providerPhone && (
                                   <small style={{ display: 'block', color: '#888', fontSize: '0.7rem' }}>📞 {b.providerPhone}</small>
                                 )}
                               </td>
-                              <td style={{ color: '#ccc', fontSize: '0.78rem' }}>
+                              <td data-label="Date" style={{ color: '#ccc', fontSize: '0.78rem' }}>
                                 <div>{b.date}</div>
                                 <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                               </td>
@@ -2154,6 +1921,16 @@ const CustomerDashboard = () => {
             </button>
           </div>
 
+          {/* ── Live plans from the server; neutral message instead of a
+              hardcoded catalogue when the backend has not answered yet ── */}
+          {adminSubscriptions.length === 0 && (
+            <div style={{ marginTop: '1.5rem', padding: '2rem 1.25rem', textAlign: 'center', color: '#888', fontSize: '0.85rem', border: '1px dashed #282828', borderRadius: '14px', background: '#111' }}>
+              Loading live subscription plans from Luxora…
+              <br />
+              <small>If nothing appears, please refresh the page.</small>
+            </div>
+          )}
+
           {/* ── Single Packages Grid ── */}
           {bookingType === 'single' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
@@ -2207,6 +1984,7 @@ const CustomerDashboard = () => {
                           tier: 'Single Package Plan ★',
                           price: `LKR ${Number(s.price).toLocaleString()}`,
                           cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
+                          duration: s.duration || 30,
                           service_id: 1
                         })
                       }}
@@ -2272,6 +2050,7 @@ const CustomerDashboard = () => {
                           tier: 'VIP Combo Suite Plan 👑',
                           price: `LKR ${Number(s.price).toLocaleString()}`,
                           cat: 'system',
+                          duration: s.duration || 30,
                           service_id: 1
                         })
                       }}
@@ -2920,7 +2699,7 @@ const CustomerDashboard = () => {
 
               <div className="cd-md-row">
                 <span className="cd-md-label">Active packages</span>
-                <span className="cd-md-val">{activePackages.length} Active</span>
+                <span className="cd-md-val">{(serverSubscriptions.length || activePackages.length)} Active</span>
               </div>
 
               <div className="cd-md-row">
@@ -2930,6 +2709,16 @@ const CustomerDashboard = () => {
                 </span>
               </div>
             </div>
+
+            {/* Log out lives here on mobile (the header keeps its icon-only
+                logout on desktop only). */}
+            <button
+              type="button"
+              className="cd-drawer-logout"
+              onClick={handleLogout}
+            >
+              <LogOutIcon /> Log out
+            </button>
           </div>
         </div>
       )}
@@ -3940,6 +3729,61 @@ const CustomerDashboard = () => {
                 {paymentMode === 'demo'
                   ? 'Demo checkout: the subscription is created on the server without a real payment.'
                   : 'You will be redirected to the PayHere hosted checkout to complete payment.'}
+              </small>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Membership Manage Popup (renewal + cancel for server subscriptions) ── */}
+      {selectedMembership && (
+        <div className="cd-support-overlay" onClick={() => setSelectedMembership(null)}>
+          <div className="cd-support-modal cd-manage-membership-modal animate-fade-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+            <div className="cd-support-modal__header">
+              <div className="cd-support-icon-box"><ShieldIcon /></div>
+              <div>
+                <h2 className="cd-support-modal__title">{selectedMembership.plan?.title || 'Luxora membership'}</h2>
+                <p className="cd-support-modal__subtitle">Manage your membership</p>
+              </div>
+              <button className="cd-support-modal__close" onClick={() => setSelectedMembership(null)} aria-label="Close membership manager">✕</button>
+            </div>
+
+            <div className="cd-book-confirm-details" style={{ marginTop: '1rem' }}>
+              <div className="cd-book-confirm-row">
+                <span>Status</span>
+                <span className="gold-accent" style={{ fontWeight: 700 }}>
+                  Active until {new Date(selectedMembership.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+              <div className="cd-book-confirm-row">
+                <span>Price</span>
+                <strong>LKR {Number(selectedMembership.plan?.priceMonthly || 0).toLocaleString()} / month</strong>
+              </div>
+              <div className="cd-book-confirm-row">
+                <span>Renewal</span>
+                <span className="gold-accent">
+                  {selectedMembership.autoRenew ? `🔄 Auto-renews every ${selectedMembership.renewalIntervalDays || 30} days` : '⚡ One-time pass — no recurring charges'}
+                </span>
+              </div>
+            </div>
+
+            <div className="cd-support-actions" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => { toggleAutoRenew(selectedMembership); setSelectedMembership(null) }}
+                style={{ background: 'rgba(201, 168, 76, 0.12)', border: '1px solid rgba(201, 168, 76, 0.4)', color: 'var(--gold, #c9a84c)', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                {selectedMembership.autoRenew ? '⏸ PAUSE RENEWAL' : '↻ ENABLE RENEWAL'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { cancelMembership(selectedMembership); setSelectedMembership(null) }}
+                style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                CANCEL MEMBERSHIP
+              </button>
+              <small style={{ color: '#777', fontSize: '0.7rem', textAlign: 'center' }}>
+                Cancelling lapses any remaining service coins at the end of the period.
               </small>
             </div>
           </div>

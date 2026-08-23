@@ -13,7 +13,7 @@ const Footer = () => {
   const columns = [
     {
       heading: 'Services',
-      links: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Packages'],
+      links: ['Auto Care', 'Garden Care', 'Pet Wellness'],
     },
     {
       heading: 'Company',
@@ -42,11 +42,6 @@ const Footer = () => {
     } else if (link === 'Pet Wellness' || link === 'Pet Care') {
       e.preventDefault()
       window.dispatchEvent(new CustomEvent('select-plan-category', { detail: 'pet' }))
-      const el = document.getElementById('plans')
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
-    } else if (link === 'Combo Packages') {
-      e.preventDefault()
-      window.dispatchEvent(new CustomEvent('select-plan-category', { detail: 'combo' }))
       const el = document.getElementById('plans')
       if (el) el.scrollIntoView({ behavior: 'smooth' })
     } else if (link === 'About Us') {

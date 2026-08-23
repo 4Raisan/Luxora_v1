@@ -1,11 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import './Services.css'
 
 const services = [
   {
     id: 'auto-care',
-    categoryKey: 'auto',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 30l4-12h24l4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -16,12 +14,11 @@ const services = [
       </svg>
     ),
     title: 'Auto Care',
-    description: 'Professional vehicle cleaning and care delivered at your convenience.',
-    features: ['Exterior Wash', 'Interior Vacuum', 'Tire & Window Care'],
+    description: 'White-glove vehicle maintenance, detailing, and concierge chauffeur services for your fleet.',
+    features: ['Fleet Management', 'On-Demand Detailing', 'Chauffeur Services'],
   },
   {
     id: 'garden-care',
-    categoryKey: 'garden',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M24 40V20M24 20C24 20 16 16 12 8c6 0 12 4 12 12zM24 20C24 20 32 16 36 8c-6 0-12 4-12 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -30,41 +27,26 @@ const services = [
       </svg>
     ),
     title: 'Garden Care',
-    description: 'Reliable garden maintenance to keep your outdoor spaces clean and healthy.',
-    features: ['Lawn Mowing & Edging', 'Weeding & Pruning', 'Fertilizing & Plant Health Checks'],
+    description: 'Masterful landscape design and pristine estate grounds maintenance by certified horticulturists.',
+    features: ['Landscape Design', 'Seasonal Planting', 'Pool & Water Features'],
   },
   {
-    id: 'pet-care',
-    categoryKey: 'pet',
+    id: 'pet-wellness',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M18 12a4 4 0 100-8 4 4 0 000 8zM30 12a4 4 0 100-8 4 4 0 000 8zM10 22a4 4 0 100-8 4 4 0 000 8zM38 22a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="2"/>
         <path d="M24 44c-7 0-14-5-14-12 0-4 4-8 8-8h12c4 0 8 4 8 8 0 7-7 12-14 12z" stroke="currentColor" strokeWidth="2"/>
       </svg>
     ),
-    title: 'Pet Care',
-    description: 'Convenient grooming and hygiene services to keep your pets clean and comfortable.',
-    features: ['Spa Wash & Blow-Dry', 'Nail & Ear Care', 'Brushing & Flea/Tick Check'],
-  },
-  {
-    id: 'combo-packages',
-    categoryKey: 'combo',
-    icon: (
-      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M24 4l4.5 9.5 10.5 1.5-7.5 7.3 1.8 10.2L24 27.8l-9.3 4.7 1.8-10.2L9 15l10.5-1.5L24 4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M10 40h28M16 44h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="8" cy="10" r="2" fill="currentColor"/>
-        <circle cx="40" cy="10" r="2" fill="currentColor"/>
-      </svg>
-    ),
-    title: 'Combo Packages',
-    description: 'All-inclusive multi-service bundles combining auto, garden, and pet care for total estate convenience.',
-    features: ['Auto, Garden & Pet Bundles', 'Shared Monthly Service Tokens', 'Exclusive Multi-Care Value'],
+    title: 'Pet Wellness',
+    description: 'Luxury pet care, grooming, veterinary coordination, and bespoke animal wellness programs.',
+    features: ['Premium Grooming', 'Vet Coordination', 'Pet Sitting & Training'],
   },
 ]
 
+
+
 const Services = () => {
-  const navigate = useNavigate()
   const cardsRef = useRef([])
 
   useEffect(() => {
@@ -81,10 +63,6 @@ const Services = () => {
     cardsRef.current.forEach((el) => { if (el) observer.observe(el) })
     return () => observer.disconnect()
   }, [])
-
-  const handleOpenSignup = () => {
-    navigate('/signup')
-  }
 
   return (
     <section id="services" className="services">
@@ -108,16 +86,6 @@ const Services = () => {
               className="service-card"
               ref={(el) => (cardsRef.current[i] = el)}
               style={{ transitionDelay: `${i * 0.07}s` }}
-              onClick={handleOpenSignup}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  handleOpenSignup()
-                }
-              }}
-              aria-label={`Sign up for ${service.title}`}
             >
               <div className="service-card__icon">{service.icon}</div>
               <h3 className="service-card__title">{service.title}</h3>
@@ -129,16 +97,7 @@ const Services = () => {
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                className="service-card__cta"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleOpenSignup()
-                }}
-              >
-                Get Started →
-              </button>
+              <button className="service-card__cta">Learn More →</button>
             </div>
           ))}
         </div>
