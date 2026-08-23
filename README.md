@@ -31,3 +31,6 @@ Super Admin: Admin with isSuperAdmin=true; only this role may change scheduling 
 Real .env files stay out of Git. Database and integration secrets are backend-only. CORS_ORIGIN is an explicit comma-separated allow-list. PAYMENT_MODE=demo is local/test checkout; PAYMENT_MODE=payhere enables PayHere. Transactional email uses Resend only (see docs/INTEGRATIONS-PAYMENTS-EMAIL-OTP.md); the shared onboarding@resend.dev sender delivers only to the account owner, so production sending requires a verified sender domain. Google Sign-In requires the same OAuth client ID in backend GOOGLE_CLIENT_ID and frontend VITE_GOOGLE_CLIENT_ID, with every site origin registered in Google Cloud Console. Hosted PostgreSQL URLs should use connection_limit=5 and pool_timeout=10.
 ## Quality gates
 Run npm run build and npm run lint. Inspect affected roles at desktop/mobile widths, verify Network/Console, test authorization boundaries, and preserve real API data. Read the linked docs in frontend/, backend/, and docs/ before changing contracts.
+## Live Website
+Check out our live site here: [https://www.luxora.bond/](https://www.luxora.bond/)
+
