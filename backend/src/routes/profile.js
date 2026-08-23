@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { sendVerificationCode, verifyCode, normalizeSriLankanPhone } from '../services/integrations.js';
+import { sendVerificationCode, verifyCode } from '../services/integrations.js';
 import { isEmail, isNonEmptyString } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
@@ -40,23 +40,18 @@ router.put('/', async (req, res) => {
 });
 
 router.post('/phone/send', otpSendLimiter, async (req, res) => {
-  const phone = normalizeSriLankanPhone(req.body.phone);
-  if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile number, e.g. 0771575701' });
-  try {
-    const { missing, ...result } = await sendVerificationCode(phone);
-    if (missing?.length) console.warn('[otp] send not configured:', missing.join(', '));
-    res.json(result);
-  }
+  const phone = String(req.body.phone || '').trim();
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return res.status(400).json({ error: 'phone must be in E.164 format, e.g. +94771234567' });
+  try { res.json(await sendVerificationCode(phone)); }
   catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); }
 });
 
 router.post('/phone/verify', otpVerifyLimiter, async (req, res) => {
-  const phone = normalizeSriLankanPhone(req.body.phone);
-  if (!phone || !/^\d{4,10}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'valid phone and OTP code are required' });
+  const phone = String(req.body.phone || '').trim();
+  if (!/^\+[1-9]\d{7,14}$/.test(phone) || !/^\d{4,10}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'valid phone and OTP code are required' });
   try {
-    const { missing, ...result } = await verifyCode(phone, req.body.code);
+    const result = await verifyCode(phone, req.body.code);
     if (result.approved) await prisma.user.update({ where: { id: req.user.id }, data: { phone, phoneVerified: true } });
-    if (missing?.length) console.warn('[otp] verify not configured:', missing.join(', '));
     res.json(result);
   } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); }
 });

@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/prisma.js';
 import { notify } from '../services/notify.js';
-import { createPayHereFields, sendEmail, sendVerificationCode, verifyCode, verifyPayHereWebhook, payHereConfigured } from '../services/integrations.js';
+import { createPayHereFields, sendEmail, sendVerificationCode, verifyCode, verifyPayHereWebhook } from '../services/integrations.js';
 import { toPositiveInt } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
@@ -85,12 +85,6 @@ router.post('/payments/payhere/webhook', async (req, res) => {
 router.post('/payments/payhere/order', authenticateToken, async (req, res) => {
   try {
     if (paymentMode() === 'demo') return res.status(409).json({ error: 'Demo payment mode is enabled; use the demo checkout.' });
-    // Fail with a clean, configuration-agnostic message instead of echoing
-    // which environment variables the deployment is missing.
-    if (!payHereConfigured()) {
-      console.error('[payments] PayHere checkout requested but credentials are not configured on this deployment');
-      return res.status(503).json({ error: 'Payments are temporarily unavailable. Please try again later.' });
-    }
     const planId = toPositiveInt(req.body.plan_id);
     if (!planId) return res.status(400).json({ error: 'plan_id is required' });
     const [plan, user] = await Promise.all([prisma.subscriptionPlan.findFirst({ where: { id: planId, active: true } }), prisma.user.findUnique({ where: { id: req.user.id } })]);
@@ -101,7 +95,7 @@ router.post('/payments/payhere/order', authenticateToken, async (req, res) => {
     const fields = createPayHereFields({ amount, orderId, currency: 'LKR', customer: { firstName: user.name.split(/\s+/)[0], lastName: user.name.split(/\s+/).slice(1).join(' ') || 'Customer', email: user.email, phone: user.phone || '', city: user.town || '', items: plan.title }, returnUrl: process.env.PAYHERE_RETURN_URL || 'http://localhost:3000/customer-dashboard?payment=payhere', cancelUrl: process.env.PAYHERE_CANCEL_URL || 'http://localhost:3000/customer-dashboard?payment=cancelled' });
     fields.notify_url = process.env.PAYHERE_NOTIFY_URL || '';
     res.json({ paymentId: payment.id, orderId, environment: environment(), checkoutUrl: `${process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk'}/pay/checkout`, fields });
-  } catch (error) { console.error('[payments] PayHere order failed:', error.message); res.status(502).json({ error: 'Could not start the checkout. Please try again.' }); }
+  } catch (error) { res.status(502).json({ error: error.message }); }
 });
 
 router.get('/payments/mode', authenticateToken, (_req, res) => res.json({ mode: paymentMode(), label: paymentMode() === 'demo' ? 'DEMO / TEST — no real charge' : `PayHere ${environment()}` }));
@@ -130,10 +124,6 @@ router.post('/payments/demo/:id/complete', authenticateToken, async (req, res) =
   const saved = await activateSubscription(payment, { mode: 'demo', outcome }, { capturedAmount: payment.expectedAmount, capturedCurrency: payment.expectedCurrency, autoRenew: Boolean(payment.webhookPayload?.autoRenew) });
   if (!saved) return res.status(409).json({ error: 'This demo payment can no longer be completed' });
   await notify(saved.userId, 'Demo payment successful. Your Luxora membership is active.', '/customer-dashboard');
-  // Same confirmation email the PayHere webhook sends, so the customer gets a
-  // receipt regardless of which checkout completed the purchase.
-  const buyer = await prisma.user.findUnique({ where: { id: saved.userId }, select: { email: true, name: true } });
-  sendEmail({ to: buyer?.email, subject: 'Luxora payment successful', html: `<p>Hi ${buyer?.name || 'Customer'},</p><p>Your ${saved.plan.title} membership is active. This was a demo/test payment — no money was charged.</p>` }).catch((error) => console.warn('[email] demo payment confirmation failed:', error.message));
   res.json({ status: 'completed', subscription: saved.subscription, message: 'Demo payment successful. No real money was charged.' });
 });
 
@@ -147,7 +137,7 @@ router.post('/email', authenticateToken, emailLimiter, async (req, res) => {
   if (req.body.to !== req.user.email && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'You can only email your own address' });
   try { res.json(await sendEmail(req.body)); } catch (error) { console.warn('[email] send failed:', error.message); res.status(502).json({ error: 'Email delivery failed' }); }
 });
-router.post('/otp/send', authenticateToken, otpSendLimiter, async (req, res) => { try { const { missing, ...result } = await sendVerificationCode(req.body.phone); if (missing?.length) console.warn('[otp] send not configured:', missing.join(', ')); res.json(result); } catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); } });
-router.post('/otp/verify', authenticateToken, otpVerifyLimiter, async (req, res) => { try { const { missing, ...result } = await verifyCode(req.body.phone, req.body.code); if (missing?.length) console.warn('[otp] verify not configured:', missing.join(', ')); res.json(result); } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); } });
+router.post('/otp/send', authenticateToken, otpSendLimiter, async (req, res) => { try { res.json(await sendVerificationCode(req.body.phone)); } catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); } });
+router.post('/otp/verify', authenticateToken, otpVerifyLimiter, async (req, res) => { try { res.json(await verifyCode(req.body.phone, req.body.code)); } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); } });
 
 export default router;

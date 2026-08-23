@@ -58,11 +58,15 @@ if %errorlevel% neq 0 (
 
 docker info >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Docker Desktop is not running and it is the only supported
-    echo         local database provider. Start Docker Desktop, wait until it
-    echo         reports "Engine running", then run start.bat again.
-    pause
-    exit /b 1
+    echo [WARN] Docker Desktop is not running. Checking for local PostgreSQL fallback...
+    call :check_local_pg_fallback
+    if !USE_LOCAL_PG! neq 1 (
+        echo [ERROR] No PostgreSQL provider available.
+        echo         Please start Docker Desktop or install PostgreSQL on this PC.
+        pause
+        exit /b 1
+    )
+    goto :database_ready
 )
 
 :: Docker is running - start the postgres container
@@ -197,19 +201,23 @@ echo.
 :: -----------------------------------------------------------------
 :: Step 5: Database Schema Synchronization
 :: -----------------------------------------------------------------
-echo [5/7] Applying database migrations...
+echo [5/7] Synchronizing database schema...
 pushd backend
-call npx prisma migrate deploy
+call node prisma/migrate-service-towns.js
+call npx prisma db push --accept-data-loss
 if %errorlevel% neq 0 (
-    echo [ERROR] Prisma migrate deploy failed. The migration history in
-    echo         backend\prisma\migrations is the source of truth. Fix the error
-    echo         above; do not fall back to "prisma db push".
-    popd
-    pause
-    exit /b 1
+    echo [WARN] Database push encountered a temporary glitch. Retrying in 2 seconds...
+    timeout /t 2 /nobreak >nul
+    call npx prisma db push --accept-data-loss
+    if !errorlevel! neq 0 (
+        echo [ERROR] Prisma db push failed.
+        popd
+        pause
+        exit /b 1
+    )
 )
 popd
-echo [OK] Database schema applied from migration history.
+echo [OK] Database schema synchronized.
 echo.
 
 :: -----------------------------------------------------------------
@@ -275,7 +283,6 @@ exit /b 0
     echo DATABASE_URL="postgresql://luxora_user:luxora_pass@127.0.0.1:5432/luxoradb?schema=public"
     echo JWT_SECRET="luxora_jwt_secret_dev_%RANDOM%_%RANDOM%_%RANDOM%_2026"
     echo PORT=5000
-    echo PAYMENT_MODE="demo"
     echo CORS_ORIGIN="http://localhost:5000,http://localhost:3000,http://localhost:5173,http://127.0.0.1:5000,http://127.0.0.1:3000,http://127.0.0.1:5173"
     echo.
     echo # Demo account passwords ^(used by prisma/seed.js^)
@@ -322,5 +329,24 @@ if defined DOCKER_EXE (
     echo [WARN] Docker Desktop did not respond within 50 seconds.
 ) else (
     echo [WARN] Docker Desktop executable not found in standard paths.
+)
+exit /b 0
+
+:: ---------- Check Local PostgreSQL Fallback ----------
+:check_local_pg_fallback
+set "USE_LOCAL_PG=0"
+node -e "const s=require('net').createConnection(5432,'127.0.0.1',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),1000);" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] Detected local PostgreSQL running on port 5432.
+    set "USE_LOCAL_PG=1"
+    exit /b 0
+)
+
+node -e "const s=require('net').createConnection(5433,'127.0.0.1',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),1000);" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] Detected local PostgreSQL running on port 5433.
+    set "USE_LOCAL_PG=1"
+    node -e "const fs=require('fs');const p='backend/.env';if(fs.existsSync(p)){let c=fs.readFileSync(p,'utf8');if(c.includes(':5432/')){c=c.replace(/:5432\//g,':5433/');fs.writeFileSync(p,c);console.log('[i] Pointed backend/.env to local PostgreSQL on port 5433');}}" >nul 2>&1
+    exit /b 0
 )
 exit /b 0

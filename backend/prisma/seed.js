@@ -1,6 +1,6 @@
 // Seed script: categories, services, subscription plans, and demo accounts.
 // Demo passwords come from environment variables (backend/.env) — see .env.example.
-// Run with: node prisma/seed.js  (after `npm run db:migrate`)
+// Run with: node backend/prisma/seed.js  (after `prisma db push`)
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';

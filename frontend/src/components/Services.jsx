@@ -14,8 +14,8 @@ const services = [
       </svg>
     ),
     title: 'Auto Care',
-    description: 'Elevated vehicle care, meticulously delivered to keep your car pristine, polished, and effortlessly maintained.',
-    features: ['Premium Exterior Care', 'Immaculate Interior Care', 'Tyre & Glass Finishing'],
+    description: 'White-glove vehicle maintenance, detailing, and concierge chauffeur services for your fleet.',
+    features: ['Fleet Management', 'On-Demand Detailing', 'Chauffeur Services'],
   },
   {
     id: 'garden-care',
@@ -27,20 +27,20 @@ const services = [
       </svg>
     ),
     title: 'Garden Care',
-    description: 'Refined garden maintenance designed to preserve the beauty, health, and elegance of your outdoor spaces.',
-    features: ['Precision Lawn Care', 'Bespoke Garden Grooming', 'Plant & Landscape Care'],
+    description: 'Masterful landscape design and pristine estate grounds maintenance by certified horticulturists.',
+    features: ['Landscape Design', 'Seasonal Planting', 'Pool & Water Features'],
   },
   {
-    id: 'pet-care',
+    id: 'pet-wellness',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M18 12a4 4 0 100-8 4 4 0 000 8zM30 12a4 4 0 100-8 4 4 0 000 8zM10 22a4 4 0 100-8 4 4 0 000 8zM38 22a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="2"/>
         <path d="M24 44c-7 0-14-5-14-12 0-4 4-8 8-8h12c4 0 8 4 8 8 0 7-7 12-14 12z" stroke="currentColor" strokeWidth="2"/>
       </svg>
     ),
-    title: 'Pet Care',
-    description: 'Exceptional grooming and personal care crafted to keep your beloved companions fresh, comfortable, and beautifully cared for.',
-    features: ['Luxury Spa Grooming', 'Gentle Hygiene Care', 'Coat & Wellness Care'],
+    title: 'Pet Wellness',
+    description: 'Luxury pet care, grooming, veterinary coordination, and bespoke animal wellness programs.',
+    features: ['Premium Grooming', 'Vet Coordination', 'Pet Sitting & Training'],
   },
 ]
 

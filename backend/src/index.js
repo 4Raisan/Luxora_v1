@@ -21,14 +21,9 @@ import uploadRoutes from './routes/uploads.js';
 import supportRoutes from './routes/support.js';
 import refundRoutes from './routes/refunds.js';
 import { prisma } from './config/prisma.js';
-import { payHereConfigured, emailDeliveryReady } from './services/integrations.js';
 
 const app = express();
 app.disable('x-powered-by');
-// The API always runs behind a reverse proxy in production. Without this the
-// per-IP rate limiter keys on the proxy's address, so every visitor would
-// share a single bucket (global lockout) while attackers get no isolation.
-app.set('trust proxy', 1);
 const defaultOrigins = [
   `http://localhost:${PORT}`,
   `http://127.0.0.1:${PORT}`,
@@ -120,12 +115,6 @@ app.use((err, _req, res, _next) => {
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
-  // Routes that throw with an explicit statusCode (e.g. duplicate bookings
-  // inside Serializable transactions) keep their intended client error
-  // instead of collapsing into a generic 500.
-  if (Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 500) {
-    return res.status(err.statusCode).json({ error: err.message });
-  }
   switch (err?.code) {
     case 'P2002':
       return res.status(409).json({ error: 'A record with this value already exists' });
@@ -156,15 +145,6 @@ prisma.promotion.count().then((c) => {
 const server = app.listen(PORT, () => {
   console.log(`Luxora Backend API server running on http://localhost:${PORT}`);
   console.log(`API docs: http://localhost:${PORT}/api/docs`);
-  if (process.env.NODE_ENV === 'production' && String(process.env.PAYMENT_MODE || '').toLowerCase() === 'demo') {
-    console.error('[config] WARNING: PAYMENT_MODE=demo in production lets any user activate paid plans without paying.');
-  }
-  if (process.env.NODE_ENV === 'production' && !payHereConfigured()) {
-    console.error('[config] WARNING: PayHere credentials are not set — package checkout will return 503 until they are configured.');
-  }
-  if (process.env.NODE_ENV === 'production' && !emailDeliveryReady()) {
-    console.error('[config] WARNING: RESEND_FROM_EMAIL is not a verified sender domain — password reset and transactional email will not be delivered. The reset endpoint answers 503 until this is fixed.');
-  }
 });
 
 // Graceful shutdown (Docker / orchestrator friendly)

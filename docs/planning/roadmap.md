@@ -1,9 +1,10 @@
 # Luxora roadmap
 ## Current baseline
-React/Vite customer/provider/admin portals; Express/Prisma/PostgreSQL auth, roles, and Google Sign-In (customers); catalogue/packages/entitlements; bookings/KYC/availability/PIN/photos; support/notifications; Resend email with PostgreSQL-backed password-reset tokens; demo/PayHere boundary; refunds; migrations; responsive shared shell.
+React/Vite customer/provider/admin portals; Express/Prisma/PostgreSQL auth and roles; catalogue/packages/entitlements; bookings/KYC/availability/PIN/photos; support/notifications; demo/PayHere boundary; refunds; migrations; responsive shared shell.
 ## Priority 1: reliability
 - Automated API smoke tests for health, auth, ownership, role guards, packages, booking lifecycle, and refunds.
 - Request IDs, safe structured logs, latency/pool metrics, migration/backup procedures.
+- Durable password-reset tokens in PostgreSQL/Redis before multi-instance deployment.
 - Abuse monitoring for login, reset, OTP, uploads, and callbacks.
 ## Priority 2: hardening
 - PayHere reconciliation/idempotency tests for delayed/duplicate callbacks.

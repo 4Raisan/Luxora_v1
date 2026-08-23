@@ -6,6 +6,8 @@
   font-family: var(--font-primary);
   display: flex;
   flex-direction: column;
+  /* Header is fixed; compensate its 64px height so content is not covered. */
+  padding-top: 64px;
 }
 
 .gold-accent {
@@ -16,9 +18,38 @@
 .cd-header {
   background: #0f0f0f;
   border-bottom: 1px solid #1a1a1a;
-  position: sticky;
+  /* fixed (not sticky): the global body overflow-x:hidden creates a scroll
+     container that silently breaks position:sticky in this layout. */
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
+}
+
+/* Token / coin counters in the header bar (server entitlements) */
+.cd-header-tokens {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cd-htoken {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #16161a;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  color: var(--gold, #c9a84c);
+  border-radius: 16px;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.cd-htoken strong {
+  letter-spacing: 0.05em;
 }
 
 .cd-header__inner {
@@ -242,30 +273,6 @@
 .cd-btn-logout:hover {
   color: var(--gold);
 }
-
-/* Ownership and booking information lead; lower-frequency support remains calm. */
-.cd-wrapper.luxora-shell{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:1rem;align-content:start}.cd-wrapper .portal-hero{grid-column:1/-1}.cd-wrapper>section{grid-column:1/-1;margin:0!important;min-width:0}.cd-wrapper>section:nth-of-type(2),.cd-wrapper>section:nth-of-type(3),.cd-wrapper>section:nth-of-type(4){grid-column:span 6}.cd-wrapper .membership-row{gap:1rem;align-items:center}.cd-wrapper .membership-row>div{min-width:0}.cd-wrapper .credit-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.65rem;padding:0;list-style:none}.cd-wrapper .credit-list li{border:1px solid var(--line);border-radius:10px;padding:.75rem}@media(max-width:850px){.cd-wrapper.luxora-shell{display:block}.cd-wrapper.luxora-shell>section,.cd-wrapper .portal-hero{margin-bottom:1rem!important}}
-
-/* Functional dashboard presentation layer */
-.cd-wrapper { min-height:100vh; background:radial-gradient(circle at 90% 0,rgba(201,168,76,.10),transparent 25%),#0b0b0b; }
-.portal-hero { display:flex; justify-content:space-between; gap:2rem; align-items:flex-start; padding:2.4rem; margin-bottom:1.5rem; border:1px solid rgba(201,168,76,.22); border-radius:20px; background:linear-gradient(105deg,rgba(21,21,21,.98),rgba(18,18,18,.75)),url('/dark_luxury_mansion.jpg') center/cover; }
-.portal-hero p:not(.luxora-eyebrow) { color:#b9b5ac; max-width:42rem; margin-top:.7rem; }
-.portal-signout { background:transparent; color:#d6d1c8; border:1px solid #4a4539; border-radius:9px; padding:.6rem .85rem; font-weight:700; }
-.cd-wrapper section { background:rgba(20,20,20,.92)!important; border:1px solid var(--line)!important; border-radius:16px!important; padding:1.35rem!important; box-shadow:none!important; }
-.cd-wrapper h2 { font-family:var(--font-display); font-size:1.55rem; margin:.25rem 0 1rem; }
-.cd-wrapper input,.cd-wrapper select,.cd-wrapper textarea { border-color:#3a3936!important; background:#101010!important; border-radius:8px!important; }
-.cd-wrapper button { transition:transform .18s ease,filter .18s ease; }
-.cd-wrapper button:hover { transform:translateY(-1px); filter:brightness(1.07); }
-.membership-row,.booking-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 0; border-top:1px solid var(--line); }
-.membership-row strong,.booking-row strong { display:block; margin:.55rem 0 .25rem; }
-.membership-row small,.booking-row small { display:block; color:#999; }
-.credit-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; list-style:none; padding:1rem 0 0; }
-.credit-list li { padding:1rem; border:1px solid var(--line); border-radius:11px; background:#101010; }
-.credit-list span,.credit-list b,.credit-list small { display:block; }.credit-list b { color:var(--gold-light); font-size:1.25rem; margin:.25rem 0; }.credit-list small,.empty-copy { color:#8f8b83; }
-@media(max-width:700px){.portal-hero,.membership-row,.booking-row{flex-direction:column;align-items:flex-start}.portal-hero{padding:1.5rem}.cd-wrapper section{padding:1rem!important}}
-
-/* Customer portal redesign: deliberately quiet, information-led membership UI. */
-.customer-overview{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:18px}.customer-overview .portal-panel{margin-top:18px}.customer-next{background:linear-gradient(135deg,#181813,#121313)}.customer-next>h2{margin:14px 0 5px}.customer-next>p{color:#d5d4cd}.customer-next small{display:block;color:#969994;margin-top:12px}.credit-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--p-line);border:1px solid var(--p-line)}.credit-summary-grid>div{background:var(--p-surface);padding:18px}.credit-summary-grid span,.credit-summary-grid small{display:block;color:var(--p-muted);font-size:12px}.credit-summary-grid strong{display:block;margin:9px 0 3px;font-size:30px;font-weight:500;color:var(--p-accent)}.membership-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}.membership-card{display:flex;justify-content:space-between;gap:20px;padding:22px;border:1px solid #444135;background:linear-gradient(145deg,#1c1b15,#141514);min-height:170px}.membership-card h3,.package-card h3{font:24px/1.08 var(--font-display);margin:16px 0 6px}.membership-card p,.package-card p{color:var(--p-muted);font-size:13px}.membership-actions{display:flex;align-items:flex-end;flex-direction:column;gap:7px}.ui-button{border:1px solid transparent;min-height:37px;padding:8px 12px;font:650 12px var(--font-primary);border-radius:5px;transition:transform .18s ease,border-color .18s ease,background .18s ease}.ui-button:focus-visible,.luxora-form input:focus-visible,.luxora-form select:focus-visible,.luxora-form textarea:focus-visible{outline:2px solid var(--p-accent);outline-offset:2px}.ui-button:hover:not(:disabled){transform:translateY(-1px)}.ui-button:disabled{opacity:.45;cursor:not-allowed}.ui-button--primary{background:var(--p-accent);color:var(--p-accent-ink)}.ui-button--secondary{background:#20221f;border-color:#484a43;color:#efefe9}.ui-button--text{background:transparent;color:#c5c6bf}.ui-button.danger{color:#e0a09b}.luxora-form{display:grid;gap:12px}.luxora-form label{display:grid;gap:6px;font-size:11px;font-weight:700;letter-spacing:.08em;color:#c8c8c1;text-transform:uppercase}.luxora-form input,.luxora-form select,.luxora-form textarea,.phone-verification input{width:100%;min-height:42px;color:#f4f3ed;background:#0e0f0f;border:1px solid #383b37;border-radius:4px;padding:10px 11px;font:14px var(--font-primary);text-transform:none}.luxora-form textarea{min-height:102px;resize:vertical}.booking-workspace{background:linear-gradient(90deg,#161713,#121313)}.booking-form{grid-template-columns:1.3fr 1fr 1fr auto;align-items:end}.booking-form .ui-button{height:42px}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}.package-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.package-card{display:flex;flex-direction:column;min-height:290px;padding:20px;border:1px solid #363833;background:#151616;transition:border-color .2s ease,transform .2s ease}.package-card:hover{border-color:#817850;transform:translateY(-3px)}.package-card ul{list-style:none;margin:22px 0 auto;border-top:1px solid #30322f}.package-card li{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #292b28;color:#bdbeb8;font-size:12px}.package-card li b{font-weight:600;color:#e9e8e1}.package-card-footer{display:flex;align-items:end;justify-content:space-between;gap:12px;padding-top:20px}.package-card-footer b,.package-card-footer small{display:block}.package-card-footer b{font-size:17px;color:var(--p-accent)}.package-card-footer small{color:var(--p-muted);font-size:10px;margin-top:3px}.purchase-drawer,.demo-checkout{margin-top:14px;padding:16px;border-left:2px solid var(--p-accent);background:#1d1d18;display:flex;align-items:center;gap:14px;flex-wrap:wrap}.purchase-drawer h3,.demo-checkout h3{font:21px var(--font-display);margin:4px 0}.purchase-drawer p,.demo-checkout p{font-size:12px;color:var(--p-muted)}.purchase-drawer>b{margin-left:auto;color:var(--p-accent)}.demo-checkout>div:last-child{display:flex;gap:8px;flex-wrap:wrap}.service-list{border-top:1px solid var(--p-line)}.service-row{display:grid;grid-template-columns:100px minmax(0,1fr) auto;gap:18px;align-items:center;padding:16px 0;border-bottom:1px solid var(--p-line)}.service-time b,.service-time small{display:block}.service-time b{font-size:15px}.service-time small{font-size:11px;color:var(--p-muted);margin-top:3px}.service-row h3{font-size:14px;margin:8px 0 2px}.service-row p{font-size:12px;color:var(--p-muted)}.service-row-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}.support-columns{display:grid;grid-template-columns:1fr 1fr;gap:35px}.support-columns>div+div{border-left:1px solid var(--p-line);padding-left:35px}.support-record{padding:14px 0;border-bottom:1px solid var(--p-line)}.support-record>b,.support-record p,.support-record small{display:block;margin-top:9px}.support-record p,.support-record small,.support-ticket{color:var(--p-muted);font-size:12px}.support-record .ui-button{margin-top:12px}.support-ticket{padding:10px 0;border-bottom:1px solid var(--p-line)}.support-ticket .portal-status{margin-right:6px}.profile-form{grid-template-columns:1fr 1fr}.profile-form .ui-button{width:max-content}.phone-verification{display:grid;grid-template-columns:auto minmax(130px,200px) auto;gap:9px;margin-top:14px;align-items:center}.customer-activity{margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:12px 28px}.customer-activity h3{grid-column:span 2}.customer-activity>.luxora-form{grid-column:span 1}.notification-row{border:0;border-bottom:1px solid var(--p-line);background:transparent;color:#d9d9d2;text-align:left;padding:11px 0;font:13px var(--font-primary);display:flex;justify-content:space-between;gap:15px}.notification-row.is-unread{color:#fff}.notification-row small{color:var(--p-accent);font-size:10px;white-space:nowrap}.quiet-copy{color:var(--p-muted);font-size:13px}@media(max-width:1100px){.package-grid{grid-template-columns:repeat(2,1fr)}.booking-form{grid-template-columns:1fr 1fr}.booking-form>label:first-child{grid-column:span 2}.booking-form .ui-button{width:max-content}.customer-activity{grid-template-columns:1fr}}@media(max-width:720px){.customer-overview,.support-columns{grid-template-columns:1fr}.membership-card{flex-direction:column}.membership-actions{align-items:flex-start}.booking-form,.profile-form{grid-template-columns:1fr}.booking-form>label:first-child{grid-column:auto}.package-grid{grid-template-columns:1fr}.service-row{grid-template-columns:1fr;gap:8px}.service-row-actions{justify-content:flex-start}.support-columns>div+div{border-left:0;border-top:1px solid var(--p-line);padding:22px 0 0}.phone-verification{grid-template-columns:1fr}.customer-activity h3{grid-column:auto}.customer-activity>.luxora-form{grid-column:auto}.purchase-drawer>b{margin-left:0}.section-heading{display:block}.section-heading>.portal-status{margin-top:10px}}
 
 /* ─── Main Containers & Animation ───────────────────────── */
 .animate-fade-in {
@@ -2187,42 +2194,6 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-/* ─── Customer portal v2: paged layout (Booking / Plans / Support / Profile) ─── */
-.booking-columns{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(330px,.92fr);gap:18px;align-items:start}
-.bookings-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 12px}
-.bookings-table-wrap{overflow-x:auto;border:1px solid var(--p-line);border-radius:10px}
-.bookings-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:660px}
-.bookings-table th{text-align:left;font:700 9.5px var(--font-primary);letter-spacing:.14em;text-transform:uppercase;color:var(--p-muted);padding:11px 12px;border-bottom:1px solid var(--p-line);background:#101211;white-space:nowrap}
-.bookings-table td{padding:12px;border-bottom:1px solid var(--p-line);vertical-align:middle;color:#d6d4cc}
-.bookings-table tbody tr:last-child td{border-bottom:0}
-.bookings-table tbody tr:hover td{background:rgba(255,255,255,.025)}
-.bookings-table td b{color:var(--p-text)}
-.bookings-table td em{color:var(--p-muted);font-style:normal;font-size:11.5px}
-.cat-cell{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-.table-actions{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
-.table-actions .ui-button{min-height:28px;padding:4px 8px;font-size:11px}
-.membership-card--clickable{cursor:pointer;transition:transform .2s ease,border-color .2s ease}
-.membership-card--clickable:hover{border-color:var(--p-accent);transform:translateY(-2px)}
-.membership-coins{margin:12px 0 0}
-.membership-coins .coin-pill{padding:4px 10px;font-size:11px}
-.membership-manage{color:var(--p-accent);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;align-self:flex-end}
-.request-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:14px}
-.request-card{border:1px solid var(--p-line);border-radius:12px;padding:16px 18px;background:#111312}
-.request-card header{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.request-card header small{color:var(--p-muted);font:700 10.5px var(--font-primary);letter-spacing:.12em}
-.request-card h3{margin:12px 0 6px;font-size:15px}
-.request-card p{color:var(--p-muted);font-size:12.5px;line-height:1.6;white-space:pre-line;margin:0}
-.request-card>small{display:block;margin-top:12px;color:var(--p-muted);font-size:11px}
-.plan-group{margin-top:24px}
-.plan-group>h3{font:700 11px var(--font-primary);letter-spacing:.14em;text-transform:uppercase;color:var(--p-muted);margin:0 0 12px}
-.complaints-block{margin-top:26px;border-top:1px solid var(--p-line);padding-top:4px}
-.package-detail dl{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin:14px 0}
-.package-detail dl div{display:grid;gap:2px}
-.package-detail dt{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--p-muted)}
-.package-detail dd{margin:0;font-weight:600;font-size:13.5px}
-.package-detail .portal-kicker{margin:18px 0 0}
-@media(max-width:1050px){.booking-columns{grid-template-columns:1fr}}
-
 /* ─── Responsive & Mobile Optimization ───────────────────── */
 @media (max-width: 1024px) {
   .cd-packages-grid,
@@ -2282,3 +2253,51 @@
   }
 }
 
+
+/* ─── Header layout guard: the bar is exactly 64px — nothing wraps or spills ─── */
+.cd-header__inner {
+  flex-wrap: nowrap;
+  gap: 0.85rem;
+}
+
+.cd-user-name {
+  white-space: nowrap;
+}
+
+.cd-user-info,
+.cd-header-tokens {
+  flex-shrink: 0;
+}
+
+.cd-portal-badge {
+  white-space: nowrap;
+}
+
+/* Progressive compaction so the whole bar keeps fitting on smaller laptops */
+@media (max-width: 1150px) {
+  .cd-header__inner { padding: 0 1rem; }
+  .cd-portal-badge { display: none; }
+  .cd-user-id { display: none; }
+  .cd-htoken { padding: 0.24rem 0.5rem; font-size: 0.72rem; }
+  .cd-btn-support { padding: 0.45rem 0.7rem; }
+}
+
+@media (max-width: 980px) {
+  /* Icon-only Support button (font-size:0 hides the text node, keeps the SVG) */
+  .cd-btn-support { font-size: 0; padding: 0.45rem 0.6rem; gap: 0; }
+  .cd-user-details { display: none; }
+  .cd-header-tokens { gap: 0.25rem; }
+  .cd-nav__tab { padding: 0.4rem 0.6rem; font-size: 0.72rem; }
+}
+
+@media (max-width: 760px) {
+  /* Phones: coins move out of the bar rather than breaking the layout */
+  .cd-header-tokens { display: none; }
+  .cd-nav { display: none; }
+}
+
+/* ─── Modal window guard: tall dialogs scroll inside instead of exceeding the window ─── */
+.cd-support-modal {
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}

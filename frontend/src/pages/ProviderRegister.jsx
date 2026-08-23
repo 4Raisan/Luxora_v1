@@ -11,11 +11,6 @@ const steps = [
   { num: '04', label: 'Review & Submit' },
 ]
 
-const formatSriLankanMobile = (value) => {
-  const digits = String(value || '').replace(/\D/g, '')
-  return /^07\d{8}$/.test(digits) ? `+94${digits.slice(1)}` : ''
-}
-
 const UploadBox = ({ label, id, onChange, preview }) => (
   <div className="pr-upload-wrap">
     <p className="pr-upload-label">{label}</p>
@@ -50,7 +45,6 @@ const ProviderRegister = () => {
     fullName: '',
     email: '',
     password: '',
-    passwordConfirm: '',
     nicNumber: '',
     mobile: '',
     otp: '',
@@ -145,8 +139,8 @@ const ProviderRegister = () => {
   }
 
   const handleSendOtp = async () => {
-    if (!/^07\d{8}$/.test(form.mobile)) {
-      alert('Enter a valid Sri Lankan mobile number starting with 07.')
+    if (!form.mobile || form.mobile.length !== 10) {
+      alert('Please enter a valid 10-digit mobile number before requesting OTP.')
       return
     }
     try {
@@ -174,16 +168,8 @@ const ProviderRegister = () => {
   const nextStep = (e) => {
     e.preventDefault()
     if (step === 0) {
-      if (!/^07\d{8}$/.test(form.mobile)) {
-        alert('Enter a valid Sri Lankan mobile number starting with 07.')
-        return
-      }
-      if (form.password.length < 6) {
-        alert('Password must be at least 6 characters.')
-        return
-      }
-      if (form.password !== form.passwordConfirm) {
-        alert('Passwords do not match.')
+      if (form.mobile.length !== 10) {
+        alert('Mobile number must be exactly 10 digits.')
         return
       }
       if (!otpSent) {
@@ -212,10 +198,6 @@ const ProviderRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (form.password.length < 6 || form.password !== form.passwordConfirm) {
-      setSubmitError('Password must be at least 6 characters and match the confirmation.')
-      return
-    }
     setLoading(true)
     setSubmitError('')
     try {
@@ -449,17 +431,6 @@ const ProviderRegister = () => {
             </div>
 
             <div className="pr-row">
-              <input id="pr-password" name="password" type="password" className="pr-input"
-                placeholder="Password (min 6 characters)" value={form.password}
-                onChange={handleChange} minLength={6} maxLength={72}
-                autoComplete="new-password" required />
-              <input id="pr-password-confirm" name="passwordConfirm" type="password" className="pr-input"
-                placeholder="Confirm Password" value={form.passwordConfirm}
-                onChange={handleChange} maxLength={72}
-                autoComplete="new-password" required />
-            </div>
-
-            <div className="pr-row">
               <UploadBox label="NIC FRONT PHOTO (IMAGE ONLY)" id="nic-front"
                 onChange={handleFileChange('nicFront', 'nicFrontPreview')}
                 preview={form.nicFrontPreview} />
@@ -476,9 +447,9 @@ const ProviderRegister = () => {
 
             <div className="pr-row pr-row--otp">
               <input id="pr-mobile" name="mobile" type="tel" className="pr-input"
-                placeholder="0771575701" value={form.mobile}
+                placeholder="Mobile Number" value={form.mobile}
                 onChange={(e) => { handleMobileChange(e); setIsOtpVerified(false); setOtpSent(false) }}
-                maxLength={10} inputMode="numeric" pattern="07[0-9]{8}" title="Enter a 10-digit Sri Lankan mobile number starting with 07" required />
+                maxLength={10} inputMode="numeric" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" required />
               <button type="button" id="pr-send-otp-btn"
                 className={`pr-otp-btn ${isOtpVerified ? 'pr-otp-btn--sent' : otpSent ? 'pr-otp-btn--sent' : ''}`}
                 onClick={handleSendOtp} disabled={isOtpVerified}>
@@ -490,8 +461,9 @@ const ProviderRegister = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#111', padding: '0.85rem', borderRadius: '8px', border: '1px solid #222' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--gold)', fontSize: '0.75rem', fontWeight: '600' }}>
-                    📱 Enter OTP sent to {formatSriLankanMobile(form.mobile)}
+                    📱 Enter OTP sent to +94 {form.mobile}
                   </span>
+                  <small style={{ color: '#888', fontSize: '0.7rem' }}>Demo OTP: <strong style={{ color: '#fff' }}>1234</strong></small>
                 </div>
                 <div className="pr-row" style={{ gridTemplateColumns: '1fr auto', gap: '0.6rem' }}>
                   <input id="pr-otp" name="otp" type="text" className="pr-input"
@@ -507,7 +479,7 @@ const ProviderRegister = () => {
 
             {isOtpVerified && (
               <div style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#4ade80', padding: '0.7rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                ✓ Mobile Number {formatSriLankanMobile(form.mobile)} Verified Successfully
+                ✓ Mobile Number +94 {form.mobile} Verified Successfully
               </div>
             )}
 

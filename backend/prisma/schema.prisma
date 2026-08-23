@@ -18,7 +18,6 @@ model User {
   role Role @default(CUSTOMER)
   active Boolean @default(true)
   isSuperAdmin Boolean @default(false)
-  tokenVersion Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   bookings Booking[]
@@ -45,16 +44,6 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, expiresAt])
   @@map("password_reset_tokens")
-}
-
-model PhoneOtp {
-  id Int @id @default(autoincrement())
-  phone String @unique
-  codeHash String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  @@index([expiresAt])
-  @@map("phone_otp_challenges")
 }
 
 model Provider {

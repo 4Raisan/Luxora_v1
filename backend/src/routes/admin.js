@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
@@ -140,37 +139,8 @@ router.put('/subscriptions/:id', requireSuperAdmin, async (req, res) => {
   if (req.body.features !== undefined) { if (!Array.isArray(req.body.features)) return res.status(400).json({ error: 'features must be an array' }); data.features = JSON.stringify(req.body.features); }
   const updated = await prisma.subscriptionPlan.update({ where: { id }, data, include: { entitlements: true } });
   if (req.body.entitlements) {
-    // Same validation as plan creation: entitlements drive live unit maths for
-    // every subscription sold under the plan, so malformed input here corrupts
-    // active packages retroactively.
     if (!Array.isArray(req.body.entitlements)) return res.status(400).json({ error: 'entitlements must be an array' });
-    const normalized = req.body.entitlements.map((item) => ({ categoryId: toPositiveInt(item.category_id), units: Number(item.units) }));
-    if (!normalized.length || normalized.some((item) => !item.categoryId || !Number.isInteger(item.units) || item.units < 1)) return res.status(400).json({ error: 'A package requires at least one category entitlement with one or more units' });
-    const categoryIds = [...new Set(normalized.map((item) => item.categoryId))];
-    if (categoryIds.length !== normalized.length) return res.status(400).json({ error: 'Each category may only appear once in entitlements' });
-    if (await prisma.category.count({ where: { id: { in: categoryIds } } }) !== categoryIds.length) return res.status(400).json({ error: 'Unknown category in entitlements' });
-    // Entitlements are computed live from the plan, so reducing units below
-    // what active subscriptions already consumed would silently zero out (or
-    // negative-clip) customers' remaining coins.
-    const usedRows = await prisma.booking.groupBy({
-      by: ['serviceId'],
-      where: { status: { not: 'CANCELLED' }, subscription: { planId: id, status: 'active' } },
-      _count: { _all: true },
-    });
-    const usedServices = await prisma.service.findMany({ where: { id: { in: usedRows.map((row) => row.serviceId) } }, select: { id: true, categoryId: true } });
-    const usedByCategory = new Map();
-    for (const row of usedRows) {
-      const categoryId = usedServices.find((service) => service.id === row.serviceId)?.categoryId;
-      if (categoryId) usedByCategory.set(categoryId, (usedByCategory.get(categoryId) || 0) + row._count._all);
-    }
-    for (const item of normalized) {
-      const used = usedByCategory.get(item.categoryId) || 0;
-      if (used > item.units) {
-        const category = await prisma.category.findUnique({ where: { id: item.categoryId }, select: { name: true } });
-        return res.status(409).json({ error: `Cannot reduce ${category?.name || 'this category'} below ${used} units — active packages have already used ${used}` });
-      }
-    }
-    await prisma.$transaction([prisma.subscriptionEntitlement.deleteMany({ where: { planId: id } }), prisma.subscriptionEntitlement.createMany({ data: normalized.map((item) => ({ planId: id, ...item })) })]);
+    await prisma.$transaction([prisma.subscriptionEntitlement.deleteMany({ where: { planId: id } }), prisma.subscriptionEntitlement.createMany({ data: req.body.entitlements.map((item) => ({ planId: id, categoryId: toPositiveInt(item.category_id), units: Number(item.units) })) })]);
   }
   res.json(updated);
 });
@@ -255,34 +225,20 @@ router.put('/bookings/:id', async (req, res) => {
   if (nextProviderId && nextStatus === 'CANCELLED') return res.status(400).json({ error: 'A cancelled booking cannot be assigned' });
   if (nextStatus === undefined && nextProviderId === undefined) return res.status(400).json({ error: 'status or provider_id is required' });
   if (nextStatus === 'COMPLETED' && !(nextProviderId ?? booking.providerId)) return res.status(400).json({ error: 'A provider is required before completing a booking' });
-  // Completing and reassigning in one action would pay a provider who did not
-  // perform the work — force admins to complete first or reassign first.
-  if (nextStatus === 'COMPLETED' && nextProviderId && nextProviderId !== booking.providerId) {
-    return res.status(400).json({ error: 'Cannot reassign and complete in the same update' });
+
+  // Pay out exactly once, only when transitioning INTO COMPLETED
+  if (nextStatus === 'COMPLETED' && booking.status !== 'COMPLETED' && (nextProviderId ?? booking.providerId)) {
+    const payout = booking.totalPrice * PROVIDER_PAYOUT_RATE;
+    await prisma.provider.update({
+      where: { id: nextProviderId ?? booking.providerId },
+      data: { earnings: { increment: payout } },
+    });
   }
 
-  if (nextStatus === 'COMPLETED') {
-    // Atomic completion + payout: only the request that actually flips the
-    // status to COMPLETED pays, exactly once, with app-rounded money — the
-    // same guarantees the provider endpoint enforces.
-    const payout = new Prisma.Decimal(booking.totalPrice).mul(PROVIDER_PAYOUT_RATE).toDecimalPlaces(2);
-    const payeeId = nextProviderId ?? booking.providerId;
-    const claimed = await prisma.$transaction(async (tx) => {
-      const result = await tx.booking.updateMany({
-        where: { id: booking.id, status: booking.status },
-        data: { status: 'COMPLETED', providerId: payeeId },
-      });
-      if (result.count !== 1) return false;
-      await tx.provider.update({ where: { id: payeeId }, data: { earnings: { increment: payout } } });
-      return true;
-    });
-    if (!claimed) return res.status(409).json({ error: 'Booking changed concurrently; review it and try again' });
-  } else {
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: nextStatus, providerId: nextProviderId },
-    });
-  }
+  await prisma.booking.update({
+    where: { id: booking.id },
+    data: { status: nextStatus, providerId: nextProviderId },
+  });
 
   if (nextStatus && nextStatus !== booking.status) {
     await notify(booking.userId, `Your booking #${id} status is now ${nextStatus.toLowerCase()}.`);

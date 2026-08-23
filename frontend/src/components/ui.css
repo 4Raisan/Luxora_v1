@@ -135,5 +135,5 @@
 .coin-used-note{display:flex;align-items:center;gap:8px;margin:12px 0 0;color:var(--p-accent,#c5a764);font:650 12.5px var(--font-primary,inherit)}
 .luxora-category-icon{color:var(--p-accent,#c5a764);flex:none}
 .credit-summary-grid>div span{display:inline-flex;align-items:center;gap:8px}
-.wizard-category[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
-.wizard-category[aria-disabled="true"]:hover{transform:none;border-color:var(--p-line,#2a2d2c)}
+.wizard-category:disabled{opacity:.45;cursor:not-allowed}
+.wizard-category:disabled:hover{transform:none;border-color:var(--p-line,#2a2d2c)}

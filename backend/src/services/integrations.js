@@ -1,37 +1,7 @@
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { prisma } from '../config/prisma.js';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
-
-export function normalizeSriLankanPhone(value) {
-  const raw = String(value || '').trim();
-  const digits = raw.replace(/\D/g, '');
-  if (/^07\d{8}$/.test(digits)) return `+94${digits.slice(1)}`;
-  if (/^947\d{8}$/.test(digits)) return `+${digits}`;
-  if (/^\+947\d{8}$/.test(raw)) return raw;
-  return null;
-}
-
-// Resend's shared onboarding@resend.dev sender only delivers to the account
-// owner's own inbox. That is fine for local development but means password
-// reset (and every other transactional email) silently never reaches real
-// users in production, so treat it as "not ready" outside development.
-export function emailDeliveryReady() {
-  if (!process.env.RESEND_API_KEY) return false;
-  const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-  return !(process.env.NODE_ENV === 'production' && from === 'onboarding@resend.dev');
-}
-
-export function payHereConfigured() {
-  const merchantId = process.env.PAYHERE_MERCHANT_ID;
-  const secret = process.env.PAYHERE_MERCHANT_SECRET;
-  if (!merchantId || !secret) return false;
-  // Placeholder-style values (e.g. "YOUR_PAYHERE_MERCHANT_ID" from .env.example)
-  // are presence without configuration and must not reach the checkout form.
-  const isPlaceholder = (value) => /^(your|change\s*me|placeholder|xxxx*)/i.test(String(value).trim());
-  return !isPlaceholder(merchantId) && !isPlaceholder(secret);
-}
 
 export async function sendEmail({ to, subject, html, text = '' }) {
   if (!to || !process.env.RESEND_API_KEY) return { configured: false };
@@ -46,42 +16,29 @@ export async function sendEmail({ to, subject, html, text = '' }) {
 }
 
 export async function sendVerificationCode(phone) {
-  phone = normalizeSriLankanPhone(phone);
-  if (!phone) throw new Error('Invalid Sri Lankan mobile number');
-  const required = missing('EASYSENDSMS_API_KEY', 'EASYSENDSMS_SENDER_ID', 'JWT_SECRET');
+  const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
   if (required.length) return { configured: false, missing: required };
-  const code = String(crypto.randomInt(1000, 10000));
-  const codeHash = crypto.createHash('sha256').update(`${phone}:${code}:${process.env.JWT_SECRET}`).digest('hex');
-  await prisma.phoneOtp.deleteMany({ where: { phone } });
-  await prisma.phoneOtp.create({ data: { phone, codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } });
-  try {
-    const response = await fetch('https://restapi.easysendsms.app/v1/rest/sms/send', {
-      method: 'POST',
-      headers: { apikey: process.env.EASYSENDSMS_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
-      // EasySendSMS requires international format without a plus sign.
-      body: JSON.stringify({ from: process.env.EASYSENDSMS_SENDER_ID, to: phone.slice(1), text: `Your Luxora verification code is ${code}. It expires in 10 minutes.`, type: '0' }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result?.status !== 'OK') throw new Error(result?.description || `EasySendSMS request failed (${response.status})`);
-    return { configured: true, status: 'pending', messageId: result.messageIds?.[0] || null };
-  } catch (error) {
-    // Do not leave a code that was never handed to the SMS provider valid.
-    await prisma.phoneOtp.deleteMany({ where: { phone, codeHash } });
-    throw error;
-  }
+  const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+  const body = new URLSearchParams({ To: phone, Channel: 'sms' });
+  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/Verifications`, {
+    method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.message || `Twilio request failed (${response.status})`);
+  return { configured: true, sid: result.sid, status: result.status };
 }
 
 export async function verifyCode(phone, code) {
-  phone = normalizeSriLankanPhone(phone);
-  if (!phone) return { configured: true, approved: false, status: 'invalid_phone' };
-  const required = missing('EASYSENDSMS_API_KEY', 'EASYSENDSMS_SENDER_ID', 'JWT_SECRET');
+  const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
   if (required.length) return { configured: false, missing: required };
-  const challenge = await prisma.phoneOtp.findUnique({ where: { phone } });
-  if (!challenge || challenge.expiresAt <= new Date()) return { configured: true, approved: false, status: 'expired' };
-  const expected = crypto.createHash('sha256').update(`${phone}:${String(code)}:${process.env.JWT_SECRET}`).digest('hex');
-  const approved = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(challenge.codeHash));
-  if (approved) await prisma.phoneOtp.delete({ where: { phone } });
-  return { configured: true, approved, status: approved ? 'approved' : 'pending' };
+  const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+  const body = new URLSearchParams({ To: phone, Code: code });
+  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck`, {
+    method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.message || `Twilio request failed (${response.status})`);
+  return { configured: true, approved: result.status === 'approved', status: result.status };
 }
 
 export async function createPayPalOrder({ amount, currency = 'USD', description = 'Luxora service' }) {

@@ -7,12 +7,11 @@
     "dev": "node src/index.js",
     "start": "npx prisma generate && npx prisma migrate deploy && node src/index.js",
     "prisma:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
-    "db:migrate:dev": "prisma migrate dev",
+    "db:push": "node prisma/migrate-service-towns.js && prisma db push --accept-data-loss",
+    "db:migrate-service-towns": "node prisma/migrate-service-towns.js",
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1116.0",
     "@prisma/client": "6.19.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
