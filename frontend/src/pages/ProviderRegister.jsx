@@ -45,6 +45,7 @@ const ProviderRegister = () => {
     fullName: '',
     email: '',
     password: '',
+    passwordConfirm: '',
     nicNumber: '',
     mobile: '',
     otp: '',
@@ -172,6 +173,14 @@ const ProviderRegister = () => {
         alert('Mobile number must be exactly 10 digits.')
         return
       }
+      if (form.password.length < 6) {
+        alert('Password must be at least 6 characters.')
+        return
+      }
+      if (form.password !== form.passwordConfirm) {
+        alert('Passwords do not match.')
+        return
+      }
       if (!otpSent) {
         alert('Please click SEND OTP to receive your mobile verification code.')
         return
@@ -198,6 +207,10 @@ const ProviderRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (form.password.length < 6 || form.password !== form.passwordConfirm) {
+      setSubmitError('Password must be at least 6 characters and match the confirmation.')
+      return
+    }
     setLoading(true)
     setSubmitError('')
     try {
@@ -428,6 +441,17 @@ const ProviderRegister = () => {
               <input id="pr-email" name="email" type="email" className="pr-input"
                 placeholder="Email Address" value={form.email}
                 onChange={handleChange} required />
+            </div>
+
+            <div className="pr-row">
+              <input id="pr-password" name="password" type="password" className="pr-input"
+                placeholder="Password (min 6 characters)" value={form.password}
+                onChange={handleChange} minLength={6} maxLength={72}
+                autoComplete="new-password" required />
+              <input id="pr-password-confirm" name="passwordConfirm" type="password" className="pr-input"
+                placeholder="Confirm Password" value={form.passwordConfirm}
+                onChange={handleChange} maxLength={72}
+                autoComplete="new-password" required />
             </div>
 
             <div className="pr-row">

@@ -3,6 +3,26 @@ import { Prisma } from '@prisma/client';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
+// Resend's shared onboarding@resend.dev sender only delivers to the account
+// owner's own inbox. That is fine for local development but means password
+// reset (and every other transactional email) silently never reaches real
+// users in production, so treat it as "not ready" outside development.
+export function emailDeliveryReady() {
+  if (!process.env.RESEND_API_KEY) return false;
+  const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  return !(process.env.NODE_ENV === 'production' && from === 'onboarding@resend.dev');
+}
+
+export function payHereConfigured() {
+  const merchantId = process.env.PAYHERE_MERCHANT_ID;
+  const secret = process.env.PAYHERE_MERCHANT_SECRET;
+  if (!merchantId || !secret) return false;
+  // Placeholder-style values (e.g. "YOUR_PAYHERE_MERCHANT_ID" from .env.example)
+  // are presence without configuration and must not reach the checkout form.
+  const isPlaceholder = (value) => /^(your|change\s*me|placeholder|xxxx*)/i.test(String(value).trim());
+  return !isPlaceholder(merchantId) && !isPlaceholder(secret);
+}
+
 export async function sendEmail({ to, subject, html, text = '' }) {
   if (!to || !process.env.RESEND_API_KEY) return { configured: false };
   const response = await fetch('https://api.resend.com/emails', {

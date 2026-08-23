@@ -1,16 +1,13 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { toPositiveInt } from '../middleware/validators.js';
+import { putObject, getObject, removeObject } from '../services/storage.js';
 
 const router = Router();
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../private-uploads');
-fs.mkdirSync(root, { recursive: true });
 
 // Content-based file validation: the client-declared MIME type and the original
 // filename extension are both attacker-controlled, so every upload is identified
@@ -33,19 +30,23 @@ const ALLOWED_KYC_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 3 } });
 const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 5 } });
 
-// Buffers are held in memory only until validation; accepted files are written to
-// private-uploads (outside any web root) under a random name, so nothing a client
-// sends ever influences a filesystem path and uploads are never executed.
-function persistValidatedFile(file, allowedTypes) {
+// Buffers are held in memory only until validation; accepted files are stored
+// (object storage when configured, otherwise local disk) under a random name,
+// so nothing a client sends ever influences a storage path.
+async function persistValidatedFile(file, allowedTypes) {
   const signature = detectFileSignature(file.buffer);
   if (!signature || !allowedTypes.has(signature.type) || signature.type !== file.mimetype) return null;
   const filename = `${crypto.randomUUID()}${signature.ext}`;
-  fs.writeFileSync(path.resolve(root, filename), file.buffer);
+  await putObject(filename, file.buffer, signature.type);
   return { filename, mimeType: signature.type, sizeBytes: file.buffer.length };
 }
 
-function removeFiles(files = []) { for (const persisted of files) fs.unlink(path.resolve(root, persisted), () => {}); }
-function fileResponse(res, record) { return res.sendFile(path.resolve(root, record.filePath)); }
+function removeFiles(files = []) { for (const persisted of files) removeObject(persisted); }
+async function fileResponse(res, record) {
+  const buffer = await getObject(record.filePath);
+  if (!buffer) return res.status(404).json({ error: 'File is no longer available' });
+  return res.setHeader('Content-Type', record.mimeType || 'application/octet-stream').send(buffer);
+}
 
 router.post('/provider/kyc-documents', authenticateToken, requireRole('PROVIDER'), upload.array('documents', 3), async (req, res) => {
   const files = req.files || [];
@@ -57,7 +58,7 @@ router.post('/provider/kyc-documents', authenticateToken, requireRole('PROVIDER'
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   const persisted = [];
   for (const file of files) {
-    const stored = persistValidatedFile(file, ALLOWED_KYC_TYPES);
+    const stored = await persistValidatedFile(file, ALLOWED_KYC_TYPES);
     if (!stored) {
       removeFiles(persisted);
       return res.status(415).json({ error: 'Files must be genuine JPEG, PNG, or PDF content matching the declared type' });
@@ -79,7 +80,7 @@ router.post('/bookings/:id/photos', authenticateToken, requireRole('PROVIDER'), 
   if ((kind === 'BEFORE' && booking.status !== 'ASSIGNED') || (kind === 'AFTER' && booking.status !== 'IN_PROGRESS')) { return res.status(400).json({ error: `${kind} photos can only be uploaded at the appropriate service stage` }); }
   const persisted = [];
   for (const file of files) {
-    const stored = persistValidatedFile(file, new Set(['image/jpeg', 'image/png']));
+    const stored = await persistValidatedFile(file, new Set(['image/jpeg', 'image/png']));
     if (!stored) {
       removeFiles(persisted);
       return res.status(415).json({ error: 'Photos must be genuine JPEG or PNG content matching the declared type' });

@@ -355,6 +355,28 @@ router.put('/:id/status', async (req, res) => {
     });
   }
 
+  if (nextStatus === 'COMPLETED') {
+    // Atomic completion + payout: the conditional update only succeeds for the
+    // request that actually flips IN_PROGRESS -> COMPLETED, so a double-click
+    // or replayed request cannot pay the provider twice, and the earnings
+    // increment commits in the same transaction as the status change.
+    const payout = new Prisma.Decimal(booking.totalPrice).mul(PROVIDER_PAYOUT_RATE).toDecimalPlaces(2);
+    const claimed = await prisma.$transaction(async (tx) => {
+      const result = await tx.booking.updateMany({
+        where: { id: booking.id, status: 'IN_PROGRESS' },
+        data: { status: 'COMPLETED', providerId: provider.id, afterPhoto: after_photo || undefined, completionPinUsedAt: new Date() },
+      });
+      if (result.count !== 1) return false;
+      await tx.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
+      return true;
+    });
+    if (!claimed) return res.status(409).json({ error: 'Booking is no longer in progress' });
+    await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');
+    const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
+    sendEmail({ to: customer?.email, subject: `Luxora service completed #${id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${id} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
+    return res.json({ message: `Booking status updated to ${nextStatus.toLowerCase()}`, status: nextStatus.toLowerCase() });
+  }
+
   await prisma.booking.update({
     where: { id: booking.id },
     data: {
@@ -367,16 +389,7 @@ router.put('/:id/status', async (req, res) => {
     },
   });
 
-  if (nextStatus === 'COMPLETED') {
-    // Guard against double payout: only pay when transitioning from a non-COMPLETED state
-    if (booking.status !== 'COMPLETED') {
-      const payout = new Prisma.Decimal(booking.totalPrice).mul(PROVIDER_PAYOUT_RATE).toDecimalPlaces(2);
-      await prisma.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
-    }
-    await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');
-    const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
-    sendEmail({ to: customer?.email, subject: `Luxora service completed #${id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${id} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
-  } else if (nextStatus === 'IN_PROGRESS') {
+  if (nextStatus === 'IN_PROGRESS') {
     await notify(booking.userId, `Your provider has started service on booking #${id}.`);
   } else if (nextStatus === 'ASSIGNED') {
     await notify(booking.userId, `A provider has been assigned to your booking #${id}.`);
@@ -419,7 +432,13 @@ router.put('/:id/cancel', async (req, res) => {
   if (booking.status !== 'PENDING' && booking.status !== 'ASSIGNED') {
     return res.status(400).json({ error: 'Only pending or assigned bookings can be cancelled' });
   }
-  await prisma.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED' } });
+  // Conditional update: if the provider moved the booking to IN_PROGRESS after
+  // the read above, the cancel fails instead of overwriting live work.
+  const cancelled = await prisma.booking.updateMany({
+    where: { id: booking.id, status: { in: ['PENDING', 'ASSIGNED'] } },
+    data: { status: 'CANCELLED' },
+  });
+  if (cancelled.count !== 1) return res.status(409).json({ error: 'Booking can no longer be cancelled' });
   await notify(booking.userId, `Booking #${booking.id} has been cancelled.`);
   if (booking.providerId) {
     const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
@@ -435,15 +454,28 @@ router.put('/:id/reschedule', async (req, res) => {
   if (reason.length < 3 || reason.length > 500) return res.status(400).json({ error: 'reason must be 3-500 characters' });
   const booking = await prisma.booking.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
   if (!booking || !['PENDING', 'ASSIGNED'].includes(booking.status)) return res.status(404).json({ error: 'Reschedulable booking not found' });
+  const normalizedTime = String(req.body.booking_time).trim().toUpperCase();
+  const duplicate = await prisma.booking.findFirst({
+    where: { userId: booking.userId, serviceId: booking.serviceId, bookingDate: req.body.booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' }, id: { not: booking.id } },
+    select: { id: true },
+  });
+  if (duplicate) return res.status(409).json({ error: 'You already have this service booked for the selected date and time' });
   if (booking.providerId) {
     const [provider, service] = await Promise.all([prisma.provider.findUnique({ where: { id: booking.providerId } }), prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } })]);
-    const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, service }, { ignoreBookingId: booking.id });
+    const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, bookingDate: req.body.booking_date, bookingTime: normalizedTime, expectedEndTime: null, service }, { ignoreBookingId: booking.id });
     if (!eligibility.ok) return res.status(409).json({ error: `Reschedule unavailable: ${eligibility.error}` });
   }
-  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, rescheduleReason: reason } });
+  // PIN expiry follows the booking slot; recomputing keeps a moved-later booking
+  // usable and a moved-earlier one from keeping an over-long PIN window.
+  const scheduled = bookingStart(req.body.booking_date, normalizedTime);
+  const updated = await prisma.booking.updateMany({
+    where: { id: booking.id, status: { in: ['PENDING', 'ASSIGNED'] } },
+    data: { bookingDate: req.body.booking_date, bookingTime: normalizedTime, expectedEndTime: null, rescheduleReason: reason, pinExpiresAt: scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null },
+  });
+  if (updated.count !== 1) return res.status(409).json({ error: 'Booking is no longer reschedulable' });
   if (booking.providerId) { const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } }); if (provider) await notify(provider.userId, `Booking #${booking.id} has been rescheduled by the customer.`); }
   await notify(booking.userId, `Booking #${booking.id} has been rescheduled.`);
-  res.json({ id: updated.id, status: updated.status.toLowerCase(), booking_date: updated.bookingDate, booking_time: updated.bookingTime });
+  res.json({ id: booking.id, status: booking.status.toLowerCase(), booking_date: req.body.booking_date, booking_time: normalizedTime });
 });
 
 export default router;

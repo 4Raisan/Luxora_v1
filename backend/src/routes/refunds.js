@@ -6,15 +6,14 @@ import { notify } from '../services/notify.js';
 
 const router = Router();
 
-async function subscriptionUsage(subscriptionId) {
-  const bookings = await prisma.booking.findMany({ where: { subscriptionId, status: { not: 'CANCELLED' } }, select: { service: { select: { categoryId: true } } } });
-  return bookings.length;
+async function subscriptionUsage(client, subscriptionId) {
+  return client.booking.count({ where: { subscriptionId, status: { not: 'CANCELLED' } } });
 }
 const details = { plan: { include: { entitlements: { include: { category: true } } } }, payments: { orderBy: { createdAt: 'desc' } }, refundRequest: true };
 
 router.get('/refunds/my', authenticateToken, async (req, res) => {
   const subscriptions = await prisma.userSubscription.findMany({ where: { userId: req.user.id }, include: details, orderBy: { startDate: 'desc' } });
-  const rows = await Promise.all(subscriptions.map(async (subscription) => ({ ...subscription, used_units: await subscriptionUsage(subscription.id), eligible: subscription.status === 'active' && !subscription.refundRequest && await subscriptionUsage(subscription.id) === 0, payment: subscription.payments.find((payment) => payment.status === 'COMPLETED') || null })));
+  const rows = await Promise.all(subscriptions.map(async (subscription) => ({ ...subscription, used_units: await subscriptionUsage(prisma, subscription.id), eligible: subscription.status === 'active' && !subscription.refundRequest && await subscriptionUsage(prisma, subscription.id) === 0, payment: subscription.payments.find((payment) => payment.status === 'COMPLETED') || null })));
   res.json(rows);
 });
 
@@ -24,7 +23,7 @@ router.post('/refunds', authenticateToken, async (req, res) => {
   if (!subscriptionId || reason.length > 1000) return res.status(400).json({ error: 'A valid subscription_id and optional reason up to 1000 characters are required' });
   const subscription = await prisma.userSubscription.findFirst({ where: { id: subscriptionId, userId: req.user.id }, include: details });
   if (!subscription) return res.status(404).json({ error: 'Package purchase not found' });
-  if (subscription.status !== 'active' || subscription.refundRequest || await subscriptionUsage(subscription.id) !== 0) return res.status(409).json({ error: 'Only a completely unused active package purchase is eligible for refund' });
+  if (subscription.status !== 'active' || subscription.refundRequest || await subscriptionUsage(prisma, subscription.id) !== 0) return res.status(409).json({ error: 'Only a completely unused active package purchase is eligible for refund' });
   const payment = subscription.payments.find((item) => item.status === 'COMPLETED');
   const refund = await prisma.refundRequest.create({ data: { userId: req.user.id, subscriptionId: subscription.id, paymentId: payment?.id || null, reason: reason || null } });
   await notify(req.user.id, `Refund request #${refund.id} was received.`, '/customer-dashboard');
@@ -56,10 +55,25 @@ router.put('/admin/refunds/:id', authenticateToken, requireRole('ADMIN'), async 
   // the package remains active until that webhook settles it atomically.
   const alreadyRefundedByGateway = refund.subscription?.status === 'refunded';
   const finalStatus = decision === 'APPROVED' && (demo || alreadyRefundedByGateway) ? 'REFUNDED' : decision;
-  await prisma.$transaction(async (tx) => {
-    await tx.refundRequest.update({ where: { id: refund.id }, data: { status: finalStatus, adminNote: adminNote || null, reviewedAt: new Date(), reviewedById: req.user.id } });
-    if (finalStatus === 'REFUNDED') { await tx.userSubscription.update({ where: { id: refund.subscriptionId }, data: { status: 'refunded', autoRenew: false, nextRenewalDate: null } }); if (refund.paymentId) await tx.payment.update({ where: { id: refund.paymentId }, data: { status: 'REFUNDED' } }); }
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Eligibility re-check inside the transaction: the customer can keep
+      // booking against the package while the request waits for review, and
+      // refunding a purchase with used units gives them both the money and
+      // the services.
+      if (finalStatus === 'REFUNDED') {
+        const used = await subscriptionUsage(tx, refund.subscriptionId);
+        if (used !== 0) {
+          throw Object.assign(new Error(`This package has ${used} used unit${used !== 1 ? 's' : ''} and can no longer be refunded. Reject the request or cancel its bookings first.`), { statusCode: 409 });
+        }
+      }
+      await tx.refundRequest.update({ where: { id: refund.id }, data: { status: finalStatus, adminNote: adminNote || null, reviewedAt: new Date(), reviewedById: req.user.id } });
+      if (finalStatus === 'REFUNDED') { await tx.userSubscription.update({ where: { id: refund.subscriptionId }, data: { status: 'refunded', autoRenew: false, nextRenewalDate: null } }); if (refund.paymentId) await tx.payment.update({ where: { id: refund.paymentId }, data: { status: 'REFUNDED' } }); }
+    });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    throw error;
+  }
   const awaitingGateway = finalStatus === 'APPROVED' && refund.payment?.gateway === 'PAYHERE';
   const message = finalStatus === 'REFUNDED' && demo
     ? `Demo refund completed for package purchase #${refund.subscriptionId}. No real money was moved.`
