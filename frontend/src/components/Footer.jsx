@@ -13,7 +13,7 @@ const Footer = () => {
   const columns = [
     {
       heading: 'Services',
-      links: ['Auto Care', 'Garden Care', 'Pet Wellness'],
+      links: ['Auto Care', 'Garden Care', 'Pet Care'],
     },
     {
       heading: 'Company',

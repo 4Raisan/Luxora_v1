@@ -4,6 +4,7 @@ import './Services.css'
 const services = [
   {
     id: 'auto-care',
+    categoryKey: 'auto',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 30l4-12h24l4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -14,11 +15,12 @@ const services = [
       </svg>
     ),
     title: 'Auto Care',
-    description: 'White-glove vehicle maintenance, detailing, and concierge chauffeur services for your fleet.',
-    features: ['Fleet Management', 'On-Demand Detailing', 'Chauffeur Services'],
+    description: 'Professional vehicle cleaning and care delivered at your convenience.',
+    features: ['Exterior Wash', 'Interior Vacuum', 'Tire & Window Care'],
   },
   {
     id: 'garden-care',
+    categoryKey: 'garden',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M24 40V20M24 20C24 20 16 16 12 8c6 0 12 4 12 12zM24 20C24 20 32 16 36 8c-6 0-12 4-12 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -27,20 +29,21 @@ const services = [
       </svg>
     ),
     title: 'Garden Care',
-    description: 'Masterful landscape design and pristine estate grounds maintenance by certified horticulturists.',
-    features: ['Landscape Design', 'Seasonal Planting', 'Pool & Water Features'],
+    description: 'Reliable garden maintenance to keep your outdoor spaces clean and healthy.',
+    features: ['Lawn Mowing & Edging', 'Weeding & Pruning', 'Fertilizing & Plant Health Checks'],
   },
   {
-    id: 'pet-wellness',
+    id: 'pet-care',
+    categoryKey: 'pet',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M18 12a4 4 0 100-8 4 4 0 000 8zM30 12a4 4 0 100-8 4 4 0 000 8zM10 22a4 4 0 100-8 4 4 0 000 8zM38 22a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="2"/>
         <path d="M24 44c-7 0-14-5-14-12 0-4 4-8 8-8h12c4 0 8 4 8 8 0 7-7 12-14 12z" stroke="currentColor" strokeWidth="2"/>
       </svg>
     ),
-    title: 'Pet Wellness',
-    description: 'Luxury pet care, grooming, veterinary coordination, and bespoke animal wellness programs.',
-    features: ['Premium Grooming', 'Vet Coordination', 'Pet Sitting & Training'],
+    title: 'Pet Care',
+    description: 'Convenient grooming and hygiene services to keep your pets clean and comfortable.',
+    features: ['Spa Wash & Blow-Dry', 'Nail & Ear Care', 'Brushing & Flea/Tick Check'],
   },
 ]
 
@@ -97,7 +100,16 @@ const Services = () => {
                   </li>
                 ))}
               </ul>
-              <button className="service-card__cta">Learn More →</button>
+              <button
+                className="service-card__cta"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('select-plan-category', { detail: service.categoryKey }))
+                  const el = document.getElementById('plans')
+                  if (el) el.scrollIntoView({ behavior: 'smooth' })
+                }}
+              >
+                Learn More →
+              </button>
             </div>
           ))}
         </div>

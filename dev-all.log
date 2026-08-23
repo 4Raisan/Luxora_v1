@@ -1,0 +1,31 @@
+
+> luxora@1.0.0 dev:all
+> concurrently -n SERVER,WEB -c gold,cyan "npm:backend" "npm:frontend"
+
+[SERVER] 
+[SERVER] > luxora@1.0.0 backend
+[SERVER] > npm --prefix backend run dev
+[SERVER] 
+[WEB] 
+[WEB] > luxora@1.0.0 frontend
+[WEB] > npm --prefix frontend run dev
+[WEB] 
+[WEB] 
+[WEB] > luxora@0.0.0 dev
+[WEB] > vite --port 3000 --host
+[WEB] 
+[SERVER] 
+[SERVER] > luxora-backend@1.0.0 dev
+[SERVER] > node src/index.js
+[SERVER] 
+[SERVER] ◇ injected env (8) from .env // tip: ⌘ enable debugging { debug: true }
+[SERVER] ◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+[WEB] 
+[WEB]   [32m[1mVITE[22m v8.2.0[39m  [2mready in [0m[1m206[22m[2m[0m ms[22m
+[WEB] 
+[WEB]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3000[22m/[39m
+[WEB]   [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.61.183:[1m3000[22m/[39m  [2mWi-Fi[22m
+[WEB]   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.28.0.1:[1m3000[22m/[39m      [2mvEthernet (WSL (Hyp...[22m
+[SERVER] Luxora Backend API server running on http://localhost:5000
+[SERVER] API docs: http://localhost:5000/api/docs
+[SERVER] npm run backend exited with code 1
