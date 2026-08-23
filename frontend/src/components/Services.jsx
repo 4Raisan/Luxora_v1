@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import './Services.css'
 
 const services = [
@@ -46,10 +45,24 @@ const services = [
     description: 'Convenient grooming and hygiene services to keep your pets clean and comfortable.',
     features: ['Spa Wash & Blow-Dry', 'Nail & Ear Care', 'Brushing & Flea/Tick Check'],
   },
+  {
+    id: 'combo-packages',
+    categoryKey: 'combo',
+    icon: (
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 4l4.5 9.5 10.5 1.5-7.5 7.3 1.8 10.2L24 27.8l-9.3 4.7 1.8-10.2L9 15l10.5-1.5L24 4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M10 40h28M16 44h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="8" cy="10" r="2" fill="currentColor"/>
+        <circle cx="40" cy="10" r="2" fill="currentColor"/>
+      </svg>
+    ),
+    title: 'Combo Packages',
+    description: 'All-inclusive multi-service bundles combining auto, garden, and pet care for total estate convenience.',
+    features: ['Auto, Garden & Pet Bundles', 'Shared Monthly Service Tokens', 'Exclusive Multi-Care Value'],
+  },
 ]
 
 const Services = () => {
-  const navigate = useNavigate()
   const cardsRef = useRef([])
 
   useEffect(() => {
@@ -66,6 +79,20 @@ const Services = () => {
     cardsRef.current.forEach((el) => { if (el) observer.observe(el) })
     return () => observer.disconnect()
   }, [])
+
+  const handleServiceSelect = (categoryKey) => {
+    window.dispatchEvent(new CustomEvent('select-plan-category', { detail: categoryKey }))
+    const el = document.getElementById('plans')
+    if (el) {
+      const navOffset = 70
+      const elementPosition = el.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - navOffset
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      })
+    }
+  }
 
   return (
     <section id="services" className="services">
@@ -89,16 +116,16 @@ const Services = () => {
               className="service-card"
               ref={(el) => (cardsRef.current[i] = el)}
               style={{ transitionDelay: `${i * 0.07}s` }}
-              onClick={() => navigate('/signup')}
+              onClick={() => handleServiceSelect(service.categoryKey)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  navigate('/signup')
+                  handleServiceSelect(service.categoryKey)
                 }
               }}
-              aria-label={`Get started with ${service.title}`}
+              aria-label={`View ${service.title} packages`}
             >
               <div className="service-card__icon">{service.icon}</div>
               <h3 className="service-card__title">{service.title}</h3>
@@ -115,10 +142,10 @@ const Services = () => {
                 className="service-card__cta"
                 onClick={(e) => {
                   e.stopPropagation()
-                  navigate('/signup')
+                  handleServiceSelect(service.categoryKey)
                 }}
               >
-                Get Started →
+                View Packages →
               </button>
             </div>
           ))}
