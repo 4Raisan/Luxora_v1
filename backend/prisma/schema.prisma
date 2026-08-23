@@ -47,6 +47,16 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model PhoneOtp {
+  id Int @id @default(autoincrement())
+  phone String @unique
+  codeHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
+  @@map("phone_otp_challenges")
+}
+
 model Provider {
   id Int @id @default(autoincrement())
   userId Int @unique

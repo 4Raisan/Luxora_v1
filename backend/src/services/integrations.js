@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { prisma } from '../config/prisma.js';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
@@ -36,29 +37,31 @@ export async function sendEmail({ to, subject, html, text = '' }) {
 }
 
 export async function sendVerificationCode(phone) {
-  const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
+  const required = missing('TEXTBEE_API_KEY');
   if (required.length) return { configured: false, missing: required };
-  const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-  const body = new URLSearchParams({ To: phone, Channel: 'sms' });
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/Verifications`, {
-    method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+  const code = String(crypto.randomInt(1000, 10000));
+  const codeHash = crypto.createHash('sha256').update(`${phone}:${code}:${process.env.JWT_SECRET}`).digest('hex');
+  await prisma.phoneOtp.deleteMany({ where: { phone } });
+  await prisma.phoneOtp.create({ data: { phone, codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } });
+  const response = await fetch('https://api.textbee.dev/api/v1/gateway/send-sms', {
+    method: 'POST',
+    headers: { 'x-api-key': process.env.TEXTBEE_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipients: [phone], message: `Your Luxora verification code is ${code}. It expires in 10 minutes.`, ...(process.env.TEXTBEE_DEVICE_ID ? { deviceId: process.env.TEXTBEE_DEVICE_ID } : {}) }),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || `Twilio request failed (${response.status})`);
-  return { configured: true, sid: result.sid, status: result.status };
+  if (!response.ok) throw new Error(result?.message || `TextBee request failed (${response.status})`);
+  return { configured: true, status: 'pending' };
 }
 
 export async function verifyCode(phone, code) {
-  const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
+  const required = missing('TEXTBEE_API_KEY', 'JWT_SECRET');
   if (required.length) return { configured: false, missing: required };
-  const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-  const body = new URLSearchParams({ To: phone, Code: code });
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck`, {
-    method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body,
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || `Twilio request failed (${response.status})`);
-  return { configured: true, approved: result.status === 'approved', status: result.status };
+  const challenge = await prisma.phoneOtp.findUnique({ where: { phone } });
+  if (!challenge || challenge.expiresAt <= new Date()) return { configured: true, approved: false, status: 'expired' };
+  const expected = crypto.createHash('sha256').update(`${phone}:${String(code)}:${process.env.JWT_SECRET}`).digest('hex');
+  const approved = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(challenge.codeHash));
+  if (approved) await prisma.phoneOtp.delete({ where: { phone } });
+  return { configured: true, approved, status: approved ? 'approved' : 'pending' };
 }
 
 export async function createPayPalOrder({ amount, currency = 'USD', description = 'Luxora service' }) {
