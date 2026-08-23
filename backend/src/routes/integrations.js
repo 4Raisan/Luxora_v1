@@ -130,6 +130,10 @@ router.post('/payments/demo/:id/complete', authenticateToken, async (req, res) =
   const saved = await activateSubscription(payment, { mode: 'demo', outcome }, { capturedAmount: payment.expectedAmount, capturedCurrency: payment.expectedCurrency, autoRenew: Boolean(payment.webhookPayload?.autoRenew) });
   if (!saved) return res.status(409).json({ error: 'This demo payment can no longer be completed' });
   await notify(saved.userId, 'Demo payment successful. Your Luxora membership is active.', '/customer-dashboard');
+  // Same confirmation email the PayHere webhook sends, so the customer gets a
+  // receipt regardless of which checkout completed the purchase.
+  const buyer = await prisma.user.findUnique({ where: { id: saved.userId }, select: { email: true, name: true } });
+  sendEmail({ to: buyer?.email, subject: 'Luxora payment successful', html: `<p>Hi ${buyer?.name || 'Customer'},</p><p>Your ${saved.plan.title} membership is active. This was a demo/test payment — no money was charged.</p>` }).catch((error) => console.warn('[email] demo payment confirmation failed:', error.message));
   res.json({ status: 'completed', subscription: saved.subscription, message: 'Demo payment successful. No real money was charged.' });
 });
 
