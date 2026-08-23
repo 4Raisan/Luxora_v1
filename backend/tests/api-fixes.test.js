@@ -17,15 +17,14 @@ import { prisma } from '../src/config/prisma.js';
 const PORT = 5017;
 const BASE = `http://127.0.0.1:${PORT}/api`;
 const RND = crypto.randomUUID().slice(0, 8);
-// Fake Twilio/Resend credentials so no external service is actually called and
+// Fake EasySendSMS/Resend credentials so no external service is actually called and
 // no real OTP/email cost is incurred during abuse tests.
 const SERVER_ENV = {
   ...process.env,
   PORT: String(PORT),
   PAYMENT_MODE: 'demo',
-  TWILIO_ACCOUNT_SID: 'AC00000000000000000000000000000000',
-  TWILIO_AUTH_TOKEN: 'fake-token',
-  TWILIO_VERIFY_SERVICE_SID: 'VA00000000000000000000000000000000',
+  EASYSENDSMS_API_KEY: 'fake-key',
+  EASYSENDSMS_SENDER_ID: 'LUXORA',
   RESEND_API_KEY: '',
 };
 
@@ -172,9 +171,9 @@ test('B5: OTP and email senders are rate limited and return generic errors', asy
   for (let i = 0; i < 6; i += 1) {
     const { status, body } = await json('/auth/register/phone/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: '0771112233' }) });
     if (status === 429) { sawLimit = true; break; }
-    assert.equal(status, 502); // fake Twilio credentials -> upstream failure
+    assert.equal(status, 502); // fake EasySendSMS credentials -> upstream failure
     assert.equal(body.error, 'Could not send verification code'); // sanitized
-    assert.ok(!JSON.stringify(body).includes('Twilio'));
+    assert.ok(!JSON.stringify(body).includes('EasySendSMS'));
     sawGenericError = true;
   }
   assert.ok(sawLimit, 'phone OTP send was not rate limited');

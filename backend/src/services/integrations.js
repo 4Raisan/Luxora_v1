@@ -48,26 +48,33 @@ export async function sendEmail({ to, subject, html, text = '' }) {
 export async function sendVerificationCode(phone) {
   phone = normalizeSriLankanPhone(phone);
   if (!phone) throw new Error('Invalid Sri Lankan mobile number');
-  const required = missing('TEXTBEE_API_KEY');
+  const required = missing('EASYSENDSMS_API_KEY', 'EASYSENDSMS_SENDER_ID', 'JWT_SECRET');
   if (required.length) return { configured: false, missing: required };
   const code = String(crypto.randomInt(1000, 10000));
   const codeHash = crypto.createHash('sha256').update(`${phone}:${code}:${process.env.JWT_SECRET}`).digest('hex');
   await prisma.phoneOtp.deleteMany({ where: { phone } });
   await prisma.phoneOtp.create({ data: { phone, codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } });
-  const response = await fetch('https://api.textbee.dev/api/v1/gateway/send-sms', {
-    method: 'POST',
-    headers: { 'x-api-key': process.env.TEXTBEE_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ recipients: [phone], message: `Your Luxora verification code is ${code}. It expires in 10 minutes.`, ...(process.env.TEXTBEE_DEVICE_ID ? { deviceId: process.env.TEXTBEE_DEVICE_ID } : {}) }),
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || `TextBee request failed (${response.status})`);
-  return { configured: true, status: 'pending' };
+  try {
+    const response = await fetch('https://restapi.easysendsms.app/v1/rest/sms/send', {
+      method: 'POST',
+      headers: { apikey: process.env.EASYSENDSMS_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+      // EasySendSMS requires international format without a plus sign.
+      body: JSON.stringify({ from: process.env.EASYSENDSMS_SENDER_ID, to: phone.slice(1), text: `Your Luxora verification code is ${code}. It expires in 10 minutes.`, type: '0' }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result?.status !== 'OK') throw new Error(result?.description || `EasySendSMS request failed (${response.status})`);
+    return { configured: true, status: 'pending', messageId: result.messageIds?.[0] || null };
+  } catch (error) {
+    // Do not leave a code that was never handed to the SMS provider valid.
+    await prisma.phoneOtp.deleteMany({ where: { phone, codeHash } });
+    throw error;
+  }
 }
 
 export async function verifyCode(phone, code) {
   phone = normalizeSriLankanPhone(phone);
   if (!phone) return { configured: true, approved: false, status: 'invalid_phone' };
-  const required = missing('TEXTBEE_API_KEY', 'JWT_SECRET');
+  const required = missing('EASYSENDSMS_API_KEY', 'EASYSENDSMS_SENDER_ID', 'JWT_SECRET');
   if (required.length) return { configured: false, missing: required };
   const challenge = await prisma.phoneOtp.findUnique({ where: { phone } });
   if (!challenge || challenge.expiresAt <= new Date()) return { configured: true, approved: false, status: 'expired' };

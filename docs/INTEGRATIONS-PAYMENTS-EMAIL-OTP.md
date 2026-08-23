@@ -5,7 +5,7 @@ Core: DATABASE_URL, JWT_SECRET, PORT, FRONTEND_URL, CORS_ORIGIN.
 PayHere: merchant ID/secret, base/return/cancel/notify URLs.
 PayPal: client ID/secret/base URL.
 Resend: RESEND_API_KEY and RESEND_FROM_EMAIL. Resend is the only mail transport.
-TextBee SMS: API key from the TextBee dashboard. Luxora generates and verifies OTPs server-side; TextBee is used to deliver the SMS.
+EasySendSMS SMS: REST API key and approved sender ID from the EasySendSMS dashboard. Luxora generates and verifies OTPs server-side; EasySendSMS is used only to deliver the SMS.
 Google Sign-In: GOOGLE_CLIENT_ID (backend) must equal VITE_GOOGLE_CLIENT_ID (frontend).
 See backend/.env.example. Use sandbox credentials first and restart backend after changes.
 ## Payment modes
@@ -16,7 +16,7 @@ All transactional mail goes through Resend (RESEND_API_KEY + RESEND_FROM_EMAIL);
 ## Google Sign-In
 POST /auth/google takes the Google ID token (credential), verifies it against Google's tokeninfo endpoint, and requires aud === GOOGLE_CLIENT_ID plus a verified, unexpired email. It is for CUSTOMER accounts only: new emails create a customer row (name/email synced from the Google profile, random password), while existing provider/admin emails get 403 and must password-sign-in. Configuration: same OAuth client ID as GOOGLE_CLIENT_ID (backend) and VITE_GOOGLE_CLIENT_ID (frontend); every site origin must be registered under Authorized JavaScript origins in Google Cloud Console (https://www.luxora.bond, https://luxora.bond, and localhost/127.0.0.1 dev ports), or Google returns origin_mismatch. When GOOGLE_CLIENT_ID is unset the endpoint returns 503 and the frontend hides the button.
 ## Phone
-POST /api/profile/phone/send and /verify accept E.164 numbers. Generic /api/otp/send and /verify are equivalent. Registration has /api/auth/register/phone/send and /verify. Never log codes/tokens; the TextBee Android device must be online and able to send SMS.
+POST /api/profile/phone/send and /verify accept local Sri Lankan mobile numbers (e.g. 0771575701) or E.164 (+94771575701). Generic /api/otp/send and /verify are equivalent. Registration has /api/auth/register/phone/send and /verify. Never log codes/tokens; EasySendSMS receives the normalized number without the plus sign (e.g. 94771575701).
 ## Password reset
 POST /api/auth/password-reset/request does not reveal account existence. Tokens are stored as SHA-256 hashes in PostgreSQL (password_reset_tokens) with 15-minute expiry; only the hashed form is persisted and the raw token appears solely in the emailed reset link built from FRONTEND_URL/reset-password?reset_token=. Confirm marks the token used and rehashes the new password in one transaction.
 ## Deployment checklist
