@@ -86,6 +86,33 @@
   line-height: 1;
 }
 
+/* ─── Token Note Banner ─────────────────────────── */
+.plans__token-banner-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2.25rem;
+}
+
+.plans__token-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(201, 168, 76, 0.08);
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  color: #e5c97b;
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 0.55rem 1.35rem;
+  border-radius: 50px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.01em;
+}
+
+.plans__token-icon {
+  color: var(--gold, #c9a84c);
+  font-size: 0.85rem;
+}
+
 /* ─── Cards Grid ─────────────────────────────────── */
 .plans__grid {
   display: grid;

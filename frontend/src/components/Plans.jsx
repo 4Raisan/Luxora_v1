@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiRequest } from '../services/api'
 import './Plans.css'
 
 const CATEGORIES = [
   { id: 'auto', label: 'Auto Care', icon: '🚗' },
   { id: 'garden', label: 'Garden Care', icon: '🌿' },
   { id: 'pet', label: 'Pet Care', icon: '🐾' },
+  { id: 'combo', label: 'Combo Packages', icon: '✨' },
 ]
+
+const TOKEN_NOTES = {
+  auto: '1 Auto Token = 1 vehicle service.',
+  garden: '1 Garden Token = 1 garden visit.',
+  pet: '1 Pet Token = 1 pet service session.',
+  combo: 'Combo feature: The same standard service inclusives apply to each category.',
+}
 
 const PLANS = {
   auto: [
@@ -15,52 +22,50 @@ const PLANS = {
       id: 'auto-basic',
       tier: 'Basic',
       price: 5000,
+      tokens: 1,
       highlight: false,
-      summary: '2 wash + vacuum sessions per month',
+      summary: '1 token · 1 vehicle service/month',
       features: [
-        '2 wash + vacuum sessions/month',
-        'Exterior wash & interior vacuum',
-        'Dashboard wipe',
+        '1 token',
+        '1 vehicle service/month',
+        'Exterior wash',
+        'Interior vacuum',
         'Basic tire shine',
         'Window cleaning',
       ],
-      off: [
-        'Interior deep vacuum',
-        'Full wax & polish',
-        'Priority scheduling',
-      ],
+      off: [],
     },
     {
       id: 'auto-standard',
       tier: 'Standard',
       price: 9000,
+      tokens: 2,
       highlight: true,
-      summary: '4 wash + vacuum sessions per month (weekly)',
+      summary: '2 tokens · 2 vehicle services/month',
       features: [
-        '4 wash + vacuum sessions/month (weekly)',
-        'Interior deep vacuum',
-        'Seat and mat cleaning',
-        'Exterior hand wash & wheel cleaning',
-        'Basic wax (once per month)',
+        '2 tokens',
+        '2 vehicle services/month',
+        'Exterior wash',
+        'Interior vacuum',
+        'Basic tire shine',
+        'Window cleaning',
       ],
-      off: [
-        'Full interior detailing',
-        'Priority scheduling',
-      ],
+      off: [],
     },
     {
       id: 'auto-premium',
       tier: 'Premium',
       price: 15000,
+      tokens: 4,
       highlight: false,
-      summary: '6 sessions/month with full detailing',
+      summary: '4 tokens · 4 vehicle services/month',
       features: [
-        '6 wash + vacuum sessions/month (~1.5×/week)',
-        'Full interior detailing (seats, carpets, trunk)',
-        'Leather care (if applicable)',
-        'Exterior wash, wax & polish',
-        'Tire and rim deep clean',
-        'Priority scheduling & flexible time slots',
+        '4 tokens',
+        '4 vehicle services/month',
+        'Exterior wash',
+        'Interior vacuum',
+        'Basic tire shine',
+        'Window cleaning',
       ],
       off: [],
     },
@@ -70,56 +75,59 @@ const PLANS = {
       id: 'garden-basic',
       tier: 'Basic',
       price: 7500,
+      tokens: 1,
       highlight: false,
-      summary: '2 visits/month for small gardens (<10 perches)',
+      summary: '1 token · 1 visit/month',
       features: [
-        '2 visits/month',
-        'Small gardens (<10 perches / <250 m²)',
-        'Lawn mowing & edging',
-        'Leaf sweeping',
-        'Basic plant watering',
-        'Visual plant health check',
-      ],
-      off: [
+        '1 token',
+        '1 visit/month',
+        'Garden under 10 perches',
+        'Lawn mowing',
+        'Lawn edging',
+        'Basic weeding',
         'Fertilizer application',
-        'Pest & disease monitoring',
-        'Hedge shaping & flowerbed care',
+        'Basic visual plant health check',
+        'Basic pruning',
       ],
+      off: [],
     },
     {
       id: 'garden-standard',
       tier: 'Standard',
       price: 14000,
+      tokens: 2,
       highlight: true,
-      summary: '4 visits/month (weekly) for medium gardens',
+      summary: '2 tokens · 2 visits/month',
       features: [
-        '4 visits/month (weekly)',
-        'Medium gardens (10–20 perches / 250–500 m²)',
-        'Lawn mowing, edging & weeding',
-        'Scheduled watering',
-        'Fertilizer application (once/month)',
-        'Basic plant health care & pruning',
+        '2 tokens',
+        '2 visits/month',
+        'Garden 10–20 perches',
+        'Lawn mowing',
+        'Lawn edging',
+        'Basic weeding',
+        'Fertilizer application',
+        'Basic visual plant health check',
+        'Basic pruning',
       ],
-      off: [
-        'Pest & disease treatment',
-        'Full landscape redesign',
-      ],
+      off: [],
     },
     {
       id: 'garden-premium',
       tier: 'Premium',
       price: 24000,
+      tokens: 4,
       highlight: false,
-      summary: '8 visits/month for large gardens & estates',
+      summary: '4 tokens · 4 visits/month',
       features: [
-        '8 visits/month (~2×/week)',
-        'Large gardens & estates (20+ perches / 500+ m²)',
-        'Full lawn care, edging, weeding & aerating',
-        'Complete watering & irrigation check',
-        'Fertilizer & organic compost application',
-        'Pest & disease monitoring and treatment',
-        'Hedge shaping, flowerbed care & seasonal planting',
-        'Priority service desk & dedicated gardener',
+        '4 tokens',
+        '4 visits/month',
+        'Garden over 20 and up to 30 perches',
+        'Lawn mowing',
+        'Lawn edging',
+        'Basic weeding',
+        'Fertilizer application',
+        'Basic visual plant health check',
+        'Basic pruning',
       ],
       off: [],
     },
@@ -129,56 +137,109 @@ const PLANS = {
       id: 'pet-basic',
       tier: 'Basic',
       price: 6000,
+      tokens: 1,
       highlight: false,
-      summary: '2 sessions/month for 1 pet',
+      summary: '1 token · 1 session/month',
       features: [
-        '2 sessions/month',
+        '1 token',
+        '1 session/month',
         '1 pet',
-        'Basic spa wash & blow-dry',
-        'Nail trimming & ear cleaning',
-        'Brushing & coat fluff',
+        'Basic spa wash',
+        'Blow-dry',
+        'Nail trimming',
+        'Ear cleaning',
+        'Brushing',
+        'Coat fluff',
+        'Basic flea & tick check',
       ],
-      off: [
-        'Full haircut & styling',
-        'Teeth brushing & breath freshener',
-        'Flea & tick treatment',
-      ],
+      off: [],
     },
     {
       id: 'pet-standard',
       tier: 'Standard',
       price: 11000,
+      tokens: 2,
       highlight: true,
-      summary: '4 sessions/month (weekly) for up to 2 pets',
+      summary: '2 tokens · 2 sessions/month',
       features: [
-        '4 sessions/month (weekly)',
+        '2 tokens',
+        '2 sessions/month',
         'Up to 2 pets',
-        'Deluxe spa wash, blow-dry & de-shedding',
-        'Nail trimming & ear cleaning',
-        'Full haircut or breed-specific styling',
-        'Teeth brushing & breath freshener',
+        'Basic spa wash',
+        'Blow-dry',
+        'Nail trimming',
+        'Ear cleaning',
+        'Brushing',
+        'Coat fluff',
         'Basic flea & tick check',
       ],
-      off: [
-        'Medicated bath treatment',
-        'Unlimited emergency visits',
-      ],
+      off: [],
     },
     {
       id: 'pet-premium',
       tier: 'Premium',
       price: 18000,
+      tokens: 4,
       highlight: false,
-      summary: '6 sessions/month for multi-pet households',
+      summary: '4 tokens · 4 sessions/month',
       features: [
-        '6 sessions/month (~1.5×/week)',
-        'Multi-pet household (up to 4 pets)',
-        'Full luxury spa grooming & styling',
-        'Nail grinding & paw balm application',
-        'Teeth brushing & ear sanitation',
-        'Medicated / hypoallergenic bath options',
-        'Flea & tick preventative treatment',
-        'Priority booking & dedicated groomer',
+        '4 tokens',
+        '4 sessions/month',
+        'Up to 4 pets',
+        'Basic spa wash',
+        'Blow-dry',
+        'Nail trimming',
+        'Ear cleaning',
+        'Brushing',
+        'Coat fluff',
+        'Basic flea & tick check',
+      ],
+      off: [],
+    },
+  ],
+  combo: [
+    {
+      id: 'combo-home',
+      tier: 'Luxora Home',
+      price: 18000,
+      tokens: 4,
+      highlight: false,
+      summary: 'Total: 4 tokens (Auto, Garden & Pet)',
+      features: [
+        'Auto Care: 2 tokens',
+        'Garden Care: 1 token',
+        'Pet Care: 1 token',
+        'Total: 4 tokens',
+      ],
+      off: [],
+    },
+    {
+      id: 'combo-family',
+      tier: 'Luxora Family',
+      price: 27000,
+      tokens: 8,
+      highlight: true,
+      summary: 'Total: 8 tokens (Auto, Garden & Pet)',
+      features: [
+        'Auto Care: 4 tokens',
+        'Garden Care: 2 tokens',
+        'Pet Care: 2 tokens',
+        'Total: 8 tokens',
+      ],
+      off: [],
+    },
+    {
+      id: 'combo-prestige',
+      tier: 'Luxora Prestige',
+      price: 36000,
+      tokens: 12,
+      highlight: false,
+      summary: 'Total: 12 tokens (Auto, Garden & Pet)',
+      features: [
+        'Auto Care: 4 tokens',
+        'Garden Care: 4 tokens',
+        'Pet Care: 4 tokens',
+        'Total: 12 tokens',
       ],
       off: [],
     },
@@ -191,24 +252,9 @@ const CheckIcon = () => (
   </svg>
 )
 
-
 const Plans = () => {
   const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState('auto')
-  // Live catalogue from the backend; the static PLANS above only render as a
-  // fallback when the API cannot be reached, so the marketing page never shows
-  // prices that contradict the real subscription plans.
-  const [serverPlans, setServerPlans] = useState(null)
-
-  useEffect(() => {
-    let cancelled = false
-    apiRequest('/subscriptions')
-      .then((plans) => {
-        if (!cancelled && Array.isArray(plans) && plans.length) setServerPlans(plans)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
 
   useEffect(() => {
     const handleSelectCategory = (e) => {
@@ -220,31 +266,7 @@ const Plans = () => {
     return () => window.removeEventListener('select-plan-category', handleSelectCategory)
   }, [])
 
-  const plansForCategory = (categoryId) => {
-    if (!serverPlans) return null
-    return serverPlans
-      .filter((plan) => (plan.entitlements || []).some((ent) =>
-        String(ent.category_name || '').toLowerCase().includes(categoryId)))
-      .map((plan, index, arr) => {
-        const ents = plan.entitlements || []
-        const isCombo = ents.length > 1
-        return {
-          id: `srv-${plan.id}`,
-          serverId: plan.id,
-          tier: plan.title,
-          price: Number(plan.priceMonthly) || 0,
-          highlight: isCombo || (arr.length > 2 && index === 1),
-          summary: ents.map((e) => `${e.units} × ${e.category_name} service coins / month`).join(' + '),
-          features: [
-            ...ents.map((e) => `${e.units} × ${e.category_name} service sessions / month`),
-            ...(Array.isArray(plan.features) ? plan.features : []),
-          ],
-          off: [],
-        }
-      })
-  }
-
-  const currentPlans = plansForCategory(activeCategory) || PLANS[activeCategory]
+  const currentPlans = PLANS[activeCategory] || []
 
   const handleGetStarted = (plan) => {
     try {
@@ -293,6 +315,16 @@ const Plans = () => {
             </button>
           ))}
         </div>
+
+        {/* Token Note Banner */}
+        {TOKEN_NOTES[activeCategory] && (
+          <div className="plans__token-banner-wrap">
+            <div className="plans__token-banner">
+              <span className="plans__token-icon">✦</span>
+              <span>{TOKEN_NOTES[activeCategory]}</span>
+            </div>
+          </div>
+        )}
 
         {/* Cards */}
         <div className="plans__grid">
