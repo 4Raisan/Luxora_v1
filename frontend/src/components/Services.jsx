@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './Services.css'
 
 const services = [
@@ -47,9 +48,8 @@ const services = [
   },
 ]
 
-
-
 const Services = () => {
+  const navigate = useNavigate()
   const cardsRef = useRef([])
 
   useEffect(() => {
@@ -89,6 +89,16 @@ const Services = () => {
               className="service-card"
               ref={(el) => (cardsRef.current[i] = el)}
               style={{ transitionDelay: `${i * 0.07}s` }}
+              onClick={() => navigate('/signup')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate('/signup')
+                }
+              }}
+              aria-label={`Get started with ${service.title}`}
             >
               <div className="service-card__icon">{service.icon}</div>
               <h3 className="service-card__title">{service.title}</h3>
@@ -101,14 +111,14 @@ const Services = () => {
                 ))}
               </ul>
               <button
+                type="button"
                 className="service-card__cta"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('select-plan-category', { detail: service.categoryKey }))
-                  const el = document.getElementById('plans')
-                  if (el) el.scrollIntoView({ behavior: 'smooth' })
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate('/signup')
                 }}
               >
-                Learn More →
+                Get Started →
               </button>
             </div>
           ))}
