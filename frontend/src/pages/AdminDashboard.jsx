@@ -1,116 +1,951 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
-import PortalShell, { EmptyState, LoadingState, Panel, Status } from '../components/PortalShell'
-import { FilterPills, Modal, PromptDialog, SearchInput } from '../components/ui'
 import './AdminDashboard.css'
 
-// In-app KYC review (ported from the OG audit viewer): gallery of uploaded
-// documents, inline preview of images/PDFs fetched with the session token,
-// and approve/reject with the required rejection reason.
-function KycModal({ provider, token, onClose, onApprove, onReject }) {
-  const [detail, setDetail] = useState(null)
-  const [activeDoc, setActiveDoc] = useState(null)
-  const [rejecting, setRejecting] = useState(false)
-  const [reason, setReason] = useState('')
-  const [error, setError] = useState('')
-  useEffect(() => {
-    let cancelled = false
-    apiRequest(`/admin/providers/${provider.id}`, 'GET', null, token)
-      .then((row) => { if (!cancelled) setDetail(row) })
-      .catch((err) => { if (!cancelled) setError(err.message) })
-    return () => { cancelled = true }
-  }, [provider.id, token])
-  const openDoc = async (document) => {
-    setError('')
+/* Admin control center — backup visual language (ad- design system),
+   wired end-to-end to the live backend. Every section renders real data
+   only: no seeded catalogues, no sample analytics, no local caches. */
+
+const Icons = {
+  Dashboard: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/></svg>),
+  Users: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8"/><path d="M3 20c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M16 4.5a3.5 3.5 0 010 7M18 20c0-2.2-.9-3.9-2.4-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Building: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.8"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Approvals: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="currentColor" strokeWidth="1.8"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+  Subscriptions: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M3 10h18" stroke="currentColor" strokeWidth="1.8"/><path d="M7 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Bookings: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Complaints: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l9.5 16.5H2.5L12 3z" stroke="currentColor" strokeWidth="1.8"/><path d="M12 10v4M12 17.2v.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Promotions: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M20 12l-8-8H4v8l8 8 8-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg>),
+  Support: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 13a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.8"/><rect x="2.5" y="13" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8"/><rect x="17.5" y="13" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8"/><path d="M19.5 19a3.5 3.5 0 01-3.5 3h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Refunds: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 9V5h4M20 9V5h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M4 5.5a8.5 8.5 0 0113.4 9M20 15v4h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M20 18.5A8.5 8.5 0 016.6 9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Reports: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Operations: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Bell: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="currentColor" strokeWidth="1.8"/><path d="M10 19a2 2 0 004 0" stroke="currentColor" strokeWidth="1.8"/></svg>),
+}
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard },
+  { id: 'users', label: 'User Management', icon: Icons.Users },
+  { id: 'providers', label: 'Providers', icon: Icons.Building },
+  { id: 'approvals', label: 'Approvals', icon: Icons.Approvals },
+  { id: 'subscriptions', label: 'Packages', icon: Icons.Subscriptions },
+  { id: 'bookings', label: 'Bookings', icon: Icons.Bookings },
+  { id: 'complaints', label: 'Complaints', icon: Icons.Complaints },
+  { id: 'support', label: 'Support Desk', icon: Icons.Support },
+  { id: 'refunds', label: 'Refunds', icon: Icons.Refunds },
+  { id: 'promotions', label: 'Promotions', icon: Icons.Promotions },
+  { id: 'reports', label: 'Reports & Analysis', icon: Icons.Reports },
+  { id: 'operations', label: 'Operations', icon: Icons.Operations },
+]
+
+const fmtMoney = (v) => 'LKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
+const fmtDateTime = (v) => (v ? new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
+const statusColor = (s) => ({
+  completed: '#4ade80', confirmed: '#4ade80', approved: '#4ade80', active: '#4ade80', resolved: '#4ade80', refunded: '#4ade80',
+  pending: '#eab308', in_review: '#60a5fa', requested: '#eab308', assigned: '#60a5fa', in_progress: '#60a5fa',
+  cancelled: '#ef4444', rejected: '#ef4444', closed: '#888', expired: '#888',
+}[String(s || '').toLowerCase()] || '#888')
+
+const StatBadge = ({ value }) => (
+  <span className="ad-badge-status" style={{ color: statusColor(value), borderColor: statusColor(value) + '66', background: statusColor(value) + '14', textTransform: 'capitalize' }}>
+    {String(value || '—').replace(/_/g, ' ')}
+  </span>
+)
+
+const AdminDashboard = () => {
+  const navigate = useNavigate()
+  const [adminUser] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('user') || '{}') } catch (_) { return {} }
+  })
+  const [activeNav, setActiveNav] = useState('dashboard')
+  const [loadError, setLoadError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  /* Server data — empty until loaded; no seeded fallbacks. */
+  const [stats, setStats] = useState(null)
+  const [providers, setProviders] = useState([])
+  const [users, setUsers] = useState([])
+  const [bookings, setBookings] = useState([])
+  const [complaints, setComplaints] = useState([])
+  const [supportTickets, setSupportTickets] = useState([])
+  const [refunds, setRefunds] = useState([])
+  const [plans, setPlans] = useState([])
+  const [categories, setCategories] = useState([])
+  const [promotions, setPromotions] = useState([])
+  const [notifications, setNotifications] = useState([])
+  const [reports, setReports] = useState(null)
+  const [scheduling, setScheduling] = useState(null)
+  const [schedulingForbidden, setSchedulingForbidden] = useState(false)
+
+  /* UI state */
+  const [showNotifModal, setShowNotifModal] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
+  const [userRoleView, setUserRoleView] = useState('CUSTOMER')
+  const [providerDetail, setProviderDetail] = useState(null)
+  const [kycDecision, setKycDecision] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [complaintOpen, setComplaintOpen] = useState(null)
+  const [complaintNote, setComplaintNote] = useState('')
+  const [ticketOpen, setTicketOpen] = useState(null)
+  const [ticketResponse, setTicketResponse] = useState('')
+  const [refundOpen, setRefundOpen] = useState(null)
+  const [refundNote, setRefundNote] = useState('')
+  const [bookingEdit, setBookingEdit] = useState(null)
+  const [planEditor, setPlanEditor] = useState(null)
+  const [promoForm, setPromoForm] = useState({ title: '', description: '', code: '', discount_pct: '' })
+  const [reportRange, setReportRange] = useState({ from: '', to: '' })
+
+  const token = sessionStorage.getItem('token')
+
+  const loadAll = useCallback(async () => {
+    if (!token) return
+    setLoadError('')
+    try {
+      const [s, p, b, c, t, r, subs, cats, promos, notes, u] = await Promise.all([
+        apiRequest('/admin/stats', 'GET', null, token),
+        apiRequest('/admin/providers', 'GET', null, token),
+        apiRequest('/admin/bookings', 'GET', null, token),
+        apiRequest('/admin/complaints', 'GET', null, token),
+        apiRequest('/support', 'GET', null, token),
+        apiRequest('/admin/refunds', 'GET', null, token),
+        apiRequest('/admin/subscriptions', 'GET', null, token),
+        apiRequest('/categories', 'GET', null, token),
+        apiRequest('/promotions/all', 'GET', null, token),
+        apiRequest('/notifications', 'GET', null, token),
+        apiRequest('/admin/users', 'GET', null, token),
+      ])
+      setStats(s)
+      setProviders(Array.isArray(p) ? p : [])
+      setBookings(Array.isArray(b) ? b : [])
+      setComplaints(Array.isArray(c) ? c : [])
+      setSupportTickets(Array.isArray(t) ? t : [])
+      setRefunds(Array.isArray(r) ? r : [])
+      setPlans(Array.isArray(subs) ? subs : [])
+      setCategories(Array.isArray(cats) ? cats : [])
+      setPromotions(Array.isArray(promos) ? promos : [])
+      setNotifications(Array.isArray(notes) ? notes : [])
+      setUsers(Array.isArray(u) ? u : [])
+    } catch (err) {
+      setLoadError(err.message || 'Could not load admin data. Please refresh.')
+    }
+  }, [token])
+
+  const loadScheduling = useCallback(async () => {
+    if (!token) return
+    try {
+      const settings = await apiRequest('/admin/settings/scheduling', 'GET', null, token)
+      setScheduling(settings)
+      setSchedulingForbidden(false)
+    } catch (_) {
+      setSchedulingForbidden(true)
+    }
+  }, [token])
+
+  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => { loadScheduling() }, [loadScheduling])
+
+  const loadReports = async () => {
+    const qs = [reportRange.from && `from=${reportRange.from}`, reportRange.to && `to=${reportRange.to}`].filter(Boolean).join('&')
+    try { setReports(await apiRequest('/admin/reports' + (qs ? '?' + qs : ''), 'GET', null, token)) }
+    catch (err) { alert(err.message || 'Could not load reports.') }
+  }
+
+  useEffect(() => { if (activeNav === 'reports' && !reports) loadReports() // eslint-disable-line
+  }, [activeNav]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Actions (all server-side) */
+  const runAction = async (fn, doneMsg) => {
+    setBusy(true)
+    try {
+      await fn()
+      await loadAll()
+      if (doneMsg) alert(doneMsg)
+    } catch (err) {
+      alert(err.message || 'Action failed.')
+    } finally { setBusy(false) }
+  }
+
+  const toggleUserActive = (user) => runAction(async () => {
+    await apiRequest(`/admin/users/${user.id}`, 'PUT', { active: !user.active }, token)
+  }, `User ${user.active ? 'deactivated' : 'activated'}.`)
+
+  const decideKyc = () => {
+    const { provider, mode } = kycDecision || {}
+    if (!provider) return
+    if (mode === 'reject' && rejectReason.trim().length < 3) { alert('Rejection reason must be at least 3 characters.'); return }
+    runAction(async () => {
+      await apiRequest(`/admin/providers/${provider.id}/kyc`, 'PUT', {
+        status: mode === 'approve' ? 'approved' : 'rejected',
+        ...(mode === 'reject' ? { rejection_reason: rejectReason.trim() } : {}),
+      }, token)
+      setKycDecision(null); setRejectReason('')
+    }, `KYC ${mode === 'approve' ? 'approved' : 'rejected'}.`)
+  }
+
+  const openProviderDetail = async (id) => {
+    try { setProviderDetail(await apiRequest(`/admin/providers/${id}`, 'GET', null, token)) }
+    catch (err) { alert(err.message || 'Could not load provider.') }
+  }
+
+  // KYC documents require the session token — fetch as an authenticated
+  // blob and open the object URL in a new tab.
+  const openKycDoc = async (document) => {
     try {
       const response = await fetch(`${API_BASE}/uploads/kyc/${document.id}`, { headers: { Authorization: `Bearer ${token}` } })
       if (!response.ok) throw new Error('Could not retrieve document')
-      setActiveDoc({ url: URL.createObjectURL(await response.blob()), mimeType: document.mimeType, name: document.originalName })
-    } catch (err) { setError(err.message) }
+      const url = URL.createObjectURL(await response.blob())
+      window.open(url, '_blank', 'noopener')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err) { alert(err.message || 'Could not open document.') }
   }
-  return <Modal wide kicker={`Provider #${provider.id}`} title={`KYC review · ${provider.name}`} onClose={onClose} footer={rejecting
-    ? <>
-        <button className="ui-button ui-button--text" onClick={() => setRejecting(false)}>Back</button>
-        <button className="ui-button ui-button--danger" disabled={reason.trim().length < 3} onClick={() => onReject(reason.trim())}>Confirm rejection</button>
-      </>
-    : <>
-        {detail && <small style={{ marginRight: 'auto', color: 'var(--p-muted)' }}>{detail.kycDocuments?.length || 0} document(s) on file</small>}
-        {String(provider.kyc_status).toLowerCase() === 'pending' && <>
-          <button className="ui-button ui-button--danger" onClick={() => setRejecting(true)}>Reject</button>
-          <button className="ui-button ui-button--primary" onClick={onApprove}>Approve provider</button>
-        </>}
-        <button className="ui-button ui-button--text" onClick={onClose}>Close</button>
-      </>}>
-    {rejecting ? <label className="ui-field ui-field--full" style={{ display: 'grid', gap: 6 }}>
-      <span>Rejection reason (min 3 characters) *</span>
-      <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="Why is this application rejected?" maxLength={500} />
-    </label> : <>
-      {error && <p className="ui-field-error">{error}</p>}
-      {!detail ? <p className="quiet-copy">Loading provider details…</p> : <>
-        <div className="kyc-meta">
-          <span>Email <b>{detail.user?.email || '—'}</b></span>
-          <span>Phone <b>{detail.user?.phone || '—'}</b></span>
-          <span>Town <b>{detail.user?.town || '—'}</b></span>
-          <span>Category <b>{provider.category || '—'}</b></span>
+
+  const saveBookingEdit = () => {
+    const ed = bookingEdit
+    if (!ed) return
+    const body = {}
+    if (ed.status) body.status = ed.status
+    if (ed.provider_id) body.provider_id = Number(ed.provider_id)
+    if (!Object.keys(body).length) { setBookingEdit(null); return }
+    runAction(async () => {
+      await apiRequest(`/admin/bookings/${ed.booking.id}`, 'PUT', body, token)
+      setBookingEdit(null)
+    }, `Booking #${ed.booking.id} updated.`)
+  }
+
+  const saveComplaint = (status) => runAction(async () => {
+    await apiRequest(`/admin/complaints/${complaintOpen.id}`, 'PUT', { status, admin_note: complaintNote.trim() || undefined }, token)
+    setComplaintOpen(null); setComplaintNote('')
+  }, `Complaint marked ${status.replace(/_/g, ' ')}.`)
+
+  const saveTicket = (status) => runAction(async () => {
+    await apiRequest(`/support/${ticketOpen.id}`, 'PUT', { status, admin_response: ticketResponse.trim() || undefined }, token)
+    setTicketOpen(null); setTicketResponse('')
+  }, 'Ticket updated.')
+
+  const decideRefund = (status) => runAction(async () => {
+    await apiRequest(`/admin/refunds/${refundOpen.id}`, 'PUT', { status, admin_note: refundNote.trim() || undefined }, token)
+    setRefundOpen(null); setRefundNote('')
+  }, `Refund ${status.toLowerCase()}.`)
+
+  const savePlan = () => {
+    const ed = planEditor || {}
+    const price = Number(ed.price)
+    const duration = Number(ed.duration)
+    if (!ed.title?.trim() || !Number.isFinite(price) || price <= 0) { alert('Title and a positive price are required.'); return }
+    if (!Number.isInteger(duration) || duration < 1 || duration > 365) { alert('Duration must be 1-365 days.'); return }
+    const entitlements = Object.entries(ed.entitlements || {})
+      .map(([category_id, units]) => ({ category_id: Number(category_id), units: Number(units) }))
+      .filter((e) => e.category_id && Number.isInteger(e.units) && e.units >= 1)
+    const body = {
+      title: ed.title.trim(), type: ed.type || 'Single Package', price_monthly: price, duration_days: duration,
+      features: [], entitlements,
+    }
+    runAction(async () => {
+      if (ed.id) await apiRequest(`/admin/subscriptions/${ed.id}`, 'PUT', body, token)
+      else await apiRequest('/admin/subscriptions', 'POST', body, token)
+      setPlanEditor(null)
+    }, 'Package saved.')
+  }
+
+  const togglePlanActive = (plan) => runAction(async () => {
+    await apiRequest(`/admin/subscriptions/${plan.id}`, 'PUT', { active: !plan.active }, token)
+  }, `Package ${plan.active ? 'disabled' : 'enabled'}.`)
+
+  const createPromotion = () => {
+    const pct = Number(promoForm.discount_pct)
+    if (!promoForm.title.trim() || !Number.isFinite(pct) || pct < 0 || pct > 100) { alert('Title and a 0-100 discount % are required.'); return }
+    runAction(async () => {
+      await apiRequest('/promotions', 'POST', {
+        title: promoForm.title.trim(), description: promoForm.description.trim(), code: promoForm.code.trim() || undefined, discount_pct: pct,
+      }, token)
+      setPromoForm({ title: '', description: '', code: '', discount_pct: '' })
+    }, 'Promotion created.')
+  }
+
+  const togglePromotion = (promo) => runAction(async () => {
+    await apiRequest(`/promotions/${promo.id}`, 'PUT', { active: !promo.active }, token)
+  }, 'Promotion updated.')
+
+  const saveScheduling = () => {
+    const cooldown = Number(scheduling?.autoAssignmentCooldownHours)
+    const start = Number(scheduling?.autoAssignmentStartHour)
+    const end = Number(scheduling?.autoAssignmentEndHour)
+    if (![cooldown, start, end].every(Number.isInteger) || cooldown < 1 || cooldown > 24 || start < 0 || end > 23 || start > end) {
+      alert('Use cooldown 1-24 hours and valid start/end hours (0-23).'); return
+    }
+    runAction(async () => {
+      await apiRequest('/admin/settings/scheduling', 'PUT', {
+        auto_assignment_cooldown_hours: cooldown, auto_assignment_start_hour: start, auto_assignment_end_hour: end,
+      }, token)
+    }, 'Scheduling window saved.')
+  }
+
+  const restoreScheduling = () => runAction(async () => {
+    const s = await apiRequest('/admin/settings/scheduling/restore-defaults', 'POST', null, token)
+    setScheduling(s)
+  }, 'Defaults restored.')
+
+  const markNotifRead = async (id) => {
+    try {
+      await apiRequest(`/notifications/${id}/read`, 'PUT', null, token)
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    } catch (_) {}
+  }
+  const markAllNotifsRead = async () => {
+    try {
+      await apiRequest('/notifications/read-all', 'PUT', null, token)
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    } catch (_) {}
+  }
+
+  const handleSignOut = () => {
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
+    navigate('/login')
+  }
+
+  /* Derived views */
+  const unreadNotifs = notifications.filter((n) => !n.read)
+  const pendingKyc = providers.filter((p) => p.kyc_status === 'pending')
+  const approvedProviders = providers.filter((p) => p.kyc_status === 'approved')
+  const filteredUsers = users.filter((u) => {
+    const roleOk = (u.role || '').toUpperCase() === userRoleView
+    const q = userSearch.trim().toLowerCase()
+    const searchOk = !q || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
+    return roleOk && searchOk
+  })
+
+  const Modal = ({ title, eyebrow = 'LUXORA ADMIN', onClose, children, footer }) => (
+    <div className="ad-notif-overlay" onClick={onClose}>
+      <div className="ad-notif-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ad-notif-modal__header">
+          <span className="ad-notif-modal__eyebrow">{eyebrow}</span>
+          <h3 className="ad-notif-modal__title">{title}</h3>
+          <button className="ad-notif-modal__close" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div className="kyc-gallery" style={{ marginTop: 14 }}>
-          {detail.kycDocuments?.length ? detail.kycDocuments.map((document) => <button key={document.id} className={activeDoc?.name === document.originalName ? 'is-active' : ''} onClick={() => openDoc(document)}>{document.documentType} · {document.originalName}</button>) : <p className="quiet-copy">No documents uploaded.</p>}
+        {children}
+        {footer && <div className="ad-notif-modal__footer">{footer}</div>}
+      </div>
+    </div>
+  )
+
+  const goldBtn = { background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
+  const ghostBtn = { background: 'transparent', color: '#ccc', border: '1px solid #333', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
+  const redBtn = { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
+  const fieldStyle = { width: '100%', background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit', boxSizing: 'border-box' }
+
+  const MetricCard = ({ label, value, icon }) => (
+    <div className="ad-metric-card">
+      <div className="ad-metric-top">
+        <span className="ad-metric-label">{label}</span>
+        <span className="ad-metric-icon">{icon}</span>
+      </div>
+      <div className="ad-metric-val">{value}</div>
+    </div>
+  )
+
+  return (
+    <div className="ad-wrapper">
+      {/* Sidebar */}
+      <aside className="ad-sidebar">
+        <div className="ad-sidebar__logo">
+          <img src="/luxora-logo.png" alt="LUXORA" className="ad-logo-img" />
         </div>
-        <div className="kyc-preview">
-          {activeDoc ? (activeDoc.mimeType === 'application/pdf'
-            ? <iframe title={activeDoc.name} src={activeDoc.url} />
-            : <img alt={activeDoc.name} src={activeDoc.url} />)
-            : <p className="quiet-copy" style={{ padding: 40 }}>Select a document to preview it securely.</p>}
+        <nav className="ad-nav">
+          {NAV_ITEMS.map((item) => (
+            <button key={item.id} className={`ad-nav__item ${activeNav === item.id ? 'ad-nav__item--active' : ''}`} onClick={() => setActiveNav(item.id)}>
+              <span className="ad-nav__icon"><item.icon /></span>
+              <span className="ad-nav__label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Main */}
+      <main className="ad-main">
+        <header className="ad-topbar">
+          <span className="ad-topbar__eyebrow">ADMIN CONTROL CENTER</span>
+          <div className="ad-topbar__actions">
+            <button className="ad-topbar__notif-btn" aria-label="Notifications" onClick={() => setShowNotifModal(true)}>
+              <Icons.Bell />
+              {unreadNotifs.length > 0 && <span className="ad-notif-count">{unreadNotifs.length}</span>}
+            </button>
+            <div className="ad-user-pill" title="Administrator">
+              <div className="ad-user-avatar">{(adminUser.name || 'A').charAt(0)}</div>
+              <div className="ad-user-info">
+                <span className="ad-user-name">{adminUser.name || 'Administrator'}</span>
+                <span className="ad-user-role">Admin <span className="ad-user-dot">●</span></span>
+              </div>
+            </div>
+            <button className="ad-logout-btn" onClick={handleSignOut} title="Sign Out">Sign Out</button>
+          </div>
+        </header>
+
+        <div className="ad-content">
+          {loadError && (
+            <div style={{ padding: '0.8rem 1rem', marginBottom: '1rem', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)', color: '#ef4444', borderRadius: '10px', fontSize: '0.82rem' }}>
+              {loadError}
+            </div>
+          )}
+
+          {/* DASHBOARD */}
+          {activeNav === 'dashboard' && (
+            <>
+              <div className="ad-metrics-grid">
+                <MetricCard label="TOTAL CUSTOMERS" value={stats ? stats.totalUsers.toLocaleString() : '—'} icon={<Icons.Users />} />
+                <MetricCard label="APPROVED PROVIDERS" value={stats ? stats.totalProviders.toLocaleString() : '—'} icon={<Icons.Building />} />
+                <MetricCard label="TOTAL BOOKINGS" value={stats ? stats.totalBookings.toLocaleString() : '—'} icon={<Icons.Bookings />} />
+                <MetricCard label="REVENUE (COMPLETED)" value={stats ? fmtMoney(stats.totalRevenue) : '—'} icon={<Icons.Reports />} />
+                <MetricCard label="PENDING KYC" value={stats ? stats.pendingProviders.toLocaleString() : '—'} icon={<Icons.Approvals />} />
+                <MetricCard label="ACTIVE SUBSCRIPTIONS" value={stats ? stats.activeSubscriptions.toLocaleString() : '—'} icon={<Icons.Subscriptions />} />
+                <MetricCard label="OPEN COMPLAINTS" value={stats ? stats.openComplaints.toLocaleString() : '—'} icon={<Icons.Complaints />} />
+                <MetricCard label="AVG RATING" value={stats ? `${Number(stats.averageRating || 0).toFixed(1)} (${stats.ratingCount || 0})` : '—'} icon={<Icons.Promotions />} />
+              </div>
+              <div className="ad-tables-grid">
+                <div className="ad-table-card">
+                  <h3 className="ad-table-title">RECENT BOOKINGS</h3>
+                  <table className="ad-data-table">
+                    <thead><tr><th>ID</th><th>CUSTOMER</th><th>SERVICE</th><th>STATUS</th><th>DATE</th></tr></thead>
+                    <tbody>
+                      {bookings.slice(0, 6).map((b) => (
+                        <tr key={b.id}>
+                          <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{b.id}</td>
+                          <td>{b.customer_name || '—'}</td>
+                          <td>{b.service_title || '—'}</td>
+                          <td><StatBadge value={b.status} /></td>
+                          <td>{b.bookingDate} {b.bookingTime || ''}</td>
+                        </tr>
+                      ))}
+                      {bookings.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No bookings yet.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="ad-table-card">
+                  <h3 className="ad-table-title">PENDING KYC APPROVALS</h3>
+                  <table className="ad-data-table">
+                    <thead><tr><th>PROVIDER</th><th>CATEGORY</th><th>ACTION</th></tr></thead>
+                    <tbody>
+                      {pendingKyc.map((p) => (
+                        <tr key={p.id}>
+                          <td>{p.name}</td>
+                          <td>{p.category || '—'}</td>
+                          <td><button style={goldBtn} onClick={() => setKycDecision({ provider: p, mode: 'approve' })}>Review</button></td>
+                        </tr>
+                      ))}
+                      {pendingKyc.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No pending KYC requests.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* USERS */}
+          {activeNav === 'users' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">USER MANAGEMENT DIRECTORY</h3>
+              <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                {['CUSTOMER', 'PROVIDER', 'ADMIN'].map((role) => (
+                  <button key={role} onClick={() => setUserRoleView(role)} style={{
+                    background: userRoleView === role ? 'var(--gold, #c9a84c)' : '#181818',
+                    color: userRoleView === role ? '#000' : '#ddd',
+                    border: '1px solid ' + (userRoleView === role ? 'var(--gold, #c9a84c)' : '#333'),
+                    borderRadius: '7px', padding: '0.5rem 0.9rem', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>{role}S ({users.filter((u) => (u.role || '').toUpperCase() === role).length})</button>
+                ))}
+                <input style={{ ...fieldStyle, maxWidth: '260px', marginLeft: 'auto' }} placeholder="Search name or email…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
+              </div>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>NAME</th><th>EMAIL</th><th>TOWN</th><th>ACTIVE PLAN</th><th>JOINED</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {filteredUsers.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{u.id}</td>
+                      <td>{u.name}</td>
+                      <td style={{ color: '#999' }}>{u.email}</td>
+                      <td>{u.town || '—'}</td>
+                      <td>{u.subscriptions?.[0]?.plan?.title || '—'}</td>
+                      <td>{fmtDate(u.createdAt)}</td>
+                      <td><StatBadge value={u.active ? 'active' : 'closed'} /></td>
+                      <td>
+                        <button style={u.active ? redBtn : goldBtn} disabled={busy} onClick={() => toggleUserActive(u)}>
+                          {u.active ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredUsers.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No users match.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* PROVIDERS */}
+          {activeNav === 'providers' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">PROVIDER NETWORK</h3>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>NAME</th><th>CATEGORY</th><th>TOWNS</th><th>EARNINGS</th><th>KYC</th><th>AVAILABILITY</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {providers.map((p) => (
+                    <tr key={p.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
+                      <td>{p.name}</td>
+                      <td>{p.category || '—'}</td>
+                      <td style={{ maxWidth: '220px' }}>{(p.serviceTowns || []).join(', ') || '—'}</td>
+                      <td>{fmtMoney(p.earnings)}</td>
+                      <td><StatBadge value={p.kyc_status} /></td>
+                      <td><StatBadge value={p.availability_status === 'available' ? 'active' : 'closed'} /></td>
+                      <td><button style={ghostBtn} onClick={() => openProviderDetail(p.id)}>View</button></td>
+                    </tr>
+                  ))}
+                  {providers.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No providers registered.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* APPROVALS */}
+          {activeNav === 'approvals' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">KYC APPROVAL QUEUE ({pendingKyc.length})</h3>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>NAME</th><th>EMAIL</th><th>CATEGORY</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {pendingKyc.map((p) => (
+                    <tr key={p.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
+                      <td>{p.name}</td>
+                      <td style={{ color: '#999' }}>{p.email}</td>
+                      <td>{p.category || '—'}</td>
+                      <td style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="ad-btn-approve" style={goldBtn} disabled={busy} onClick={() => setKycDecision({ provider: p, mode: 'approve' })}>Approve</button>
+                        <button className="ad-btn-reject" style={redBtn} disabled={busy} onClick={() => setKycDecision({ provider: p, mode: 'reject' })}>Reject</button>
+                        <button style={ghostBtn} onClick={() => openProviderDetail(p.id)}>Documents</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {pendingKyc.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>Queue is clear — no pending KYC.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* PACKAGES */}
+          {activeNav === 'subscriptions' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
+                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Single Package', price: '', duration: 30, active: true, entitlements: {} })}>+ New Package</button>
+              </div>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>ENTITLEMENTS</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {plans.map((p) => (
+                    <tr key={p.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
+                      <td>{p.title}</td>
+                      <td>{p.type || '—'}</td>
+                      <td>{fmtMoney(p.priceMonthly)} <small style={{ color: '#777' }}>/ {p.durationDays || 30}d</small></td>
+                      <td style={{ maxWidth: '260px' }}>{(p.entitlements || []).map((e) => `${e.category?.name || e.categoryId}: ${e.units}`).join(' · ') || '—'}</td>
+                      <td>{p._count?.userSubscriptions ?? 0}</td>
+                      <td><StatBadge value={p.active ? 'active' : 'closed'} /></td>
+                      <td style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button style={ghostBtn} onClick={() => setPlanEditor({
+                          id: p.id, title: p.title, type: p.type || 'Single Package', price: String(Number(p.priceMonthly)), duration: p.durationDays || 30, active: p.active,
+                          entitlements: Object.fromEntries((p.entitlements || []).map((e) => [e.categoryId, e.units])),
+                        })}>Edit</button>
+                        <button style={p.active ? redBtn : goldBtn} disabled={busy} onClick={() => togglePlanActive(p)}>{p.active ? 'Disable' : 'Enable'}</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {plans.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No packages defined.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* BOOKINGS */}
+          {activeNav === 'bookings' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">ALL BOOKINGS ({bookings.length})</h3>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>CUSTOMER</th><th>SERVICE</th><th>PROVIDER</th><th>SCHEDULE</th><th>VALUE</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {bookings.map((b) => (
+                    <tr key={b.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{b.id}</td>
+                      <td>{b.customer_name || '—'}</td>
+                      <td>{b.service_title || '—'}<small style={{ display: 'block', color: '#777' }}>{b.category_name}</small></td>
+                      <td>{b.provider_name || 'Unassigned'}</td>
+                      <td>{b.bookingDate} {b.bookingTime || ''}</td>
+                      <td>{fmtMoney(b.total_price)}</td>
+                      <td><StatBadge value={b.status} /></td>
+                      <td><button style={ghostBtn} onClick={() => setBookingEdit({ booking: b, status: '', provider_id: '' })}>Manage</button></td>
+                    </tr>
+                  ))}
+                  {bookings.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No bookings.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* COMPLAINTS */}
+          {activeNav === 'complaints' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">CUSTOMER COMPLAINTS ({complaints.length})</h3>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>CUSTOMER</th><th>SUBJECT</th><th>SERVICE</th><th>FILED</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {complaints.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{c.id}</td>
+                      <td>{c.customer_name || '—'}</td>
+                      <td style={{ maxWidth: '220px' }}>{c.subject}</td>
+                      <td>{c.service_title || '—'}</td>
+                      <td>{fmtDateTime(c.createdAt)}</td>
+                      <td><StatBadge value={c.status} /></td>
+                      <td><button style={ghostBtn} onClick={() => { setComplaintOpen(c); setComplaintNote(c.adminNote || '') }}>Review</button></td>
+                    </tr>
+                  ))}
+                  {complaints.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No complaints filed.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* SUPPORT DESK */}
+          {activeNav === 'support' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">SUPPORT TICKETS ({supportTickets.length})</h3>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>MEMBER</th><th>SUBJECT</th><th>PRIORITY</th><th>UPDATED</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {supportTickets.map((t) => (
+                    <tr key={t.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{t.id}</td>
+                      <td>{t.user?.name || '—'}</td>
+                      <td style={{ maxWidth: '240px' }}>{t.subject}</td>
+                      <td><span className="ad-badge-priority">{t.priority}</span></td>
+                      <td>{fmtDateTime(t.updatedAt)}</td>
+                      <td><StatBadge value={t.status} /></td>
+                      <td><button style={ghostBtn} onClick={() => { setTicketOpen(t); setTicketResponse(t.adminResponse || '') }}>Respond</button></td>
+                    </tr>
+                  ))}
+                  {supportTickets.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No support tickets.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* REFUNDS */}
+          {activeNav === 'refunds' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">REFUND REQUESTS ({refunds.length})</h3>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>MEMBER</th><th>PACKAGE</th><th>PAYMENT</th><th>REQUESTED</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {refunds.map((r) => (
+                    <tr key={r.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{r.id}</td>
+                      <td>{r.user?.name || '—'}</td>
+                      <td>{r.subscription?.plan?.title || '—'}</td>
+                      <td>{r.payment ? `${r.payment.gateway} · ${fmtMoney(r.payment.expectedAmount)}` : '—'}</td>
+                      <td>{fmtDateTime(r.requestedAt)}</td>
+                      <td><StatBadge value={r.status} /></td>
+                      <td>
+                        {r.status === 'REQUESTED'
+                          ? <button style={ghostBtn} disabled={busy} onClick={() => { setRefundOpen(r); setRefundNote(r.adminNote || '') }}>Review</button>
+                          : <small style={{ color: '#777' }}>{r.adminNote ? 'Reviewed' : 'Settled'}</small>}
+                      </td>
+                    </tr>
+                  ))}
+                  {refunds.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No refund requests.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* PROMOTIONS */}
+          {activeNav === 'promotions' && (
+            <>
+              <div className="ad-table-card" style={{ marginTop: 0, marginBottom: '1.25rem' }}>
+                <h3 className="ad-table-title">CREATE PROMOTION</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  <input style={fieldStyle} placeholder="Title" value={promoForm.title} onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })} />
+                  <input style={fieldStyle} placeholder="Code (optional)" value={promoForm.code} onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value })} />
+                  <input style={fieldStyle} type="number" min="0" max="100" placeholder="Discount %" value={promoForm.discount_pct} onChange={(e) => setPromoForm({ ...promoForm, discount_pct: e.target.value })} />
+                  <input style={fieldStyle} placeholder="Description" value={promoForm.description} onChange={(e) => setPromoForm({ ...promoForm, description: e.target.value })} />
+                  <button style={goldBtn} disabled={busy} onClick={createPromotion}>Deploy Promotion</button>
+                </div>
+              </div>
+              <div className="ad-table-card">
+                <h3 className="ad-table-title">ALL CAMPAIGNS ({promotions.length})</h3>
+                <table className="ad-data-table">
+                  <thead><tr><th>ID</th><th>TITLE</th><th>CODE</th><th>DISCOUNT</th><th>WINDOW</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                  <tbody>
+                    {promotions.map((p) => (
+                      <tr key={p.id}>
+                        <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
+                        <td>{p.title}</td>
+                        <td>{p.code || '—'}</td>
+                        <td>{p.discountPct}%</td>
+                        <td>{fmtDate(p.startsAt)} → {fmtDate(p.endsAt)}</td>
+                        <td><StatBadge value={p.active ? 'active' : 'closed'} /></td>
+                        <td><button style={ghostBtn} disabled={busy} onClick={() => togglePromotion(p)}>{p.active ? 'Deactivate' : 'Activate'}</button></td>
+                      </tr>
+                    ))}
+                    {promotions.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No campaigns.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* REPORTS */}
+          {activeNav === 'reports' && (
+            <>
+              <div className="ad-table-card" style={{ marginTop: 0, marginBottom: '1.25rem' }}>
+                <h3 className="ad-table-title">REPORTS & ANALYSIS</h3>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <label style={{ color: '#888', fontSize: '0.75rem' }}>From</label>
+                  <input type="date" style={fieldStyle} value={reportRange.from} onChange={(e) => setReportRange({ ...reportRange, from: e.target.value })} />
+                  <label style={{ color: '#888', fontSize: '0.75rem' }}>To</label>
+                  <input type="date" style={fieldStyle} value={reportRange.to} onChange={(e) => setReportRange({ ...reportRange, to: e.target.value })} />
+                  <button style={goldBtn} onClick={loadReports}>Generate</button>
+                </div>
+              </div>
+              {reports && (
+                <>
+                  <div className="ad-metrics-grid" style={{ marginBottom: '1.25rem' }}>
+                    <MetricCard label="NEW CUSTOMERS" value={reports.summary.customers} icon={<Icons.Users />} />
+                    <MetricCard label="NEW PROVIDERS" value={reports.summary.providers} icon={<Icons.Building />} />
+                    <MetricCard label="BOOKINGS (DONE/TOTAL)" value={`${reports.summary.completedBookings} / ${reports.summary.bookings}`} icon={<Icons.Bookings />} />
+                    <MetricCard label="REVENUE" value={fmtMoney(reports.summary.revenue)} icon={<Icons.Reports />} />
+                    <MetricCard label="ACTIVE SUBSCRIPTIONS" value={reports.summary.activeSubscriptions} icon={<Icons.Subscriptions />} />
+                    <MetricCard label="COMPLAINTS" value={reports.summary.complaints} icon={<Icons.Complaints />} />
+                    <MetricCard label="AVG RATING" value={`${Number(reports.summary.averageRating || 0).toFixed(1)} (${reports.summary.ratingCount})`} icon={<Icons.Promotions />} />
+                  </div>
+                  <div className="ad-tables-grid">
+                    <div className="ad-table-card">
+                      <h3 className="ad-table-title">SERVICE POPULARITY</h3>
+                      <table className="ad-data-table">
+                        <thead><tr><th>SERVICE</th><th>BOOKINGS</th></tr></thead>
+                        <tbody>
+                          {reports.servicePopularity.map((s) => (<tr key={s.serviceId}><td>{s.service}</td><td>{s.bookings}</td></tr>))}
+                          {reports.servicePopularity.length === 0 && <tr><td colSpan={2} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No data in range.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="ad-table-card">
+                      <h3 className="ad-table-title">PROVIDER PERFORMANCE</h3>
+                      <table className="ad-data-table">
+                        <thead><tr><th>PROVIDER</th><th>COMPLETED</th><th>SERVICE VALUE</th></tr></thead>
+                        <tbody>
+                          {reports.providerPerformance.map((p) => (<tr key={p.providerId}><td>{p.provider}</td><td>{p.completedBookings}</td><td>{fmtMoney(p.serviceValue)}</td></tr>))}
+                          {reports.providerPerformance.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No data in range.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* OPERATIONS */}
+          {activeNav === 'operations' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">OPERATIONS — AUTO-ASSIGNMENT SCHEDULING</h3>
+              {schedulingForbidden ? (
+                <p style={{ color: '#888', fontSize: '0.85rem' }}>Scheduling settings require elevated administrator access for this deployment.</p>
+              ) : scheduling ? (
+                <>
+                  <p style={{ color: '#aaa', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                    Bookings are auto-assigned to eligible providers inside this daily window, with a per-provider cooldown between assignments.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem', maxWidth: '760px' }}>
+                    <label style={{ color: '#888', fontSize: '0.75rem' }}>Cooldown hours (1-24)
+                      <input type="number" min="1" max="24" style={fieldStyle} value={scheduling.autoAssignmentCooldownHours}
+                        onChange={(e) => setScheduling({ ...scheduling, autoAssignmentCooldownHours: Number(e.target.value) })} />
+                    </label>
+                    <label style={{ color: '#888', fontSize: '0.75rem' }}>Start hour (0-23)
+                      <input type="number" min="0" max="23" style={fieldStyle} value={scheduling.autoAssignmentStartHour}
+                        onChange={(e) => setScheduling({ ...scheduling, autoAssignmentStartHour: Number(e.target.value) })} />
+                    </label>
+                    <label style={{ color: '#888', fontSize: '0.75rem' }}>End hour (0-23)
+                      <input type="number" min="0" max="23" style={fieldStyle} value={scheduling.autoAssignmentEndHour}
+                        onChange={(e) => setScheduling({ ...scheduling, autoAssignmentEndHour: Number(e.target.value) })} />
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                    <button style={goldBtn} disabled={busy} onClick={saveScheduling}>Save Window</button>
+                    <button className="ad-reset-btn" style={ghostBtn} disabled={busy} onClick={restoreScheduling}>Restore Defaults</button>
+                  </div>
+                </>
+              ) : (
+                <p style={{ color: '#888', fontSize: '0.85rem' }}>Loading scheduling settings…</p>
+              )}
+            </div>
+          )}
         </div>
-      </>}
-    </>}
-  </Modal>
+      </main>
+
+      {/* ══ MODALS ══ */}
+
+      {showNotifModal && (
+        <Modal title={`NOTIFICATIONS (${unreadNotifs.length} unread)`} onClose={() => setShowNotifModal(false)}
+          footer={<button className="ad-notif-clear-btn" style={goldBtn} onClick={markAllNotifsRead}>Mark all read</button>}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '50vh', overflowY: 'auto' }}>
+            {notifications.map((n) => (
+              <div key={n.id} className="ad-notif-card" onClick={() => markNotifRead(n.id)} style={{ cursor: 'pointer', opacity: n.read ? 0.55 : 1, border: '1px solid #262626', borderRadius: '10px', padding: '0.7rem 0.9rem', background: '#121214' }}>
+                <div style={{ fontSize: '0.82rem', color: '#ddd' }}>{n.message}</div>
+                <div style={{ fontSize: '0.68rem', color: '#777', marginTop: '0.25rem' }}>{fmtDateTime(n.createdAt)} {n.read ? '· read' : '· tap to mark read'}</div>
+              </div>
+            ))}
+            {notifications.length === 0 && <p className="ad-notif-empty" style={{ color: '#777', textAlign: 'center', padding: '1rem' }}>No notifications.</p>}
+          </div>
+        </Modal>
+      )}
+
+      {kycDecision && (
+        <Modal title={`${kycDecision.mode === 'approve' ? 'APPROVE' : 'REJECT'} KYC — ${kycDecision.provider.name}`} onClose={() => { setKycDecision(null); setRejectReason('') }}>
+          {kycDecision.mode === 'reject' && (
+            <label style={{ color: '#888', fontSize: '0.78rem' }}>Rejection reason (required, 3-500 chars)
+              <textarea rows={3} style={{ ...fieldStyle, marginTop: '0.4rem' }} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Explain what the provider must fix…" />
+            </label>
+          )}
+          {kycDecision.mode === 'approve' && <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Approve {kycDecision.provider.name} ({kycDecision.provider.category || 'provider'})? They will be notified and can start receiving bookings.</p>}
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
+            <button style={ghostBtn} onClick={() => { setKycDecision(null); setRejectReason('') }}>Cancel</button>
+            <button style={kycDecision.mode === 'approve' ? goldBtn : redBtn} disabled={busy} onClick={decideKyc}>
+              {kycDecision.mode === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {providerDetail && (
+        <Modal title={providerDetail.user?.name || 'PROVIDER'} eyebrow={`PROVIDER #${providerDetail.id}`} onClose={() => setProviderDetail(null)}>
+          <div style={{ display: 'grid', gap: '0.4rem', fontSize: '0.85rem', color: '#ccc' }}>
+            <span>Email: {providerDetail.user?.email || '—'}</span>
+            <span>Phone: {providerDetail.user?.phone || '—'}</span>
+            <span>Category: {providerDetail.category || '—'}</span>
+            <span>KYC: <StatBadge value={providerDetail.kycStatus?.toLowerCase()} /></span>
+            <span>Towns: {(providerDetail.serviceTowns || []).join(', ') || '—'}</span>
+            <span>Earnings: {fmtMoney(providerDetail.earnings)}</span>
+            <span>Rating: {providerDetail.averageRating ? Number(providerDetail.averageRating).toFixed(1) : 'No reviews yet'}</span>
+          </div>
+          <h4 style={{ margin: '1.1rem 0 0.5rem', color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', letterSpacing: '0.12em' }}>KYC DOCUMENTS</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {(providerDetail.documents || []).map((d) => (
+              <button key={d.id} type="button" onClick={() => openKycDoc(d)} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.55rem 0.8rem', border: '1px solid #262626', borderRadius: '8px', color: '#ddd', background: '#121214', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                <span>{d.originalName || d.documentType}</span>
+                <span style={{ color: 'var(--gold, #c9a84c)' }}>Open ↗</span>
+              </button>
+            ))}
+            {(providerDetail.documents || []).length === 0 && <p style={{ color: '#777', fontSize: '0.8rem' }}>No documents uploaded.</p>}
+          </div>
+        </Modal>
+      )}
+
+      {bookingEdit && (
+        <Modal title={`MANAGE BOOKING #${bookingEdit.booking.id}`} eyebrow={`${bookingEdit.booking.service_title} · ${bookingEdit.booking.customer_name}`} onClose={() => setBookingEdit(null)}>
+          <p style={{ color: '#aaa', fontSize: '0.8rem' }}>Current: <StatBadge value={bookingEdit.booking.status} /> · Provider: {bookingEdit.booking.provider_name || 'Unassigned'}</p>
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', marginBottom: '0.4rem' }}>Override status (transitions are validated server-side)</label>
+          <select style={fieldStyle} value={bookingEdit.status} onChange={(e) => setBookingEdit({ ...bookingEdit, status: e.target.value })}>
+            <option value="">— unchanged —</option>
+            {['pending', 'assigned', 'in_progress', 'completed', 'cancelled'].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.8rem 0 0.4rem' }}>Assign provider</label>
+          <select style={fieldStyle} value={bookingEdit.provider_id} onChange={(e) => setBookingEdit({ ...bookingEdit, provider_id: e.target.value })}>
+            <option value="">— unchanged —</option>
+            {approvedProviders.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
+          </select>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
+            <button style={ghostBtn} onClick={() => setBookingEdit(null)}>Cancel</button>
+            <button style={goldBtn} disabled={busy} onClick={saveBookingEdit}>Apply</button>
+          </div>
+        </Modal>
+      )}
+
+      {complaintOpen && (
+        <Modal title={`COMPLAINT #${complaintOpen.id}`} eyebrow={complaintOpen.customer_name || 'MEMBER'} onClose={() => setComplaintOpen(null)}>
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{complaintOpen.subject}</p>
+          <p style={{ color: '#bbb', fontSize: '0.84rem' }}>{complaintOpen.description}</p>
+          {complaintOpen.service_title && <p style={{ color: '#777', fontSize: '0.75rem' }}>Service: {complaintOpen.service_title} · Filed {fmtDateTime(complaintOpen.createdAt)}</p>}
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Admin note (sent when resolved)</label>
+          <textarea rows={3} style={fieldStyle} value={complaintNote} onChange={(e) => setComplaintNote(e.target.value)} placeholder="Resolution note for the member…" />
+          <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button style={ghostBtn} disabled={busy} onClick={() => saveComplaint('in_review')}>Mark In Review</button>
+            <button style={goldBtn} disabled={busy} onClick={() => saveComplaint('resolved')}>Resolve</button>
+          </div>
+        </Modal>
+      )}
+
+      {ticketOpen && (
+        <Modal title={`TICKET #${ticketOpen.id}`} eyebrow={ticketOpen.user?.name || 'MEMBER'} onClose={() => setTicketOpen(null)}>
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{ticketOpen.subject} <span className="ad-badge-priority" style={{ marginLeft: '0.5rem' }}>{ticketOpen.priority}</span></p>
+          <p style={{ color: '#bbb', fontSize: '0.84rem', whiteSpace: 'pre-wrap' }}>{ticketOpen.message}</p>
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Response to the member</label>
+          <textarea rows={3} style={fieldStyle} value={ticketResponse} onChange={(e) => setTicketResponse(e.target.value)} placeholder="Write your response…" />
+          <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button style={ghostBtn} disabled={busy} onClick={() => saveTicket('in_progress')}>Save & In Progress</button>
+            <button style={goldBtn} disabled={busy} onClick={() => saveTicket('resolved')}>Send & Resolve</button>
+          </div>
+        </Modal>
+      )}
+
+      {refundOpen && (
+        <Modal title={`REFUND #${refundOpen.id}`} eyebrow={refundOpen.user?.name || 'MEMBER'} onClose={() => setRefundOpen(null)}>
+          <p style={{ color: '#aaa', fontSize: '0.84rem' }}>
+            {refundOpen.subscription?.plan?.title || 'Subscription'} · {refundOpen.payment ? `${refundOpen.payment.gateway} ${fmtMoney(refundOpen.payment.expectedAmount)}` : 'no payment record'}
+          </p>
+          <p style={{ color: '#bbb', fontSize: '0.84rem' }}>Reason: {refundOpen.reason || '—'}</p>
+          <p style={{ color: '#777', fontSize: '0.72rem' }}>Approving a demo payment refunds immediately; PayHere refunds settle when the gateway webhook confirms.</p>
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Admin note</label>
+          <textarea rows={3} style={fieldStyle} value={refundNote} onChange={(e) => setRefundNote(e.target.value)} placeholder="Decision note…" />
+          <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
+            <button style={redBtn} disabled={busy} onClick={() => decideRefund('REJECTED')}>Reject</button>
+            <button style={goldBtn} disabled={busy} onClick={() => decideRefund('APPROVED')}>Approve Refund</button>
+          </div>
+        </Modal>
+      )}
+
+      {planEditor && (
+        <Modal title={planEditor.id ? `EDIT PACKAGE #${planEditor.id}` : 'NEW PACKAGE'} onClose={() => setPlanEditor(null)}>
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <label style={{ color: '#888', fontSize: '0.75rem' }}>Title
+              <input style={fieldStyle} value={planEditor.title} onChange={(e) => setPlanEditor({ ...planEditor, title: e.target.value })} /></label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <label style={{ color: '#888', fontSize: '0.75rem' }}>Price (LKR)
+                <input type="number" min="0" style={fieldStyle} value={planEditor.price} onChange={(e) => setPlanEditor({ ...planEditor, price: e.target.value })} /></label>
+              <label style={{ color: '#888', fontSize: '0.75rem' }}>Duration (days)
+                <input type="number" min="1" max="365" style={fieldStyle} value={planEditor.duration} onChange={(e) => setPlanEditor({ ...planEditor, duration: e.target.value })} /></label>
+            </div>
+            <label style={{ color: '#888', fontSize: '0.75rem' }}>Type
+              <select style={fieldStyle} value={planEditor.type} onChange={(e) => setPlanEditor({ ...planEditor, type: e.target.value })}>
+                <option>Single Package</option><option>Combo Package</option>
+              </select></label>
+            <span style={{ color: '#888', fontSize: '0.75rem' }}>Entitlements (service coins / period)</span>
+            {categories.map((c) => (
+              <label key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', color: '#ccc', fontSize: '0.82rem' }}>
+                {c.name}
+                <input type="number" min="0" max="30" style={{ ...fieldStyle, maxWidth: '90px', textAlign: 'center' }}
+                  value={planEditor.entitlements[c.id] ?? 0}
+                  onChange={(e) => setPlanEditor({ ...planEditor, entitlements: { ...planEditor.entitlements, [c.id]: Number(e.target.value) } })} />
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
+            <button style={ghostBtn} onClick={() => setPlanEditor(null)}>Cancel</button>
+            <button style={goldBtn} disabled={busy} onClick={savePlan}>Save Package</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
 }
 
-export default function AdminDashboard() {
-  const navigate = useNavigate(); const token = sessionStorage.getItem('token')
-  const [stats, setStats] = useState(null); const [users, setUsers] = useState([]); const [providers, setProviders] = useState([]); const [bookings, setBookings] = useState([]); const [complaints, setComplaints] = useState([]); const [plans, setPlans] = useState([]); const [categories, setCategories] = useState([]); const [promotions, setPromotions] = useState([]); const [tickets, setTickets] = useState([]); const [refunds, setRefunds] = useState([]); const [report, setReport] = useState(null); const [scheduling, setScheduling] = useState(null); const [message, setMessage] = useState(''); const [search, setSearch] = useState(''); const [promo, setPromo] = useState({ title: '', code: '', discount_pct: '', starts_at: '', ends_at: '' }); const [plan, setPlan] = useState({ title: '', type: 'single', price_monthly: '', duration_days: 30, features: '', category_id: '', units: '' })
-  const [dialog, setDialog] = useState(null); const [bookingSearch, setBookingSearch] = useState(''); const [bookingDate, setBookingDate] = useState('')
-  const load = async () => { if (!token) return navigate('/login', { replace: true }); try { const [metricRows, reportRows, categoryRows] = await Promise.all([apiRequest('/admin/stats', 'GET', null, token), apiRequest('/admin/reports', 'GET', null, token), apiRequest('/categories', 'GET', null, token)]); setStats(metricRows); setReport(reportRows); setCategories(categoryRows); const [userRows, providerRows, bookingRows, complaintRows] = await Promise.all([apiRequest(`/admin/users?search=${encodeURIComponent(search)}`, 'GET', null, token), apiRequest('/admin/providers', 'GET', null, token), apiRequest('/admin/bookings', 'GET', null, token), apiRequest('/admin/complaints', 'GET', null, token)]); setUsers(userRows); setProviders(providerRows); setBookings(bookingRows); setComplaints(complaintRows); const [planRows, promotionRows, ticketRows, refundRows] = await Promise.all([apiRequest('/admin/subscriptions', 'GET', null, token), apiRequest('/promotions/all', 'GET', null, token), apiRequest('/support', 'GET', null, token), apiRequest('/admin/refunds', 'GET', null, token)]); setPlans(planRows); setPromotions(promotionRows); setTickets(ticketRows); setRefunds(refundRows); setScheduling(await apiRequest('/admin/settings/scheduling', 'GET', null, token).catch(() => null)) } catch (error) { setMessage(error.message) } }
-  useEffect(() => { load() }, [search])
-  const updateUser = async (row) => { try { await apiRequest(`/admin/users/${row.id}`, 'PUT', { active: !row.active }, token); await load() } catch (error) { setMessage(error.message) } }
-  const approveKyc = async (provider) => { try { await apiRequest(`/admin/providers/${provider.id}/kyc`, 'PUT', { status: 'approved' }, token); setDialog(null); await load() } catch (error) { setMessage(error.message); setDialog(null) } }
-  const rejectKyc = async (provider, rejection_reason) => { try { await apiRequest(`/admin/providers/${provider.id}/kyc`, 'PUT', { status: 'rejected', rejection_reason }, token); setDialog(null); await load() } catch (error) { setMessage(error.message); setDialog(null) } }
-  const complaint = async (values) => { const row = dialog.row; try { await apiRequest(`/admin/complaints/${row.id}`, 'PUT', { status: values.status, admin_note: values.admin_note || undefined }, token); setDialog(null); await load() } catch (error) { setMessage(error.message); setDialog(null) } }
-  const refund = async (values) => { const { row, decision } = dialog; try { const result = await apiRequest(`/admin/refunds/${row.id}`, 'PUT', { status: decision, admin_note: values.admin_note || '' }, token); setMessage(`Refund ${result.status}.`); setDialog(null); await load() } catch (error) { setMessage(error.message); setDialog(null) } }
-  const ticket = async (values) => { const row = dialog.row; try { await apiRequest(`/support/${row.id}`, 'PUT', { status: values.status, admin_response: values.admin_response || undefined }, token); setDialog(null); await load() } catch (error) { setMessage(error.message); setDialog(null) } }
-  const createPlan = async (event) => { event.preventDefault(); try { await apiRequest('/admin/subscriptions', 'POST', { ...plan, price_monthly: Number(plan.price_monthly), duration_days: Number(plan.duration_days), features: plan.features.split(',').map((item) => item.trim()).filter(Boolean), entitlements: [{ category_id: Number(plan.category_id), units: Number(plan.units) }] }, token); setPlan({ title: '', type: 'single', price_monthly: '', duration_days: 30, features: '', category_id: '', units: '' }); await load() } catch (error) { setMessage(error.message) } }
-  const togglePlan = async (row) => { try { await apiRequest(`/admin/subscriptions/${row.id}`, 'PUT', { active: !row.active }, token); await load() } catch (error) { setMessage(error.message) } }
-  const createPromo = async (event) => { event.preventDefault(); try { await apiRequest('/promotions', 'POST', { ...promo, discount_pct: Number(promo.discount_pct), starts_at: promo.starts_at || undefined, ends_at: promo.ends_at || undefined }, token); setPromo({ title: '', code: '', discount_pct: '', starts_at: '', ends_at: '' }); await load() } catch (error) { setMessage(error.message) } }
-  const togglePromo = async (row) => { try { await apiRequest(`/promotions/${row.id}`, 'PUT', { active: !row.active }, token); await load() } catch (error) { setMessage(error.message) } }
-  const setBooking = async (values) => { const row = dialog.row; try { await apiRequest(`/admin/bookings/${row.id}`, 'PUT', { status: values.status, ...(values.provider_id ? { provider_id: Number(values.provider_id) } : {}) }, token); setDialog(null); await load() } catch (error) { setMessage(error.message); setDialog(null) } }
-  const saveScheduling = async (values) => { try { await apiRequest('/admin/settings/scheduling', 'PUT', { auto_assignment_cooldown_hours: Number(values.cooldown), auto_assignment_start_hour: Number(values.start), auto_assignment_end_hour: Number(values.end) }, token); setDialog(null); await load() } catch (error) { setMessage(error.message); setDialog(null) } }
-  if (!stats) return <LoadingState title={message || 'Preparing Luxora operations'} />
-  const metricLabels = { totalUsers: 'Members', totalProviders: 'Providers', pendingProviders: 'KYC pending', activeSubscriptions: 'Active subscriptions', totalBookings: 'Bookings', completedBookings: 'Completed', totalRevenue: 'Revenue', openComplaints: 'Open complaints' }
-  const filteredBookings = bookings.filter((row) => (!bookingDate || row.bookingDate === bookingDate) && (!bookingSearch.trim() || [row.service_title, row.customer_name, row.provider_name, `#${row.id}`].filter(Boolean).join(' ').toLowerCase().includes(bookingSearch.trim().toLowerCase())))
-  const attention = [
-    ...bookings.filter((row) => String(row.status).toLowerCase() === 'pending').map((row) => ({ id: `booking-${row.id}`, type: 'Booking awaiting assignment', label: `${row.service_title} · ${row.customer_name}`, tone: 'pending' })),
-    ...providers.filter((row) => String(row.kyc_status).toLowerCase() === 'pending').map((row) => ({ id: `provider-${row.id}`, type: 'KYC verification', label: row.name, tone: 'pending' })),
-    ...refunds.filter((row) => row.status === 'REQUESTED').map((row) => ({ id: `refund-${row.id}`, type: 'Refund review', label: `${row.user.name} · ${row.subscription.plan.title}`, tone: 'pending' })),
-    ...complaints.filter((row) => !['resolved', 'closed'].includes(String(row.status).toLowerCase())).map((row) => ({ id: `complaint-${row.id}`, type: 'Member care', label: `${row.customer_name} · ${row.subject}`, tone: 'pending' })),
-  ]
-  return <PortalShell role="Admin" userName="Operations team" title="Dashboard" heroTitle="Platform overview" subtitle="A clear view of service health, member care and the decisions that keep the platform moving." notice={message} onSignOut={() => { sessionStorage.clear(); navigate('/login') }} navItems={[{ id: 'overview', label: 'Overview' }, { id: 'bookings', label: 'Bookings' }, { id: 'members', label: 'Customers' }, { id: 'providers', label: 'Providers' }, { id: 'packages', label: 'Packages' }, { id: 'care', label: 'Care desk' }, { id: 'operations', label: 'Operations' }]}>
-    <Panel id="overview" className="admin-overview"><div className="section-heading"><div><p className="portal-kicker">Today's overview</p><h2>Platform operating picture</h2></div><Status tone="active">Live data</Status></div><div className="admin-metrics">{Object.entries(stats).map(([key, value]) => <article key={key}><span>{metricLabels[key] || key.replace(/([A-Z])/g, ' $1')}</span><strong>{key.toLowerCase().includes('revenue') ? `LKR ${Number(value).toLocaleString()}` : typeof value === 'number' ? value.toLocaleString() : String(value)}</strong></article>)}</div></Panel>
-    <section className="attention-strip"><div><p className="portal-kicker">Attention required</p><h2>{attention.length ? `${attention.length} item${attention.length === 1 ? '' : 's'} need a decision` : 'Everything is under control'}</h2></div><div className="attention-items">{attention.length ? attention.slice(0, 4).map((item) => <article key={item.id}><Status tone={item.tone}>{item.type}</Status><b>{item.label}</b></article>) : <p>No pending bookings, KYC reviews, refunds, or member-care requests.</p>}</div></section>
-    <div className="admin-operations-grid"><Panel id="bookings" className="admin-bookings"><div className="section-heading"><div><p className="portal-kicker">Today's services</p><h2>Bookings in motion</h2></div><SearchInput value={bookingSearch} onChange={setBookingSearch} placeholder="Search service or customer" ariaLabel="Search bookings" /></div><div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', margin: '12px 0' }}><label className="date-picker"><span>Filter date</span><input type="date" value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} /></label>{bookingDate && <button className="ui-button ui-button--text" onClick={() => setBookingDate('')}>Clear date ✕</button>}</div>{filteredBookings.length ? <div className="admin-table">{filteredBookings.map((row) => <article key={row.id}><time>{row.bookingDate}<b>{row.bookingTime}</b></time><div><strong>{row.service_title}</strong><small>{row.customer_name} · {row.provider_name || 'Unassigned provider'}</small></div><Status tone={String(row.status).toLowerCase()}>{row.status}</Status><button className="ui-button ui-button--secondary" onClick={() => setDialog({ type: 'booking', row })}>Manage</button></article>)}</div> : <EmptyState title="No bookings match">Adjust the search or date filter to see platform bookings.</EmptyState>}</Panel><Panel className="admin-insight"><p className="portal-kicker">Business performance</p><h2>Service demand</h2><div className="performance-list">{report?.servicePopularity?.length ? report.servicePopularity.map((row) => <div key={row.serviceId}><span>{row.service}</span><b>{row.bookings}</b><i style={{ width: `${Math.min(100, row.bookings * 15)}%` }} /></div>) : <EmptyState title="No trend data yet">Performance appears as real bookings are completed.</EmptyState>}</div><h3>Provider performance</h3>{report?.providerPerformance?.slice(0, 4).map((row) => <p className="provider-performance" key={row.providerId}><span>{row.provider}</span><b>{row.completedBookings} completed</b></p>)}</Panel></div>
-    <Panel id="members" className="admin-members"><div className="section-heading"><div><p className="portal-kicker">Customer care</p><h2>Member management</h2></div><input className="admin-search" placeholder="Search name or email" value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search members" /></div>{users.length ? <div className="admin-table">{users.map((row) => <article key={row.id}><div className="table-avatar">{row.name?.slice(0, 1)}</div><div><strong>{row.name}</strong><small>{row.email} · {row.role}</small></div><Status tone={row.active ? 'active' : 'cancelled'}>{row.active ? 'Active' : 'Inactive'}</Status><button className="ui-button ui-button--secondary" onClick={() => updateUser(row)}>{row.active ? 'Deactivate' : 'Activate'}</button></article>)}</div> : <EmptyState title="No members found">Adjust your search to find another member.</EmptyState>}</Panel>
-    <Panel id="providers" className="admin-providers"><p className="portal-kicker">Provider quality</p><h2>Providers & verification</h2>{providers.length ? <div className="provider-admin-grid">{providers.map((row) => <article key={row.id}><div><div className="table-avatar">{row.name?.slice(0, 1)}</div><Status tone={String(row.kyc_status).toLowerCase()}>{row.kyc_status}</Status></div><h3>{row.name}</h3><p>{row.category || 'Luxora provider'}</p><div className="provider-admin-actions"><button className="ui-button ui-button--secondary" onClick={() => setDialog({ type: 'kyc', row })}>Review KYC</button>{row.kyc_status === 'pending' && <><button className="ui-button ui-button--primary" onClick={() => approveKyc(row)}>Approve</button><button className="ui-button ui-button--text danger" onClick={() => setDialog({ type: 'kyc', row })}>Reject</button></>}</div></article>)}</div> : <EmptyState title="No providers listed">Registered providers will appear here for review.</EmptyState>}</Panel>
-    <Panel id="packages" className="admin-packages"><p className="portal-kicker">Package catalogue</p><h2>Memberships & entitlements</h2>{scheduling && <form className="luxora-form admin-form-grid" onSubmit={createPlan}><input placeholder="Package name" value={plan.title} onChange={(e) => setPlan({ ...plan, title: e.target.value })} required /><select value={plan.type} onChange={(e) => setPlan({ ...plan, type: e.target.value })}><option value="single">Individual package</option><option value="combo">Combo package</option></select><input type="number" placeholder="Price" value={plan.price_monthly} onChange={(e) => setPlan({ ...plan, price_monthly: e.target.value })} required /><select value={plan.category_id} onChange={(e) => setPlan({ ...plan, category_id: e.target.value })} required><option value="">Covered service</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><input type="number" min="1" placeholder="Included visits" value={plan.units} onChange={(e) => setPlan({ ...plan, units: e.target.value })} required /><button className="ui-button ui-button--primary">Create package</button></form>}<div className="package-admin-list">{plans.map((row) => <article key={row.id}><div><Status tone={row.active ? 'active' : 'cancelled'}>{row.type}</Status><h3>{row.title}</h3><p>{row.entitlements?.map((item) => `${item.category?.name || 'Service'}: ${item.units}`).join(' · ') || 'No entitlement configured'}</p></div><b>LKR {Number(row.priceMonthly).toLocaleString()}</b>{scheduling && <button className="ui-button ui-button--secondary" onClick={() => togglePlan(row)}>{row.active ? 'Disable' : 'Enable'}</button>}</article>)}</div></Panel>
-    <div id="care" className="admin-care-grid"><Panel><p className="portal-kicker">Member care</p><h2>Complaints</h2>{complaints.length ? complaints.map((row) => <article className="care-row" key={row.id}><Status tone={String(row.status).toLowerCase()}>{row.status}</Status><div><b>{row.subject}</b><p>{row.customer_name}</p></div><button className="ui-button ui-button--secondary" onClick={() => setDialog({ type: 'complaint', row })}>Update</button></article>) : <EmptyState title="No open complaints">Member feedback requiring care will appear here.</EmptyState>}</Panel><Panel><p className="portal-kicker">Support inbox</p><h2>Customer support</h2>{tickets.length ? tickets.map((row) => <article className="care-row" key={row.id}><Status tone={String(row.status).toLowerCase()}>{row.status}</Status><div><b>{row.subject}</b><p>{row.user?.name || 'Customer'} · {row.adminResponse || 'Awaiting response'}</p></div><button className="ui-button ui-button--secondary" onClick={() => setDialog({ type: 'ticket', row })}>Respond</button></article>) : <EmptyState title="Inbox clear">New member support requests will appear here.</EmptyState>}</Panel></div>
-    <Panel className="admin-refunds"><p className="portal-kicker">Financial operations</p><h2>Refund requests</h2>{refunds.length ? <div className="admin-table">{refunds.map((row) => <article key={row.id}><div><strong>{row.user.name}</strong><small>{row.subscription.plan.title} · {row.payment?.expectedCurrency} {row.payment?.expectedAmount}</small></div><Status tone={String(row.status).toLowerCase()}>{row.status}</Status><div className="refund-actions">{row.status === 'REQUESTED' && <><button className="ui-button ui-button--primary" onClick={() => setDialog({ type: 'refund', row, decision: 'APPROVED' })}>Approve</button><button className="ui-button ui-button--text danger" onClick={() => setDialog({ type: 'refund', row, decision: 'REJECTED' })}>Reject</button></>}{row.adminNote && <small>{row.adminNote}</small>}</div></article>)}</div> : <EmptyState title="No refund requests">There are no refund requests requiring review.</EmptyState>}</Panel>
-    <Panel id="operations" className="admin-operations"><p className="portal-kicker">Operations</p><h2>Scheduling & promotions</h2>{scheduling && <div className="scheduling-card"><div><Status tone="active">Super admin</Status><h3>Automatic assignment</h3><p>{scheduling.autoAssignmentStartHour}:00–{scheduling.autoAssignmentEndHour}:59 · {scheduling.autoAssignmentCooldownHours} hour cooldown</p></div><button className="ui-button ui-button--secondary" onClick={() => setDialog({ type: 'scheduling' })}>Change scheduling</button><button className="ui-button ui-button--text" onClick={async () => { try { await apiRequest('/admin/settings/scheduling/restore-defaults', 'POST', {}, token); await load() } catch (error) { setMessage(error.message) } }}>Restore defaults</button></div>}<form className="luxora-form admin-promo-form" onSubmit={createPromo}><input placeholder="Promotion title" value={promo.title} onChange={(e) => setPromo({ ...promo, title: e.target.value })} required /><input placeholder="Code" value={promo.code} onChange={(e) => setPromo({ ...promo, code: e.target.value })} /><input type="number" placeholder="Discount %" value={promo.discount_pct} onChange={(e) => setPromo({ ...promo, discount_pct: e.target.value })} required /><input type="date" value={promo.starts_at} onChange={(e) => setPromo({ ...promo, starts_at: e.target.value })} /><input type="date" value={promo.ends_at} onChange={(e) => setPromo({ ...promo, ends_at: e.target.value })} /><button className="ui-button ui-button--primary">Create promotion</button></form><div className="promotion-list">{promotions.map((row) => <article key={row.id}><div><b>{row.title}</b><small>{row.code || 'No code'} · {row.discount_percent}%</small></div><Status tone={row.active ? 'active' : 'cancelled'}>{row.active ? 'Active' : 'Disabled'}</Status><button className="ui-button ui-button--secondary" onClick={() => togglePromo(row)}>{row.active ? 'Disable' : 'Enable'}</button></article>)}</div></Panel>
-
-    {dialog?.type === 'kyc' && <KycModal provider={dialog.row} token={token} onClose={() => setDialog(null)} onApprove={() => approveKyc(dialog.row)} onReject={(reason) => rejectKyc(dialog.row, reason)} />}
-    {dialog?.type === 'booking' && <PromptDialog kicker={`Booking #${dialog.row.id}`} title="Manage booking" submitLabel="Save booking" fields={[{ name: 'status', label: 'Status', type: 'select', required: true, initial: String(dialog.row.status).toLowerCase(), options: [{ value: 'pending', label: 'Pending' }, { value: 'assigned', label: 'Assigned' }, { value: 'cancelled', label: 'Cancelled' }] }, { name: 'provider_id', label: 'Provider ID', type: 'number', initial: dialog.row.providerId || '', placeholder: 'Leave blank to keep current', hint: 'Service start/completion stay provider-only (photo + PIN).' }]} onSubmit={setBooking} onClose={() => setDialog(null)} />}
-    {dialog?.type === 'complaint' && <PromptDialog kicker={`Complaint #${dialog.row.id}`} title="Update complaint" submitLabel="Save update" fields={[{ name: 'status', label: 'Status', type: 'select', required: true, initial: String(dialog.row.status).toLowerCase(), options: [{ value: 'open', label: 'Open' }, { value: 'in_review', label: 'In review' }, { value: 'resolved', label: 'Resolved' }] }, { name: 'admin_note', label: 'Admin note (optional)', type: 'textarea', initial: '', maxLength: 2000, full: true }]} onSubmit={complaint} onClose={() => setDialog(null)} />}
-    {dialog?.type === 'ticket' && <PromptDialog kicker={`Ticket #${dialog.row.id}`} title="Respond to ticket" submitLabel="Send response" fields={[{ name: 'status', label: 'Status', type: 'select', required: true, initial: String(dialog.row.status).toLowerCase(), options: [{ value: 'open', label: 'Open' }, { value: 'in_progress', label: 'In progress' }, { value: 'resolved', label: 'Resolved' }, { value: 'closed', label: 'Closed' }] }, { name: 'admin_response', label: 'Response (optional)', type: 'textarea', initial: '', maxLength: 2000, full: true }]} onSubmit={ticket} onClose={() => setDialog(null)} />}
-    {dialog?.type === 'refund' && <PromptDialog kicker={`${dialog.row.subscription.plan.title} · ${dialog.row.user.name}`} title={dialog.decision === 'APPROVED' ? 'Approve refund' : 'Reject refund'} submitLabel={dialog.decision === 'APPROVED' ? 'Approve refund' : 'Reject refund'} fields={[{ name: 'admin_note', label: 'Note (optional)', type: 'textarea', initial: '', maxLength: 2000, full: true, hint: dialog.decision === 'APPROVED' ? 'Demo refunds complete instantly; PayHere refunds settle on gateway confirmation.' : 'Share why this request is rejected.' }]} onSubmit={refund} onClose={() => setDialog(null)} />}
-    {dialog?.type === 'scheduling' && <PromptDialog kicker="Super admin" title="Automatic assignment window" submitLabel="Save scheduling" fields={[{ name: 'start', label: 'Start hour (0-23)', type: 'number', required: true, min: 0, max: 23, initial: String(scheduling.autoAssignmentStartHour) }, { name: 'end', label: 'End hour (0-23)', type: 'number', required: true, min: 0, max: 23, initial: String(scheduling.autoAssignmentEndHour) }, { name: 'cooldown', label: 'Cooldown hours (1-24)', type: 'number', required: true, min: 1, max: 24, initial: String(scheduling.autoAssignmentCooldownHours), full: true }]} onSubmit={saveScheduling} onClose={() => setDialog(null)} />}
-  </PortalShell>
-}
+export default AdminDashboard

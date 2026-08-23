@@ -73,7 +73,6 @@ const SRI_LANKA_AREAS = {
   'Sabaragamuwa': ['Ratnapura', 'Kegalle', 'Embilipitiya', 'Balangoda', 'Kahawatta', 'Mawanella'],
 }
 const PROVINCE_NAMES = Object.keys(SRI_LANKA_AREAS)
-const SERVICE_OPTIONS = ['Auto Care', 'Garden Care', 'Pet Care']
 
 /* ── Component ─────────────────────────────────────── */
 const ProviderDashboard = () => {
@@ -283,19 +282,11 @@ const ProviderDashboard = () => {
     try { await apiRequest('/notifications/read-all', 'PUT', null, token) } catch (_) {}
   }
 
-  /* ── Settings: name, phone, services, service area (towns XOR provinces) ── */
-  const ownerKey = currentProvider.email || 'guest'
-  const savedProviderPhone = () => localStorage.getItem('luxora_phone_' + ownerKey)
-  const savedProviderServices = () => {
-    try { return JSON.parse(localStorage.getItem('luxora_services_' + ownerKey) || 'null') } catch { return null }
-  }
+  /* ── Settings: name, service area (towns XOR provinces) ──
+     Phone and service category are fixed server-side (phone changes need
+     SMS verification; the category is set at registration) — they render
+     read-only instead of faking persistence in localStorage. */
 
-  const toggleSettingsService = (srv) => {
-    setSettingsForm((prev) => ({
-      ...prev,
-      services: prev.services.includes(srv) ? prev.services.filter((s) => s !== srv) : [...prev.services, srv],
-    }))
-  }
   const toggleSettingsProvince = (prov) => {
     setSettingsForm((prev) => prev.provinces.includes(prov)
       ? { ...prev, provinces: prev.provinces.filter((p) => p !== prov) }
@@ -309,23 +300,15 @@ const ProviderDashboard = () => {
     setAreaMode(provinces.length ? 'provinces' : 'towns')
     setSettingsForm({
       name: currentProvider.name || providerFullName,
-      phone: savedProviderPhone() ?? (currentProvider.phone || currentProvider.mobile || ''),
-      services: savedProviderServices() || (providerCategory ? [providerCategory] : []),
+      phone: currentProvider.phone || currentProvider.mobile || '',
       towns: tokens.filter((t) => !t.endsWith('Province')),
-      provinces: tokens.filter((t) => t.endsWith('Province')).map((t) => t.replace(/ Province$/, '')),
+      provinces,
     })
     setShowSettingsModal(true)
   }
 
   const saveSettings = async (e) => {
     e.preventDefault()
-    const phoneDigits = settingsForm.phone.replace(/\D/g, '')
-    if (phoneDigits.length !== 10) {
-      return alert('Mobile number must be exactly 10 digits (e.g. 0771234567).')
-    }
-    if (settingsForm.services.length === 0) {
-      return alert('Please select at least one service (Auto, Garden or Pet Care).')
-    }
     if (!settingsForm.towns.length && !settingsForm.provinces.length) {
       return alert('Select your service area: individual towns or whole provinces.')
     }
@@ -343,8 +326,6 @@ const ProviderDashboard = () => {
         ? settingsForm.towns.join(', ')
         : settingsForm.provinces.map((p) => `${p} Province`).join(', ')
       await apiRequest('/provider/service-towns', 'PUT', { service_towns: area }, token)
-      localStorage.setItem('luxora_services_' + ownerKey, JSON.stringify(settingsForm.services))
-      localStorage.setItem('luxora_phone_' + ownerKey, settingsForm.phone.trim())
       setShowSettingsModal(false)
       await loadAll()
     } catch (error) {
@@ -1151,48 +1132,40 @@ const ProviderDashboard = () => {
 
               {/* Phone Number */}
               <div className="pd-edit-field">
-                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>MOBILE NUMBER (07XXXXXXXX) *</label>
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>MOBILE NUMBER</label>
                 <input
                   type="tel"
-                  required
                   className="pd-edit-input"
                   value={settingsForm.phone}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                  placeholder="0771234567"
+                  readOnly
+                  disabled
+                  placeholder="Not set"
+                  style={{ cursor: 'not-allowed', color: '#999' }}
                 />
                 <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.3rem' }}>
-                  Saved for this device. Server-side number changes need SMS OTP, which is not configured in this deployment.
+                  Phone changes need SMS verification and are handled by Luxora support.
                 </small>
               </div>
 
-              {/* Services multi-select */}
+              {/* Service category — fixed at registration on the server */}
               <div className="pd-edit-field">
-                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>SERVICES SERVED (CHOOSE ANY / ALL) *</label>
-                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                  {SERVICE_OPTIONS.map((srv) => {
-                    const isSelected = settingsForm.services.includes(srv)
-                    return (
-                      <button
-                        key={srv}
-                        type="button"
-                        onClick={() => toggleSettingsService(srv)}
-                        style={{
-                          background: isSelected ? 'rgba(201, 168, 76, 0.2)' : '#16161a',
-                          border: isSelected ? '1px solid var(--gold, #c9a84c)' : '1px solid #333',
-                          color: isSelected ? 'var(--gold, #c9a84c)' : '#aaa',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '20px',
-                          fontSize: '0.82rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        {isSelected ? '✓ ' : '+ '}{srv}
-                      </button>
-                    )
-                  })}
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>SERVICE CATEGORY</label>
+                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{
+                    background: 'rgba(201, 168, 76, 0.2)',
+                    border: '1px solid var(--gold, #c9a84c)',
+                    color: 'var(--gold, #c9a84c)',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                  }}>
+                    ✓ {providerCategory || 'Not assigned'}
+                  </span>
                 </div>
+                <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.3rem' }}>
+                  Your category is set at registration. Contact Luxora support to change it.
+                </small>
               </div>
 
               {/* Service area: mode switch — towns picker or province chips */}

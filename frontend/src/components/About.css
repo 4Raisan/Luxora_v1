@@ -49,14 +49,6 @@
   margin-bottom: 1.25rem;
 }
 
-.about__text--highlight {
-  color: var(--white);
-  font-size: 0.975rem;
-  border-left: 2px solid var(--gold);
-  padding-left: 1rem;
-  margin: 1.5rem 0;
-}
-
 .about__cta {
   display: inline-flex;
   align-items: center;
@@ -80,16 +72,7 @@
   transform: translateX(4px);
 }
 
-/* Right - Principles */
-.about__principles-heading {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  margin-bottom: 1.25rem;
-}
-
+/* Right - Pillars */
 .about__pillars {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -48,7 +48,7 @@
 /* Grid */
 .services__grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
 }
 
@@ -57,15 +57,12 @@
   background: var(--dark-card);
   border: 1px solid var(--dark-border);
   border-radius: 16px;
-  padding: 2rem 1.5rem;
+  padding: 2rem;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
   opacity: 0;
   transform: translateY(30px);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
 }
 
 .service-card::before {
@@ -135,7 +132,6 @@
   flex-direction: column;
   gap: 0.4rem;
   margin-bottom: 1.5rem;
-  flex-grow: 1;
 }
 
 .service-card__features li {
@@ -162,9 +158,6 @@
   padding: 0;
   transition: var(--transition);
   opacity: 0.8;
-  cursor: pointer;
-  margin-top: auto;
-  align-self: flex-start;
 }
 
 .service-card:hover .service-card__cta {
