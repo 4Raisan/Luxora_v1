@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './Services.css'
 
 const services = [
@@ -63,6 +64,7 @@ const services = [
 ]
 
 const Services = () => {
+  const navigate = useNavigate()
   const cardsRef = useRef([])
 
   useEffect(() => {
@@ -80,18 +82,8 @@ const Services = () => {
     return () => observer.disconnect()
   }, [])
 
-  const handleServiceSelect = (categoryKey) => {
-    window.dispatchEvent(new CustomEvent('select-plan-category', { detail: categoryKey }))
-    const el = document.getElementById('plans')
-    if (el) {
-      const navOffset = 70
-      const elementPosition = el.getBoundingClientRect().top
-      const offsetPosition = elementPosition + window.pageYOffset - navOffset
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth',
-      })
-    }
+  const handleOpenSignup = () => {
+    navigate('/signup')
   }
 
   return (
@@ -116,16 +108,16 @@ const Services = () => {
               className="service-card"
               ref={(el) => (cardsRef.current[i] = el)}
               style={{ transitionDelay: `${i * 0.07}s` }}
-              onClick={() => handleServiceSelect(service.categoryKey)}
+              onClick={handleOpenSignup}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  handleServiceSelect(service.categoryKey)
+                  handleOpenSignup()
                 }
               }}
-              aria-label={`View ${service.title} packages`}
+              aria-label={`Sign up for ${service.title}`}
             >
               <div className="service-card__icon">{service.icon}</div>
               <h3 className="service-card__title">{service.title}</h3>
@@ -142,10 +134,10 @@ const Services = () => {
                 className="service-card__cta"
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleServiceSelect(service.categoryKey)
+                  handleOpenSignup()
                 }}
               >
-                View Packages →
+                Get Started →
               </button>
             </div>
           ))}

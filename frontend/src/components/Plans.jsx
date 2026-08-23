@@ -280,10 +280,10 @@ const Plans = () => {
       if (token && user) {
         navigate('/customer-dashboard')
       } else {
-        navigate('/login')
+        navigate('/signup')
       }
     } catch (_) {
-      navigate('/login')
+      navigate('/signup')
     }
   }
 
