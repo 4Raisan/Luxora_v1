@@ -4,6 +4,15 @@ import { prisma } from '../config/prisma.js';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
+export function normalizeSriLankanPhone(value) {
+  const raw = String(value || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  if (/^07\d{8}$/.test(digits)) return `+94${digits.slice(1)}`;
+  if (/^947\d{8}$/.test(digits)) return `+${digits}`;
+  if (/^\+947\d{8}$/.test(raw)) return raw;
+  return null;
+}
+
 // Resend's shared onboarding@resend.dev sender only delivers to the account
 // owner's own inbox. That is fine for local development but means password
 // reset (and every other transactional email) silently never reaches real
@@ -37,6 +46,8 @@ export async function sendEmail({ to, subject, html, text = '' }) {
 }
 
 export async function sendVerificationCode(phone) {
+  phone = normalizeSriLankanPhone(phone);
+  if (!phone) throw new Error('Invalid Sri Lankan mobile number');
   const required = missing('TEXTBEE_API_KEY');
   if (required.length) return { configured: false, missing: required };
   const code = String(crypto.randomInt(1000, 10000));
@@ -54,6 +65,8 @@ export async function sendVerificationCode(phone) {
 }
 
 export async function verifyCode(phone, code) {
+  phone = normalizeSriLankanPhone(phone);
+  if (!phone) return { configured: true, approved: false, status: 'invalid_phone' };
   const required = missing('TEXTBEE_API_KEY', 'JWT_SECRET');
   if (required.length) return { configured: false, missing: required };
   const challenge = await prisma.phoneOtp.findUnique({ where: { phone } });
