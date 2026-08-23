@@ -132,7 +132,7 @@ const Signup = () => {
         {/* Form */}
         <form className="auth-form" onSubmit={handleSubmit} id="signup-form">
           {errorMsg && (
-            <div style={{ color: '#ef4444', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <div role="alert" style={{ color: '#ef4444', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
               {errorMsg}
             </div>
           )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { apiRequest } from '../services/api'
 import './Plans.css'
 
 const CATEGORIES = [
@@ -194,6 +195,20 @@ const CheckIcon = () => (
 const Plans = () => {
   const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState('auto')
+  // Live catalogue from the backend; the static PLANS above only render as a
+  // fallback when the API cannot be reached, so the marketing page never shows
+  // prices that contradict the real subscription plans.
+  const [serverPlans, setServerPlans] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    apiRequest('/subscriptions')
+      .then((plans) => {
+        if (!cancelled && Array.isArray(plans) && plans.length) setServerPlans(plans)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     const handleSelectCategory = (e) => {
@@ -205,7 +220,31 @@ const Plans = () => {
     return () => window.removeEventListener('select-plan-category', handleSelectCategory)
   }, [])
 
-  const currentPlans = PLANS[activeCategory]
+  const plansForCategory = (categoryId) => {
+    if (!serverPlans) return null
+    return serverPlans
+      .filter((plan) => (plan.entitlements || []).some((ent) =>
+        String(ent.category_name || '').toLowerCase().includes(categoryId)))
+      .map((plan, index, arr) => {
+        const ents = plan.entitlements || []
+        const isCombo = ents.length > 1
+        return {
+          id: `srv-${plan.id}`,
+          serverId: plan.id,
+          tier: plan.title,
+          price: Number(plan.priceMonthly) || 0,
+          highlight: isCombo || (arr.length > 2 && index === 1),
+          summary: ents.map((e) => `${e.units} × ${e.category_name} service coins / month`).join(' + '),
+          features: [
+            ...ents.map((e) => `${e.units} × ${e.category_name} service sessions / month`),
+            ...(Array.isArray(plan.features) ? plan.features : []),
+          ],
+          off: [],
+        }
+      })
+  }
+
+  const currentPlans = plansForCategory(activeCategory) || PLANS[activeCategory]
 
   const handleGetStarted = (plan) => {
     try {

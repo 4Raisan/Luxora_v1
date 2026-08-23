@@ -514,7 +514,9 @@ const CustomerDashboard = () => {
     try {
       const u = sessionStorage.getItem('user')
       const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-      const stored = localStorage.getItem('luxora_customer_bookings_' + email) || localStorage.getItem('luxora_customer_bookings')
+      // User-scoped key only: the old generic key leaked one account's
+      // bookings into every other account's dashboard.
+      const stored = localStorage.getItem('luxora_customer_bookings_' + email)
       if (stored) {
         const parsed = JSON.parse(stored)
         if (Array.isArray(parsed)) return parsed
@@ -530,10 +532,13 @@ const CustomerDashboard = () => {
     if (!newLoc || newLoc.trim() === '') return
 
     try {
-      const stored = localStorage.getItem('luxora_customer_bookings')
+      const u = sessionStorage.getItem('user')
+      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
+      const bookingsKey = 'luxora_customer_bookings_' + email
+      const stored = localStorage.getItem(bookingsKey)
       const existing = stored ? JSON.parse(stored) : []
       const updated = existing.map(b => b.id === bookingId ? { ...b, location: newLoc.trim() } : b)
-      localStorage.setItem('luxora_customer_bookings', JSON.stringify(updated))
+      localStorage.setItem(bookingsKey, JSON.stringify(updated))
       window.dispatchEvent(new Event('luxora_bookings_updated'))
 
       setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, location: newLoc.trim() } : b))
@@ -551,7 +556,7 @@ const CustomerDashboard = () => {
       try {
         const u = sessionStorage.getItem('user')
         const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-        const stored = localStorage.getItem('luxora_customer_bookings_' + email) || localStorage.getItem('luxora_customer_bookings')
+        const stored = localStorage.getItem('luxora_customer_bookings_' + email)
         if (stored) {
           const parsed = JSON.parse(stored)
           if (Array.isArray(parsed)) setCustomerActiveBookings(parsed)
@@ -561,13 +566,13 @@ const CustomerDashboard = () => {
       } catch (_) {}
     }
     syncActiveBookings()
+    // Event-driven only: a 1s localStorage poll fought with the server fetch
+    // and re-clobbered the authoritative /bookings/my result every second.
     window.addEventListener('storage', syncActiveBookings)
     window.addEventListener('luxora_bookings_updated', syncActiveBookings)
-    const interval = setInterval(syncActiveBookings, 1000)
     return () => {
       window.removeEventListener('storage', syncActiveBookings)
       window.removeEventListener('luxora_bookings_updated', syncActiveBookings)
-      clearInterval(interval)
     }
   }, [])
 
@@ -592,13 +597,16 @@ const CustomerDashboard = () => {
         providerPhone: booking.provider_phone,
         isSession: true,
       }))
-      if (mapped.length) setCustomerActiveBookings(mapped)
+      // The server list is the source of truth — an empty response must also
+      // clear any stale locally-cached rows.
+      setCustomerActiveBookings(mapped)
     }).catch((error) => console.warn('Could not load customer bookings.', error))
   }, [])
 
   /* ── Server-synced proposal features: memberships, notifications,
         payments history, reviews, profile management ── */
   const [serverSubscriptions, setServerSubscriptions] = useState([])
+  const [paymentMode, setPaymentMode] = useState('demo')
   const [reviewTarget, setReviewTarget] = useState(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
@@ -613,14 +621,28 @@ const CustomerDashboard = () => {
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') return
     try {
-      const [dash, notes, paymentRows, entitlementRows, planRows] = await Promise.all([
+      const [dash, notes, paymentRows, entitlementRows, planRows, mode] = await Promise.all([
         apiRequest('/customer/dashboard', 'GET', null, token),
         apiRequest('/notifications', 'GET', null, token),
         apiRequest('/payments/my', 'GET', null, token),
         apiRequest('/subscriptions/entitlements', 'GET', null, token),
         apiRequest('/subscriptions'),
+        apiRequest('/payments/mode', 'GET', null, token),
       ])
+      if (mode?.mode) setPaymentMode(mode.mode)
       if (Array.isArray(dash?.activeSubscriptions)) setServerSubscriptions(dash.activeSubscriptions)
+      // Keep the displayed name/town in sync with the server profile so a
+      // corrected name (fixed by support or edited on another device) replaces
+      // any stale copy cached in sessionStorage.
+      if (dash?.profile?.name) {
+        setCurrentUser((prev) => (prev.name === dash.profile.name ? prev : { ...prev, name: dash.profile.name }))
+        try {
+          const cached = JSON.parse(sessionStorage.getItem('user') || 'null')
+          if (cached && cached.name !== dash.profile.name) {
+            sessionStorage.setItem('user', JSON.stringify({ ...cached, name: dash.profile.name }))
+          }
+        } catch (_) {}
+      }
       if (dash?.profile?.createdAt) {
         setMemberSince(new Date(dash.profile.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))
       }
@@ -894,7 +916,7 @@ const CustomerDashboard = () => {
     const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
     const userBookingsKey = 'luxora_customer_bookings_' + email
 
-    const stored = localStorage.getItem(userBookingsKey) || localStorage.getItem('luxora_customer_bookings')
+    const stored = localStorage.getItem(userBookingsKey)
     const existing = stored ? JSON.parse(stored) : []
     let newB = {
       id: `B-${String(existing.length + 11).padStart(3, '0')}`,
@@ -924,12 +946,20 @@ const CustomerDashboard = () => {
         const services = await apiRequest('/services', 'GET', null, token)
         const service = services.find((item) => item.category_name === categoryName) || services[0]
         if (service) {
-          const created = await apiRequest('/bookings', 'POST', {
-            service_id: service.id,
-            booking_date: serviceBookingForm.date,
-            booking_time: selectedTimeFormatted,
-          }, token)
-          newB = { ...newB, id: created.booking_id, status: created.status.toUpperCase(), amount: `LKR ${Number(created.total_price).toLocaleString()}`, pin: created.pin_code }
+        const created = await apiRequest('/bookings', 'POST', {
+          service_id: service.id,
+          booking_date: serviceBookingForm.date,
+          booking_time: selectedTimeFormatted,
+        }, token)
+        newB = {
+          ...newB,
+          id: created.booking_id,
+          status: created.status.toUpperCase(),
+          amount: `LKR ${Number(created.total_price).toLocaleString()}`,
+          pin: created.pin_code,
+          providerName: created.provider_name || (String(created.status).toLowerCase() === 'assigned' ? 'Assigned Provider' : 'Pending Assignment'),
+          providerRole: '',
+        }
         }
       } catch (error) {
         console.warn('Backend booking unavailable; retaining local demo booking.', error)
@@ -946,7 +976,6 @@ const CustomerDashboard = () => {
       localStorage.setItem('luxora_used_tokens_' + email, JSON.stringify(newUsed))
       const updated = [newB, ...existing]
       localStorage.setItem(userBookingsKey, JSON.stringify(updated))
-      localStorage.setItem('luxora_customer_bookings', JSON.stringify(updated))
       window.dispatchEvent(new Event('luxora_bookings_updated'))
     } catch (_) {}
 
@@ -964,6 +993,9 @@ const CustomerDashboard = () => {
     })
     setShowSessionConfirmedModal(true)
     setServiceBookingForm(prev => ({ ...prev, packageId: '' }))
+    // Re-sync coin counters, memberships and notifications from the server so
+    // the header no longer shows stale entitlement values after a booking.
+    loadServerData()
   }
 
   // Custom Request State
@@ -996,46 +1028,68 @@ const CustomerDashboard = () => {
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
 
-  const handleCustomRequestSubmit = (e) => {
+  // Custom requests are real support tickets on the server; load them so the
+  // list survives reloads and is visible to the concierge/admin team.
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') return
+    apiRequest('/support/my', 'GET', null, token).then((tickets) => {
+      if (!Array.isArray(tickets) || tickets.length === 0) return
+      const mapped = tickets.map((t) => ({
+        id: `REQ-${String(t.id).padStart(3, '0')}`,
+        serverId: t.id,
+        title: t.subject,
+        category: 'Concierge Desk',
+        date: new Date(t.createdAt).toISOString().split('T')[0],
+        time: '10:00 AM',
+        notes: t.message,
+        status: t.status === 'RESOLVED' || t.status === 'CLOSED' ? 'Resolved' : 'Under Concierge Review'
+      }))
+      setCustomRequests(mapped)
+    }).catch((error) => console.warn('Could not load custom requests.', error))
+  }, [])
+
+  const handleCustomRequestSubmit = async (e) => {
     e.preventDefault()
     if (!customForm.title || !customForm.notes) {
       alert('Please fill out Subject Title and Requirements.')
       return
     }
 
-    const email = getUserEmail()
-    const newReq = {
-      id: `REQ-${String(customRequests.length + 1).padStart(3, '0')}`,
-      title: customForm.title,
-      category: customForm.category,
-      date: customForm.date || new Date().toISOString().split('T')[0],
-      time: customForm.time || '10:00 AM',
-      notes: customForm.notes,
-      status: 'Under Concierge Review'
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') {
+      alert('Please log in with a live backend account to submit a custom request.')
+      return
     }
 
-    const updated = [newReq, ...customRequests]
-    setCustomRequests(updated)
-    try { localStorage.setItem('custom_requests_' + email, JSON.stringify(updated)) } catch (_) {}
-
-    addHistoryRecord({
-      service: `Custom Request: ${customForm.title}`,
-      tier: 'Custom Request',
-      ref: newReq.id,
-      amount: 'Quotation Pending',
-      status: 'In Review',
-      cat: 'system'
-    })
-
-    addNotification({
-      title: 'Custom Request Submitted',
-      message: `Your request "${customForm.title}" (${newReq.id}) has been submitted to Concierge Desk.`,
-      category: 'system'
-    })
-
-    alert(`Custom Request "${customForm.title}" submitted successfully! A Luxora Concierge Specialist will contact you shortly.`)
-    setShowCustomRequestModal(false)
-    setCustomForm({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
+    try {
+      const ticket = await apiRequest('/support', 'POST', {
+        subject: customForm.title.trim(),
+        message: `[${customForm.category}${customForm.date ? ` · preferred ${customForm.date} ${customForm.time}` : ''}] ${customForm.notes.trim()}`,
+        priority: 'NORMAL',
+      }, token)
+      const newReq = {
+        id: `REQ-${String(ticket.id).padStart(3, '0')}`,
+        serverId: ticket.id,
+        title: customForm.title,
+        category: customForm.category,
+        date: customForm.date || new Date().toISOString().split('T')[0],
+        time: customForm.time || '10:00 AM',
+        notes: customForm.notes,
+        status: 'Under Concierge Review'
+      }
+      setCustomRequests([newReq, ...customRequests])
+      addNotification({
+        title: 'Custom Request Submitted',
+        message: `Your request "${customForm.title}" (${newReq.id}) has been submitted to Concierge Desk.`,
+        category: 'system'
+      })
+      alert(`Custom Request "${customForm.title}" submitted successfully (ref ${newReq.id}). A Luxora Concierge Specialist will contact you shortly.`)
+      setShowCustomRequestModal(false)
+      setCustomForm({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
+    } catch (error) {
+      alert(error.message || 'Could not submit your request. Please try again.')
+    }
   }
 
   const handleCancelSubscription = (pkgId) => {
@@ -1084,68 +1138,54 @@ const CustomerDashboard = () => {
     setShowCancelledSuccessModal(true)
   }
 
-  const handleConfirmBooking = (pkg) => {
+  // Real checkout: in demo mode this creates a server-side payment and
+  // activates the subscription through the backend; in PayHere mode it
+  // delegates to the hosted checkout. No local-only subscription state.
+  const handleConfirmBooking = async (pkg) => {
     if (!userAddress || (!userAddress.street && !userAddress.city)) {
       setSelectedPackageToBook(null)
       setShowAddressModal(true)
-      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before completing your purchase.')
+      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before completing this purchase.')
       setTimeout(() => setBookingSuccessMsg(''), 6000)
       return
     }
 
-    const u = sessionStorage.getItem('user')
-    const email = u ? JSON.parse(u).email : 'guest'
-
-    const newPkg = {
-      id: Date.now(),
-      title: pkg.title,
-      tier: pkg.tier || 'Gold Tier',
-      price: pkg.price,
-      period: bookingBillingType === 'one_time' ? '/30 days' : '/month',
-      cat: pkg.cat || 'system',
-      purchasedAt: Date.now(),
-      billingType: bookingBillingType
-    }
-
-    const updated = [...activePackages, newPkg]
-    setActivePackages(updated)
-    localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
-    sessionStorage.setItem('activePackages', JSON.stringify(updated))
-
-    const planLabel = bookingBillingType === 'one_time' ? 'One-Time Pass (30 Days)' : 'Monthly Auto-Renewal'
-    addNotification({
-      title: bookingBillingType === 'one_time' ? '⚡ One-Time Pass Added' : '🎉 Auto-Renewal Subscribed',
-      message: `You have successfully added ${pkg.title} (${pkg.tier || 'Standard'}) as a ${planLabel}. Expiry/Renewal date: ${getRenewalDate(newPkg)}.`,
-      category: pkg.cat || 'system'
-    })
-
-    addHistoryRecord({
-      service: pkg.title,
-      tier: `${pkg.tier || 'Standard Plan'} (${bookingBillingType === 'one_time' ? 'One-Time' : 'Auto-renew'})`,
-      amount: pkg.price || '',
-      status: 'Completed',
-      cat: pkg.cat || 'system'
-    })
-
-
-
-    // Send API booking request if token is present
     const token = sessionStorage.getItem('token')
-    if (token) {
-      apiRequest('/bookings', 'POST', {
-          service_id: pkg.service_id || 1,
-          booking_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          booking_time: '10:00 AM',
-          special_notes: `Subscribed package: ${pkg.title} (${pkg.tier || 'Standard'})`
-        }, token).catch(() => {})
+    if (!token || token === 'demo-token') {
+      alert('Please log in with a live backend account before subscribing.')
+      return
     }
 
-    setSelectedPackageToBook(null)
-    setBookingSuccessMsg(`🎉 Successfully subscribed to ${pkg.title}!`)
-    setTimeout(() => {
-      setBookingSuccessMsg('')
-      setActiveTab('overview')
-    }, 1500)
+    setPaymentBusy(true)
+    try {
+      const plans = await apiRequest('/subscriptions')
+      const plan = plans.find((p) => p.title === pkg.title || p.title.endsWith(pkg.title))
+      if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
+
+      if (paymentMode === 'payhere') {
+        await startPayment('payhere', { ...pkg, title: plan.title })
+        return
+      }
+
+      const order = await apiRequest('/payments/demo/order', 'POST', {
+        plan_id: plan.id,
+        auto_renew: bookingBillingType === 'auto_renew',
+      }, token)
+      await apiRequest(`/payments/demo/${order.payment_id}/complete`, 'POST', { outcome: 'success' }, token)
+
+      // Refresh coins, memberships, payments history and notifications from the server.
+      await loadServerData()
+      setSelectedPackageToBook(null)
+      setBookingSuccessMsg(`🎉 Successfully subscribed to ${plan.title}! Your service coins are now active.`)
+      setTimeout(() => {
+        setBookingSuccessMsg('')
+        setActiveTab('overview')
+      }, 1800)
+    } catch (error) {
+      alert(error.message || 'Subscription could not be completed. Please try again.')
+    } finally {
+      setPaymentBusy(false)
+    }
   }
 
   const startPayment = async (provider, pkg) => {
@@ -1178,24 +1218,26 @@ const CustomerDashboard = () => {
     e.preventDefault()
     if (!supportMessage.trim()) return
 
-    const ref = 'SUP-2026-' + Math.floor(1000 + Math.random() * 9000)
-    setSupportRefNum(ref)
-    setSupportSentSuccess(true)
-
     const token = sessionStorage.getItem('token')
-    let submittedToApi = false
+    let ref = null
     if (token) {
       try {
-        await apiRequest('/complaints', 'POST', {
+        const created = await apiRequest('/complaints', 'POST', {
             subject: supportCategory,
             description: supportMessage
           }, token)
-        submittedToApi = true
+        // Real server reference so staff can actually trace this message.
+        ref = created?.complaint?.id ? `SUP-${String(created.complaint.id).padStart(4, '0')}` : 'SUP-REGISTERED'
       } catch (_) {}
     }
+    if (!ref) ref = 'SUP-2026-LOCAL'
 
-    // Keep the support request visible to admins when the API is offline.
-    if (!submittedToApi) {
+    setSupportRefNum(ref)
+    setSupportSentSuccess(true)
+
+    // Offline fallback only: keep the request visible when the API could not
+    // be reached (ref === 'SUP-2026-LOCAL').
+    if (ref === 'SUP-2026-LOCAL') {
       try {
         const saved = localStorage.getItem('luxora_support_complaints')
         const existing = saved ? JSON.parse(saved) : []
@@ -1547,7 +1589,13 @@ const CustomerDashboard = () => {
             {/* User Profile Info */}
             <div
               className={`cd-user-info ${isGoldMember ? 'cd-user-pill--gold' : ''}`}
-              onClick={() => setShowProfileDrawer(true)}
+              onClick={() => {
+                // Seed the edit form with the current values so a save always
+                // REPLACES the name/town instead of appending to it.
+                setProfileEdit({ name: currentUser.name || '', town: userAddress?.city || '' })
+                setProfileSavedMsg('')
+                setShowProfileDrawer(true)
+              }}
               role="button"
               tabIndex={0}
               title="View My Profile"
@@ -2115,25 +2163,7 @@ const CustomerDashboard = () => {
                   <div
                     key={s.id}
                     className="cd-combo-card animate-fade-in"
-                    onClick={() => {
-                      if (!userAddress || (!userAddress.street && !userAddress.city)) {
-                        setShowAddressModal(true)
-                        setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
-                        setTimeout(() => setBookingSuccessMsg(''), 6000)
-                        return
-                      }
-                      setSelectedPackageToBook({
-                        title: s.title.replace('Single Package: ', ''),
-                        tier: 'Single Package Plan ★',
-                        price: `LKR ${Number(s.price).toLocaleString()}`,
-                        cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
-                        service_id: 1
-                      })
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    title={`Click to book ${s.title}`}
-                    style={{ background: '#141414', border: '1px solid #282828', borderRadius: '14px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem', cursor: 'pointer' }}
+                    style={{ background: '#141414', border: '1px solid #282828', borderRadius: '14px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem' }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -2161,7 +2191,26 @@ const CustomerDashboard = () => {
                       </div>
                     </div>
 
-                    <button className="cd-combo-book-btn" style={{ width: '100%', marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="cd-combo-book-btn"
+                      style={{ width: '100%', marginTop: '0.5rem' }}
+                      onClick={() => {
+                        if (!userAddress || (!userAddress.street && !userAddress.city)) {
+                          setShowAddressModal(true)
+                          setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
+                          setTimeout(() => setBookingSuccessMsg(''), 6000)
+                          return
+                        }
+                        setSelectedPackageToBook({
+                          title: s.title.replace('Single Package: ', ''),
+                          tier: 'Single Package Plan ★',
+                          price: `LKR ${Number(s.price).toLocaleString()}`,
+                          cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
+                          service_id: 1
+                        })
+                      }}
+                    >
                       Book Single Package &rsaquo;
                     </button>
                   </div>
@@ -2178,25 +2227,7 @@ const CustomerDashboard = () => {
                   <div
                     key={s.id}
                     className="cd-combo-card animate-fade-in"
-                    onClick={() => {
-                      if (!userAddress || (!userAddress.street && !userAddress.city)) {
-                        setShowAddressModal(true)
-                        setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
-                        setTimeout(() => setBookingSuccessMsg(''), 6000)
-                        return
-                      }
-                      setSelectedPackageToBook({
-                        title: s.title.replace('Combo Package: ', ''),
-                        tier: 'VIP Combo Suite Plan 👑',
-                        price: `LKR ${Number(s.price).toLocaleString()}`,
-                        cat: 'system',
-                        service_id: 1
-                      })
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    title={`Click to book ${s.title}`}
-                    style={{ background: '#161616', border: '1px solid var(--gold, #c9a84c)', borderRadius: '16px', padding: '1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1.25rem', boxShadow: '0 0 25px rgba(201, 168, 76, 0.1)', cursor: 'pointer' }}
+                    style={{ background: '#161616', border: '1px solid var(--gold, #c9a84c)', borderRadius: '16px', padding: '1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1.25rem', boxShadow: '0 0 25px rgba(201, 168, 76, 0.1)' }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -2225,7 +2256,26 @@ const CustomerDashboard = () => {
                       </div>
                     </div>
 
-                    <button className="cd-combo-book-btn" style={{ width: '100%', marginTop: '0.5rem', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800, padding: '0.75rem 1rem' }}>
+                    <button
+                      type="button"
+                      className="cd-combo-book-btn"
+                      style={{ width: '100%', marginTop: '0.5rem', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800, padding: '0.75rem 1rem' }}
+                      onClick={() => {
+                        if (!userAddress || (!userAddress.street && !userAddress.city)) {
+                          setShowAddressModal(true)
+                          setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
+                          setTimeout(() => setBookingSuccessMsg(''), 6000)
+                          return
+                        }
+                        setSelectedPackageToBook({
+                          title: s.title.replace('Combo Package: ', ''),
+                          tier: 'VIP Combo Suite Plan 👑',
+                          price: `LKR ${Number(s.price).toLocaleString()}`,
+                          cat: 'system',
+                          service_id: 1
+                        })
+                      }}
+                    >
                       Subscribe VIP Combo Package &rsaquo;
                     </button>
                   </div>
@@ -2830,7 +2880,6 @@ const CustomerDashboard = () => {
                 <input
                   type="text"
                   value={profileEdit.name}
-                  onFocus={() => { if (!profileEdit.name) setProfileEdit({ ...profileEdit, name: currentUser.name || '' }) }}
                   onChange={(e) => setProfileEdit({ ...profileEdit, name: e.target.value })}
                   placeholder="Display name"
                   maxLength={100}
@@ -2839,7 +2888,6 @@ const CustomerDashboard = () => {
                 <input
                   type="text"
                   value={profileEdit.town}
-                  onFocus={() => { if (!profileEdit.town) setProfileEdit({ ...profileEdit, town: userAddress?.city || '' }) }}
                   onChange={(e) => setProfileEdit({ ...profileEdit, town: e.target.value })}
                   placeholder="Service town (e.g. Colombo)"
                   maxLength={100}
@@ -3872,17 +3920,27 @@ const CustomerDashboard = () => {
             </div>
 
             <div className="cd-support-actions" style={{ marginTop: '1.5rem' }}>
-              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+              {paymentMode === 'payhere' ? (
                 <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('payhere', selectedPackageToBook)}>
                   {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYHERE'}
                 </button>
-              </div>
-              <button
-                className="cd-support-send-btn"
-                onClick={() => handleConfirmBooking(selectedPackageToBook)}
-              >
-                {bookingBillingType === 'auto_renew' ? 'CONFIRM & SUBSCRIBE (AUTO-RENEW) →' : 'CONFIRM & GET ONE-TIME PASS →'}
-              </button>
+              ) : (
+                <button
+                  type="button"
+                  className="cd-support-send-btn"
+                  disabled={paymentBusy}
+                  onClick={() => handleConfirmBooking(selectedPackageToBook)}
+                >
+                  {paymentBusy
+                    ? 'PROCESSING…'
+                    : `${bookingBillingType === 'auto_renew' ? 'CONFIRM & SUBSCRIBE (AUTO-RENEW)' : 'CONFIRM & GET ONE-TIME PASS'} — DEMO, NO REAL CHARGE →`}
+                </button>
+              )}
+              <small style={{ display: 'block', marginTop: '0.6rem', color: '#888', fontSize: '0.72rem' }}>
+                {paymentMode === 'demo'
+                  ? 'Demo checkout: the subscription is created on the server without a real payment.'
+                  : 'You will be redirected to the PayHere hosted checkout to complete payment.'}
+              </small>
             </div>
           </div>
         </div>
