@@ -1326,6 +1326,24 @@ const ProviderDashboard = () => {
           </div>
         </div>
       )}
+      {/* ── MOBILE BOTTOM NAVIGATION ── */}
+      <nav className="pd-mobile-nav" aria-label="Sections">
+        {[
+          { id: 'overview', icon: <GridIcon />, label: 'OVERVIEW' },
+          { id: 'bookings', icon: <CalIcon />, label: 'BOOKINGS' },
+          { id: 'history', icon: <HistIcon />, label: 'HISTORY' },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`pd-mobile-nav__btn ${activeNav === item.id ? 'pd-mobile-nav__btn--active' : ''}`}
+            onClick={() => setActiveNav(item.id)}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
