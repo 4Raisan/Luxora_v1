@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { sendVerificationCode, verifyCode } from '../services/integrations.js';
+import { sendWhatsAppVerificationCode, verifyWhatsAppCode } from '../services/integrations.js';
 import { isEmail, isNonEmptyString } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
@@ -10,8 +10,15 @@ const otpSendLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 const otpVerifyLimiter = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 });
 router.use(authenticateToken);
 
+const normalizePhone = (value) => {
+  const raw = String(value || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  if (/^07\d{8}$/.test(digits)) return `+94${digits.slice(1)}`;
+  return /^\+[1-9]\d{7,14}$/.test(raw) ? raw : null;
+};
+
 router.get('/', async (req, res) => {
-  const profile = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, role: true, createdAt: true } });
+  const profile = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, addressStreet: true, addressDistrict: true, role: true, createdAt: true } });
   if (!profile) return res.status(404).json({ error: 'User not found' });
   res.json(profile);
 });
@@ -30,35 +37,51 @@ router.put('/', async (req, res) => {
     data.email = email;
   }
   if (req.body.phone !== undefined) {
-    const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
-    if (phone.length > 25) return res.status(400).json({ error: 'phone must be at most 25 characters' });
-    data.phone = phone || null;
+    const rawPhone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+    const phone = rawPhone ? normalizePhone(rawPhone) : null;
+    if (rawPhone && !phone) return res.status(400).json({ error: 'phone must be a valid E.164 number or Sri Lankan mobile number' });
+    data.phone = phone;
+    data.phoneVerified = false;
   }
   if (req.body.town !== undefined) {
     const town = typeof req.body.town === 'string' ? req.body.town.trim().replace(/\s+/g, ' ') : '';
     if (town.length > 100) return res.status(400).json({ error: 'town must be at most 100 characters' });
     data.town = town || null;
   }
-  if (!Object.keys(data).length) return res.status(400).json({ error: 'Provide name, email, phone, or town to update' });
-  const profile = await prisma.user.update({ where: { id: req.user.id }, data, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, role: true } });
+  if (req.body.address_street !== undefined) {
+    const value = typeof req.body.address_street === 'string' ? req.body.address_street.trim().replace(/\s+/g, ' ') : '';
+    if (value.length > 200) return res.status(400).json({ error: 'address_street must be at most 200 characters' });
+    data.addressStreet = value || null;
+  }
+  if (req.body.address_district !== undefined) {
+    const value = typeof req.body.address_district === 'string' ? req.body.address_district.trim().replace(/\s+/g, ' ') : '';
+    if (value.length > 100) return res.status(400).json({ error: 'address_district must be at most 100 characters' });
+    data.addressDistrict = value || null;
+  }
+  if (!Object.keys(data).length) return res.status(400).json({ error: 'Provide name, email, phone, town, or address to update' });
+  const profile = await prisma.user.update({ where: { id: req.user.id }, data, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, addressStreet: true, addressDistrict: true, role: true } });
   res.json(profile);
 });
 
 router.post('/phone/send', otpSendLimiter, async (req, res) => {
-  const phone = String(req.body.phone || '').trim();
-  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return res.status(400).json({ error: 'phone must be in E.164 format, e.g. +94771234567' });
-  try { res.json(await sendVerificationCode(phone)); }
-  catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); }
+  const phone = normalizePhone(req.body.phone);
+  if (!phone) return res.status(400).json({ error: 'phone must be in E.164 format, e.g. +94771234567' });
+  const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { phone: true } });
+  if (user?.phone !== phone) return res.status(409).json({ error: 'Save this phone number to your profile before requesting a code' });
+  try { res.json(await sendWhatsAppVerificationCode(phone)); }
+  catch (error) { console.warn('[whatsapp] send failed:', error.message); res.status(502).json({ error: 'Could not send WhatsApp verification code' }); }
 });
 
 router.post('/phone/verify', otpVerifyLimiter, async (req, res) => {
-  const phone = String(req.body.phone || '').trim();
-  if (!/^\+[1-9]\d{7,14}$/.test(phone) || !/^\d{4,10}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'valid phone and OTP code are required' });
+  const phone = normalizePhone(req.body.phone);
+  if (!phone || !/^\d{6}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'valid phone and 6-digit WhatsApp code are required' });
+  const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { phone: true } });
+  if (user?.phone !== phone) return res.status(409).json({ error: 'The verification code must match your current saved phone number' });
   try {
-    const result = await verifyCode(phone, req.body.code);
+    const result = await verifyWhatsAppCode(phone, req.body.code);
     if (result.approved) await prisma.user.update({ where: { id: req.user.id }, data: { phone, phoneVerified: true } });
     res.json(result);
-  } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); }
+  } catch (error) { console.warn('[whatsapp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the WhatsApp code' }); }
 });
 
 export default router;
