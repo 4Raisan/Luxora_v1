@@ -29,12 +29,17 @@ router.put('/', async (req, res) => {
     if (owner && owner.id !== req.user.id) return res.status(409).json({ error: 'Email is already in use' });
     data.email = email;
   }
+  if (req.body.phone !== undefined) {
+    const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+    if (phone.length > 25) return res.status(400).json({ error: 'phone must be at most 25 characters' });
+    data.phone = phone || null;
+  }
   if (req.body.town !== undefined) {
     const town = typeof req.body.town === 'string' ? req.body.town.trim().replace(/\s+/g, ' ') : '';
     if (town.length > 100) return res.status(400).json({ error: 'town must be at most 100 characters' });
     data.town = town || null;
   }
-  if (!Object.keys(data).length) return res.status(400).json({ error: 'Provide name, email, or town to update' });
+  if (!Object.keys(data).length) return res.status(400).json({ error: 'Provide name, email, phone, or town to update' });
   const profile = await prisma.user.update({ where: { id: req.user.id }, data, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, role: true } });
   res.json(profile);
 });

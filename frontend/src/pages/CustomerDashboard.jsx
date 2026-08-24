@@ -418,7 +418,7 @@ const CustomerDashboard = () => {
   const [reviewComment, setReviewComment] = useState('')
   const [reviewBusy, setReviewBusy] = useState(false)
   const [reviewError, setReviewError] = useState('')
-  const [profileEdit, setProfileEdit] = useState({ name: '', town: '' })
+  const [profileEdit, setProfileEdit] = useState({ name: '', phone: '', town: '' })
   const [profileBusy, setProfileBusy] = useState(false)
   const [profileSavedMsg, setProfileSavedMsg] = useState('')
   const [memberSince, setMemberSince] = useState('')
@@ -437,17 +437,27 @@ const CustomerDashboard = () => {
       ])
       if (mode?.mode) setPaymentMode(mode.mode)
       if (Array.isArray(dash?.activeSubscriptions)) setServerSubscriptions(dash.activeSubscriptions)
-      // Keep the displayed name/town in sync with the server profile so a
-      // corrected name (fixed by support or edited on another device) replaces
-      // any stale copy cached in sessionStorage.
-      if (dash?.profile?.name) {
-        setCurrentUser((prev) => (prev.name === dash.profile.name ? prev : { ...prev, name: dash.profile.name }))
-        try {
-          const cached = JSON.parse(sessionStorage.getItem('user') || 'null')
-          if (cached && cached.name !== dash.profile.name) {
-            sessionStorage.setItem('user', JSON.stringify({ ...cached, name: dash.profile.name }))
+      // Keep the displayed name/phone/town in sync with the server profile so a
+      // corrected profile replaces any stale copy cached in sessionStorage.
+      if (dash?.profile) {
+        setCurrentUser((prev) => {
+          const updatedName = dash.profile.name || prev.name
+          const updatedPhone = dash.profile.phone !== undefined ? (dash.profile.phone || '') : prev.phone
+          const updatedTown = dash.profile.town !== undefined ? (dash.profile.town || '') : prev.town
+          const updated = {
+            ...prev,
+            name: updatedName,
+            phone: updatedPhone,
+            town: updatedTown,
           }
-        } catch (_) {}
+          try {
+            const cached = JSON.parse(sessionStorage.getItem('user') || 'null')
+            if (cached) {
+              sessionStorage.setItem('user', JSON.stringify({ ...cached, name: updatedName, phone: updatedPhone, town: updatedTown }))
+            }
+          } catch (_) {}
+          return updated
+        })
       }
       if (dash?.profile?.createdAt) {
         setMemberSince(new Date(dash.profile.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))
@@ -594,20 +604,26 @@ const CustomerDashboard = () => {
       const body = {}
       if (profileEdit.name.trim() && profileEdit.name.trim() !== currentUser.name) body.name = profileEdit.name.trim()
       if (profileEdit.town.trim() && profileEdit.town.trim() !== (userAddress.city || '')) body.town = profileEdit.town.trim()
+      if (profileEdit.phone !== undefined && profileEdit.phone.trim() !== (currentUser.phone || '')) body.phone = profileEdit.phone.trim()
       if (!Object.keys(body).length) { setProfileSavedMsg('Nothing to update.'); return }
       await apiRequest('/profile', 'PUT', body, token)
-      if (body.name) {
-        const updated = { ...currentUser, name: body.name }
-        setCurrentUser(updated)
-        try { sessionStorage.setItem('user', JSON.stringify({ ...JSON.parse(sessionStorage.getItem('user') || '{}'), name: body.name })) } catch (_) {}
-        localStorage.setItem('user_' + currentUser.email, JSON.stringify(updated))
-      }
+      
+      const updated = { ...currentUser }
+      if (body.name) updated.name = body.name
+      if (body.phone !== undefined) updated.phone = body.phone
+      setCurrentUser(updated)
+      try {
+        const cached = JSON.parse(sessionStorage.getItem('user') || '{}')
+        sessionStorage.setItem('user', JSON.stringify({ ...cached, ...updated }))
+      } catch (_) {}
+      localStorage.setItem('user_' + currentUser.email, JSON.stringify(updated))
+
       if (body.town) {
         const newAddr = { ...userAddress, city: body.town }
         setUserAddress(newAddr)
         localStorage.setItem('userAddress_' + userKey, JSON.stringify(newAddr))
       }
-      setProfileSavedMsg('Profile saved')
+      setProfileSavedMsg('Profile saved successfully!')
     } catch (error) {
       setProfileSavedMsg(error.message || 'Could not save profile.')
     } finally {
@@ -1327,8 +1343,12 @@ const CustomerDashboard = () => {
               className={`cd-user-info ${isGoldMember ? 'cd-user-pill--gold' : ''}`}
               onClick={() => {
                 // Seed the edit form with the current values so a save always
-                // REPLACES the name/town instead of appending to it.
-                setProfileEdit({ name: currentUser.name || '', town: userAddress?.city || '' })
+                // REPLACES the name/phone/town instead of appending to it.
+                setProfileEdit({
+                  name: currentUser.name || '',
+                  phone: currentUser.phone || '',
+                  town: userAddress?.city || ''
+                })
                 setProfileSavedMsg('')
                 setShowProfileDrawer(true)
               }}
@@ -2624,7 +2644,7 @@ const CustomerDashboard = () => {
                 <div className="cd-contact-icon-box"><PhoneIcon /></div>
                 <div className="cd-contact-text">
                   <span className="cd-contact-field">MOBILE</span>
-                  <span className="cd-contact-val">{currentUser.phone}</span>
+                  <span className="cd-contact-val">{currentUser.phone || '— Not Specified —'}</span>
                 </div>
               </div>
 
@@ -2653,15 +2673,26 @@ const CustomerDashboard = () => {
                 {userAddress && (userAddress.street || userAddress.city) ? '✏️ Edit Delivery Address' : '📍 Set Delivery Address'}
               </button>
 
-              {/* Profile management (proposal): edit name + service town on the server */}
+              {/* Profile management: edit name, phone + service town on the server */}
               <form onSubmit={saveProfileEdits} style={{ marginTop: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 <h4 className="cd-profile-sublabel" style={{ marginBottom: 0 }}>EDIT PROFILE</h4>
                 <input
                   type="text"
                   value={profileEdit.name}
                   onChange={(e) => setProfileEdit({ ...profileEdit, name: e.target.value })}
-                  placeholder="Display name"
+                  placeholder="Full Name"
                   maxLength={100}
+                  style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
+                />
+                <input
+                  type="tel"
+                  value={profileEdit.phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^\d+]/g, '').slice(0, 15)
+                    setProfileEdit({ ...profileEdit, phone: val })
+                  }}
+                  placeholder="Phone Number (e.g. 0771234567)"
+                  maxLength={15}
                   style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
                 />
                 <input
@@ -2680,9 +2711,8 @@ const CustomerDashboard = () => {
                   >
                     {profileBusy ? 'SAVING…' : '✓ SAVE PROFILE'}
                   </button>
-                  {profileSavedMsg && <small style={{ color: profileSavedMsg.includes('saved') ? 'var(--gold, #c9a84c)' : '#ef4444', fontSize: '0.75rem' }}>{profileSavedMsg}</small>}
+                  {profileSavedMsg && <small style={{ color: profileSavedMsg.includes('saved') || profileSavedMsg.includes('success') ? 'var(--gold, #c9a84c)' : '#ef4444', fontSize: '0.75rem' }}>{profileSavedMsg}</small>}
                 </div>
-                <small style={{ color: '#666', fontSize: '0.68rem' }}>Phone changes need SMS verification and are handled by Luxora support.</small>
               </form>
             </div>
 
