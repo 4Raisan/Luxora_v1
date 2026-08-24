@@ -96,7 +96,7 @@ const spec = {
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { availability_status: { type: 'string', enum: ['available', 'busy', 'offline'] } } } } } },
         responses: { '200': { description: 'Updated' } } },
     },
-    '/provider/earnings': { get: { tags: ['Provider'], summary: 'Earnings (85% payout) + job history', security: bearer, responses: { '200': { description: 'Earnings' } } } },
+    '/provider/earnings': { get: { tags: ['Provider'], summary: 'Fixed service earnings, bank accounts, and payout history', security: bearer, responses: { '200': { description: 'Earnings' } } } },
     '/promotions': { get: { tags: ['Promotions'], summary: 'Active promotions (discount_percent, is_active)', responses: { '200': { description: 'Promotions' } } } },
     '/promotions/{id}': {
       put: { tags: ['Promotions'], summary: 'Activate/deactivate (admin); body { active: 1|0 } or omit to toggle', security: bearer,
