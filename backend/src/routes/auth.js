@@ -6,7 +6,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
-import { sendEmail, sendVerificationCode, verifyCode } from '../services/integrations.js';
+import { sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode } from '../services/integrations.js';
 import { notify } from '../services/notify.js';
 
 const router = Router();
@@ -24,22 +24,20 @@ router.post('/register/phone/send', phoneOtpLimiter, async (req, res) => {
   const phone = phoneForVerify(req.body.phone);
   if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile number' });
   try {
-    const result = await sendVerificationCode(phone);
-    if (!result.configured) return res.status(503).json({ error: 'Phone verification is not configured' });
-    res.json({ phone, status: result.status, mode: result.demo ? 'demo' : 'sms' });
-  } catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); }
+    const result = await sendWhatsAppVerificationCode(phone);
+    res.json({ phone, status: result.status, channel: 'whatsapp', mode: result.demo ? 'demo' : 'live' });
+  } catch (error) { console.warn('[whatsapp] send failed:', error.message); res.status(502).json({ error: 'Could not send WhatsApp verification code' }); }
 });
 
 router.post('/register/phone/verify', async (req, res) => {
   const phone = phoneForVerify(req.body.phone);
-  if (!phone || !/^\d{4,10}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'Valid phone and code are required' });
+  if (!phone || !/^\d{6}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'Valid phone and 6-digit code are required' });
   try {
-    const result = await verifyCode(phone, req.body.code);
-    if (!result.configured) return res.status(503).json({ error: 'Phone verification is not configured' });
+    const result = await verifyWhatsAppCode(phone, req.body.code);
     if (!result.approved) return res.status(400).json({ error: 'Invalid verification code' });
     const verificationToken = jwt.sign({ scope: 'provider_phone_verified', phone }, JWT_SECRET, { expiresIn: '10m' });
     res.json({ verified: true, phone, verification_token: verificationToken });
-  } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); }
+  } catch (error) { console.warn('[whatsapp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the WhatsApp code' }); }
 });
 
 // Register (customer or provider only — admin accounts are seeded, never self-registered)
@@ -57,7 +55,7 @@ router.post('/register', authLimiter, async (req, res) => {
     try {
       const proof = jwt.verify(String(req.body.phone_verification_token || ''), JWT_SECRET);
       if (proof.scope !== 'provider_phone_verified' || proof.phone !== verifiedPhone) throw new Error('invalid proof');
-    } catch (_) { return res.status(400).json({ error: 'Provider phone verification is required before registration' }); }
+    } catch { return res.status(400).json({ error: 'Provider phone verification is required before registration' }); }
   }
 
   try {
@@ -93,7 +91,8 @@ router.post('/register', authLimiter, async (req, res) => {
     sendEmail({ to: normalizedEmail, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${name.trim()}.</p><p>Your concierge account is ready.</p>` }).catch((error) => console.warn('[email] welcome failed:', error.message));
     res.status(201).json({ token, user: { id: user.id, name, email: normalizedEmail, role: userRole, phone: phone || '', town: normalizeTown(town) } });
   } catch (err) {
-    res.status(500).json({ error: 'Registration failed', detail: err.message });
+    console.error('[auth] registration failed:', err.message);
+    res.status(500).json({ error: 'Registration failed' });
   }
 });
 
@@ -150,7 +149,7 @@ router.post('/google', authLimiter, async (req, res) => {
     const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`, { signal: AbortSignal.timeout(8000) });
     if (!response.ok) return res.status(401).json({ error: 'Invalid Google credential' });
     profile = await response.json();
-  } catch (_) { return res.status(502).json({ error: 'Could not verify Google credential' }); }
+  } catch { return res.status(502).json({ error: 'Could not verify Google credential' }); }
   const valid = profile
     && profile.aud === clientId
     && String(profile.email_verified) === 'true'
