@@ -4,7 +4,8 @@ import { Prisma } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/prisma.js';
 import { notify } from '../services/notify.js';
-import { createPayHereFields, sendEmail, sendVerificationCode, verifyCode, verifyPayHereWebhook } from '../services/integrations.js';
+import { createPayHereFields, sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode, verifyPayHereWebhook } from '../services/integrations.js';
+import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { toPositiveInt } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
@@ -19,20 +20,63 @@ const otpSendLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 const otpVerifyLimiter = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 });
 const emailLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 const environment = () => String(process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk').includes('sandbox') ? 'SANDBOX' : 'LIVE';
+const payHereUrls = () => ({
+  returnUrl: String(process.env.PAYHERE_RETURN_URL || '').trim(),
+  cancelUrl: String(process.env.PAYHERE_CANCEL_URL || '').trim(),
+  notifyUrl: String(process.env.PAYHERE_NOTIFY_URL || '').trim(),
+});
+const isPublicHttpsUrl = (value) => /^https:\/\/[^/]+/i.test(value) && !value.includes('YOUR_');
+const payHereIsReady = () => {
+  const urls = payHereUrls();
+  return Boolean(process.env.PAYHERE_MERCHANT_ID && process.env.PAYHERE_MERCHANT_SECRET)
+    && Object.values(urls).every(isPublicHttpsUrl);
+};
 // Demo checkout is opt-in at deployment time. It never calls PayHere and is
 // intentionally unavailable unless PAYMENT_MODE=demo is set on the backend.
 const paymentMode = () => String(process.env.PAYMENT_MODE || 'payhere').trim().toLowerCase() === 'demo' ? 'demo' : 'payhere';
 
 export async function activateSubscription(payment, payload, { capturedAmount, capturedCurrency, autoRenew = false } = {}) {
   return prisma.$transaction(async (tx) => {
-    const fresh = await tx.payment.findUnique({ where: { id: payment.id }, include: { plan: true } });
-    if (!fresh || fresh.status === 'COMPLETED') return fresh;
+    const fresh = await tx.payment.findUnique({ where: { id: payment.id }, include: { plan: { include: { entitlements: true } } } });
+    if (!fresh || fresh.status === 'COMPLETED') return null;
     if (fresh.status !== 'PENDING') return null;
     const days = fresh.plan.durationDays || 30;
     const endDate = new Date(Date.now() + days * 86400000);
     const subscription = await tx.userSubscription.create({ data: { userId: fresh.userId, planId: fresh.planId, endDate, status: 'active', autoRenew, renewalIntervalDays: days, nextRenewalDate: endDate } });
-    return tx.payment.update({ where: { id: fresh.id }, data: { status: 'COMPLETED', capturedAmount: Number(capturedAmount ?? payload.payhere_amount), capturedCurrency: String(capturedCurrency ?? payload.payhere_currency).toUpperCase(), webhookPayload: payload, subscriptionId: subscription.id }, include: { plan: true, subscription: true } });
+    return tx.payment.update({ where: { id: fresh.id }, data: { status: 'COMPLETED', capturedAmount: Number(capturedAmount ?? payload.payhere_amount), capturedCurrency: String(capturedCurrency ?? payload.payhere_currency).toUpperCase(), webhookPayload: payload, subscriptionId: subscription.id }, include: { plan: { include: { entitlements: true } }, subscription: true } });
   }, { isolationLevel: 'Serializable' });
+}
+
+async function completePaymentExperience(payment, mode) {
+  const coinsGranted = payment.plan.entitlements.reduce((total, entitlement) => total + entitlement.units, 0);
+  const [entitlements, user] = await Promise.all([
+    getEntitlementSnapshot(prisma, payment.userId),
+    prisma.user.findUnique({ where: { id: payment.userId }, select: { email: true, name: true } }),
+    notify(payment.userId, `${mode === 'demo' ? 'Demo ' : ''}payment successful. Your ${payment.plan.title} package is active with ${coinsGranted} service coin${coinsGranted === 1 ? '' : 's'}.`, '/customer-dashboard'),
+  ]);
+  const amount = Number(payment.capturedAmount ?? payment.expectedAmount).toLocaleString();
+  const emailDelivery = await sendEmail({
+    to: user?.email,
+    subject: `Luxora payment successful: ${payment.plan.title}`,
+    html: `<p>Hi ${user?.name || 'Customer'},</p><p>Your <strong>${payment.plan.title}</strong> package is active until ${payment.subscription.endDate.toISOString().slice(0, 10)}.</p><p>Service coins added: <strong>${coinsGranted}</strong></p><p>Payment: ${payment.capturedCurrency || payment.expectedCurrency} ${amount}${mode === 'demo' ? ' (demo, no real charge)' : ''}</p>`,
+  }).then((result) => result.configured ? 'sent' : 'not_configured').catch((error) => {
+    console.warn('[email] payment receipt failed:', error.message);
+    return 'failed';
+  });
+  return {
+    entitlement_snapshot: entitlements,
+    receipt: {
+      payment_id: payment.id,
+      plan_id: payment.planId,
+      plan_title: payment.plan.title,
+      amount: Number(payment.capturedAmount ?? payment.expectedAmount),
+      currency: payment.capturedCurrency || payment.expectedCurrency,
+      coins_granted: coinsGranted,
+      subscription_id: payment.subscription.id,
+      active_until: payment.subscription.endDate,
+    },
+    email_delivery: emailDelivery,
+  };
 }
 
 router.post('/payments/payhere/webhook', async (req, res) => {
@@ -55,11 +99,7 @@ router.post('/payments/payhere/webhook', async (req, res) => {
   }
   if (statusCode === 2) {
     const completed = await activateSubscription(payment, payload);
-    if (completed) {
-      await notify(completed.userId, 'Payment successful. Your Luxora membership is now active.', '/customer-dashboard');
-      const user = await prisma.user.findUnique({ where: { id: completed.userId }, select: { email: true, name: true } });
-      sendEmail({ to: user?.email, subject: 'Luxora payment successful', html: `<p>Hi ${user?.name || 'Customer'},</p><p>Your ${completed.plan.title} membership is active.</p>` }).catch(() => {});
-    }
+    if (completed) await completePaymentExperience(completed, 'payhere');
   } else if (statusCode === -1 || statusCode === -2) {
     // Failures only apply to payments that never settled.
     if (payment.status === 'PENDING') {
@@ -85,17 +125,19 @@ router.post('/payments/payhere/webhook', async (req, res) => {
 router.post('/payments/payhere/order', authenticateToken, async (req, res) => {
   try {
     if (paymentMode() === 'demo') return res.status(409).json({ error: 'Demo payment mode is enabled; use the demo checkout.' });
+    if (!payHereIsReady()) return res.status(503).json({ error: 'PayHere is not ready. Configure public HTTPS return, cancel, and webhook URLs before enabling checkout.' });
     const planId = toPositiveInt(req.body.plan_id);
     if (!planId) return res.status(400).json({ error: 'plan_id is required' });
     const [plan, user] = await Promise.all([prisma.subscriptionPlan.findFirst({ where: { id: planId, active: true } }), prisma.user.findUnique({ where: { id: req.user.id } })]);
     if (!plan || !user) return res.status(404).json({ error: 'Plan or customer not found' });
     const amount = money(plan.priceMonthly);
+    const urls = payHereUrls();
     const orderId = `LUX-PH-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     const payment = await prisma.payment.create({ data: { userId: user.id, planId: plan.id, gateway: 'PAYHERE', gatewayOrderId: orderId, idempotencyKey: orderId, expectedAmount: amount, expectedCurrency: 'LKR' } });
-    const fields = createPayHereFields({ amount, orderId, currency: 'LKR', customer: { firstName: user.name.split(/\s+/)[0], lastName: user.name.split(/\s+/).slice(1).join(' ') || 'Customer', email: user.email, phone: user.phone || '', city: user.town || '', items: plan.title }, returnUrl: process.env.PAYHERE_RETURN_URL || 'http://localhost:3000/customer-dashboard?payment=payhere', cancelUrl: process.env.PAYHERE_CANCEL_URL || 'http://localhost:3000/customer-dashboard?payment=cancelled' });
-    fields.notify_url = process.env.PAYHERE_NOTIFY_URL || '';
+    const fields = createPayHereFields({ amount, orderId, currency: 'LKR', customer: { firstName: user.name.split(/\s+/)[0], lastName: user.name.split(/\s+/).slice(1).join(' ') || 'Customer', email: user.email, phone: user.phone || '', city: user.town || '', items: plan.title }, returnUrl: urls.returnUrl, cancelUrl: urls.cancelUrl });
+    fields.notify_url = urls.notifyUrl;
     res.json({ paymentId: payment.id, orderId, environment: environment(), checkoutUrl: `${process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk'}/pay/checkout`, fields });
-  } catch (error) { res.status(502).json({ error: error.message }); }
+  } catch (error) { console.error('[payhere] order creation failed:', error.message); res.status(502).json({ error: 'Could not create payment order' }); }
 });
 
 router.get('/payments/mode', authenticateToken, (_req, res) => res.json({ mode: paymentMode(), label: paymentMode() === 'demo' ? 'DEMO / TEST — no real charge' : `PayHere ${environment()}` }));
@@ -123,8 +165,8 @@ router.post('/payments/demo/:id/complete', authenticateToken, async (req, res) =
   }
   const saved = await activateSubscription(payment, { mode: 'demo', outcome }, { capturedAmount: payment.expectedAmount, capturedCurrency: payment.expectedCurrency, autoRenew: Boolean(payment.webhookPayload?.autoRenew) });
   if (!saved) return res.status(409).json({ error: 'This demo payment can no longer be completed' });
-  await notify(saved.userId, 'Demo payment successful. Your Luxora membership is active.', '/customer-dashboard');
-  res.json({ status: 'completed', subscription: saved.subscription, message: 'Demo payment successful. No real money was charged.' });
+  const experience = await completePaymentExperience(saved, 'demo');
+  res.json({ status: 'completed', subscription: saved.subscription, message: 'Demo payment successful. No real money was charged.', ...experience });
 });
 
 router.get('/payments/my', authenticateToken, async (req, res) => {
@@ -137,7 +179,15 @@ router.post('/email', authenticateToken, emailLimiter, async (req, res) => {
   if (req.body.to !== req.user.email && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'You can only email your own address' });
   try { res.json(await sendEmail(req.body)); } catch (error) { console.warn('[email] send failed:', error.message); res.status(502).json({ error: 'Email delivery failed' }); }
 });
-router.post('/otp/send', authenticateToken, otpSendLimiter, async (req, res) => { try { res.json(await sendVerificationCode(req.body.phone)); } catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); } });
-router.post('/otp/verify', authenticateToken, otpVerifyLimiter, async (req, res) => { try { res.json(await verifyCode(req.body.phone, req.body.code)); } catch (error) { console.warn('[otp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the code' }); } });
+router.post('/whatsapp/send', authenticateToken, otpSendLimiter, async (req, res) => {
+  const phone = String(req.body.phone || '').trim();
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return res.status(400).json({ error: 'phone must be in E.164 format' });
+  try { res.json(await sendWhatsAppVerificationCode(phone)); } catch (error) { console.warn('[whatsapp] send failed:', error.message); res.status(502).json({ error: 'Could not send WhatsApp verification code' }); }
+});
+router.post('/whatsapp/verify', authenticateToken, otpVerifyLimiter, async (req, res) => {
+  const phone = String(req.body.phone || '').trim();
+  if (!/^\+[1-9]\d{7,14}$/.test(phone) || !/^\d{6}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'valid phone and 6-digit WhatsApp code are required' });
+  try { res.json(await verifyWhatsAppCode(phone, req.body.code)); } catch (error) { console.warn('[whatsapp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the WhatsApp code' }); }
+});
 
 export default router;
