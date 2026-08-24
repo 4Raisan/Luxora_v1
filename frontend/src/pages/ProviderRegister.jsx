@@ -45,6 +45,7 @@ const ProviderRegister = () => {
     fullName: '',
     email: '',
     password: '',
+    confirmPassword: '',
     nicNumber: '',
     mobile: '',
     otp: '',
@@ -80,6 +81,10 @@ const ProviderRegister = () => {
   const handleMobileChange = (e) => {
     const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 10)
     setForm((prev) => ({ ...prev, mobile: numbersOnly }))
+    setIsOtpVerified(false)
+    setOtpSent(false)
+    setPhoneVerificationToken('')
+    setOtpError('')
   }
 
   const handleOtpChange = (e) => {
@@ -140,7 +145,7 @@ const ProviderRegister = () => {
 
   const handleSendOtp = async () => {
     if (!form.mobile || form.mobile.length !== 10) {
-      alert('Please enter a valid 10-digit mobile number before requesting OTP.')
+      setOtpError('Enter a valid 10-digit mobile number first.')
       return
     }
     try {
@@ -154,7 +159,7 @@ const ProviderRegister = () => {
 
   const handleVerifyOtp = async () => {
     if (!form.otp || form.otp.length !== 4) {
-      setOtpError('Please enter a valid 4-digit OTP code.')
+      setOtpError('Enter the 4-digit verification code sent to your phone.')
       return
     }
     try {
@@ -173,11 +178,19 @@ const ProviderRegister = () => {
         return
       }
       if (!otpSent) {
-        alert('Please click SEND OTP to receive your mobile verification code.')
+        alert('Click SEND OTP to receive your mobile verification code.')
         return
       }
       if (!isOtpVerified) {
-        alert('Mobile OTP verification required! Please enter the 4-digit OTP code and click VERIFY OTP before proceeding.')
+        alert('Mobile verification required. Enter the code and click VERIFY OTP to continue.')
+        return
+      }
+      if ((form.password || '').length < 6) {
+        alert('Password must be at least 6 characters.')
+        return
+      }
+      if (form.password !== form.confirmPassword) {
+        alert('Password and Re-enter Password do not match.')
         return
       }
     }
@@ -431,6 +444,15 @@ const ProviderRegister = () => {
             </div>
 
             <div className="pr-row">
+              <input id="pr-password" name="password" type="password" className="pr-input"
+                placeholder="Password (min 6 characters)" value={form.password}
+                onChange={handleChange} minLength={6} autoComplete="new-password" required />
+              <input id="pr-confirm-password" name="confirmPassword" type="password" className="pr-input"
+                placeholder="Re-enter Password" value={form.confirmPassword}
+                onChange={handleChange} minLength={6} autoComplete="new-password" required />
+            </div>
+
+            <div className="pr-row">
               <UploadBox label="NIC FRONT PHOTO (IMAGE ONLY)" id="nic-front"
                 onChange={handleFileChange('nicFront', 'nicFrontPreview')}
                 preview={form.nicFrontPreview} />
@@ -448,7 +470,7 @@ const ProviderRegister = () => {
             <div className="pr-row pr-row--otp">
               <input id="pr-mobile" name="mobile" type="tel" className="pr-input"
                 placeholder="Mobile Number" value={form.mobile}
-                onChange={(e) => { handleMobileChange(e); setIsOtpVerified(false); setOtpSent(false) }}
+                onChange={handleMobileChange}
                 maxLength={10} inputMode="numeric" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" required />
               <button type="button" id="pr-send-otp-btn"
                 className={`pr-otp-btn ${isOtpVerified ? 'pr-otp-btn--sent' : otpSent ? 'pr-otp-btn--sent' : ''}`}
@@ -459,17 +481,15 @@ const ProviderRegister = () => {
 
             {otpSent && !isOtpVerified && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#111', padding: '0.85rem', borderRadius: '8px', border: '1px solid #222' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--gold)', fontSize: '0.75rem', fontWeight: '600' }}>
-                    📱 Enter OTP sent to +94 {form.mobile}
-                  </span>
-                  <small style={{ color: '#888', fontSize: '0.7rem' }}>Demo OTP: <strong style={{ color: '#fff' }}>1234</strong></small>
-                </div>
+                <span style={{ color: 'var(--gold)', fontSize: '0.75rem', fontWeight: '600' }}>
+                  📱 Enter the verification code sent to +94 {form.mobile}
+                </span>
                 <div className="pr-row" style={{ gridTemplateColumns: '1fr auto', gap: '0.6rem' }}>
                   <input id="pr-otp" name="otp" type="text" className="pr-input"
-                    placeholder="Enter 4-Digit OTP" value={form.otp}
-                    onChange={(e) => { handleOtpChange(e); setOtpError('') }} required maxLength={4} inputMode="numeric" pattern="[0-9]{4}" title="Please enter a 4-digit OTP code" />
-                  <button type="button" className="pr-otp-btn" style={{ background: 'var(--gold)', color: '#000', fontWeight: '800' }} onClick={handleVerifyOtp}>
+                    placeholder="Enter 4-Digit Code" value={form.otp}
+                    onChange={(e) => { handleOtpChange(e); setOtpError('') }} required maxLength={4} inputMode="numeric" pattern="[0-9]{4}" title="Please enter the 4-digit verification code" />
+                  <button type="button" id="pr-verify-otp-btn" className="pr-otp-btn"
+                    style={{ background: 'var(--gold)', color: '#000', fontWeight: '800' }} onClick={handleVerifyOtp}>
                     VERIFY OTP
                   </button>
                 </div>

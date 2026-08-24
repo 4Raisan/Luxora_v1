@@ -493,7 +493,7 @@ const AdminDashboard = () => {
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
                       <td>{p.name}</td>
                       <td>{p.category || '—'}</td>
-                      <td style={{ maxWidth: '220px' }}>{(p.serviceTowns || []).join(', ') || '—'}</td>
+                      <td style={{ maxWidth: '220px' }}>{(p.service_towns || []).join(', ') || '—'}</td>
                       <td>{fmtMoney(p.earnings)}</td>
                       <td><StatBadge value={p.kyc_status} /></td>
                       <td><StatBadge value={p.availability_status === 'available' ? 'active' : 'closed'} /></td>
@@ -833,7 +833,7 @@ const AdminDashboard = () => {
             <span>Phone: {providerDetail.user?.phone || '—'}</span>
             <span>Category: {providerDetail.category || '—'}</span>
             <span>KYC: <StatBadge value={providerDetail.kycStatus?.toLowerCase()} /></span>
-            <span>Towns: {(providerDetail.serviceTowns || []).join(', ') || '—'}</span>
+            <span>Towns: {(providerDetail.service_towns || []).join(', ') || '—'}</span>
             <span>Earnings: {fmtMoney(providerDetail.earnings)}</span>
             <span>Rating: {providerDetail.averageRating ? Number(providerDetail.averageRating).toFixed(1) : 'No reviews yet'}</span>
           </div>

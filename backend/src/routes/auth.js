@@ -26,7 +26,7 @@ router.post('/register/phone/send', phoneOtpLimiter, async (req, res) => {
   try {
     const result = await sendVerificationCode(phone);
     if (!result.configured) return res.status(503).json({ error: 'Phone verification is not configured' });
-    res.json({ phone, status: result.status });
+    res.json({ phone, status: result.status, mode: result.demo ? 'demo' : 'sms' });
   } catch (error) { console.warn('[otp] send failed:', error.message); res.status(502).json({ error: 'Could not send verification code' }); }
 });
 

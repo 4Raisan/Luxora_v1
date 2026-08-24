@@ -15,9 +15,18 @@ export async function sendEmail({ to, subject, html, text = '' }) {
   return { configured: true, id: body.id };
 }
 
+// Demo phone verification: when Twilio is not configured (local/demo deploys)
+// registration falls back to a fixed verification code so the documented
+// provider onboarding flow still works end-to-end. The code is never logged.
+const DEMO_OTP_CODE = '1234';
+const demoOtpExpires = new Map();
+
 export async function sendVerificationCode(phone) {
   const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
-  if (required.length) return { configured: false, missing: required };
+  if (required.length) {
+    demoOtpExpires.set(phone, Date.now() + 10 * 60 * 1000);
+    return { configured: true, demo: true, sid: 'demo', status: 'pending' };
+  }
   const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
   const body = new URLSearchParams({ To: phone, Channel: 'sms' });
   const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/Verifications`, {
@@ -30,7 +39,11 @@ export async function sendVerificationCode(phone) {
 
 export async function verifyCode(phone, code) {
   const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
-  if (required.length) return { configured: false, missing: required };
+  if (required.length) {
+    const valid = demoOtpExpires.get(phone) > Date.now() && String(code) === DEMO_OTP_CODE;
+    if (valid) demoOtpExpires.delete(phone);
+    return { configured: true, demo: true, approved: valid, status: valid ? 'approved' : 'pending' };
+  }
   const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
   const body = new URLSearchParams({ To: phone, Code: code });
   const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck`, {

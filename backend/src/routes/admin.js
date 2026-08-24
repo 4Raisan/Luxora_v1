@@ -9,6 +9,9 @@ const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
 
 const PROVIDER_PAYOUT_RATE = 0.85;
+// providers.serviceTowns is persisted as a comma-separated string; the admin UI
+// renders town lists as arrays, so every admin response serializes it explicitly.
+const townsList = (value) => String(value || '').split(',').map((town) => town.trim()).filter(Boolean);
 // Admins can assign, unassign, or cancel operational work, but cannot bypass
 // the provider's photo + PIN verification stages.
 const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'CANCELLED'], IN_PROGRESS: ['CANCELLED'], CANCELLED: ['PENDING'], COMPLETED: [] };
@@ -43,6 +46,7 @@ router.get('/providers', async (_req, res) => {
     phone: p.user?.phone,
     kyc_status: p.kycStatus.toLowerCase(),
     availability_status: p.availabilityStatus,
+    service_towns: townsList(p.serviceTowns),
   })));
 });
 
@@ -109,7 +113,7 @@ router.get('/providers/:id', async (req, res) => {
   const provider = await prisma.provider.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 }, include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, active: true } }, kycDocuments: { select: { id: true, documentType: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true } }, reviews: { select: { rating: true } } } });
   if (!provider) return res.status(404).json({ error: 'Provider not found' });
   const averageRating = provider.reviews.length ? provider.reviews.reduce((sum, item) => sum + item.rating, 0) / provider.reviews.length : null;
-  res.json({ ...provider, averageRating, documents: provider.kycDocuments.map((document) => ({ ...document, url: `/api/uploads/kyc/${document.id}` })) });
+  res.json({ ...provider, averageRating, service_towns: townsList(provider.serviceTowns), documents: provider.kycDocuments.map((document) => ({ ...document, url: `/api/uploads/kyc/${document.id}` })) });
 });
 
 router.get('/subscriptions', async (_req, res) => {
