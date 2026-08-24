@@ -9,12 +9,19 @@ import { sendEmail } from '../services/integrations.js';
 import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
-import { bookingStart, bookingEndsAt, getPlatformSettings, hasTimeConflict, isInAutoAssignmentWindow, providerCanTakeBooking, servesTown } from '../services/scheduling.js';
+import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, servesTown } from '../services/scheduling.js';
 
 const router = Router();
 router.use(authenticateToken);
 
-const PROVIDER_PAYOUT_RATE = 0.85;
+function requireVerifiedProviderPhone(req, res) {
+  if (req.user.role === 'PROVIDER' && !req.user.phoneVerified) {
+    res.status(403).json({ error: 'Verify your WhatsApp number before accessing provider operations' });
+    return false;
+  }
+  return true;
+}
+
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 const pinKey = crypto.createHash('sha256').update(JWT_SECRET).digest();
@@ -43,13 +50,13 @@ function cooldownEndsAt(booking, cooldownHours) {
 
 // Pick the least-loaded approved+available provider matching the booking town.
 // A provider's latest same-day auto assignment governs their cooldown.
-async function pickProvider(client, categoryName, town, bookingDate, bookingTime, service, settings) {
+async function pickProvider(client, categoryName, town, addressDistrict, bookingDate, bookingTime, service, settings) {
   const candidates = await client.provider.findMany({
     where: { category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' },
     select: { id: true, userId: true, serviceTowns: true },
   });
   const scheduledStart = bookingStart(bookingDate, bookingTime);
-  const townCandidates = candidates.filter((provider) => servesTown(provider, town));
+  const townCandidates = candidates.filter((provider) => servesTown(provider, town, addressDistrict));
   if (townCandidates.length === 0) return null;
 
   const priorAutoAssignments = await client.booking.findMany({
@@ -73,7 +80,7 @@ async function pickProvider(client, categoryName, town, bookingDate, bookingTime
     const cooldownEnd = latestAssignment && cooldownEndsAt(latestAssignment, settings.autoAssignmentCooldownHours);
     return !cooldownEnd || scheduledStart >= cooldownEnd;
   });
-  const requested = { bookingDate, bookingTime, town, serviceId: service.id, service };
+  const requested = { bookingDate, bookingTime, town, addressDistrict, serviceId: service.id, service };
   const conflictFree = [];
   for (const provider of eligible) {
     const fullProvider = { ...provider, category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' };
@@ -120,7 +127,7 @@ router.post('/', async (req, res) => {
   const startPin = crypto.randomInt(100000, 1000000).toString();
   const completionPin = crypto.randomInt(100000, 1000000).toString();
 
-  const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true, email: true, name: true } });
+  const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true, addressStreet: true, addressDistrict: true, email: true, name: true } });
   const town = normalizeTown(customer?.town);
   const settings = await getPlatformSettings(prisma);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time, settings);
@@ -136,7 +143,7 @@ router.post('/', async (req, res) => {
       error.statusCode = 409;
       throw error;
     }
-    const provider = shouldAutoAssign ? await pickProvider(tx, service.category.name, town, booking_date, booking_time, service, settings) : null;
+    const provider = shouldAutoAssign ? await pickProvider(tx, service.category.name, town, customer?.addressDistrict, booking_date, booking_time, service, settings) : null;
     const scheduled = bookingStart(booking_date, booking_time);
     return tx.booking.create({
       data: {
@@ -147,6 +154,8 @@ router.post('/', async (req, res) => {
         bookingDate: booking_date,
         bookingTime: normalizedTime,
         town,
+        addressStreet: customer?.addressStreet || null,
+        addressDistrict: customer?.addressDistrict || null,
         status: provider ? 'ASSIGNED' : 'PENDING',
         autoAssigned: Boolean(provider),
         startPinHash: await bcrypt.hash(startPin, 12),
@@ -155,6 +164,7 @@ router.post('/', async (req, res) => {
         customerCompletionPinCipher: encryptPin(completionPin),
         pinExpiresAt: scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null,
         totalPrice: service.price,
+        providerEarning: service.providerEarning,
       },
     });
   }, { isolationLevel: 'Serializable' });
@@ -205,9 +215,9 @@ router.get('/my', async (req, res) => {
   })));
 });
 
-// Assigned bookings (provider): own bookings plus same-category manual jobs in served towns.
-// Legacy bookings without a town remain visible to every provider in that category.
+// Providers fulfil only bookings assigned by the server scheduling flow.
 router.get('/assigned', async (req, res) => {
+  if (!requireVerifiedProviderPhone(req, res)) return;
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   if (provider.kycStatus !== 'APPROVED') {
@@ -215,18 +225,11 @@ router.get('/assigned', async (req, res) => {
   }
 
   const bookings = await prisma.booking.findMany({
-    where: {
-      OR: [
-        { providerId: provider.id },
-        { status: 'PENDING', service: { category: { name: provider.category } } },
-      ],
-    },
+    where: { providerId: provider.id },
     include: { service: { include: { category: true } }, user: { select: { id: true, name: true, phone: true, email: true } } },
     orderBy: { id: 'desc' },
   });
-  res.json(bookings
-    .filter((b) => b.providerId === provider.id || !b.town || servesTown(provider, b.town))
-    .map((b) => ({
+  res.json(bookings.map((b) => ({
     ...b,
     startPinHash: undefined,
     completionPinHash: undefined,
@@ -248,11 +251,12 @@ router.get('/:id/pins', async (req, res) => {
   const booking = await prisma.booking.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
   if (!booking || ['CANCELLED', 'COMPLETED'].includes(booking.status)) return res.status(404).json({ error: 'Active booking PINs not found' });
   if (!booking.customerStartPinCipher || !booking.customerCompletionPinCipher) return res.status(409).json({ error: 'PIN recovery is unavailable for this legacy booking' });
-  try { res.json({ start_pin: decryptPin(booking.customerStartPinCipher), completion_pin: decryptPin(booking.customerCompletionPinCipher), expires_at: booking.pinExpiresAt }); } catch (_) { res.status(500).json({ error: 'Could not recover booking PINs' }); }
+  try { res.json({ start_pin: decryptPin(booking.customerStartPinCipher), completion_pin: decryptPin(booking.customerCompletionPinCipher), expires_at: booking.pinExpiresAt }); } catch { res.status(500).json({ error: 'Could not recover booking PINs' }); }
 });
 
 // Update status (provider, with PIN for start/complete)
 router.put('/:id/status', async (req, res) => {
+  if (!requireVerifiedProviderPhone(req, res)) return;
   const { id } = req.params;
   const { status, pin_code, before_photo, after_photo } = req.body;
 
@@ -268,23 +272,11 @@ router.put('/:id/status', async (req, res) => {
   const booking = await prisma.booking.findUnique({ where: { id: Number(id) } });
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
-  // Ownership: only the assigned provider may update; an unassigned PENDING booking
-  // can only be claimed (ASSIGNED) by a provider of the matching category.
+  // Ownership: assignment is server-owned, so providers can only update their
+  // own jobs after scheduling has selected them.
   const isMine = booking.providerId === provider.id;
-  const canClaim = booking.status === 'PENDING' && nextStatus === 'ASSIGNED';
-  if (!isMine && !canClaim) {
+  if (!isMine) {
     return res.status(403).json({ error: 'This booking is not assigned to you' });
-  }
-  if (canClaim && booking.serviceId) {
-    const svc = await prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } });
-    if (svc?.category?.name !== provider.category) {
-      return res.status(403).json({ error: 'This booking belongs to another service category' });
-    }
-    if (booking.town && !servesTown(provider, booking.town)) {
-      return res.status(403).json({ error: 'You do not serve this booking town' });
-    }
-    const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, service: svc });
-    if (!eligibility.ok) return res.status(409).json({ error: eligibility.error });
   }
 
   const allowedNext = PROVIDER_TRANSITIONS[booking.status] || [];
@@ -370,7 +362,7 @@ router.put('/:id/status', async (req, res) => {
   if (nextStatus === 'COMPLETED') {
     // Guard against double payout: only pay when transitioning from a non-COMPLETED state
     if (booking.status !== 'COMPLETED') {
-      const payout = new Prisma.Decimal(booking.totalPrice).mul(PROVIDER_PAYOUT_RATE).toDecimalPlaces(2);
+      const payout = new Prisma.Decimal(booking.providerEarning || 0).toDecimalPlaces(2);
       await prisma.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
     }
     await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');
@@ -387,6 +379,7 @@ router.put('/:id/status', async (req, res) => {
 
 // Internal provider scheduling only. Customer endpoints deliberately omit this field.
 router.put('/:id/schedule', async (req, res) => {
+  if (!requireVerifiedProviderPhone(req, res)) return;
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   if (provider.kycStatus !== 'APPROVED') {
