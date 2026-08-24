@@ -4,26 +4,26 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
 import { getPlatformSettings, providerCanTakeBooking } from '../services/scheduling.js';
+import { maskAccountNumber, queueMonthlyPayouts } from '../services/payouts.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
 
-const PROVIDER_PAYOUT_RATE = 0.85;
 // providers.serviceTowns is persisted as a comma-separated string; the admin UI
 // renders town lists as arrays, so every admin response serializes it explicitly.
 const townsList = (value) => String(value || '').split(',').map((town) => town.trim()).filter(Boolean);
+const normalizePackageType = (value) => {
+  const type = String(value || '').trim().toLowerCase();
+  if (type === 'single' || type === 'single package') return 'Single Package';
+  if (type === 'combo' || type === 'combo package') return 'Combo Package';
+  return null;
+};
 // Admins can assign, unassign, or cancel operational work, but cannot bypass
 // the provider's photo + PIN verification stages.
 const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'CANCELLED'], IN_PROGRESS: ['CANCELLED'], CANCELLED: ['PENDING'], COMPLETED: [] };
 
-async function requireSuperAdmin(req, res, next) {
-  const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { isSuperAdmin: true } });
-  if (!user?.isSuperAdmin) return res.status(403).json({ error: 'Super Admin access is required' });
-  next();
-}
-
-router.get('/settings/scheduling', requireSuperAdmin, async (_req, res) => res.json(await getPlatformSettings(prisma)));
-router.put('/settings/scheduling', requireSuperAdmin, async (req, res) => {
+router.get('/settings/scheduling', async (_req, res) => res.json(await getPlatformSettings(prisma)));
+router.put('/settings/scheduling', async (req, res) => {
   const cooldown = Number(req.body.auto_assignment_cooldown_hours);
   const start = Number(req.body.auto_assignment_start_hour);
   const end = Number(req.body.auto_assignment_end_hour);
@@ -31,7 +31,7 @@ router.put('/settings/scheduling', requireSuperAdmin, async (req, res) => {
   const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1, autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end }, update: { autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end } });
   res.json(setting);
 });
-router.post('/settings/scheduling/restore-defaults', requireSuperAdmin, async (_req, res) => {
+router.post('/settings/scheduling/restore-defaults', async (_req, res) => {
   const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1 }, update: { autoAssignmentCooldownHours: 6, autoAssignmentStartHour: 7, autoAssignmentEndHour: 16 } });
   res.json(setting);
 });
@@ -118,28 +118,32 @@ router.get('/providers/:id', async (req, res) => {
 
 router.get('/subscriptions', async (_req, res) => {
   const plans = await prisma.subscriptionPlan.findMany({ include: { entitlements: { include: { category: true } }, _count: { select: { userSubscriptions: true } } }, orderBy: { id: 'desc' } });
-  res.json(plans);
+  res.json(plans.map((plan) => ({ ...plan, type: normalizePackageType(plan.type) || plan.type })));
 });
 
-router.post('/subscriptions', requireSuperAdmin, async (req, res) => {
-  const { title, type, price_monthly, description = '', features = [], duration_days = 30, entitlements = [] } = req.body;
-  if (typeof title !== 'string' || !title.trim() || typeof type !== 'string' || !type.trim() || !Number.isFinite(Number(price_monthly)) || Number(price_monthly) <= 0 || !Number.isInteger(Number(duration_days)) || Number(duration_days) < 1 || Number(duration_days) > 365) return res.status(400).json({ error: 'title, type, a positive price_monthly and duration_days (1-365) are required' });
+router.post('/subscriptions', async (req, res) => {
+  const { title, type, price_monthly, description = '', recommended = false, features = [], duration_days = 30, entitlements = [] } = req.body;
+  const normalizedType = normalizePackageType(type);
+  if (typeof title !== 'string' || !title.trim() || !normalizedType || !Number.isFinite(Number(price_monthly)) || Number(price_monthly) <= 0 || Number(duration_days) !== 30) return res.status(400).json({ error: 'title, type, a positive price_monthly, and a 30-day duration are required' });
   if (!Array.isArray(features) || !Array.isArray(entitlements)) return res.status(400).json({ error: 'features and entitlements must be arrays' });
   const normalized = entitlements.map((item) => ({ categoryId: toPositiveInt(item.category_id), units: Number(item.units) }));
   if (!normalized.length || normalized.some((item) => !item.categoryId || !Number.isInteger(item.units) || item.units < 1)) return res.status(400).json({ error: 'A package requires at least one category entitlement with one or more units' });
-  const plan = await prisma.subscriptionPlan.create({ data: { title: title.trim(), type: type.trim(), priceMonthly: Number(price_monthly), durationDays: Number(duration_days), description: String(description).slice(0, 1000), features: JSON.stringify(features), entitlements: { create: normalized } }, include: { entitlements: true } });
+  if (typeof recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' });
+  const plan = await prisma.subscriptionPlan.create({ data: { title: title.trim(), type: normalizedType, priceMonthly: Number(price_monthly), durationDays: 30, description: String(description).slice(0, 1000), recommended, features: JSON.stringify(features), entitlements: { create: normalized } }, include: { entitlements: true } });
   res.status(201).json(plan);
 });
 
-router.put('/subscriptions/:id', requireSuperAdmin, async (req, res) => {
+router.put('/subscriptions/:id', async (req, res) => {
   const id = toPositiveInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid plan id' });
   const data = {};
   if (req.body.title !== undefined) data.title = String(req.body.title).trim();
   if (req.body.description !== undefined) data.description = String(req.body.description).slice(0, 1000);
   if (req.body.price_monthly !== undefined) { if (!Number.isFinite(Number(req.body.price_monthly)) || Number(req.body.price_monthly) <= 0) return res.status(400).json({ error: 'price_monthly must be positive' }); data.priceMonthly = Number(req.body.price_monthly); }
-  if (req.body.duration_days !== undefined) { if (!Number.isInteger(Number(req.body.duration_days)) || Number(req.body.duration_days) < 1 || Number(req.body.duration_days) > 365) return res.status(400).json({ error: 'duration_days must be 1-365' }); data.durationDays = Number(req.body.duration_days); }
+  if (req.body.type !== undefined) { const type = normalizePackageType(req.body.type); if (!type) return res.status(400).json({ error: 'type must be Single Package or Combo Package' }); data.type = type; }
+  if (req.body.duration_days !== undefined && Number(req.body.duration_days) !== 30) return res.status(400).json({ error: 'Packages always run for 30 days' });
   if (typeof req.body.active === 'boolean') data.active = req.body.active;
+  if (req.body.recommended !== undefined) { if (typeof req.body.recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' }); data.recommended = req.body.recommended; }
   if (req.body.features !== undefined) { if (!Array.isArray(req.body.features)) return res.status(400).json({ error: 'features must be an array' }); data.features = JSON.stringify(req.body.features); }
   const updated = await prisma.subscriptionPlan.update({ where: { id }, data, include: { entitlements: true } });
   if (req.body.entitlements) {
@@ -232,7 +236,7 @@ router.put('/bookings/:id', async (req, res) => {
 
   // Pay out exactly once, only when transitioning INTO COMPLETED
   if (nextStatus === 'COMPLETED' && booking.status !== 'COMPLETED' && (nextProviderId ?? booking.providerId)) {
-    const payout = booking.totalPrice * PROVIDER_PAYOUT_RATE;
+    const payout = booking.providerEarning;
     await prisma.provider.update({
       where: { id: nextProviderId ?? booking.providerId },
       data: { earnings: { increment: payout } },
@@ -284,6 +288,40 @@ router.put('/complaints/:id', async (req, res) => {
     await notify(complaint.userId, `Your complaint #${complaint.id} has been resolved.`);
   }
   res.json({ message: `Complaint updated to ${status.toLowerCase()}` });
+});
+
+router.get('/payouts', async (_req, res) => {
+  const payouts = await prisma.providerPayout.findMany({
+    include: { provider: { include: { user: { select: { name: true, email: true } } } }, bankAccount: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+  res.json(payouts.map((payout) => ({
+    id: payout.id,
+    period: payout.period,
+    amount: payout.amount,
+    status: payout.status.toLowerCase(),
+    paid_at: payout.paidAt,
+    provider_name: payout.provider.user.name,
+    provider_email: payout.provider.user.email,
+    bank_name: payout.bankAccount.bankName,
+    account_number: maskAccountNumber(payout.bankAccount.accountNumber),
+  })));
+});
+
+router.post('/payouts/run', async (req, res) => {
+  const period = typeof req.body.period === 'string' && /^\d{4}-\d{2}$/.test(req.body.period) ? req.body.period : undefined;
+  const payouts = await queueMonthlyPayouts({ period });
+  res.status(201).json({ queued: payouts.length, payouts });
+});
+
+router.put('/payouts/:id', async (req, res) => {
+  const status = String(req.body.status || '').toUpperCase();
+  if (!['PAID', 'FAILED'].includes(status)) return res.status(400).json({ error: 'status must be paid or failed' });
+  const payout = await prisma.providerPayout.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 } });
+  if (!payout || payout.status !== 'PENDING') return res.status(404).json({ error: 'Pending payout not found' });
+  const updated = await prisma.providerPayout.update({ where: { id: payout.id }, data: { status, paidAt: status === 'PAID' ? new Date() : null } });
+  res.json({ id: updated.id, status: updated.status.toLowerCase(), paid_at: updated.paidAt });
 });
 
 export default router;
