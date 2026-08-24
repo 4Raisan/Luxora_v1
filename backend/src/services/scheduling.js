@@ -11,10 +11,14 @@ export function bookingStart(date, time) {
   return new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
 }
 
-export function servesTown(provider, town) {
+export function servesTown(provider, town, addressDistrict = null) {
   if (!town) return false;
   const wanted = town.toLocaleLowerCase();
-  return String(provider.serviceTowns || '').split(',').some((served) => served.trim().toLocaleLowerCase() === wanted);
+  const district = String(addressDistrict || '').trim().toLocaleLowerCase();
+  return String(provider.serviceTowns || '').split(',').some((served) => {
+    const normalized = served.trim().toLocaleLowerCase();
+    return normalized === wanted || (normalized.startsWith('province:') && district && normalized === `province:${district}`);
+  });
 }
 
 export async function getPlatformSettings(client) {
@@ -49,7 +53,7 @@ export async function providerCanTakeBooking(client, provider, booking, { ignore
   }
   const service = booking.service || await client.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } });
   if (!service || service.category?.name !== provider.category) return { ok: false, error: 'Provider does not offer this service category' };
-  if (!servesTown(provider, booking.town)) return { ok: false, error: 'Provider does not serve this booking town' };
+  if (!servesTown(provider, booking.town, booking.addressDistrict)) return { ok: false, error: 'Provider does not serve this booking town' };
   const requestedStart = bookingStart(booking.bookingDate, booking.bookingTime);
   const requestedEnd = bookingEndsAt({ ...booking, service });
   if (!requestedStart || !requestedEnd) return { ok: false, error: 'Booking schedule is invalid' };
