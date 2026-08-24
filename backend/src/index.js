@@ -21,6 +21,8 @@ import uploadRoutes from './routes/uploads.js';
 import supportRoutes from './routes/support.js';
 import refundRoutes from './routes/refunds.js';
 import { prisma } from './config/prisma.js';
+import { startMonthlyPayoutScheduler } from './services/payouts.js';
+import { renewDueDemoSubscriptions } from './routes/services.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -146,6 +148,8 @@ const server = app.listen(PORT, () => {
   console.log(`Luxora Backend API server running on http://localhost:${PORT}`);
   console.log(`API docs: http://localhost:${PORT}/api/docs`);
 });
+startMonthlyPayoutScheduler();
+setInterval(() => renewDueDemoSubscriptions().catch((error) => console.error('[demo-renewal] failed:', error.message)), 60 * 60 * 1000).unref();
 
 // Graceful shutdown (Docker / orchestrator friendly)
 async function shutdown(signal) {
