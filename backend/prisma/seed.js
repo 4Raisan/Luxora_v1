@@ -24,29 +24,46 @@ async function main() {
   if (svcCount === 0) {
     await prisma.service.createMany({
       data: [
-        { categoryId: auto.id, title: 'Wash + Vacuum', description: 'Premium exterior foam wash, wheel shine, and complete interior deep vacuuming.', price: 4500, durationMins: 60 },
-        { categoryId: auto.id, title: 'Full Auto Polish & Detailing', description: 'Paint correction, exterior wax polish, and interior leather conditioning.', price: 12500, durationMins: 120 },
-        { categoryId: garden.id, title: 'Lawn Mowing', description: 'Precision edge trimming and complete lawn mowing.', price: 3500, durationMins: 45 },
-        { categoryId: garden.id, title: 'Plant Watering & Health Care', description: 'Deep soil hydration, pest inspection, and botanical health check.', price: 2500, durationMins: 30 },
-        { categoryId: garden.id, title: 'Fertilizer Application', description: 'Organic nutrient enrichment and soil conditioning.', price: 4000, durationMins: 40 },
-        { categoryId: garden.id, title: 'Landscape Maintenance', description: 'Hedge trimming, weed control, and garden bed redesign.', price: 8500, durationMins: 90 },
-        { categoryId: pet.id, title: 'Pet Bathing & Grooming', description: 'Hypoallergenic spa bath, blow dry, nail trimming, and ear cleaning.', price: 5000, durationMins: 60 },
-        { categoryId: pet.id, title: 'Pet Walking (45 min)', description: 'Guided exercise walk and playtime for dogs.', price: 2000, durationMins: 45 },
-        { categoryId: pet.id, title: 'Fish Tank Cleaning & Water Quality Test', description: 'Aquarium filter wash, algae removal, and pH balancing.', price: 6000, durationMins: 60 },
+        { categoryId: auto.id, title: 'Wash + Vacuum', description: 'Premium exterior foam wash, wheel shine, and complete interior deep vacuuming.', price: 4500, providerEarning: 2500, durationMins: 60 },
+        { categoryId: auto.id, title: 'Full Auto Polish & Detailing', description: 'Paint correction, exterior wax polish, and interior leather conditioning.', price: 12500, providerEarning: 4500, durationMins: 120 },
+        { categoryId: garden.id, title: 'Lawn Mowing', description: 'Precision edge trimming and complete lawn mowing.', price: 3500, providerEarning: 3000, durationMins: 45 },
+        { categoryId: garden.id, title: 'Plant Watering & Health Care', description: 'Deep soil hydration, pest inspection, and botanical health check.', price: 2500, providerEarning: 2500, durationMins: 30 },
+        { categoryId: garden.id, title: 'Fertilizer Application', description: 'Organic nutrient enrichment and soil conditioning.', price: 4000, providerEarning: 3000, durationMins: 40 },
+        { categoryId: garden.id, title: 'Landscape Maintenance', description: 'Hedge trimming, weed control, and garden bed redesign.', price: 8500, providerEarning: 4500, durationMins: 90 },
+        { categoryId: pet.id, title: 'Pet Bathing & Grooming', description: 'Hypoallergenic spa bath, blow dry, nail trimming, and ear cleaning.', price: 5000, providerEarning: 3300, durationMins: 60 },
+        { categoryId: pet.id, title: 'Pet Walking (45 min)', description: 'Guided exercise walk and playtime for dogs.', price: 2000, providerEarning: 1800, durationMins: 45 },
+        { categoryId: pet.id, title: 'Fish Tank Cleaning & Water Quality Test', description: 'Aquarium filter wash, algae removal, and pH balancing.', price: 6000, providerEarning: 3800, durationMins: 60 },
       ],
     });
   }
+  const earningsByService = {
+    'Wash + Vacuum': 2500, 'Full Auto Polish & Detailing': 4500,
+    'Lawn Mowing': 3000, 'Plant Watering & Health Care': 2500,
+    'Fertilizer Application': 3000, 'Landscape Maintenance': 4500,
+    'Pet Bathing & Grooming': 3300, 'Pet Walking (45 min)': 1800,
+    'Fish Tank Cleaning & Water Quality Test': 3800,
+  };
+  await Promise.all(Object.entries(earningsByService).map(([title, providerEarning]) =>
+    prisma.service.updateMany({ where: { title }, data: { providerEarning } })
+  ));
+  await prisma.$executeRaw`
+    UPDATE "bookings" AS booking
+    SET "providerEarning" = service."providerEarning"
+    FROM "services" AS service
+    WHERE booking."serviceId" = service.id AND booking."providerEarning" = 0
+  `;
 
   const planCount = await prisma.subscriptionPlan.count();
   if (planCount === 0) {
     await prisma.subscriptionPlan.createMany({
       data: [
-        { title: 'Single Care - Auto Elite', type: 'single', priceMonthly: 12000, description: 'Bi-weekly exterior wash + interior vacuum for 1 luxury vehicle.', features: JSON.stringify(['2x Wash + Vacuum per month', 'Dedicated KYC provider', 'Priority booking window', '10% off add-on detailing']) },
+        { title: 'Single Care - Auto Elite', type: 'single', priceMonthly: 12000, description: 'Bi-weekly exterior wash + interior vacuum for 1 luxury vehicle.', recommended: true, features: JSON.stringify(['2x Wash + Vacuum per month', 'Dedicated KYC provider', 'Priority booking window', '10% off add-on detailing']) },
         { title: 'Single Care - Garden Oasis', type: 'single', priceMonthly: 15000, description: 'Weekly garden upkeep, lawn mowing, and soil nourishment.', features: JSON.stringify(['4x Lawn Mowing & Plant Watering', 'Monthly organic fertilizer treatment', 'Landscape consultation']) },
         { title: 'Luxora Tri-Combo Luxury Suite', type: 'combo', priceMonthly: 32000, description: 'Complete home concierge covering Auto, Garden, and Pet Care under one subscription.', features: JSON.stringify(['2x Auto Wash + Vacuum', '4x Garden Care & Lawn Mowing', '2x Pet Spa Bathing or Aquarium Service', 'Zero cancellation fees', 'VIP concierge hotline support']) },
       ],
     });
   }
+  await prisma.subscriptionPlan.updateMany({ where: { title: 'Single Care - Auto Elite' }, data: { recommended: true } });
 
   // Per-category service units each plan grants (mirrors the marketed features).
   // Without these rows a purchased plan has no bookable entitlements.
@@ -71,10 +88,10 @@ async function main() {
     const pwHash = bcrypt.hashSync(password, 10);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, role, town, isSuperAdmin: email === 'admin@luxora.lk' } });
+      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, phone: phone || '', phoneVerified: role === 'PROVIDER', role, town } });
       return;
     }
-    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', town, role, isSuperAdmin: email === 'admin@luxora.lk' } });
+    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', phoneVerified: role === 'PROVIDER', town, role } });
     if (role === 'PROVIDER') {
       await prisma.provider.upsert({
         where: { userId: user.id },
