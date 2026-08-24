@@ -4,7 +4,7 @@ import { prisma } from '../config/prisma.js';
 export async function notify(userId, message, link = null) {
   try {
     await prisma.notification.create({ data: { userId, message, link } });
-  } catch (_) {
+  } catch {
     /* non-fatal */
   }
 }
