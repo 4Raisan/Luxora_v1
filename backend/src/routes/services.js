@@ -4,8 +4,15 @@ import { authenticateToken } from '../middleware/auth.js';
 import { toPositiveInt } from '../middleware/validators.js';
 import { sendEmail } from '../services/integrations.js';
 import { getEntitlementSnapshot } from '../services/entitlements.js';
+import { notify } from '../services/notify.js';
 
 const router = Router();
+const displayPackageType = (value) => {
+  const type = String(value || '').trim().toLowerCase();
+  if (type === 'single' || type === 'single package') return 'Single Package';
+  if (type === 'combo' || type === 'combo package') return 'Combo Package';
+  return String(value || 'Single Package');
+};
 
 router.get('/categories', async (_req, res) => {
   res.json(await prisma.category.findMany());
@@ -22,31 +29,39 @@ router.get('/services', async (_req, res) => {
 
 router.get('/subscriptions', async (_req, res) => {
   const plans = await prisma.subscriptionPlan.findMany({ where: { active: true }, include: { entitlements: { include: { category: true } } } });
-  res.json(plans.map((p) => ({ ...p, features: JSON.parse(p.features || '[]'), entitlements: p.entitlements.map((item) => ({ category_id: item.categoryId, category_name: item.category.name, units: item.units })) })));
+  res.json(plans.map((p) => ({ ...p, type: displayPackageType(p.type), features: JSON.parse(p.features || '[]'), entitlements: p.entitlements.map((item) => ({ category_id: item.categoryId, category_name: item.category.name, units: item.units })) })));
 });
 
-async function renewDueDemoSubscriptions(userId) {
-  if (String(process.env.PAYMENT_MODE || 'payhere').toLowerCase() !== 'demo') return 0;
-  const due = await prisma.userSubscription.findMany({ where: { userId, status: 'active', autoRenew: true, nextRenewalDate: { lte: new Date() } }, include: { plan: true } });
+export async function renewDueDemoSubscriptions() {
+  if (String(process.env.PAYMENT_MODE || 'payhere').toLowerCase() !== 'demo') return [];
+  const due = await prisma.userSubscription.findMany({ where: { status: 'active', autoRenew: true, nextRenewalDate: { lte: new Date() } }, include: { plan: true } });
+  const renewedSubscriptions = [];
   for (const subscription of due) {
-    await prisma.$transaction(async (tx) => {
-      const fresh = await tx.userSubscription.findUnique({ where: { id: subscription.id }, include: { plan: true } });
-      if (!fresh || fresh.status !== 'active' || !fresh.autoRenew || !fresh.nextRenewalDate || fresh.nextRenewalDate > new Date()) return;
+    const renewedSubscription = await prisma.$transaction(async (tx) => {
+      const fresh = await tx.userSubscription.findUnique({
+        where: { id: subscription.id },
+        include: { plan: true, user: { select: { email: true, name: true } } },
+      });
+      if (!fresh || fresh.status !== 'active' || !fresh.autoRenew || !fresh.nextRenewalDate || fresh.nextRenewalDate > new Date()) return null;
       const startDate = fresh.nextRenewalDate;
       const endDate = new Date(startDate.getTime() + fresh.renewalIntervalDays * 86400000);
       const orderId = `LUX-DEMO-RENEW-${fresh.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const renewed = await tx.userSubscription.create({ data: { userId, planId: fresh.planId, startDate, endDate, status: 'active', autoRenew: true, renewalIntervalDays: fresh.renewalIntervalDays, nextRenewalDate: endDate } });
+      const renewed = await tx.userSubscription.create({ data: { userId: fresh.userId, planId: fresh.planId, startDate, endDate, status: 'active', autoRenew: true, renewalIntervalDays: fresh.renewalIntervalDays, nextRenewalDate: endDate } });
       await tx.userSubscription.update({ where: { id: fresh.id }, data: { status: 'expired', autoRenew: false } });
-      await tx.payment.create({ data: { userId, planId: fresh.planId, subscriptionId: renewed.id, gateway: 'DEMO', gatewayOrderId: orderId, idempotencyKey: orderId, status: 'COMPLETED', expectedAmount: fresh.plan.priceMonthly, expectedCurrency: 'LKR', capturedAmount: fresh.plan.priceMonthly, capturedCurrency: 'LKR', webhookPayload: { mode: 'demo', renewal: true } } });
+      await tx.payment.create({ data: { userId: fresh.userId, planId: fresh.planId, subscriptionId: renewed.id, gateway: 'DEMO', gatewayOrderId: orderId, idempotencyKey: orderId, status: 'COMPLETED', expectedAmount: fresh.plan.priceMonthly, expectedCurrency: 'LKR', capturedAmount: fresh.plan.priceMonthly, capturedCurrency: 'LKR', webhookPayload: { mode: 'demo', renewal: true } } });
+      return { userId: fresh.userId, email: fresh.user.email, name: fresh.user.name, planTitle: fresh.plan.title };
     });
+    if (renewedSubscription) renewedSubscriptions.push(renewedSubscription);
   }
-  return due.length;
+  await Promise.all(renewedSubscriptions.map(async (renewed) => {
+    await notify(renewed.userId, `Demo renewal successful. Your ${renewed.planTitle} package is active for another 30 days.`, '/customer-dashboard');
+    await sendEmail({ to: renewed.email, subject: `Luxora demo renewal: ${renewed.planTitle}`, html: `<p>Hi ${renewed.name || 'Customer'},</p><p>Your ${renewed.planTitle} package has renewed for another 30 days. No real money was charged.</p>` }).catch(() => {});
+  }));
+  return renewedSubscriptions;
 }
 
 router.get('/subscriptions/entitlements', authenticateToken, async (req, res) => {
-  const renewed = await renewDueDemoSubscriptions(req.user.id);
-  if (renewed) await sendEmail({ to: (await prisma.user.findUnique({ where: { id: req.user.id } }))?.email, subject: 'Luxora demo subscription renewed', html: '<p>Your demo subscription has been renewed. No real money was charged.</p>' }).catch(() => {});
-  res.json({ entitlements: await getEntitlementSnapshot(prisma, req.user.id), renewed });
+  res.json({ entitlements: await getEntitlementSnapshot(prisma, req.user.id), renewed: 0 });
 });
 
 router.put('/subscriptions/:id/auto-renew', authenticateToken, async (req, res) => {
