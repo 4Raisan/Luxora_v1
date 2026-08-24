@@ -13,11 +13,3 @@ export function classifyPayHereWebhook(payment, payload = {}) {
   if (statusCode === 2) return 'success';
   return 'unsupported';
 }
-
-export function verifyPayPalCapture(payment, capture = {}) {
-  const captureRecord = capture.purchase_units?.[0]?.payments?.captures?.[0];
-  const capturedAmount = Number(captureRecord?.amount?.value);
-  const capturedCurrency = String(captureRecord?.amount?.currency_code || '').toUpperCase();
-  const valid = Boolean(payment) && capture.status === 'COMPLETED' && captureRecord?.status === 'COMPLETED' && sameMoney(capturedAmount, payment.expectedAmount) && capturedCurrency === String(payment.expectedCurrency || '').toUpperCase();
-  return { valid, capturedAmount, capturedCurrency };
-}
