@@ -63,6 +63,7 @@
   overflow: hidden;
   opacity: 0;
   transform: translateY(30px);
+  cursor: pointer;
 }
 
 .service-card::before {
@@ -158,6 +159,7 @@
   padding: 0;
   transition: var(--transition);
   opacity: 0.8;
+  cursor: pointer;
 }
 
 .service-card:hover .service-card__cta {
