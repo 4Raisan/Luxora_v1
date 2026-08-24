@@ -56,7 +56,7 @@ const StatBadge = ({ value }) => (
 const AdminDashboard = () => {
   const navigate = useNavigate()
   const [adminUser] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem('user') || '{}') } catch (_) { return {} }
+    try { return JSON.parse(sessionStorage.getItem('user') || '{}') } catch { return {} }
   })
   const [activeNav, setActiveNav] = useState('dashboard')
   const [loadError, setLoadError] = useState('')
@@ -137,7 +137,7 @@ const AdminDashboard = () => {
       const settings = await apiRequest('/admin/settings/scheduling', 'GET', null, token)
       setScheduling(settings)
       setSchedulingForbidden(false)
-    } catch (_) {
+    } catch {
       setSchedulingForbidden(true)
     }
   }, [token])
@@ -231,15 +231,13 @@ const AdminDashboard = () => {
   const savePlan = () => {
     const ed = planEditor || {}
     const price = Number(ed.price)
-    const duration = Number(ed.duration)
     if (!ed.title?.trim() || !Number.isFinite(price) || price <= 0) { alert('Title and a positive price are required.'); return }
-    if (!Number.isInteger(duration) || duration < 1 || duration > 365) { alert('Duration must be 1-365 days.'); return }
     const entitlements = Object.entries(ed.entitlements || {})
       .map(([category_id, units]) => ({ category_id: Number(category_id), units: Number(units) }))
       .filter((e) => e.category_id && Number.isInteger(e.units) && e.units >= 1)
     const body = {
-      title: ed.title.trim(), type: ed.type || 'Single Package', price_monthly: price, duration_days: duration,
-      features: [], entitlements,
+      title: ed.title.trim(), type: ed.type || 'Single Package', price_monthly: price, duration_days: 30,
+      description: (ed.description || '').trim(), recommended: Boolean(ed.recommended), features: [], entitlements,
     }
     runAction(async () => {
       if (ed.id) await apiRequest(`/admin/subscriptions/${ed.id}`, 'PUT', body, token)
@@ -290,13 +288,13 @@ const AdminDashboard = () => {
     try {
       await apiRequest(`/notifications/${id}/read`, 'PUT', null, token)
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    } catch (_) {}
+    } catch {}
   }
   const markAllNotifsRead = async () => {
     try {
       await apiRequest('/notifications/read-all', 'PUT', null, token)
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    } catch (_) {}
+    } catch {}
   }
 
   const handleSignOut = () => {
@@ -537,10 +535,10 @@ const AdminDashboard = () => {
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
-                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Single Package', price: '', duration: 30, active: true, entitlements: {} })}>+ New Package</button>
+                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Single Package', price: '', duration: 30, description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
               </div>
               <table className="ad-data-table">
-                <thead><tr><th>ID</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>ENTITLEMENTS</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <thead><tr><th>ID</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
                 <tbody>
                   {plans.map((p) => (
                     <tr key={p.id}>
@@ -549,18 +547,19 @@ const AdminDashboard = () => {
                       <td>{p.type || '—'}</td>
                       <td>{fmtMoney(p.priceMonthly)} <small style={{ color: '#777' }}>/ {p.durationDays || 30}d</small></td>
                       <td style={{ maxWidth: '260px' }}>{(p.entitlements || []).map((e) => `${e.category?.name || e.categoryId}: ${e.units}`).join(' · ') || '—'}</td>
+                      <td>{p.recommended ? 'Yes' : '—'}</td>
                       <td>{p._count?.userSubscriptions ?? 0}</td>
                       <td><StatBadge value={p.active ? 'active' : 'closed'} /></td>
                       <td style={{ display: 'flex', gap: '0.5rem' }}>
                         <button style={ghostBtn} onClick={() => setPlanEditor({
-                          id: p.id, title: p.title, type: p.type || 'Single Package', price: String(Number(p.priceMonthly)), duration: p.durationDays || 30, active: p.active,
+                          id: p.id, title: p.title, type: p.type || 'Single Package', price: String(Number(p.priceMonthly)), duration: p.durationDays || 30, description: p.description || '', recommended: Boolean(p.recommended), active: p.active,
                           entitlements: Object.fromEntries((p.entitlements || []).map((e) => [e.categoryId, e.units])),
                         })}>Edit</button>
                         <button style={p.active ? redBtn : goldBtn} disabled={busy} onClick={() => togglePlanActive(p)}>{p.active ? 'Disable' : 'Enable'}</button>
                       </td>
                     </tr>
                   ))}
-                  {plans.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No packages defined.</td></tr>}
+                  {plans.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No packages defined.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -759,7 +758,7 @@ const AdminDashboard = () => {
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <h3 className="ad-table-title">OPERATIONS — AUTO-ASSIGNMENT SCHEDULING</h3>
               {schedulingForbidden ? (
-                <p style={{ color: '#888', fontSize: '0.85rem' }}>Scheduling settings require elevated administrator access for this deployment.</p>
+                <p style={{ color: '#888', fontSize: '0.85rem' }}>Scheduling settings could not be loaded. Refresh and try again.</p>
               ) : scheduling ? (
                 <>
                   <p style={{ color: '#aaa', fontSize: '0.82rem', marginBottom: '1rem' }}>
@@ -921,13 +920,19 @@ const AdminDashboard = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <label style={{ color: '#888', fontSize: '0.75rem' }}>Price (LKR)
                 <input type="number" min="0" style={fieldStyle} value={planEditor.price} onChange={(e) => setPlanEditor({ ...planEditor, price: e.target.value })} /></label>
-              <label style={{ color: '#888', fontSize: '0.75rem' }}>Duration (days)
-                <input type="number" min="1" max="365" style={fieldStyle} value={planEditor.duration} onChange={(e) => setPlanEditor({ ...planEditor, duration: e.target.value })} /></label>
+              <label style={{ color: '#888', fontSize: '0.75rem' }}>Duration
+                <input style={fieldStyle} value="30 days" readOnly /></label>
             </div>
             <label style={{ color: '#888', fontSize: '0.75rem' }}>Type
               <select style={fieldStyle} value={planEditor.type} onChange={(e) => setPlanEditor({ ...planEditor, type: e.target.value })}>
                 <option>Single Package</option><option>Combo Package</option>
               </select></label>
+            <label style={{ color: '#888', fontSize: '0.75rem' }}>Description
+              <textarea style={{ ...fieldStyle, minHeight: '76px', resize: 'vertical' }} value={planEditor.description || ''} maxLength={1000} onChange={(e) => setPlanEditor({ ...planEditor, description: e.target.value })} /></label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', color: '#ccc', fontSize: '0.82rem' }}>
+              <input type="checkbox" checked={Boolean(planEditor.recommended)} onChange={(e) => setPlanEditor({ ...planEditor, recommended: e.target.checked })} />
+              Show the "Most Popular" banner on the homepage
+            </label>
             <span style={{ color: '#888', fontSize: '0.75rem' }}>Entitlements (service coins / period)</span>
             {categories.map((c) => (
               <label key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', color: '#ccc', fontSize: '0.82rem' }}>
