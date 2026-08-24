@@ -7,6 +7,7 @@ const CATEGORIES = [
   { id: 'auto', label: 'Auto Care', icon: '🚗' },
   { id: 'garden', label: 'Garden Care', icon: '🌿' },
   { id: 'pet', label: 'Pet Care', icon: '🐾' },
+  { id: 'combo', label: 'Combo Packages', icon: '✨' },
 ]
 
 const CheckIcon = () => (
@@ -49,6 +50,26 @@ const Plans = () => {
 
   const plansForCategory = (categoryId) => {
     if (!serverPlans) return null
+    if (categoryId === 'combo') {
+      return serverPlans
+        .filter((plan) => plan.type === 'combo' || (plan.entitlements || []).length > 1)
+        .map((plan) => {
+          const ents = plan.entitlements || []
+          return {
+            id: `srv-${plan.id}`,
+            serverId: plan.id,
+            tier: plan.title,
+            price: Number(plan.priceMonthly) || 0,
+            highlight: true,
+            summary: ents.map((e) => `${e.units} × ${e.category_name} service coins / month`).join(' + '),
+            features: [
+              ...ents.map((e) => `${e.units} × ${e.category_name} service sessions / month`),
+              ...(Array.isArray(plan.features) ? plan.features : []),
+            ],
+            off: [],
+          }
+        })
+    }
     return serverPlans
       .filter((plan) => (plan.entitlements || []).some((ent) =>
         String(ent.category_name || '').toLowerCase().includes(categoryId)))

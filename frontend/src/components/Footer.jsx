@@ -13,7 +13,7 @@ const Footer = () => {
   const columns = [
     {
       heading: 'Services',
-      links: ['Auto Care', 'Garden Care', 'Pet Wellness'],
+      links: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Packages'],
     },
     {
       heading: 'Company',
@@ -29,21 +29,36 @@ const Footer = () => {
     if (link === 'Office') {
       return
     }
+
+    const scrollToPlans = () => {
+      const el = document.getElementById('plans')
+      if (el) {
+        const navOffset = 80
+        const elementPosition = el.getBoundingClientRect().top
+        const offsetPosition = elementPosition + window.pageYOffset - navOffset
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        })
+      }
+    }
+
     if (link === 'Auto Care') {
       e.preventDefault()
       window.dispatchEvent(new CustomEvent('select-plan-category', { detail: 'auto' }))
-      const el = document.getElementById('plans')
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
+      scrollToPlans()
     } else if (link === 'Garden Care') {
       e.preventDefault()
       window.dispatchEvent(new CustomEvent('select-plan-category', { detail: 'garden' }))
-      const el = document.getElementById('plans')
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
-    } else if (link === 'Pet Wellness' || link === 'Pet Care') {
+      scrollToPlans()
+    } else if (link === 'Pet Care' || link === 'Pet Wellness') {
       e.preventDefault()
       window.dispatchEvent(new CustomEvent('select-plan-category', { detail: 'pet' }))
-      const el = document.getElementById('plans')
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
+      scrollToPlans()
+    } else if (link === 'Combo Packages' || link === 'Combo') {
+      e.preventDefault()
+      window.dispatchEvent(new CustomEvent('select-plan-category', { detail: 'combo' }))
+      scrollToPlans()
     } else if (link === 'About Us') {
       e.preventDefault()
       setShowAboutModal(true)
