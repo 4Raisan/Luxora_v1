@@ -13,10 +13,10 @@ export function authenticateToken(req, res, next) {
   jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid or expired token' });
     try {
-      const current = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true, email: true, name: true, role: true, active: true, isSuperAdmin: true } });
+      const current = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true, email: true, name: true, role: true, active: true, phoneVerified: true } });
       if (!current || !current.active) return res.status(403).json({ error: 'Account is inactive or no longer exists' });
       req.user = { ...user, ...current };
-    } catch (_) { return res.status(503).json({ error: 'Authorization service unavailable' }); }
+    } catch { return res.status(503).json({ error: 'Authorization service unavailable' }); }
     next();
   });
 }
@@ -28,6 +28,11 @@ export function requireRole(...roles) {
     }
     next();
   };
+}
+
+export function requireVerifiedPhone(req, res, next) {
+  if (!req.user?.phoneVerified) return res.status(403).json({ error: 'Verify your WhatsApp number before accessing provider operations' });
+  next();
 }
 
 export { JWT_SECRET };
