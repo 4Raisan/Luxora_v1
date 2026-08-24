@@ -32,4 +32,10 @@ router.put('/read-all', async (req, res) => {
   res.json({ message: 'All notifications marked read', updated: result.count });
 });
 
+router.delete('/:id', async (req, res) => {
+  const result = await prisma.notification.deleteMany({ where: { id: Number(req.params.id), userId: req.user.id } });
+  if (result.count === 0) return res.status(404).json({ error: 'Notification not found' });
+  res.json({ message: 'Notification dismissed' });
+});
+
 export default router;
