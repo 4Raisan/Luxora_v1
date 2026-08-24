@@ -15,9 +15,10 @@ model User {
   phone String?
   phoneVerified Boolean @default(false)
   town String?
+  addressStreet String?
+  addressDistrict String?
   role Role @default(CUSTOMER)
   active Boolean @default(true)
-  isSuperAdmin Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   bookings Booking[]
@@ -46,6 +47,16 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model PhoneOtpChallenge {
+  id Int @id @default(autoincrement())
+  phone String @unique
+  codeHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
+  @@map("phone_otp_challenges")
+}
+
 model Provider {
   id Int @id @default(autoincrement())
   userId Int @unique
@@ -56,6 +67,8 @@ model Provider {
   serviceTowns String @default("")
   availabilityStatus String @default("available")
   earnings Decimal @default(0) @db.Decimal(12, 2)
+  bankAccounts ProviderBankAccount[]
+  payouts ProviderPayout[]
   bookings Booking[]
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviews Review[]
@@ -93,6 +106,7 @@ model Service {
   title String
   description String?
   price Decimal @db.Decimal(12, 2)
+  providerEarning Decimal @default(0) @db.Decimal(12, 2)
   durationMins Int @default(60)
   bookings Booking[]
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -106,6 +120,7 @@ model SubscriptionPlan {
   priceMonthly Decimal @db.Decimal(12, 2)
   durationDays Int @default(30)
   active Boolean @default(true)
+  recommended Boolean @default(false)
   description String?
   features String
   userSubscriptions UserSubscription[]
@@ -153,6 +168,8 @@ model Booking {
   bookingDate String
   bookingTime String
   town String?
+  addressStreet String?
+  addressDistrict String?
   status BookingStatus @default(PENDING)
   cancellationReason String?
   rescheduleReason String?
@@ -171,6 +188,7 @@ model Booking {
   beforePhoto String?
   afterPhoto String?
   totalPrice Decimal @db.Decimal(12, 2)
+  providerEarning Decimal @default(0) @db.Decimal(12, 2)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   provider Provider? @relation(fields: [providerId], references: [id])
@@ -332,6 +350,38 @@ model Notification {
   @@map("notifications")
 }
 
+model ProviderBankAccount {
+  id Int @id @default(autoincrement())
+  providerId Int
+  bankName String
+  accountHolder String
+  accountNumber String
+  selected Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  payouts ProviderPayout[]
+  @@index([providerId, selected])
+  @@map("provider_bank_accounts")
+}
+
+model ProviderPayout {
+  id Int @id @default(autoincrement())
+  providerId Int
+  bankAccountId Int
+  period String
+  amount Decimal @db.Decimal(12, 2)
+  status PayoutStatus @default(PENDING)
+  idempotencyKey String @unique
+  paidAt DateTime?
+  createdAt DateTime @default(now())
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  bankAccount ProviderBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  @@unique([providerId, period])
+  @@index([period, status])
+  @@map("provider_payouts")
+}
+
 enum Role {
   CUSTOMER
   PROVIDER
@@ -351,7 +401,6 @@ enum BookingStatus {
 }
 enum PaymentGateway {
   PAYHERE
-  PAYPAL
   DEMO
 }
 enum PaymentStatus {
@@ -386,4 +435,9 @@ enum TicketPriority {
   NORMAL
   HIGH
   URGENT
+}
+enum PayoutStatus {
+  PENDING
+  PAID
+  FAILED
 }
