@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
+import { prisma } from '../config/prisma.js';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
@@ -8,76 +10,47 @@ export async function sendEmail({ to, subject, html, text = '' }) {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev', to: [to], subject, html, text }),
+    body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || 'no-reply@luxora.bond', to: [to], subject, html, text }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.message || `Resend request failed (${response.status})`);
   return { configured: true, id: body.id };
 }
 
-// Demo phone verification: when Twilio is not configured (local/demo deploys)
-// registration falls back to a fixed verification code so the documented
-// provider onboarding flow still works end-to-end. The code is never logged.
-const DEMO_OTP_CODE = '1234';
-const demoOtpExpires = new Map();
+const DEMO_WHATSAPP_CODE = '123456';
 
-export async function sendVerificationCode(phone) {
-  const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
-  if (required.length) {
-    demoOtpExpires.set(phone, Date.now() + 10 * 60 * 1000);
-    return { configured: true, demo: true, sid: 'demo', status: 'pending' };
-  }
-  const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-  const body = new URLSearchParams({ To: phone, Channel: 'sms' });
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/Verifications`, {
-    method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+const whatsAppConfigured = () => missing('WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_VERIFY_TEMPLATE').length === 0;
+
+export async function sendWhatsAppVerificationCode(phone) {
+  const configured = whatsAppConfigured();
+  const code = configured ? crypto.randomInt(100000, 1000000).toString() : DEMO_WHATSAPP_CODE;
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const codeHash = await bcrypt.hash(code, 10);
+  await prisma.phoneOtpChallenge.upsert({ where: { phone }, update: { codeHash, expiresAt }, create: { phone, codeHash, expiresAt } });
+
+  if (!configured) return { configured: true, demo: true, channel: 'whatsapp', status: 'pending' };
+  const response = await fetch(`https://graph.facebook.com/${process.env.WHATSAPP_API_VERSION || 'v22.0'}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp', to: phone.replace(/^\+/, ''), type: 'template',
+      template: {
+        name: process.env.WHATSAPP_VERIFY_TEMPLATE,
+        language: { code: process.env.WHATSAPP_VERIFY_TEMPLATE_LANGUAGE || 'en_US' },
+        components: [{ type: 'body', parameters: [{ type: 'text', text: code }] }],
+      },
+    }),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || `Twilio request failed (${response.status})`);
-  return { configured: true, sid: result.sid, status: result.status };
+  if (!response.ok) throw new Error(result?.error?.message || `WhatsApp Cloud API request failed (${response.status})`);
+  return { configured: true, channel: 'whatsapp', status: 'pending', messageId: result.messages?.[0]?.id };
 }
 
-export async function verifyCode(phone, code) {
-  const required = missing('TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID');
-  if (required.length) {
-    const valid = demoOtpExpires.get(phone) > Date.now() && String(code) === DEMO_OTP_CODE;
-    if (valid) demoOtpExpires.delete(phone);
-    return { configured: true, demo: true, approved: valid, status: valid ? 'approved' : 'pending' };
-  }
-  const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-  const body = new URLSearchParams({ To: phone, Code: code });
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck`, {
-    method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body,
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || `Twilio request failed (${response.status})`);
-  return { configured: true, approved: result.status === 'approved', status: result.status };
-}
-
-export async function createPayPalOrder({ amount, currency = 'USD', description = 'Luxora service' }) {
-  const required = missing('PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET');
-  if (required.length) throw new Error(`Missing env: ${required.join(', ')}`);
-  const baseUrl = process.env.PAYPAL_BASE_URL || 'https://api-m.sandbox.paypal.com';
-  const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
-  const tokenResponse = await fetch(`${baseUrl}/v1/oauth2/token`, { method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
-  const tokenBody = await tokenResponse.json();
-  if (!tokenResponse.ok) throw new Error(tokenBody?.error_description || 'PayPal authentication failed');
-  const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders`, { method: 'POST', headers: { Authorization: `Bearer ${tokenBody.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intent: 'CAPTURE', purchase_units: [{ amount: { currency_code: currency, value: Number(amount).toFixed(2) }, description }], application_context: { brand_name: 'Luxora', user_action: 'PAY_NOW' } }) });
-  const order = await orderResponse.json();
-  if (!orderResponse.ok) throw new Error(order?.message || 'PayPal order creation failed');
-  return { orderId: order.id, status: order.status, approvalUrl: order.links?.find((link) => link.rel === 'approve')?.href || null };
-}
-
-export async function capturePayPalOrder(orderId) {
-  const baseUrl = process.env.PAYPAL_BASE_URL || 'https://api-m.sandbox.paypal.com';
-  const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
-  const tokenResponse = await fetch(`${baseUrl}/v1/oauth2/token`, { method: 'POST', headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
-  const tokenBody = await tokenResponse.json();
-  if (!tokenResponse.ok) throw new Error('PayPal authentication failed');
-  const response = await fetch(`${baseUrl}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { method: 'POST', headers: { Authorization: `Bearer ${tokenBody.access_token}`, 'Content-Type': 'application/json' } });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body?.message || 'PayPal capture failed');
-  return body;
+export async function verifyWhatsAppCode(phone, code) {
+  const challenge = await prisma.phoneOtpChallenge.findUnique({ where: { phone } });
+  const approved = Boolean(challenge && challenge.expiresAt > new Date() && await bcrypt.compare(String(code), challenge.codeHash));
+  if (approved) await prisma.phoneOtpChallenge.delete({ where: { phone } });
+  return { configured: true, demo: !whatsAppConfigured(), channel: 'whatsapp', approved, status: approved ? 'approved' : 'pending' };
 }
 
 export function createPayHereFields({ amount, currency = 'LKR', orderId, customer = {}, returnUrl, cancelUrl }) {
