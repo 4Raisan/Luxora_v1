@@ -6,7 +6,7 @@ import { Navigate } from 'react-router-dom'
 // wrong-role visitors from landing on a portal page by typing its URL.
 const HOME_BY_ROLE = { CUSTOMER: '/customer-dashboard', PROVIDER: '/provider-dashboard', ADMIN: '/admin-dashboard' }
 
-export function readSession() {
+function readSession() {
   try {
     const token = sessionStorage.getItem('token')
     if (!token) return null

@@ -94,26 +94,14 @@ const Footer = () => {
               The definitive platform for elite estate management and personal concierge excellence.
             </p>
             <div className="footer__socials">
-              <a href="#" className="footer__social" id="footer-social-share" aria-label="Share">
+              <button type="button" className="footer__social" id="footer-social-share" aria-label="Share" onClick={() => navigator.share?.({ title: 'Luxora', url: window.location.href })}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.5"/>
                   <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/>
                   <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.5"/>
                   <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
-              </a>
-              <a href="#" className="footer__social" id="footer-social-rss" aria-label="RSS Feed">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="5" cy="19" r="1" fill="currentColor"/>
-                </svg>
-              </a>
-              <a href="#" className="footer__social" id="footer-social-linkedin" aria-label="LinkedIn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M7 10v7M7 7v.01M11 17v-3.5a2.5 2.5 0 015 0V17M11 10v7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </a>
+              </button>
             </div>
           </div>
 

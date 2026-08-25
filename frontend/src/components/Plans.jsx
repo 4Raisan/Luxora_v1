@@ -55,17 +55,16 @@ const Plans = () => {
         .filter((plan) => plan.type === 'combo' || (plan.entitlements || []).length > 1)
         .map((plan) => {
           const ents = plan.entitlements || []
+          const coins = ents.reduce((total, entitlement) => total + (Number(entitlement.units) || 0), 0)
           return {
             id: `srv-${plan.id}`,
             serverId: plan.id,
             tier: plan.title,
             price: Number(plan.priceMonthly) || 0,
-            highlight: true,
-            summary: ents.map((e) => `${e.units} × ${e.category_name} service coins / month`).join(' + '),
-            features: [
-              ...ents.map((e) => `${e.units} × ${e.category_name} service sessions / month`),
-              ...(Array.isArray(plan.features) ? plan.features : []),
-            ],
+            coins,
+            highlight: Boolean(plan.recommended),
+            description: plan.description || '',
+            features: Array.isArray(plan.features) ? plan.features : [],
             off: [],
           }
         })
@@ -73,20 +72,18 @@ const Plans = () => {
     return serverPlans
       .filter((plan) => (plan.entitlements || []).some((ent) =>
         String(ent.category_name || '').toLowerCase().includes(categoryId)))
-      .map((plan, index, arr) => {
+      .map((plan) => {
         const ents = plan.entitlements || []
-        const isCombo = ents.length > 1
+        const coins = ents.reduce((total, entitlement) => total + (Number(entitlement.units) || 0), 0)
         return {
           id: `srv-${plan.id}`,
           serverId: plan.id,
           tier: plan.title,
           price: Number(plan.priceMonthly) || 0,
-          highlight: isCombo || (arr.length > 2 && index === 1),
-          summary: ents.map((e) => `${e.units} × ${e.category_name} service coins / month`).join(' + '),
-          features: [
-            ...ents.map((e) => `${e.units} × ${e.category_name} service sessions / month`),
-            ...(Array.isArray(plan.features) ? plan.features : []),
-          ],
+          coins,
+          highlight: Boolean(plan.recommended),
+          description: plan.description || '',
+          features: Array.isArray(plan.features) ? plan.features : [],
           off: [],
         }
       })
@@ -108,7 +105,7 @@ const Plans = () => {
       } else {
         navigate('/login')
       }
-    } catch (_) {
+    } catch {
       navigate('/login')
     }
   }
@@ -176,8 +173,8 @@ const Plans = () => {
                     <span className="plan-card__currency">LKR</span>
                     <span className="plan-card__amount">{plan.price.toLocaleString()}</span>
                   </div>
-                  <p className="plan-card__period">per month</p>
-                  <p className="plan-card__summary">{plan.summary}</p>
+                  <p className="plan-card__period">{plan.coins} {plan.coins === 1 ? 'coin' : 'coins'} per month</p>
+                  {plan.description && <p className="plan-card__summary">{plan.description}</p>}
                 </div>
 
                 <div className="plan-card__divider" />

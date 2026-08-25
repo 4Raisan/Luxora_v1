@@ -25,9 +25,8 @@ const About = () => {
             of homeowners who demand nothing short of perfection.
           </p>
           <p className="about__text">
-            Our curated network of elite service providers spans over 40 countries,
-            ensuring that wherever your estate is located, Luxora&apos;s standard of
-            excellence follows seamlessly.
+            Our curated network of approved service providers supports customers across Sri Lanka,
+            delivering a consistent Luxora standard wherever you are.
           </p>
           <button
             className="about__cta"
