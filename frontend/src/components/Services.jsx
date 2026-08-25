@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import './Services.css'
 
 const services = [
   {
     id: 'auto-care',
+    categoryKey: 'auto',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 30l4-12h24l4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -15,11 +15,12 @@ const services = [
       </svg>
     ),
     title: 'Auto Care',
-    description: 'White-glove vehicle maintenance, detailing, and concierge chauffeur services for your fleet.',
-    features: ['Fleet Management', 'On-Demand Detailing', 'Chauffeur Services'],
+    description: 'Elevated vehicle care, meticulously delivered to keep your car pristine, polished, and effortlessly maintained.',
+    features: ['Premium Exterior Care', 'Immaculate Interior Care', 'Tyre & Glass Finishing'],
   },
   {
     id: 'garden-care',
+    categoryKey: 'garden',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M24 40V20M24 20C24 20 16 16 12 8c6 0 12 4 12 12zM24 20C24 20 32 16 36 8c-6 0-12 4-12 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -28,27 +29,25 @@ const services = [
       </svg>
     ),
     title: 'Garden Care',
-    description: 'Masterful landscape design and pristine estate grounds maintenance by certified horticulturists.',
-    features: ['Landscape Design', 'Seasonal Planting', 'Pool & Water Features'],
+    description: 'Refined garden maintenance designed to preserve the beauty, health, and elegance of your outdoor spaces.',
+    features: ['Precision Lawn Care', 'Bespoke Garden Grooming', 'Plant & Landscape Care'],
   },
   {
-    id: 'pet-wellness',
+    id: 'pet-care',
+    categoryKey: 'pet',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M18 12a4 4 0 100-8 4 4 0 000 8zM30 12a4 4 0 100-8 4 4 0 000 8zM10 22a4 4 0 100-8 4 4 0 000 8zM38 22a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="2"/>
         <path d="M24 44c-7 0-14-5-14-12 0-4 4-8 8-8h12c4 0 8 4 8 8 0 7-7 12-14 12z" stroke="currentColor" strokeWidth="2"/>
       </svg>
     ),
-    title: 'Pet Wellness',
-    description: 'Luxury pet care, grooming, veterinary coordination, and bespoke animal wellness programs.',
-    features: ['Premium Grooming', 'Vet Coordination', 'Pet Sitting & Training'],
+    title: 'Pet Care',
+    description: 'Exceptional grooming and personal care crafted to keep your beloved companions fresh, comfortable, and beautifully cared for.',
+    features: ['Luxury Spa Grooming', 'Gentle Hygiene Care', 'Coat & Wellness Care'],
   },
 ]
 
-
-
 const Services = () => {
-  const navigate = useNavigate()
   const cardsRef = useRef([])
 
   useEffect(() => {
@@ -101,7 +100,11 @@ const Services = () => {
               </ul>
               <button
                 className="service-card__cta"
-                onClick={() => navigate('/signup')}
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('select-plan-category', { detail: service.categoryKey }))
+                  const el = document.getElementById('plans')
+                  if (el) el.scrollIntoView({ behavior: 'smooth' })
+                }}
               >
                 Learn More →
               </button>
