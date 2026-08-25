@@ -74,13 +74,6 @@ const MapPinIcon = () => (
   </svg>
 )
 
-const CoinIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ verticalAlign: '-1px', margin: '0 2px 0 4px' }}>
-    <circle cx="12" cy="12" r="9" stroke="var(--gold)" strokeWidth="2.2" fill="rgba(201, 168, 76, 0.2)" />
-    <path d="M12 7v10M9 10h6M9 14h6" stroke="var(--gold)" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-)
-
 /* ── Sri Lanka towns/provinces for the delivery-address autocomplete.
       Static reference data (like a country list), not business mock data. ── */
 const SRI_LANKA_TOWNS = [
@@ -155,18 +148,9 @@ const SRI_LANKA_TOWNS = [
 const CustomerDashboard = () => {
   const navigate = useNavigate()
 
-  const getUserEmail = () => {
-    try {
-      const u = sessionStorage.getItem('user')
-      if (u) return JSON.parse(u).email || 'guest'
-    } catch (_) {}
-    return 'guest'
-  }
-
   const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'booking' | 'active_bookings' | 'transaction_history'
   const [bookingType, setBookingType] = useState('combo') // 'combo' | 'single'
   const [historyFilter, setHistoryFilter] = useState('all') // 'all' | 'auto' | 'garden' | 'pet'
-  const [showAllHistory, setShowAllHistory] = useState(false)
   const [historySearchInvoice, setHistorySearchInvoice] = useState('')
   const [historySearchPackage, setHistorySearchPackage] = useState('')
   const [historySearchDate, setHistorySearchDate] = useState('')
@@ -185,25 +169,17 @@ const CustomerDashboard = () => {
       const email = u ? JSON.parse(u).email : 'guest'
       const saved = localStorage.getItem('userAddress_' + email) || sessionStorage.getItem('userAddress')
       if (saved) return JSON.parse(saved)
-    } catch (_) {}
+    } catch {}
     return { street: '', city: '', district: '' }
   })
 
-  // Dynamic Active Packages & Booking Confirmation State
-  const [activePackages, setActivePackages] = useState(() => {
-    try {
-      const u = sessionStorage.getItem('user')
-      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-      // User-scoped key only — the old generic sessionStorage fallback leaked
-      // one account's packages into the next login on the same tab.
-      const saved = localStorage.getItem('activePackages_' + email)
-      if (saved) return JSON.parse(saved)
-    } catch (_) {}
-    return []
-  })
+  // Package ownership and coins are always loaded from the backend. This
+  // remains empty only for retired local-only package controls.
+  const [activePackages, setActivePackages] = useState([])
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
+  const [paymentSuccess, setPaymentSuccess] = useState(null)
 
   useEffect(() => {
     try {
@@ -216,69 +192,19 @@ const CustomerDashboard = () => {
         setBookingSuccessMsg('✨ Welcome! Complete your subscription below to activate your chosen package.')
         setTimeout(() => setBookingSuccessMsg(''), 6000)
       }
-    } catch (_) {}
+    } catch {}
   }, [])
-
-  const calculateServiceTokens = (packages) => {
-    let auto = 0
-    let garden = 0
-    let pet = 0
-
-    packages.forEach((pkg) => {
-      const tierLower = (pkg.tier || '').toLowerCase()
-      const titleLower = (pkg.title || '').toLowerCase()
-
-      let tokenVal = 1 // default Basic = 1 token
-      if (tierLower.includes('standard')) tokenVal = 3
-      else if (tierLower.includes('premium')) tokenVal = 6
-      else if (tierLower.includes('basic')) tokenVal = 1
-
-      if (titleLower.includes('full home suite')) {
-        auto += 3
-        garden += 3
-        pet += 3
-      } else if (titleLower.includes('auto & garden')) {
-        auto += 3
-        garden += 3
-      } else if (titleLower.includes('auto & pet')) {
-        auto += 3
-        pet += 3
-      } else if (titleLower.includes('garden & pet')) {
-        garden += 3
-        pet += 3
-      } else if (pkg.cat === 'auto' || titleLower.includes('auto')) {
-        auto += tokenVal
-      } else if (pkg.cat === 'garden' || titleLower.includes('garden')) {
-        garden += tokenVal
-      } else if (pkg.cat === 'pet' || titleLower.includes('pet')) {
-        pet += tokenVal
-      }
-    })
-
-    return { auto, garden, pet }
-  }
-
-  const [usedTokens, setUsedTokens] = useState(() => {
-    try {
-      const u = sessionStorage.getItem('user')
-      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-      const saved = localStorage.getItem('luxora_used_tokens_' + email)
-      if (saved) return JSON.parse(saved)
-    } catch (_) {}
-    return { auto: 0, garden: 0, pet: 0 }
-  })
 
   // Real booking coins from the server entitlement snapshot — declared before
   // the tokens computation below so it can be referenced safely.
   const [serverTokens, setServerTokens] = useState(null)
 
-  const baseTokens = calculateServiceTokens(activePackages)
-  // Server coins win once loaded (they are what the booking API enforces);
-  // local package math is only the pre-load fallback.
+  // Coins are server-authoritative. Before the first response, show zero
+  // instead of reconstructing balances from browser-stored package data.
   const tokens = serverTokens ?? {
-    auto: Math.max(0, baseTokens.auto - (usedTokens.auto || 0)),
-    garden: Math.max(0, baseTokens.garden - (usedTokens.garden || 0)),
-    pet: Math.max(0, baseTokens.pet - (usedTokens.pet || 0))
+    auto: 0,
+    garden: 0,
+    pet: 0
   }
 
   // Renewal/expiry dates follow the SERVER plan duration (durationDays),
@@ -314,71 +240,7 @@ const CustomerDashboard = () => {
   const [activeBookingIdFilter, setActiveBookingIdFilter] = useState('')
   const [activeBookingDateFilter, setActiveBookingDateFilter] = useState('')
   const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
-  const [customerActiveBookings, setCustomerActiveBookings] = useState(() => {
-    try {
-      const u = sessionStorage.getItem('user')
-      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-      // User-scoped key only: the old generic key leaked one account's
-      // bookings into every other account's dashboard.
-      const stored = localStorage.getItem('luxora_customer_bookings_' + email)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) return parsed
-      }
-    } catch (_) {}
-    return []
-  })
-
-  const handleChangeBookingLocation = (bookingId) => {
-    const target = customerActiveBookings.find(b => b.id === bookingId)
-    const currentLoc = target && target.location ? target.location : 'Address not set'
-    const newLoc = prompt(`Enter new dispatch address/location for booking ${bookingId}:`, currentLoc)
-    if (!newLoc || newLoc.trim() === '') return
-
-    try {
-      const u = sessionStorage.getItem('user')
-      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-      const bookingsKey = 'luxora_customer_bookings_' + email
-      const stored = localStorage.getItem(bookingsKey)
-      const existing = stored ? JSON.parse(stored) : []
-      const updated = existing.map(b => b.id === bookingId ? { ...b, location: newLoc.trim() } : b)
-      localStorage.setItem(bookingsKey, JSON.stringify(updated))
-      window.dispatchEvent(new Event('luxora_bookings_updated'))
-
-      setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, location: newLoc.trim() } : b))
-      addNotification({
-        title: '📍 Location Updated',
-        message: `Dispatch location for booking ${bookingId} updated to: ${newLoc.trim()}`,
-        category: 'system'
-      })
-      alert(`Location for booking ${bookingId} updated successfully to: ${newLoc.trim()}`)
-    } catch (_) {}
-  }
-
-  useEffect(() => {
-    const syncActiveBookings = () => {
-      try {
-        const u = sessionStorage.getItem('user')
-        const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-        const stored = localStorage.getItem('luxora_customer_bookings_' + email)
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          if (Array.isArray(parsed)) setCustomerActiveBookings(parsed)
-        } else {
-          setCustomerActiveBookings([])
-        }
-      } catch (_) {}
-    }
-    syncActiveBookings()
-    // Event-driven only: a 1s localStorage poll fought with the server fetch
-    // and re-clobbered the authoritative /bookings/my result every second.
-    window.addEventListener('storage', syncActiveBookings)
-    window.addEventListener('luxora_bookings_updated', syncActiveBookings)
-    return () => {
-      window.removeEventListener('storage', syncActiveBookings)
-      window.removeEventListener('luxora_bookings_updated', syncActiveBookings)
-    }
-  }, [])
+  const [customerActiveBookings, setCustomerActiveBookings] = useState([])
 
   useEffect(() => {
     const token = sessionStorage.getItem('token')
@@ -387,7 +249,7 @@ const CustomerDashboard = () => {
       const mapped = rows.map((booking) => ({
         id: booking.id,
         customer: (() => {
-          try { return JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Customer' } catch (_) { return 'Customer' }
+          try { return JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Customer' } catch { return 'Customer' }
         })(),
         service: booking.service_title || 'Concierge Service',
         status: booking.status.toUpperCase(),
@@ -421,6 +283,9 @@ const CustomerDashboard = () => {
   const [profileEdit, setProfileEdit] = useState({ name: '', phone: '', town: '' })
   const [profileBusy, setProfileBusy] = useState(false)
   const [profileSavedMsg, setProfileSavedMsg] = useState('')
+  const [profilePhoneOtp, setProfilePhoneOtp] = useState('')
+  const [phoneVerificationBusy, setPhoneVerificationBusy] = useState(false)
+  const [phoneVerificationRequired, setPhoneVerificationRequired] = useState(false)
   const [memberSince, setMemberSince] = useState('')
 
   const loadServerData = async () => {
@@ -440,6 +305,9 @@ const CustomerDashboard = () => {
       // Keep the displayed name/phone/town in sync with the server profile so a
       // corrected profile replaces any stale copy cached in sessionStorage.
       if (dash?.profile) {
+        if (dash.profile.addressStreet !== undefined || dash.profile.addressDistrict !== undefined) {
+          setUserAddress({ street: dash.profile.addressStreet || '', city: dash.profile.town || '', district: dash.profile.addressDistrict || '' })
+        }
         setCurrentUser((prev) => {
           const updatedName = dash.profile.name || prev.name
           const updatedPhone = dash.profile.phone !== undefined ? (dash.profile.phone || '') : prev.phone
@@ -449,15 +317,17 @@ const CustomerDashboard = () => {
             name: updatedName,
             phone: updatedPhone,
             town: updatedTown,
+            phoneVerified: Boolean(dash.profile.phoneVerified),
           }
           try {
             const cached = JSON.parse(sessionStorage.getItem('user') || 'null')
             if (cached) {
               sessionStorage.setItem('user', JSON.stringify({ ...cached, name: updatedName, phone: updatedPhone, town: updatedTown }))
             }
-          } catch (_) {}
+          } catch {}
           return updated
         })
+        setPhoneVerificationRequired(Boolean(dash.profile.phone) && !dash.profile.phoneVerified)
       }
       if (dash?.profile?.createdAt) {
         setMemberSince(new Date(dash.profile.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))
@@ -475,9 +345,7 @@ const CustomerDashboard = () => {
         setServerTokens(mapped)
       }
       if (Array.isArray(notes)) {
-        setNotifications(prev => {
-          const local = prev.filter(n => !n.serverId)
-          const mapped = notes.map(n => ({
+        setNotifications(notes.map(n => ({
             id: 'srv-' + n.id,
             serverId: n.id,
             title: 'Luxora update',
@@ -485,14 +353,10 @@ const CustomerDashboard = () => {
             time: new Date(n.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
             unread: !n.read,
             category: 'system'
-          }))
-          return [...mapped, ...local]
-        })
+          })))
       }
       if (Array.isArray(paymentRows?.payments)) {
-        setHistoryData(prev => {
-          const seen = new Set(prev.map(h => h.ref).filter(Boolean))
-          const paid = paymentRows.payments
+        const paid = paymentRows.payments
             .filter(p => p.status === 'COMPLETED')
             .map(p => ({
               id: 'pay-' + p.id,
@@ -504,23 +368,22 @@ const CustomerDashboard = () => {
               status: 'Completed',
               cat: 'system'
             }))
-            .filter(p => !seen.has(p.ref))
-          return paid.length ? [...paid, ...prev] : prev
-        })
+        setHistoryData(paid)
       }
       // Real subscription plans replace the old hardcoded catalog.
       if (Array.isArray(planRows)) {
         setAdminSubscriptions(planRows.map((p) => {
           const ents = p.entitlements || []
           const units = ents.reduce((sum, e) => sum + (Number(e.units) || 0), 0)
-          const combo = ents.length > 1
           return {
             id: 'SUB-' + p.id,
             serverId: p.id,
             title: p.title,
-            type: combo ? 'Combo Package' : 'Single Package',
+            type: p.type || 'Single Package',
+            recommended: Boolean(p.recommended),
+            description: p.description || '',
             cat: ents[0]?.category_name || 'Auto Care',
-            tier: combo ? 'Combo Suite' : (ents[0]?.category_name || 'Care'),
+            tier: p.type || (ents[0]?.category_name || 'Care'),
             visits: units + ' visit' + (units === 1 ? '' : 's') + ' / month',
             tokens: units,
             price: Number(p.priceMonthly) || 0,
@@ -548,7 +411,7 @@ const CustomerDashboard = () => {
     }).catch(() => {
       setCustomerActiveBookings(prev => prev.map(b => b.id === row.id ? { ...b, pinsFetched: true } : b))
     })
-  }, [selectedBookingId])
+  }, [selectedBookingId, customerActiveBookings])
 
   const cancelMembership = async (sub) => {
     if (!window.confirm('Cancel your ' + (sub.plan?.title || 'membership') + '? Remaining credits will lapse.')) return
@@ -606,16 +469,19 @@ const CustomerDashboard = () => {
       if (profileEdit.town.trim() && profileEdit.town.trim() !== (userAddress.city || '')) body.town = profileEdit.town.trim()
       if (profileEdit.phone !== undefined && profileEdit.phone.trim() !== (currentUser.phone || '')) body.phone = profileEdit.phone.trim()
       if (!Object.keys(body).length) { setProfileSavedMsg('Nothing to update.'); return }
-      await apiRequest('/profile', 'PUT', body, token)
+      const savedProfile = await apiRequest('/profile', 'PUT', body, token)
       
       const updated = { ...currentUser }
       if (body.name) updated.name = body.name
-      if (body.phone !== undefined) updated.phone = body.phone
+      if (body.phone !== undefined) {
+        updated.phone = savedProfile.phone
+        updated.phoneVerified = false
+      }
       setCurrentUser(updated)
       try {
         const cached = JSON.parse(sessionStorage.getItem('user') || '{}')
         sessionStorage.setItem('user', JSON.stringify({ ...cached, ...updated }))
-      } catch (_) {}
+      } catch {}
       localStorage.setItem('user_' + currentUser.email, JSON.stringify(updated))
 
       if (body.town) {
@@ -623,11 +489,37 @@ const CustomerDashboard = () => {
         setUserAddress(newAddr)
         localStorage.setItem('userAddress_' + userKey, JSON.stringify(newAddr))
       }
-      setProfileSavedMsg('Profile saved successfully!')
+      if (body.phone !== undefined && savedProfile.phone) {
+        await apiRequest('/profile/phone/send', 'POST', { phone: savedProfile.phone }, token)
+        setPhoneVerificationRequired(true)
+        setProfilePhoneOtp('')
+        setProfileSavedMsg('Phone updated. Enter the WhatsApp code to verify it.')
+      } else {
+        setProfileSavedMsg('Profile saved successfully!')
+      }
     } catch (error) {
       setProfileSavedMsg(error.message || 'Could not save profile.')
     } finally {
       setProfileBusy(false)
+    }
+  }
+
+  const verifyProfilePhone = async () => {
+    if (!currentUser.phone || !/^\d{6}$/.test(profilePhoneOtp)) return
+    const token = sessionStorage.getItem('token')
+    setPhoneVerificationBusy(true)
+    setProfileSavedMsg('')
+    try {
+      const result = await apiRequest('/profile/phone/verify', 'POST', { phone: currentUser.phone, code: profilePhoneOtp }, token)
+      if (!result.approved) throw new Error('Invalid WhatsApp verification code.')
+      setCurrentUser((prev) => ({ ...prev, phoneVerified: true }))
+      setPhoneVerificationRequired(false)
+      setProfilePhoneOtp('')
+      setProfileSavedMsg('WhatsApp number verified.')
+    } catch (error) {
+      setProfileSavedMsg(error.message || 'Could not verify this WhatsApp number.')
+    } finally {
+      setPhoneVerificationBusy(false)
     }
   }
 
@@ -649,7 +541,7 @@ const CustomerDashboard = () => {
 
       // PIN unlocks if session is within 30 minutes of booking (or if booking is today/due/past)
       return diffMinutes <= 30
-    } catch (_) {
+    } catch {
       return true
     }
   }
@@ -663,31 +555,19 @@ const CustomerDashboard = () => {
     }
 
     const token = sessionStorage.getItem('token')
-    if (token && token !== 'demo-token' && Number.isInteger(Number(bookingId))) {
-      apiRequest(`/bookings/${bookingId}/cancel`, 'PUT', null, token).catch((error) => console.warn('Backend cancellation failed.', error))
+    if (!token || token === 'demo-token' || !Number.isInteger(Number(bookingId))) {
+      alert('Please sign in to cancel this booking.')
+      return
     }
-
-    try {
-      const u = sessionStorage.getItem('user')
-      const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-      const bookingsKey = 'luxora_customer_bookings_' + email
-      const stored = localStorage.getItem(bookingsKey)
-      const existing = stored ? JSON.parse(stored) : []
-      const updated = existing.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b)
-
-      localStorage.setItem(bookingsKey, JSON.stringify(updated))
-      window.dispatchEvent(new Event('luxora_bookings_updated'))
-
-      setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
-      setSelectedBookingId(prev => prev === bookingId ? null : prev)
-
-      addNotification({
-        title: '🚫 Booking Cancelled',
-        message: `Your booking ${bookingId} (${serviceName}) has been cancelled.`,
-        category: 'system'
+    apiRequest(`/bookings/${bookingId}/cancel`, 'PUT', null, token)
+      .then(async () => {
+        setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
+        setSelectedBookingId(prev => prev === bookingId ? null : prev)
+        addNotification({ title: 'Booking Cancelled', message: `Your booking ${bookingId} (${serviceName}) has been cancelled.`, category: 'system' })
+        await loadServerData()
+        alert(`Booking ${bookingId} has been cancelled successfully.`)
       })
-      alert(`Booking ${bookingId} has been cancelled successfully.`)
-    } catch (_) {}
+      .catch((error) => alert(error.message || 'Could not cancel this booking.'))
   }
 
   // Service Booking State
@@ -698,7 +578,6 @@ const CustomerDashboard = () => {
     minute: '30',
     ampm: 'AM'
   })
-  const [serviceBookingConfirmation, setServiceBookingConfirmation] = useState(null)
   const [showInsufficientTokensModal, setShowInsufficientTokensModal] = useState(false)
   const [insufficientTokenCategory, setInsufficientTokenCategory] = useState('')
   const [showSessionConfirmedModal, setShowSessionConfirmedModal] = useState(false)
@@ -727,85 +606,48 @@ const CustomerDashboard = () => {
       return
     }
 
-    const selectedPkg = activePackages.find(p => String(p.id) === String(serviceBookingForm.packageId) || p.cat === serviceBookingForm.packageId)
     const serviceTitle = categoryName
-    const servicePrice = selectedPkg ? selectedPkg.price : 'LKR 9,000'
-
     const selectedTimeFormatted = `${serviceBookingForm.hour}:${serviceBookingForm.minute} ${serviceBookingForm.ampm}`
-    const randomPin = Math.floor(1000 + Math.random() * 9000).toString()
-    const randomEndPin = Math.floor(1000 + Math.random() * 9000).toString()
-
-    const userLoc = userAddress && (userAddress.street || userAddress.city)
-      ? `${userAddress.street}, ${userAddress.city}${userAddress.district ? `, ${userAddress.district}` : ''}`
-      : 'Address not set'
-
-    const u = sessionStorage.getItem('user')
-    const email = u ? (JSON.parse(u).email || '').toLowerCase() : 'guest'
-    const userBookingsKey = 'luxora_customer_bookings_' + email
-
-    const stored = localStorage.getItem(userBookingsKey)
-    const existing = stored ? JSON.parse(stored) : []
-    let newB = {
-      id: `B-${String(existing.length + 11).padStart(3, '0')}`,
-      customer: (currentUser && currentUser.name) ? currentUser.name : 'Customer',
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') {
+      alert('Please sign in with your Luxora account to book a service.')
+      return
+    }
+    let created
+    try {
+      await apiRequest('/profile', 'PUT', {
+        town: userAddress.city,
+        address_street: userAddress.street,
+        address_district: userAddress.district,
+      }, token)
+      const services = await apiRequest('/services', 'GET', null, token)
+      const service = services.find((item) => item.category_name === categoryName)
+      if (!service) throw new Error(`No ${categoryName} service is currently available.`)
+      created = await apiRequest('/bookings', 'POST', {
+        service_id: service.id,
+        booking_date: serviceBookingForm.date,
+        booking_time: selectedTimeFormatted,
+      }, token)
+    } catch (error) {
+      alert(error.message || 'Could not create this booking.')
+      return
+    }
+    const newB = {
+      id: created.booking_id,
+      customer: currentUser?.name || 'Customer',
       service: serviceTitle,
-      status: 'CONFIRMED',
+      status: String(created.status).toUpperCase(),
       color: '#4ade80',
       date: serviceBookingForm.date,
       time: selectedTimeFormatted,
-      amount: servicePrice,
-      pin: randomPin,
-      endPin: randomEndPin,
-      location: userLoc,
-      // The server assigns (or defers) the provider; never a fake name.
-      providerName: 'Pending Assignment',
+      amount: `LKR ${Number(created.total_price).toLocaleString()}`,
+      pin: created.start_pin,
+      endPin: created.completion_pin,
+      location: `${userAddress.street}, ${userAddress.city}${userAddress.district ? `, ${userAddress.district}` : ''}`,
+      providerName: String(created.status).toLowerCase() === 'assigned' ? 'Assigned Provider' : 'Awaiting assignment',
       providerRole: '',
-      isSession: true
+      isSession: true,
     }
-
-    // Persist the same booking through the backend so town matching, time-window
-    // rules, provider assignment and PIN generation are enforced server-side.
-    const token = sessionStorage.getItem('token')
-    if (token && token !== 'demo-token') {
-      try {
-        if (userAddress?.city) {
-          await apiRequest('/customer/town', 'PUT', { town: userAddress.city }, token)
-        }
-        const services = await apiRequest('/services', 'GET', null, token)
-        const service = services.find((item) => item.category_name === categoryName) || services[0]
-        if (service) {
-        const created = await apiRequest('/bookings', 'POST', {
-          service_id: service.id,
-          booking_date: serviceBookingForm.date,
-          booking_time: selectedTimeFormatted,
-        }, token)
-        newB = {
-          ...newB,
-          id: created.booking_id,
-          status: created.status.toUpperCase(),
-          amount: `LKR ${Number(created.total_price).toLocaleString()}`,
-          pin: created.pin_code,
-          providerName: created.provider_name || (String(created.status).toLowerCase() === 'assigned' ? 'Assigned Provider' : 'Pending Assignment'),
-          providerRole: '',
-        }
-        }
-      } catch (error) {
-        console.warn('Backend booking unavailable; retaining local demo booking.', error)
-      }
-    }
-
-    const newUsed = {
-      ...usedTokens,
-      [cat]: (usedTokens[cat] || 0) + 1
-    }
-    setUsedTokens(newUsed)
-
-    try {
-      localStorage.setItem('luxora_used_tokens_' + email, JSON.stringify(newUsed))
-      const updated = [newB, ...existing]
-      localStorage.setItem(userBookingsKey, JSON.stringify(updated))
-      window.dispatchEvent(new Event('luxora_bookings_updated'))
-    } catch (_) {}
 
     addNotification({
       title: '📅 Service Session Booked',
@@ -817,7 +659,7 @@ const CustomerDashboard = () => {
     setConfirmedModalDetails({
       ...newB,
       categoryName,
-      remainingTokens: Math.max(0, (tokens[cat] || 1) - 1)
+      remainingTokens: Math.max(0, Number(created.entitlement?.remaining_units) || 0)
     })
     setShowSessionConfirmedModal(true)
     setServiceBookingForm(prev => ({ ...prev, packageId: '' }))
@@ -903,18 +745,10 @@ const CustomerDashboard = () => {
       return
     }
 
-    const u = sessionStorage.getItem('user')
-    const email = u ? (JSON.parse(u).email || '').toLowerCase() : (currentUser && currentUser.email ? currentUser.email.toLowerCase() : 'guest')
-
     const cancelledPkg = activePackages.find(p => String(p.id) === String(targetId)) || packageToCancel
     const updated = activePackages.filter(p => String(p.id) !== String(targetId))
 
     setActivePackages(updated)
-    try {
-      localStorage.setItem('activePackages_' + email, JSON.stringify(updated))
-      window.dispatchEvent(new Event('luxora_packages_updated'))
-      window.dispatchEvent(new Event('storage'))
-    } catch (_) {}
 
     if (cancelledPkg) {
       addNotification({
@@ -923,13 +757,6 @@ const CustomerDashboard = () => {
         category: cancelledPkg.cat || 'system'
       })
 
-      addHistoryRecord({
-        service: cancelledPkg.title,
-        tier: `${cancelledPkg.tier || 'Standard Plan'} (Cancelled)`,
-        amount: 'LKR 0',
-        status: 'Cancelled',
-        cat: cancelledPkg.cat || 'system'
-      })
     }
 
     setSelectedActivePackageToManage(null)
@@ -962,7 +789,7 @@ const CustomerDashboard = () => {
     setPaymentBusy(true)
     try {
       const plans = await apiRequest('/subscriptions')
-      const plan = plans.find((p) => p.title === pkg.title || p.title.endsWith(pkg.title))
+      const plan = plans.find((p) => p.id === pkg.serverId) || plans.find((p) => p.title === pkg.title || p.title.endsWith(pkg.title))
       if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
 
       if (paymentMode === 'payhere') {
@@ -974,16 +801,14 @@ const CustomerDashboard = () => {
         plan_id: plan.id,
         auto_renew: bookingBillingType === 'auto_renew',
       }, token)
-      await apiRequest(`/payments/demo/${order.payment_id}/complete`, 'POST', { outcome: 'success' }, token)
+      const completed = await apiRequest(`/payments/demo/${order.payment_id}/complete`, 'POST', { outcome: 'success' }, token)
 
       // Refresh coins, memberships, payments history and notifications from the server.
       await loadServerData()
       setSelectedPackageToBook(null)
-      setBookingSuccessMsg(`🎉 Successfully subscribed to ${plan.title}! Your service coins are now active.`)
-      setTimeout(() => {
-        setBookingSuccessMsg('')
-        setActiveTab('overview')
-      }, 1800)
+      const coins = completed.receipt?.coins_granted || 0
+      setActiveTab('overview')
+      setPaymentSuccess({ planTitle: plan.title, coins, emailDelivery: completed.email_delivery })
     } catch (error) {
       alert(error.message || 'Subscription could not be completed. Please try again.')
     } finally {
@@ -1001,7 +826,7 @@ const CustomerDashboard = () => {
       // Resolve the selected package to a server subscription plan; the backend
       // checkout works on plan_id, not a raw amount.
       const plans = await apiRequest('/subscriptions')
-      const plan = plans.find((p) => p.title === pkg.title) || plans.find((p) => Number(p.priceMonthly) === amount)
+      const plan = plans.find((p) => p.id === pkg.serverId) || plans.find((p) => p.title === pkg.title) || plans.find((p) => Number(p.priceMonthly) === amount)
       if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
       const order = await apiRequest('/payments/payhere/order', 'POST', { plan_id: plan.id }, token)
       const form = document.createElement('form'); form.method = 'POST'; form.action = order.checkoutUrl
@@ -1022,46 +847,24 @@ const CustomerDashboard = () => {
     if (!supportMessage.trim()) return
 
     const token = sessionStorage.getItem('token')
-    let ref = null
-    if (token) {
-      try {
-        const created = await apiRequest('/complaints', 'POST', {
-            subject: supportCategory,
-            description: supportMessage
-          }, token)
-        // Real server reference so staff can actually trace this message.
-        ref = created?.complaint?.id ? `SUP-${String(created.complaint.id).padStart(4, '0')}` : 'SUP-REGISTERED'
-      } catch (_) {}
+    if (!token || token === 'demo-token') {
+      alert('Please sign in to send a support request.')
+      return
     }
-    if (!ref) ref = 'SUP-2026-LOCAL'
+    let created
+    try {
+      created = await apiRequest('/complaints', 'POST', {
+        subject: supportCategory,
+        description: supportMessage,
+      }, token)
+    } catch (error) {
+      alert(error.message || 'Could not send your support request.')
+      return
+    }
+    const ref = created?.complaint?.id ? `SUP-${String(created.complaint.id).padStart(4, '0')}` : 'SUP-REGISTERED'
 
     setSupportRefNum(ref)
     setSupportSentSuccess(true)
-
-    // Offline fallback only: keep the request visible when the API could not
-    // be reached (ref === 'SUP-2026-LOCAL').
-    if (ref === 'SUP-2026-LOCAL') {
-      try {
-        const saved = localStorage.getItem('luxora_support_complaints')
-        const existing = saved ? JSON.parse(saved) : []
-        const sessionUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-        const complaint = {
-          id: ref,
-          from: sessionUser.name || 'Customer',
-          reporterType: 'Customer',
-          priority: 'MEDIUM',
-          priorityColor: '#eab308',
-          status: 'OPEN',
-          statusBg: '#991b1b',
-          category: supportCategory,
-          detail: `[${supportCategory}] ${supportMessage.trim()}`,
-          createdAt: new Date().toISOString()
-        }
-        const records = Array.isArray(existing) ? existing : []
-        localStorage.setItem('luxora_support_complaints', JSON.stringify([complaint, ...records]))
-        window.dispatchEvent(new Event('luxora_support_complaints_updated'))
-      } catch (_) {}
-    }
 
     setTimeout(() => {
       setSupportSentSuccess(false)
@@ -1076,85 +879,39 @@ const CustomerDashboard = () => {
   // no seeded or cached rows so fake transactions can never render.
   const [historyData, setHistoryData] = useState([])
 
-  const addHistoryRecord = (rec) => {
-    const email = getUserEmail()
-    const now = new Date()
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const dateStr = `${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`
-
-    const newRecord = {
-      id: Date.now(),
-      date: dateStr,
-      service: rec.service || 'Service Subscription',
-      tier: rec.tier || 'Standard',
-      ref: rec.ref || '',
-      amount: rec.amount || '',
-      status: rec.status || 'Completed',
-      cat: rec.cat || 'system'
-    }
-
-    setHistoryData((prev) => {
-      const updated = [newRecord, ...prev]
-      localStorage.setItem('history_' + email, JSON.stringify(updated))
-      return updated
-    })
-  }
-
   // Notification Drawer State — server notifications only (see
   // loadServerData); no seeded rows so fabricated alerts can never render.
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
   const [notifications, setNotifications] = useState([])
 
-  const addNotification = (notif) => {
-    const email = getUserEmail()
-    const newNotif = {
-      id: Date.now(),
-      title: notif.title,
-      message: notif.message,
-      time: 'Just now',
-      unread: true,
-      category: notif.category || 'system'
-    }
-    setNotifications((prev) => {
-      const updated = [newNotif, ...prev]
-      localStorage.setItem('notifications_' + email, JSON.stringify(updated))
-      return updated
-    })
-  }
+  const addNotification = () => { void loadServerData() }
 
   const unreadCount = notifications.filter(n => n.unread).length
 
   const markAllNotifsRead = () => {
-    const email = getUserEmail()
-    setNotifications(prev => {
-      const updated = prev.map(n => ({ ...n, unread: false }))
-      localStorage.setItem('notifications_' + email, JSON.stringify(updated))
-      return updated
-    })
+    const token = sessionStorage.getItem('token')
+    if (!token) return
+    apiRequest('/notifications/read-all', 'PUT', null, token)
+      .then(() => setNotifications(prev => prev.map(n => ({ ...n, unread: false }))))
+      .catch((error) => alert(error.message || 'Could not mark notifications as read.'))
   }
 
   const markNotifAsRead = (id) => {
-    const email = getUserEmail()
-    // Server notifications are also marked read on the backend (best effort).
     const target = notifications.find(n => n.id === id)
-    if (target?.serverId) {
-      const token = sessionStorage.getItem('token')
-      if (token) apiRequest('/notifications/' + target.serverId + '/read', 'PUT', null, token).catch(() => {})
-    }
-    setNotifications(prev => {
-      const updated = prev.map(n => n.id === id ? { ...n, unread: false } : n)
-      localStorage.setItem('notifications_' + email, JSON.stringify(updated.filter(n => !n.serverId)))
-      return updated
-    })
+    const token = sessionStorage.getItem('token')
+    if (!target?.serverId || !token) return
+    apiRequest('/notifications/' + target.serverId + '/read', 'PUT', null, token)
+      .then(() => setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n)))
+      .catch((error) => alert(error.message || 'Could not mark this notification as read.'))
   }
 
   const dismissNotification = (id) => {
-    const email = getUserEmail()
-    setNotifications(prev => {
-      const updated = prev.filter(n => n.id !== id)
-      localStorage.setItem('notifications_' + email, JSON.stringify(updated))
-      return updated
-    })
+    const target = notifications.find(n => n.id === id)
+    const token = sessionStorage.getItem('token')
+    if (!target?.serverId || !token) return
+    apiRequest('/notifications/' + target.serverId, 'DELETE', null, token)
+      .then(() => setNotifications(prev => prev.filter(n => n.id !== id)))
+      .catch((error) => alert(error.message || 'Could not dismiss this notification.'))
   }
 
   // Current User State & LocalStorage Sync
@@ -1174,7 +931,7 @@ const CustomerDashboard = () => {
           ...(saved ? JSON.parse(saved) : {})
         }
       }
-    } catch (_) {}
+    } catch {}
     return {
       name: 'Member',
       email: '',
@@ -1219,7 +976,11 @@ const CustomerDashboard = () => {
     const token = sessionStorage.getItem('token')
     if (token && token !== 'demo-token') {
       try {
-        await apiRequest('/customer/town', 'PUT', { town: newAddr.city }, token)
+        await apiRequest('/profile', 'PUT', {
+          town: newAddr.city,
+          address_street: newAddr.street,
+          address_district: newAddr.district,
+        }, token)
       } catch (error) {
         console.warn('Could not persist customer town to backend.', error)
       }
@@ -1247,9 +1008,6 @@ const CustomerDashboard = () => {
     .filter(b => b.status !== 'CANCELLED' && b.date && b.date >= todayStr)
     .sort((a, b) => `${a.date} ${a.time || ''}`.localeCompare(`${b.date} ${b.time || ''}`))[0] || null
 
-  const totalTokensSum = (tokens.auto || 0) + (tokens.garden || 0) + (tokens.pet || 0)
-
-  const totalMonthlySpend = serverSubscriptions.reduce((sum, sub) => sum + (Number(sub.plan?.priceMonthly) || 0), 0)
     + activePackages.reduce((sum, pkg) => {
       const num = parseInt((pkg.price || '').replace(/[^0-9]/g, '')) || 0
       return sum + num
@@ -1276,6 +1034,23 @@ const CustomerDashboard = () => {
 
   return (
     <div className="cd-page">
+      {paymentSuccess && (
+        <div className="cd-support-overlay" style={{ zIndex: 1000 }}>
+          <div className="cd-support-modal animate-fade-in" style={{ maxWidth: '440px', textAlign: 'center' }} role="dialog" aria-modal="true" aria-label="Payment successful">
+            <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
+              <div className="cd-support-icon-box" style={{ background: 'rgba(34, 197, 94, 0.16)', color: '#4ade80' }}>✓</div>
+              <h2 className="cd-support-modal__title">Demo Payment Successful</h2>
+              <p className="cd-support-modal__subtitle">No real money was charged.</p>
+            </div>
+            <div className="cd-book-confirm-details" style={{ marginTop: '1rem', textAlign: 'left' }}>
+              <div className="cd-book-confirm-row"><span>Package</span><strong>{paymentSuccess.planTitle}</strong></div>
+              <div className="cd-book-confirm-row"><span>Coins added</span><strong className="gold-accent">{paymentSuccess.coins}</strong></div>
+              <div className="cd-book-confirm-row"><span>Receipt email</span><small>{paymentSuccess.emailDelivery === 'sent' ? 'Sent to your account email' : paymentSuccess.emailDelivery === 'not_configured' ? 'Email delivery is not configured' : 'Could not be delivered'}</small></div>
+            </div>
+            <button type="button" className="cd-support-send-btn" style={{ marginTop: '1.5rem' }} onClick={() => setPaymentSuccess(null)}>VIEW MY PACKAGE</button>
+          </div>
+        </div>
+      )}
       {/* ── Top Header ── */}
       <header className="cd-header">
         <div className="cd-header__inner">
@@ -1566,7 +1341,6 @@ const CustomerDashboard = () => {
                       { id: 'pet', title: 'Pet Care', icon: <PawIcon /> }
                     ].map(catItem => {
                       const isSelected = serviceBookingForm.packageId === catItem.id
-                      const activePkg = activePackages.find(p => p.cat === catItem.id)
                       return (
                         <div
                           key={catItem.id}
@@ -1965,7 +1739,7 @@ const CustomerDashboard = () => {
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <span className="cd-popular-badge" style={{ position: 'static', background: 'rgba(201, 168, 76, 0.15)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)' }}>
-                          {(s.cat || 'SINGLE CARE').toUpperCase()}
+                          {s.recommended ? 'MOST POPULAR' : (s.cat || 'SINGLE CARE').toUpperCase()}
                         </span>
                         <span style={{ color: '#888', fontSize: '0.75rem', fontWeight: 600 }}>{s.id}</span>
                       </div>
@@ -1973,6 +1747,7 @@ const CustomerDashboard = () => {
                       <h3 style={{ color: '#fff', fontSize: '1.25rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
                         {s.title.replace('Single Package: ', '')}
                       </h3>
+                      {s.description && <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 0.85rem' }}>{s.description}</p>}
 
                       <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '1rem' }}>
                         LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.8rem', color: '#888', fontWeight: 400 }}>/mo</small>
@@ -2001,6 +1776,7 @@ const CustomerDashboard = () => {
                         }
                         setSelectedPackageToBook({
                           title: s.title.replace('Single Package: ', ''),
+                          serverId: s.serverId,
                           tier: 'Single Package Plan ★',
                           price: `LKR ${Number(s.price).toLocaleString()}`,
                           cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
@@ -2030,7 +1806,7 @@ const CustomerDashboard = () => {
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <span className="cd-combo-badge" style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800 }}>
-                          👑 VIP BUNDLE (-15%)
+                          {s.recommended ? 'MOST POPULAR' : 'COMBO PACKAGE'}
                         </span>
                         <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 700 }}>{s.id}</span>
                       </div>
@@ -2038,7 +1814,7 @@ const CustomerDashboard = () => {
                       <h3 style={{ color: '#fff', fontSize: '1.35rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
                         {s.title.replace('Combo Package: ', '')}
                       </h3>
-                      <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem 0' }}>Comprehensive multi-service estate suite with VIP priority dispatch</p>
+                      <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem 0' }}>{s.description || 'Comprehensive multi-service estate suite with priority dispatch'}</p>
 
                       <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.6rem', fontWeight: 800, marginBottom: '1.1rem' }}>
                         LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.85rem', color: '#888', fontWeight: 400 }}>/mo</small>
@@ -2067,6 +1843,7 @@ const CustomerDashboard = () => {
                         }
                         setSelectedPackageToBook({
                           title: s.title.replace('Combo Package: ', ''),
+                          serverId: s.serverId,
                           tier: 'VIP Combo Suite Plan 👑',
                           price: `LKR ${Number(s.price).toLocaleString()}`,
                           cat: 'system',
@@ -2695,6 +2472,22 @@ const CustomerDashboard = () => {
                   maxLength={15}
                   style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
                 />
+                {phoneVerificationRequired && (
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={profilePhoneOtp}
+                      onChange={(e) => setProfilePhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="WhatsApp code"
+                      style={{ flex: 1, background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
+                    />
+                    <button type="button" disabled={phoneVerificationBusy || profilePhoneOtp.length !== 6} onClick={verifyProfilePhone} style={{ background: 'var(--gold, #c9a84c)', border: 'none', color: '#000', padding: '0.6rem 0.8rem', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}>
+                      {phoneVerificationBusy ? 'VERIFYING…' : 'VERIFY'}
+                    </button>
+                  </div>
+                )}
                 <input
                   type="text"
                   value={profileEdit.town}
