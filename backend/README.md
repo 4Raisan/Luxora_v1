@@ -1,23 +1,81 @@
-# Luxora backend
-Node.js + Express 5, Prisma 6.19, PostgreSQL. The backend owns authentication, authorization, validation, database writes, payment state, entitlement/refund rules, scheduling, notifications, uploads, and integration callbacks.
+# Luxora API
+
+Express + Prisma + PostgreSQL. The API owns authorization, payments, coins, booking state, provider operations, and integrations.
+
+## Run locally
+
+```powershell
+Copy-Item .env.example .env
+npm install
+npm run prisma:generate
+npm run db:push
+npm run seed
+npm run dev
+```
+
+| Check | URL |
+| --- | --- |
+| Health | `http://localhost:5000/api/health` |
+| Docs | `http://localhost:5000/api/docs` |
+| OpenAPI | `http://localhost:5000/api/openapi.json` |
+
 ## Commands
-    npm install
-    Copy-Item .env.example .env
-    npm run prisma:generate
-    npm run db:push
-    npm run seed
-    npm run dev
-The API listens on PORT (normally 5000). Verify GET /api/health, then /api/docs or /api/openapi.json. Production runs prisma generate, prisma migrate deploy, and node src/index.js; do not auto-seed production.
-## Configuration
-Required: DATABASE_URL, JWT_SECRET, PORT, FRONTEND_URL, CORS_ORIGIN. Optional: PayHere, Resend, Meta WhatsApp Cloud API. WhatsApp verification needs a Phone Number ID, access token, and an approved template with one body text parameter for the code. Hosted DATABASE_URL should include connection_limit=5&pool_timeout=10. Never log/commit the URL. CORS_ORIGIN rejects origins outside its explicit allow-list.
-## Source layout
-- src/index.js: middleware, CORS, body limits, mounts, health, errors, startup.
-- src/config: environment parsing and singleton Prisma client.
-- src/middleware: JWT, role authorization, validation.
-- src/routes: auth, bookings, customer, provider, admin, services, refunds, integrations, support, uploads.
-- src/services: entitlements, integrations, payment contracts, scheduling, notifications.
-- prisma/schema.prisma: canonical schema; prisma/migrations: history; prisma/seed.js: local/demo setup.
-## Security
-Passwords are bcrypt hashes and JWTs use JWT_SECRET. Customer reads/writes are user-scoped; provider actions verify assignment; Admin owns all administrative operations. Refunds are unique per subscription and require unused entitlements. Demo success uses the normal pipeline; PayHere is not refunded without gateway confirmation. Validate amounts, states, PIN attempts/locks, and idempotency. Never return hashes, PIN secrets, private paths, or credentials.
-## Database/deploy workflow
-For schema changes: edit Prisma, create/review a named migration, generate, test PostgreSQL, deploy with prisma migrate deploy. Use db:push only for disposable local synchronization; never rewrite applied migrations. For incidents compare deployed commit, effective variables, health, and runtime Prisma errors such as P2037.
+
+```powershell
+npm run prisma:generate
+npm run db:push             # Local disposable database only
+npm run seed                # Local demo accounts/data
+npm start                   # Production: generate + migrate deploy + server
+node --test                 # Run from backend/
+```
+
+## Required environment
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `PORT` | API port, normally `5000` |
+| `FRONTEND_URL` | Public frontend origin |
+| `CORS_ORIGIN` | Comma-separated allowed origins |
+
+## Optional integrations
+
+| Feature | Variables |
+| --- | --- |
+| Resend | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
+| Meta WhatsApp | Phone Number ID, access token, template, template language |
+| PayHere | Merchant ID, secret, base URL, return URL, cancel URL, notify URL |
+| Google sign-in | `GOOGLE_CLIENT_ID` |
+
+## PayHere readiness
+
+`PAYMENT_MODE=demo` is safe for local work.
+
+For `PAYMENT_MODE=payhere`, all callback URLs must be public HTTPS URLs:
+
+```text
+PAYHERE_RETURN_URL=https://app.example.com/customer-dashboard?payment=payhere
+PAYHERE_CANCEL_URL=https://app.example.com/customer-dashboard?payment=cancelled
+PAYHERE_NOTIFY_URL=https://api.example.com/api/payments/payhere/webhook
+```
+
+The API refuses PayHere checkout when these values are missing or placeholders.
+
+## Source map
+
+| Path | Purpose |
+| --- | --- |
+| `src/index.js` | App setup, mounts, health, errors |
+| `src/routes/` | HTTP validation and orchestration |
+| `src/services/` | Payments, coins, scheduling, notifications |
+| `src/middleware/` | JWT, roles, KYC, phone verification, validation |
+| `prisma/schema.prisma` | Database source of truth |
+
+## Production rules
+
+- Run `prisma migrate deploy`.
+- Do not seed production.
+- Do not commit `.env` files or log credentials/PINs.
+- Use an explicit CORS allow-list.
+- Use `db:push` only for disposable local databases.
