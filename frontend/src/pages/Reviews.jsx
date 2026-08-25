@@ -24,7 +24,7 @@ export default function Reviews() {
         if (done.length) setSelected(done[0].id)
       })
       .catch(() => {})
-  }, [token])
+  }, [token, navigate])
 
   const submit = async (e) => {
     e.preventDefault()
