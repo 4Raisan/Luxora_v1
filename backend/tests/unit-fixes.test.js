@@ -35,16 +35,10 @@ test('B11: stored extensions come from sniffed content, not the client filename'
   }
 });
 
-test('B12: payout math is exact Decimal arithmetic, not binary float', () => {
-  const payout = (price) => new Prisma.Decimal(price).mul(0.85).toDecimalPlaces(2);
-  // 10.05 * 0.85 = 8.5425 -> rounds to 8.54 (float math can drift here)
-  assert.equal(payout('10.05').toFixed(2), '8.54');
-  assert.equal(payout('0.07').toFixed(2), '0.06'); // 0.0595 -> 0.06
-  assert.equal(payout(4500).toFixed(2), '3825.00');
-  // Sequential increments stay exact (float drift compounds; Decimal does not)
-  let earnings = new Prisma.Decimal('0.10');
-  for (let i = 0; i < 3; i += 1) earnings = earnings.plus(payout('0.07'));
-  assert.equal(earnings.toFixed(2), '0.28');
+test('B12: configured provider earnings use exact Decimal values', () => {
+  const configuredRates = ['2500.00', '3000.00', '3300.00'].map((value) => new Prisma.Decimal(value));
+  const total = configuredRates.reduce((sum, rate) => sum.plus(rate), new Prisma.Decimal(0));
+  assert.equal(total.toFixed(2), '8800.00');
 });
 
 test('B12: Decimal money serializes to JSON as a number, preserving API shape', () => {
