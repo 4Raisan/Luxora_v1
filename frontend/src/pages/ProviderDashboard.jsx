@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Calendar from '../components/Calendar'
 import { apiRequest } from '../services/api'
@@ -84,12 +84,12 @@ const ProviderDashboard = () => {
   const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const [currentProvider] = useState(() => {
+  const [currentProvider, setCurrentProvider] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('user') || 'null') || {} } catch { return {} }
   })
   const providerFullName = currentProvider.name || 'Provider Partner'
 
-  /* Bookings (assigned + claimable) */
+  /* Bookings assigned by the server scheduling flow */
   const [bookingsList, setBookingsList] = useState([])
   /* Availability / earnings / notifications */
   const [availability, setAvailability] = useState('available')
@@ -114,6 +114,9 @@ const ProviderDashboard = () => {
   const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', services: [], towns: [], provinces: [] })
   const [townSearch, setTownSearch] = useState('')
   const [areaMode, setAreaMode] = useState('towns')
+  const [providerPhoneOtp, setProviderPhoneOtp] = useState('')
+  const [providerPhoneVerificationRequired, setProviderPhoneVerificationRequired] = useState(Boolean(currentProvider.phone) && !currentProvider.phoneVerified)
+  const [providerPhoneVerificationBusy, setProviderPhoneVerificationBusy] = useState(false)
 
   const toggleSettingsTown = (town) => {
     setSettingsForm((prev) => {
@@ -131,7 +134,7 @@ const ProviderDashboard = () => {
     setSettingsForm((prev) => ({ ...prev, provinces: [] }))
   }
 
-  const mapBookingRow = (booking) => {
+  const mapBookingRow = useCallback((booking) => {
     const date = new Date(`${booking.bookingDate}T00:00:00`)
     const status = String(booking.status).toUpperCase()
     return {
@@ -144,20 +147,20 @@ const ProviderDashboard = () => {
       sub: `${booking.customer_name || 'Customer'}${booking.town ? ` • ${booking.town}` : ''}`,
       status,
       color: STATUS_COLORS[status] || '#C9A84C',
-      claimable: status === 'PENDING' && !booking.providerId,
+      claimable: false,
       customerName: booking.customer_name || 'Customer',
       customerPhone: booking.customer_phone || '',
       customerEmail: booking.user?.email || '',
       town: booking.town || '',
-      address: booking.address || '',
+      address: [booking.addressStreet, booking.town, booking.addressDistrict].filter(Boolean).join(', '),
       notes: booking.notes || '',
       price: booking.totalPrice,
       category: booking.category_name || '',
       serviceDesc: booking.service_desc || '',
     }
-  }
+  }, [])
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     if (!token) return navigate('/login', { replace: true })
     setLoading(true)
     try {
@@ -177,26 +180,28 @@ const ProviderDashboard = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, navigate, mapBookingRow])
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!token) return
     try {
       const rows = await apiRequest('/notifications', 'GET', null, token)
       setNotificationsList(Array.isArray(rows) ? rows : [])
-    } catch (_) { /* notifications are non-critical */ }
-  }
+    } catch { /* notifications are non-critical */ }
+  }, [token])
 
-  useEffect(() => { loadAll() }, [])
-  useEffect(() => { loadNotifications() }, [])
+  useEffect(() => { void loadAll() }, [loadAll])
+  useEffect(() => { void loadNotifications() }, [loadNotifications])
 
   /* ── Availability (Manage service availability) ── */
   const saveAvailability = async (value) => {
+    const previous = availability
     setAvailability(value)
     setBusy(true)
     try {
       await apiRequest('/provider/availability', 'PUT', { availability_status: value }, token)
     } catch (error) {
+      setAvailability(previous)
       setLoadError(error.message)
     } finally {
       setBusy(false)
@@ -204,24 +209,6 @@ const ProviderDashboard = () => {
   }
 
   /* ── Booking actions ── */
-  const claimBooking = async (row) => {
-    setBusy(true)
-    try {
-      await apiRequest(`/bookings/${row.apiId}/status`, 'PUT', { status: 'assigned' }, token)
-      await loadAll()
-    } catch (error) {
-      // An earlier click (or another provider) already claimed it — same-status
-      // transition errors mean the booking is in the desired state already.
-      if (/from (\w+) to \1/i.test(error.message || '')) {
-        await loadAll()
-      } else {
-        alert(error.message || 'Could not claim booking.')
-      }
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const submitPinStatus = async () => {
     const { row, next, pin } = pinDialog
     if (!pin || pin.trim().length === 0) {
@@ -275,17 +262,14 @@ const ProviderDashboard = () => {
   /* ── Notifications ── */
   const markNotificationRead = async (id) => {
     setNotificationsList((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    try { await apiRequest(`/notifications/${id}/read`, 'PUT', null, token) } catch (_) {}
+    try { await apiRequest(`/notifications/${id}/read`, 'PUT', null, token) } catch {}
   }
   const markAllNotificationsRead = async () => {
     setNotificationsList((prev) => prev.map((n) => ({ ...n, read: true })))
-    try { await apiRequest('/notifications/read-all', 'PUT', null, token) } catch (_) {}
+    try { await apiRequest('/notifications/read-all', 'PUT', null, token) } catch {}
   }
 
-  /* ── Settings: name, service area (towns XOR provinces) ──
-     Phone and service category are fixed server-side (phone changes need
-     SMS verification; the category is set at registration) — they render
-     read-only instead of faking persistence in localStorage. */
+  /* ── Settings: name, mobile number, and service area. */
 
   const toggleSettingsProvince = (prov) => {
     setSettingsForm((prev) => prev.provinces.includes(prov)
@@ -295,13 +279,13 @@ const ProviderDashboard = () => {
 
   const openSettings = () => {
     const tokens = (serviceTowns || '').split(',').map((t) => t.trim()).filter(Boolean)
-    const provinces = tokens.filter((t) => t.endsWith('Province')).map((t) => t.replace(/ Province$/, ''))
+    const provinces = tokens.filter((t) => t.toLowerCase().startsWith('province:')).map((t) => t.slice('province:'.length))
     setTownSearch('')
     setAreaMode(provinces.length ? 'provinces' : 'towns')
     setSettingsForm({
       name: currentProvider.name || providerFullName,
       phone: currentProvider.phone || currentProvider.mobile || '',
-      towns: tokens.filter((t) => !t.endsWith('Province')),
+      towns: tokens.filter((t) => !t.toLowerCase().startsWith('province:')),
       provinces,
     })
     setShowSettingsModal(true)
@@ -319,12 +303,24 @@ const ProviderDashboard = () => {
     try {
       const name = settingsForm.name.trim()
       if (name && name !== (currentProvider.name || '')) {
-        await apiRequest('/profile', 'PUT', { name }, token)
-        sessionStorage.setItem('user', JSON.stringify({ ...currentProvider, name }))
+        const saved = await apiRequest('/profile', 'PUT', { name }, token)
+        const updated = { ...currentProvider, name: saved.name }
+        setCurrentProvider(updated)
+        sessionStorage.setItem('user', JSON.stringify(updated))
+      }
+      const phone = settingsForm.phone.trim()
+      if (phone && phone !== (currentProvider.phone || currentProvider.mobile || '')) {
+        const saved = await apiRequest('/profile', 'PUT', { phone }, token)
+        const updated = { ...currentProvider, name, phone: saved.phone, phoneVerified: false }
+        setCurrentProvider(updated)
+        sessionStorage.setItem('user', JSON.stringify(updated))
+        await apiRequest('/profile/phone/send', 'POST', { phone: saved.phone }, token)
+        setProviderPhoneVerificationRequired(true)
+        setProviderPhoneOtp('')
       }
       const area = settingsForm.towns.length
         ? settingsForm.towns.join(', ')
-        : settingsForm.provinces.map((p) => `${p} Province`).join(', ')
+        : settingsForm.provinces.map((p) => `province:${p}`).join(', ')
       await apiRequest('/provider/service-towns', 'PUT', { service_towns: area }, token)
       setShowSettingsModal(false)
       await loadAll()
@@ -332,6 +328,24 @@ const ProviderDashboard = () => {
       alert(error.message || 'Could not save settings.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  const verifyProviderPhone = async () => {
+    if (!currentProvider.phone || !/^\d{6}$/.test(providerPhoneOtp)) return
+    setProviderPhoneVerificationBusy(true)
+    try {
+      const result = await apiRequest('/profile/phone/verify', 'POST', { phone: currentProvider.phone, code: providerPhoneOtp }, token)
+      if (!result.approved) throw new Error('Invalid WhatsApp verification code.')
+      const updated = { ...currentProvider, phoneVerified: true }
+      setCurrentProvider(updated)
+      sessionStorage.setItem('user', JSON.stringify(updated))
+      setProviderPhoneVerificationRequired(false)
+      setProviderPhoneOtp('')
+    } catch (error) {
+      alert(error.message || 'Could not verify this WhatsApp number.')
+    } finally {
+      setProviderPhoneVerificationBusy(false)
     }
   }
 
@@ -379,7 +393,7 @@ const ProviderDashboard = () => {
   const renderBookingActions = (row, compact = false) => (
     <>
       {row.claimable && (
-        <button type="button" className="pd-cr-btn-accept" disabled={busy} onClick={() => claimBooking(row)}>
+        <button type="button" className="pd-cr-btn-accept" disabled={busy} onClick={() => alert('Bookings are assigned automatically by Luxora.')}>
           ACCEPT BOOKING
         </button>
       )}
@@ -764,7 +778,7 @@ const ProviderDashboard = () => {
                           <span className="pd-cr-budget">💰 {formatRupees(b.price)}</span>
                         </div>
                         <div className="pd-cr-actions">
-                          <button type="button" className="pd-cr-btn-accept" disabled={busy} onClick={() => claimBooking(b)}>
+                          <button type="button" className="pd-cr-btn-accept" disabled={busy} onClick={() => alert('Bookings are assigned automatically by Luxora.')}>
                             ACCEPT REQUEST
                           </button>
                           <button type="button" className="pd-cr-btn-decline" onClick={() => setSelectedDetailsBooking(b)}>
@@ -1137,14 +1151,28 @@ const ProviderDashboard = () => {
                   type="tel"
                   className="pd-edit-input"
                   value={settingsForm.phone}
-                  readOnly
-                  disabled
-                  placeholder="Not set"
-                  style={{ cursor: 'not-allowed', color: '#999' }}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value.replace(/[^\d+]/g, '').slice(0, 25) })}
+                  placeholder="e.g. +94771234567"
                 />
                 <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.3rem' }}>
-                  Phone changes need SMS verification and are handled by Luxora support.
+                  Keep your mobile number current so customers can reach you about assigned work.
                 </small>
+                {providerPhoneVerificationRequired && (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.65rem' }}>
+                    <input
+                      type="text"
+                      className="pd-edit-input"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={providerPhoneOtp}
+                      onChange={(e) => setProviderPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="WhatsApp verification code"
+                    />
+                    <button type="button" disabled={providerPhoneVerificationBusy || providerPhoneOtp.length !== 6} onClick={verifyProviderPhone} style={{ background: 'var(--gold)', border: 'none', color: '#111', borderRadius: '6px', padding: '0 0.85rem', fontWeight: 800, cursor: 'pointer' }}>
+                      {providerPhoneVerificationBusy ? 'VERIFYING…' : 'VERIFY'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Service category — fixed at registration on the server */}
@@ -1267,7 +1295,7 @@ const ProviderDashboard = () => {
                     </div>
                     {settingsForm.provinces.length > 0 && (
                       <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.35rem' }}>
-                        Covers every town in: {settingsForm.provinces.map((p) => `${p} Province`).join(', ')}.
+                        Covers bookings whose saved delivery province is: {settingsForm.provinces.map((p) => `${p} Province`).join(', ')}.
                       </small>
                     )}
                     {settingsForm.provinces.length === 0 && (
