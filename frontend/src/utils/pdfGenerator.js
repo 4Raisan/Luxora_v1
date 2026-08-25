@@ -206,7 +206,7 @@ export const generateProviderPDF = (data) => {
         doc.setFontSize(8)
         doc.setTextColor(34, 197, 94)
         doc.text('STATUS: VERIFIED ATTACHMENT ✓', 110, imgY + 35)
-      } catch (err) {
+      } catch {
         doc.text('(Uploaded Image Verified)', 110, imgY + 35)
       }
       imgY += 74
@@ -226,7 +226,7 @@ export const generateProviderPDF = (data) => {
         doc.setFontSize(8)
         doc.setTextColor(34, 197, 94)
         doc.text('STATUS: VERIFIED ATTACHMENT ✓', 110, imgY + 35)
-      } catch (err) {
+      } catch {
         doc.text('(Uploaded Image Verified)', 110, imgY + 35)
       }
       imgY += 74
@@ -250,7 +250,7 @@ export const generateProviderPDF = (data) => {
         doc.setFontSize(8)
         doc.setTextColor(34, 197, 94)
         doc.text('STATUS: LIVE SELFIE VERIFIED ✓', 90, imgY + 35)
-      } catch (err) {
+      } catch {
         doc.text('(Uploaded Image Verified)', 90, imgY + 35)
       }
       imgY += 74
