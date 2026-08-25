@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import { generateProviderPDF } from '../utils/pdfGenerator'
@@ -88,7 +88,7 @@ const ProviderRegister = () => {
   }
 
   const handleOtpChange = (e) => {
-    const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 4)
+    const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 6)
     setForm((prev) => ({ ...prev, otp: numbersOnly }))
   }
 
@@ -154,12 +154,12 @@ const ProviderRegister = () => {
       setIsOtpVerified(false)
       setPhoneVerificationToken('')
       setOtpError('')
-    } catch (error) { setOtpError(error.message || 'Could not send OTP.') }
+    } catch (error) { setOtpError(error.message || 'Could not send the WhatsApp code.') }
   }
 
   const handleVerifyOtp = async () => {
-    if (!form.otp || form.otp.length !== 4) {
-      setOtpError('Enter the 4-digit verification code sent to your phone.')
+    if (!form.otp || form.otp.length !== 6) {
+      setOtpError('Enter the 6-digit verification code sent on WhatsApp.')
       return
     }
     try {
@@ -167,7 +167,7 @@ const ProviderRegister = () => {
       setPhoneVerificationToken(result.verification_token)
       setIsOtpVerified(true)
       setOtpError('')
-    } catch (error) { setOtpError(error.message || 'OTP verification failed.') }
+    } catch (error) { setOtpError(error.message || 'WhatsApp verification failed.') }
   }
 
   const nextStep = (e) => {
@@ -178,11 +178,11 @@ const ProviderRegister = () => {
         return
       }
       if (!otpSent) {
-        alert('Click SEND OTP to receive your mobile verification code.')
+        alert('Click SEND WHATSAPP CODE to receive your mobile verification code.')
         return
       }
       if (!isOtpVerified) {
-        alert('Mobile verification required. Enter the code and click VERIFY OTP to continue.')
+        alert('WhatsApp verification required. Enter the code and click VERIFY CODE to continue.')
         return
       }
       if ((form.password || '').length < 6) {
@@ -475,22 +475,22 @@ const ProviderRegister = () => {
               <button type="button" id="pr-send-otp-btn"
                 className={`pr-otp-btn ${isOtpVerified ? 'pr-otp-btn--sent' : otpSent ? 'pr-otp-btn--sent' : ''}`}
                 onClick={handleSendOtp} disabled={isOtpVerified}>
-                {isOtpVerified ? 'VERIFIED ✓' : otpSent ? 'RESEND OTP' : 'SEND OTP'}
+                {isOtpVerified ? 'VERIFIED ✓' : otpSent ? 'RESEND WHATSAPP' : 'SEND WHATSAPP CODE'}
               </button>
             </div>
 
             {otpSent && !isOtpVerified && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#111', padding: '0.85rem', borderRadius: '8px', border: '1px solid #222' }}>
                 <span style={{ color: 'var(--gold)', fontSize: '0.75rem', fontWeight: '600' }}>
-                  📱 Enter the verification code sent to +94 {form.mobile}
+                  Enter the verification code sent via WhatsApp to +94 {form.mobile}
                 </span>
                 <div className="pr-row" style={{ gridTemplateColumns: '1fr auto', gap: '0.6rem' }}>
                   <input id="pr-otp" name="otp" type="text" className="pr-input"
-                    placeholder="Enter 4-Digit Code" value={form.otp}
-                    onChange={(e) => { handleOtpChange(e); setOtpError('') }} required maxLength={4} inputMode="numeric" pattern="[0-9]{4}" title="Please enter the 4-digit verification code" />
+                    placeholder="Enter 6-Digit Code" value={form.otp}
+                    onChange={(e) => { handleOtpChange(e); setOtpError('') }} required maxLength={6} inputMode="numeric" pattern="[0-9]{6}" title="Please enter the 6-digit WhatsApp verification code" />
                   <button type="button" id="pr-verify-otp-btn" className="pr-otp-btn"
                     style={{ background: 'var(--gold)', color: '#000', fontWeight: '800' }} onClick={handleVerifyOtp}>
-                    VERIFY OTP
+                    VERIFY CODE
                   </button>
                 </div>
                 {otpError && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{otpError}</span>}
@@ -499,7 +499,7 @@ const ProviderRegister = () => {
 
             {isOtpVerified && (
               <div style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#4ade80', padding: '0.7rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                ✓ Mobile Number +94 {form.mobile} Verified Successfully
+                ✓ WhatsApp number +94 {form.mobile} verified successfully
               </div>
             )}
 
