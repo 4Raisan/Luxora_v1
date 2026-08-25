@@ -15,8 +15,8 @@ const services = [
       </svg>
     ),
     title: 'Auto Care',
-    description: 'Elevated vehicle care, meticulously delivered to keep your car pristine, polished, and effortlessly maintained.',
-    features: ['Premium Exterior Care', 'Immaculate Interior Care', 'Tyre & Glass Finishing'],
+    description: 'A meticulous standard of vehicle care, preserving every detail from a pristine exterior to an immaculate interior.',
+    features: ['Pristine Exterior Care', 'Immaculate Interior Care', 'Tyre & Glass Finishing'],
   },
   {
     id: 'garden-care',
@@ -29,8 +29,8 @@ const services = [
       </svg>
     ),
     title: 'Garden Care',
-    description: 'Refined garden maintenance designed to preserve the beauty, health, and elegance of your outdoor spaces.',
-    features: ['Precision Lawn Care', 'Bespoke Garden Grooming', 'Plant & Landscape Care'],
+    description: 'Thoughtfully maintained grounds, where manicured lawns, healthy greenery, and refined presentation come together effortlessly.',
+    features: ['Precision Lawn Maintenance', 'Expert Garden Grooming', 'Plant Health & Pruning'],
   },
   {
     id: 'pet-care',
@@ -42,8 +42,8 @@ const services = [
       </svg>
     ),
     title: 'Pet Care',
-    description: 'Exceptional grooming and personal care crafted to keep your beloved companions fresh, comfortable, and beautifully cared for.',
-    features: ['Luxury Spa Grooming', 'Gentle Hygiene Care', 'Coat & Wellness Care'],
+    description: 'Exceptional care for cherished companions, combining gentle grooming, refined hygiene, and attentive personal care.',
+    features: ['Signature Spa Grooming', 'Gentle Hygiene Care', 'Coat & Comfort Care'],
   },
 ]
 
