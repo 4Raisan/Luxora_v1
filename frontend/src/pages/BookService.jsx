@@ -20,7 +20,7 @@ export default function BookService() {
     if (!token) { navigate('/login'); return }
     apiRequest('/services').then(setServices).catch(() => {})
     apiRequest('/categories').then(setCategories).catch(() => {})
-  }, [token])
+  }, [token, navigate])
 
   const submit = async (e) => {
     e.preventDefault()
