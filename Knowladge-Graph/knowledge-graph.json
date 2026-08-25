@@ -1,16 +1,16 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-23T15:30:20.061Z",
+  "generatedAt": "2026-08-25T01:18:05.286Z",
   "stats": {
-    "totalNodes": 163,
-    "totalEdges": 344,
+    "totalNodes": 175,
+    "totalEdges": 369,
     "nodesByGroup": {
-      "database": 29,
+      "database": 33,
       "middleware": 3,
-      "service": 5,
+      "service": 7,
       "routes": 16,
-      "api": 84,
+      "api": 90,
       "frontend": 26
     }
   },
@@ -52,15 +52,19 @@
             "type": "String?"
           },
           {
+            "name": "addressStreet",
+            "type": "String?"
+          },
+          {
+            "name": "addressDistrict",
+            "type": "String?"
+          },
+          {
             "name": "role",
             "type": "Role"
           },
           {
             "name": "active",
-            "type": "Boolean"
-          },
-          {
-            "name": "isSuperAdmin",
             "type": "Boolean"
           },
           {
@@ -164,6 +168,38 @@
       }
     },
     {
+      "id": "model:PhoneOtpChallenge",
+      "label": "PhoneOtpChallenge",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "Int"
+          },
+          {
+            "name": "phone",
+            "type": "String"
+          },
+          {
+            "name": "codeHash",
+            "type": "String"
+          },
+          {
+            "name": "expiresAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "createdAt",
+            "type": "DateTime"
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
       "id": "model:Provider",
       "label": "Provider",
       "type": "DatabaseModel",
@@ -206,6 +242,14 @@
           {
             "name": "earnings",
             "type": "Decimal"
+          },
+          {
+            "name": "bankAccounts",
+            "type": "ProviderBankAccount[]"
+          },
+          {
+            "name": "payouts",
+            "type": "ProviderPayout[]"
           },
           {
             "name": "bookings",
@@ -340,6 +384,10 @@
             "type": "Decimal"
           },
           {
+            "name": "providerEarning",
+            "type": "Decimal"
+          },
+          {
             "name": "durationMins",
             "type": "Int"
           },
@@ -385,6 +433,10 @@
           },
           {
             "name": "active",
+            "type": "Boolean"
+          },
+          {
+            "name": "recommended",
             "type": "Boolean"
           },
           {
@@ -560,6 +612,14 @@
             "type": "String?"
           },
           {
+            "name": "addressStreet",
+            "type": "String?"
+          },
+          {
+            "name": "addressDistrict",
+            "type": "String?"
+          },
+          {
             "name": "status",
             "type": "BookingStatus"
           },
@@ -629,6 +689,10 @@
           },
           {
             "name": "totalPrice",
+            "type": "Decimal"
+          },
+          {
+            "name": "providerEarning",
             "type": "Decimal"
           },
           {
@@ -1196,6 +1260,126 @@
       }
     },
     {
+      "id": "model:ProviderBankAccount",
+      "label": "ProviderBankAccount",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "Int"
+          },
+          {
+            "name": "providerId",
+            "type": "Int"
+          },
+          {
+            "name": "bankName",
+            "type": "String"
+          },
+          {
+            "name": "accountHolder",
+            "type": "String"
+          },
+          {
+            "name": "accountNumber",
+            "type": "String"
+          },
+          {
+            "name": "selected",
+            "type": "Boolean"
+          },
+          {
+            "name": "createdAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "updatedAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "provider",
+            "type": "Provider"
+          },
+          {
+            "name": "payouts",
+            "type": "ProviderPayout[]"
+          },
+          {
+            "name": "@@index([providerId,",
+            "type": "selected])"
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
+      "id": "model:ProviderPayout",
+      "label": "ProviderPayout",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "Int"
+          },
+          {
+            "name": "providerId",
+            "type": "Int"
+          },
+          {
+            "name": "bankAccountId",
+            "type": "Int"
+          },
+          {
+            "name": "period",
+            "type": "String"
+          },
+          {
+            "name": "amount",
+            "type": "Decimal"
+          },
+          {
+            "name": "status",
+            "type": "PayoutStatus"
+          },
+          {
+            "name": "idempotencyKey",
+            "type": "String"
+          },
+          {
+            "name": "paidAt",
+            "type": "DateTime?"
+          },
+          {
+            "name": "createdAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "provider",
+            "type": "Provider"
+          },
+          {
+            "name": "bankAccount",
+            "type": "ProviderBankAccount"
+          },
+          {
+            "name": "@@unique([providerId,",
+            "type": "period])"
+          },
+          {
+            "name": "@@index([period,",
+            "type": "status])"
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
       "id": "enum:Role",
       "label": "Role",
       "type": "Enum",
@@ -1248,7 +1432,6 @@
       "metadata": {
         "values": [
           "PAYHERE",
-          "PAYPAL",
           "DEMO"
         ]
       }
@@ -1341,6 +1524,20 @@
       }
     },
     {
+      "id": "enum:PayoutStatus",
+      "label": "PayoutStatus",
+      "type": "Enum",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "values": [
+          "PENDING",
+          "PAID",
+          "FAILED"
+        ]
+      }
+    },
+    {
       "id": "middleware:auth",
       "label": "auth.js",
       "type": "Middleware",
@@ -1387,7 +1584,9 @@
       "group": "service",
       "file": "backend/src/services/integrations.js",
       "metadata": {
-        "modelsAccessed": []
+        "modelsAccessed": [
+          "phoneOtpChallenge"
+        ]
       }
     },
     {
@@ -1413,11 +1612,31 @@
       }
     },
     {
+      "id": "service:payouts",
+      "label": "payouts.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/payouts.js",
+      "metadata": {
+        "modelsAccessed": []
+      }
+    },
+    {
       "id": "service:scheduling",
       "label": "scheduling.js",
       "type": "Service",
       "group": "service",
       "file": "backend/src/services/scheduling.js",
+      "metadata": {
+        "modelsAccessed": []
+      }
+    },
+    {
+      "id": "service:storage",
+      "label": "storage.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/storage.js",
       "metadata": {
         "modelsAccessed": []
       }
@@ -1633,6 +1852,42 @@
       "metadata": {
         "method": "PUT",
         "path": "/api/admin/complaints/:id",
+        "routeFile": "admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/payouts",
+      "label": "GET /api/admin/payouts",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/payouts",
+        "routeFile": "admin.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/admin/payouts/run",
+      "label": "POST /api/admin/payouts/run",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/admin/payouts/run",
+        "routeFile": "admin.js"
+      }
+    },
+    {
+      "id": "endpoint:PUT_/api/admin/payouts/:id",
+      "label": "PUT /api/admin/payouts/:id",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "PUT",
+        "path": "/api/admin/payouts/:id",
         "routeFile": "admin.js"
       }
     },
@@ -2057,26 +2312,26 @@
       }
     },
     {
-      "id": "endpoint:POST_/api/otp/send",
-      "label": "POST /api/otp/send",
+      "id": "endpoint:POST_/api/whatsapp/send",
+      "label": "POST /api/whatsapp/send",
       "type": "ApiEndpoint",
       "group": "api",
       "file": "backend/src/routes/integrations.js",
       "metadata": {
         "method": "POST",
-        "path": "/api/otp/send",
+        "path": "/api/whatsapp/send",
         "routeFile": "integrations.js"
       }
     },
     {
-      "id": "endpoint:POST_/api/otp/verify",
-      "label": "POST /api/otp/verify",
+      "id": "endpoint:POST_/api/whatsapp/verify",
+      "label": "POST /api/whatsapp/verify",
       "type": "ApiEndpoint",
       "group": "api",
       "file": "backend/src/routes/integrations.js",
       "metadata": {
         "method": "POST",
-        "path": "/api/otp/verify",
+        "path": "/api/whatsapp/verify",
         "routeFile": "integrations.js"
       }
     },
@@ -2123,6 +2378,18 @@
       "metadata": {
         "method": "PUT",
         "path": "/api/notifications/read-all",
+        "routeFile": "notifications.js"
+      }
+    },
+    {
+      "id": "endpoint:DELETE_/api/notifications/:id",
+      "label": "DELETE /api/notifications/:id",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/notifications.js",
+      "metadata": {
+        "method": "DELETE",
+        "path": "/api/notifications/:id",
         "routeFile": "notifications.js"
       }
     },
@@ -2297,6 +2564,30 @@
       "metadata": {
         "method": "GET",
         "path": "/api/provider/earnings",
+        "routeFile": "provider.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/provider/bank-accounts",
+      "label": "POST /api/provider/bank-accounts",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/provider.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/provider/bank-accounts",
+        "routeFile": "provider.js"
+      }
+    },
+    {
+      "id": "endpoint:PUT_/api/provider/bank-accounts/:id/select",
+      "label": "PUT /api/provider/bank-accounts/:id/select",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/provider.js",
+      "metadata": {
+        "method": "PUT",
+        "path": "/api/provider/bank-accounts/:id/select",
         "routeFile": "provider.js"
       }
     },
@@ -2882,6 +3173,18 @@
     },
     {
       "from": "model:Provider",
+      "to": "model:ProviderBankAccount",
+      "type": "DB_RELATION",
+      "label": "bankAccounts"
+    },
+    {
+      "from": "model:Provider",
+      "to": "model:ProviderPayout",
+      "type": "DB_RELATION",
+      "label": "payouts"
+    },
+    {
+      "from": "model:Provider",
       "to": "model:Booking",
       "type": "DB_RELATION",
       "label": "bookings"
@@ -3187,6 +3490,42 @@
       "label": "user"
     },
     {
+      "from": "model:ProviderBankAccount",
+      "to": "model:Provider",
+      "type": "DB_RELATION",
+      "label": "provider"
+    },
+    {
+      "from": "model:ProviderBankAccount",
+      "to": "model:ProviderPayout",
+      "type": "DB_RELATION",
+      "label": "payouts"
+    },
+    {
+      "from": "model:ProviderPayout",
+      "to": "model:PayoutStatus",
+      "type": "DB_RELATION",
+      "label": "status"
+    },
+    {
+      "from": "model:ProviderPayout",
+      "to": "model:Provider",
+      "type": "DB_RELATION",
+      "label": "provider"
+    },
+    {
+      "from": "model:ProviderPayout",
+      "to": "model:ProviderBankAccount",
+      "type": "DB_RELATION",
+      "label": "bankAccount"
+    },
+    {
+      "from": "service:integrations",
+      "to": "model:PhoneOtpChallenge",
+      "type": "QUERIES_DB",
+      "label": "prisma.phoneOtpChallenge"
+    },
+    {
       "from": "service:notify",
       "to": "model:Notification",
       "type": "QUERIES_DB",
@@ -3224,12 +3563,6 @@
     },
     {
       "from": "routefile:admin",
-      "to": "model:User",
-      "type": "QUERIES_DB",
-      "label": "prisma.user"
-    },
-    {
-      "from": "routefile:admin",
       "to": "model:PlatformSetting",
       "type": "QUERIES_DB",
       "label": "prisma.platformSetting"
@@ -3239,6 +3572,12 @@
       "to": "model:Provider",
       "type": "QUERIES_DB",
       "label": "prisma.provider"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "model:User",
+      "type": "QUERIES_DB",
+      "label": "prisma.user"
     },
     {
       "from": "routefile:admin",
@@ -3287,6 +3626,12 @@
       "to": "model:Service",
       "type": "QUERIES_DB",
       "label": "prisma.service"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "model:ProviderPayout",
+      "type": "QUERIES_DB",
+      "label": "prisma.providerPayout"
     },
     {
       "from": "routefile:admin",
@@ -3387,6 +3732,24 @@
     {
       "from": "routefile:admin",
       "to": "endpoint:PUT_/api/admin/complaints/:id",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "PUT"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/payouts",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "endpoint:POST_/api/admin/payouts/run",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "endpoint:PUT_/api/admin/payouts/:id",
       "type": "EXPOSES_ENDPOINT",
       "label": "PUT"
     },
@@ -3734,6 +4097,12 @@
     },
     {
       "from": "routefile:integrations",
+      "to": "service:entitlements",
+      "type": "CALLS_SERVICE",
+      "label": ""
+    },
+    {
+      "from": "routefile:integrations",
       "to": "service:notify",
       "type": "CALLS_SERVICE",
       "label": ""
@@ -3746,15 +4115,15 @@
     },
     {
       "from": "routefile:integrations",
-      "to": "model:Payment",
-      "type": "QUERIES_DB",
-      "label": "prisma.payment"
-    },
-    {
-      "from": "routefile:integrations",
       "to": "model:User",
       "type": "QUERIES_DB",
       "label": "prisma.user"
+    },
+    {
+      "from": "routefile:integrations",
+      "to": "model:Payment",
+      "type": "QUERIES_DB",
+      "label": "prisma.payment"
     },
     {
       "from": "routefile:integrations",
@@ -3812,13 +4181,13 @@
     },
     {
       "from": "routefile:integrations",
-      "to": "endpoint:POST_/api/otp/send",
+      "to": "endpoint:POST_/api/whatsapp/send",
       "type": "EXPOSES_ENDPOINT",
       "label": "POST"
     },
     {
       "from": "routefile:integrations",
-      "to": "endpoint:POST_/api/otp/verify",
+      "to": "endpoint:POST_/api/whatsapp/verify",
       "type": "EXPOSES_ENDPOINT",
       "label": "POST"
     },
@@ -3851,6 +4220,12 @@
       "to": "endpoint:PUT_/api/notifications/read-all",
       "type": "EXPOSES_ENDPOINT",
       "label": "PUT"
+    },
+    {
+      "from": "routefile:notifications",
+      "to": "endpoint:DELETE_/api/notifications/:id",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "DELETE"
     },
     {
       "from": "routefile:profile",
@@ -3980,6 +4355,18 @@
     },
     {
       "from": "routefile:provider",
+      "to": "model:ProviderBankAccount",
+      "type": "QUERIES_DB",
+      "label": "prisma.providerBankAccount"
+    },
+    {
+      "from": "routefile:provider",
+      "to": "model:ProviderPayout",
+      "type": "QUERIES_DB",
+      "label": "prisma.providerPayout"
+    },
+    {
+      "from": "routefile:provider",
       "to": "endpoint:GET_/api/provider/availability",
       "type": "EXPOSES_ENDPOINT",
       "label": "GET"
@@ -4001,6 +4388,18 @@
       "to": "endpoint:GET_/api/provider/earnings",
       "type": "EXPOSES_ENDPOINT",
       "label": "GET"
+    },
+    {
+      "from": "routefile:provider",
+      "to": "endpoint:POST_/api/provider/bank-accounts",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST"
+    },
+    {
+      "from": "routefile:provider",
+      "to": "endpoint:PUT_/api/provider/bank-accounts/:id/select",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "PUT"
     },
     {
       "from": "routefile:refunds",
@@ -4113,6 +4512,12 @@
     {
       "from": "routefile:services",
       "to": "service:entitlements",
+      "type": "CALLS_SERVICE",
+      "label": ""
+    },
+    {
+      "from": "routefile:services",
+      "to": "service:notify",
       "type": "CALLS_SERVICE",
       "label": ""
     },
@@ -4328,25 +4733,7 @@
     },
     {
       "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/providers/:id",
-      "type": "FETCHES_API",
-      "label": "GET"
-    },
-    {
-      "from": "frontend:AdminDashboard",
       "to": "endpoint:GET_/api/admin/stats",
-      "type": "FETCHES_API",
-      "label": "GET"
-    },
-    {
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/reports",
-      "type": "FETCHES_API",
-      "label": "GET"
-    },
-    {
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/categories",
       "type": "FETCHES_API",
       "label": "GET"
     },
@@ -4370,24 +4757,6 @@
     },
     {
       "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/subscriptions",
-      "type": "FETCHES_API",
-      "label": "GET"
-    },
-    {
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:POST_/api/admin/subscriptions",
-      "type": "FETCHES_API",
-      "label": "POST"
-    },
-    {
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/promotions/all",
-      "type": "FETCHES_API",
-      "label": "GET"
-    },
-    {
-      "from": "frontend:AdminDashboard",
       "to": "endpoint:POST_/api/support",
       "type": "FETCHES_API",
       "label": "POST"
@@ -4406,6 +4775,42 @@
     },
     {
       "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/subscriptions",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:POST_/api/admin/subscriptions",
+      "type": "FETCHES_API",
+      "label": "POST"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/categories",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/promotions/all",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/notifications",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/users",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:AdminDashboard",
       "to": "endpoint:GET_/api/admin/settings/scheduling",
       "type": "FETCHES_API",
       "label": "GET"
@@ -4415,6 +4820,12 @@
       "to": "endpoint:PUT_/api/admin/settings/scheduling",
       "type": "FETCHES_API",
       "label": "PUT"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/reports",
+      "type": "FETCHES_API",
+      "label": "GET"
     },
     {
       "from": "frontend:AdminDashboard",
@@ -4430,19 +4841,31 @@
     },
     {
       "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/providers/:id",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:PUT_/api/admin/bookings/:id",
+      "type": "FETCHES_API",
+      "label": "PUT"
+    },
+    {
+      "from": "frontend:AdminDashboard",
       "to": "endpoint:PUT_/api/admin/complaints/:id",
       "type": "FETCHES_API",
       "label": "PUT"
     },
     {
       "from": "frontend:AdminDashboard",
-      "to": "endpoint:PUT_/api/admin/refunds/:id",
+      "to": "endpoint:PUT_/api/support/:id",
       "type": "FETCHES_API",
       "label": "PUT"
     },
     {
       "from": "frontend:AdminDashboard",
-      "to": "endpoint:PUT_/api/support/:id",
+      "to": "endpoint:PUT_/api/admin/refunds/:id",
       "type": "FETCHES_API",
       "label": "PUT"
     },
@@ -4472,27 +4895,21 @@
     },
     {
       "from": "frontend:AdminDashboard",
-      "to": "endpoint:PUT_/api/admin/bookings/:id",
-      "type": "FETCHES_API",
-      "label": "PUT"
-    },
-    {
-      "from": "frontend:AdminDashboard",
       "to": "endpoint:POST_/api/admin/settings/scheduling/restore-defaults",
       "type": "FETCHES_API",
       "label": "POST"
     },
     {
       "from": "frontend:AdminDashboard",
-      "to": "frontend:PortalShell",
-      "type": "RENDERS_COMPONENT",
-      "label": ""
+      "to": "endpoint:PUT_/api/notifications/:id/read",
+      "type": "FETCHES_API",
+      "label": "PUT"
     },
     {
       "from": "frontend:AdminDashboard",
-      "to": "frontend:ui",
-      "type": "RENDERS_COMPONENT",
-      "label": ""
+      "to": "endpoint:PUT_/api/notifications/read-all",
+      "type": "FETCHES_API",
+      "label": "PUT"
     },
     {
       "from": "frontend:BookService",
@@ -4586,13 +5003,19 @@
     },
     {
       "from": "frontend:CustomerDashboard",
-      "to": "endpoint:PUT_/api/bookings/:id/cancel",
+      "to": "endpoint:POST_/api/profile/phone/send",
       "type": "FETCHES_API",
-      "label": "PUT"
+      "label": "POST"
     },
     {
       "from": "frontend:CustomerDashboard",
-      "to": "endpoint:PUT_/api/customer/town",
+      "to": "endpoint:POST_/api/profile/phone/verify",
+      "type": "FETCHES_API",
+      "label": "POST"
+    },
+    {
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:PUT_/api/bookings/:id/cancel",
       "type": "FETCHES_API",
       "label": "PUT"
     },
@@ -4649,6 +5072,12 @@
       "to": "endpoint:POST_/api/complaints",
       "type": "FETCHES_API",
       "label": "POST"
+    },
+    {
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:PUT_/api/notifications/read-all",
+      "type": "FETCHES_API",
+      "label": "PUT"
     },
     {
       "from": "frontend:Login",
@@ -4748,9 +5177,21 @@
     },
     {
       "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/profile/phone/send",
+      "type": "FETCHES_API",
+      "label": "POST"
+    },
+    {
+      "from": "frontend:ProviderDashboard",
       "to": "endpoint:PUT_/api/provider/service-towns",
       "type": "FETCHES_API",
       "label": "PUT"
+    },
+    {
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/profile/phone/verify",
+      "type": "FETCHES_API",
+      "label": "POST"
     },
     {
       "from": "frontend:ProviderDashboard",

@@ -107,7 +107,7 @@ function parsePrismaSchema() {
     if (currentModel) {
       const fieldParts = trimmed.split(/\s+/);
       const fieldName = fieldParts[0];
-      const fieldType = fieldParts[1]?.replace(/[\[\]\?]/g, '');
+      const fieldType = fieldParts[1]?.replace(/[[\]?]/g, '');
 
       const modelNode = nodeMap.get(`model:${currentModel}`);
       if (modelNode && fieldName && fieldType) {
@@ -148,7 +148,6 @@ function parseBackendModules() {
   if (fs.existsSync(middlewareDir)) {
     for (const file of fs.readdirSync(middlewareDir)) {
       if (!file.endsWith('.js')) continue;
-      const filePath = path.join(middlewareDir, file);
       const relPath = `backend/src/middleware/${file}`;
       const id = `middleware:${file.replace('.js', '')}`;
 
@@ -323,14 +322,14 @@ function parseFrontend() {
       // Find API URLs referenced. Frontend apiRequest() calls are relative to
       // API_BASE, so normalize `/provider/...` to the mounted `/api/provider/...`
       // route before matching backend endpoint nodes.
-      const apiPathRegex = /(?:apiRequest|fetch)\(\s*[\'"`](\/[^\'"`?]+)[\'"`]/g;
-      const explicitApiPathRegex = /[\'"`](\/api\/[a-zA-Z0-9_\-\/\$\{\}:]+)[\'"`]/g;
+      const apiPathRegex = /(?:apiRequest|fetch)\(\s*['"`](\/[^'"`?]+)['"`]/g;
+      const explicitApiPathRegex = /['"`](\/api\/[a-zA-Z0-9_\-/${}:]+)['"`]/g;
       let pathMatch;
       const apiMatches = [];
       while ((pathMatch = apiPathRegex.exec(content)) !== null) apiMatches.push(pathMatch[1]);
       while ((pathMatch = explicitApiPathRegex.exec(content)) !== null) apiMatches.push(pathMatch[1]);
       for (const rawPath of apiMatches) {
-        let endpointPath = rawPath.split('?')[0].replace(/\$\{[^}]+\}/g, ':id');
+        let endpointPath = rawPath.split('?')[0].replace(/[$][{][^}]+}/g, ':id');
         if (!endpointPath.startsWith('/api/')) endpointPath = `/api${endpointPath}`;
         addEdge(componentId, 'frontend:api_client', 'USES_CLIENT');
 
@@ -409,7 +408,8 @@ function generateOutput() {
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background: var(--bg-color); color: var(--text-color); height: 100vh; display: flex; overflow: hidden; }
-    #sidebar { width: 380px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; }
+    #sidebar { width: 380px; min-width: 380px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; transition: width 0.22s ease, min-width 0.22s ease, opacity 0.22s ease; }
+    #sidebar.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: 0; }
     #graph-container { flex: 1; height: 100vh; position: relative; }
     .header { padding: 18px 20px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.25); }
     .header h1 { font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
@@ -425,11 +425,34 @@ function generateOutput() {
     .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(21, 29, 48, 0.95); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.75rem; z-index: 5; pointer-events: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
     .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
     .legend-color { width: 12px; height: 12px; border-radius: 50%; }
+    .settings-dock { position: absolute; top: 20px; right: 20px; width: 238px; z-index: 6; background: rgba(21, 29, 48, 0.96); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden; }
+    .settings-dock summary { padding: 12px 14px; color: #fff; font-size: 0.82rem; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+    .settings-dock summary::-webkit-details-marker { display: none; }
+    .settings-dock summary::after { content: '+'; color: #94a3b8; font-size: 1rem; }
+    .settings-dock[open] summary::after { content: '-'; }
+    .settings-content { border-top: 1px solid var(--border-color); padding: 12px 14px 14px; }
+    .settings-section { margin-top: 12px; }
+    .settings-section:first-child { margin-top: 0; }
+    .settings-label { color: #94a3b8; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 7px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #cbd5e1; font-size: 0.74rem; margin-top: 8px; }
+    .settings-row input[type='range'] { width: 112px; accent-color: var(--accent); }
+    .settings-row input[type='checkbox'] { accent-color: var(--accent); }
+    .settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 14px; }
+    .settings-action { min-height: 31px; border: 1px solid var(--border-color); border-radius: 5px; background: #0b0f19; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; }
+    .settings-action:hover, .settings-action:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
+    .sidebar-toggle { position: absolute; top: 14px; left: 14px; z-index: 7; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 5px; background: rgba(21, 29, 48, 0.96); color: #cbd5e1; cursor: pointer; font-size: 0.72rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+    .sidebar-toggle:hover, .sidebar-toggle:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
+    .graph-status { color: #64748b; font-size: 0.7rem; margin-top: 10px; }
     .code-tag { background: #0b0f19; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 0.78rem; color: #38bdf8; word-break: break-all; border: 1px solid #1e293b; }
     .badge-count { background: #1e293b; color: #38bdf8; padding: 2px 6px; border-radius: 10px; font-size: 0.7rem; margin-left: auto; }
     .conn-list { background: #0b0f19; border-radius: 6px; border: 1px solid #1e293b; padding: 8px; max-height: 180px; overflow-y: auto; }
     .conn-item { padding: 4px 0; border-bottom: 1px solid #162032; font-size: 0.78rem; display: flex; justify-content: space-between; }
     .conn-item:last-child { border-bottom: none; }
+    @media (max-width: 760px) {
+      #sidebar { width: min(320px, 44vw); }
+      .settings-dock { top: 12px; right: 12px; width: 218px; }
+      .legend { bottom: 12px; right: 12px; }
+    }
   </style>
 </head>
 <body>
@@ -458,6 +481,32 @@ function generateOutput() {
 
   <div id="graph-container">
     <div id="network" style="width: 100%; height: 100%;"></div>
+    <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="sidebar" aria-expanded="true">Hide panel</button>
+    <details class="settings-dock" open>
+      <summary>Graph Settings</summary>
+      <div class="settings-content">
+        <div class="settings-section">
+          <div class="settings-label">Display</div>
+          <label class="settings-row"><span>Animate physics</span><input id="physicsToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Show edge labels</span><input id="edgeLabelToggle" type="checkbox"></label>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">Scale</div>
+          <label class="settings-row"><span>Node size</span><input id="nodeScale" type="range" min="70" max="160" value="100"></label>
+          <label class="settings-row"><span>Edge strength</span><input id="edgeOpacity" type="range" min="10" max="90" value="35"></label>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">Layout spacing</div>
+          <label class="settings-row"><span>Connected spacing</span><input id="innerSpacing" type="range" min="45" max="180" value="90"></label>
+          <label class="settings-row"><span>Outer pull</span><input id="outerPull" type="range" min="1" max="50" value="5"></label>
+        </div>
+        <div class="settings-actions">
+          <button class="settings-action" id="fitGraph" type="button">Fit graph</button>
+          <button class="settings-action" id="resetGraph" type="button">Reset view</button>
+        </div>
+        <div class="graph-status" id="graphStatus" aria-live="polite"></div>
+      </div>
+    </details>
     <div class="legend">
       <div style="font-weight: bold; margin-bottom: 8px; color: #fff;">System Legend</div>
       <div class="legend-item"><div class="legend-color" style="background:#38bdf8"></div>Frontend UI / Components</div>
@@ -492,7 +541,8 @@ function generateOutput() {
       },
       font: { color: '#ffffff', size: 11, face: 'system-ui' },
       shape: n.group === 'database' ? 'database' : (n.group === 'api' ? 'box' : 'dot'),
-      size: n.group === 'database' ? 20 : (n.group === 'api' ? 14 : 16)
+      size: n.group === 'database' ? 20 : (n.group === 'api' ? 14 : 16),
+      baseSize: n.group === 'database' ? 20 : (n.group === 'api' ? 14 : 16)
     })));
 
     const visEdges = new vis.DataSet(graphData.edges.map((e, idx) => ({
@@ -524,6 +574,99 @@ function generateOutput() {
     };
 
     const network = new vis.Network(container, data, options);
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+
+    function setSidebarCollapsed(collapsed) {
+      sidebar.classList.toggle('collapsed', collapsed);
+      sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+      sidebarToggle.textContent = collapsed ? 'Show panel' : 'Hide panel';
+      window.requestAnimationFrame(() => network.redraw());
+    }
+
+    sidebarToggle.addEventListener('click', () => {
+      setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
+    });
+    const uiState = {
+      group: 'all',
+      term: '',
+      nodeScale: 1,
+      edgeOpacity: 0.35,
+      showEdgeLabels: false,
+      innerSpacing: 90,
+      outerPull: 0.005
+    };
+
+    function matchingNodeIds() {
+      return new Set(graphData.nodes.filter(node => {
+        const matchesGroup = uiState.group === 'all' || node.group === uiState.group;
+        const searchableText = [node.label, node.id, node.file, node.type].filter(Boolean).join(' ').toLowerCase();
+        return matchesGroup && (!uiState.term || searchableText.includes(uiState.term));
+      }).map(node => node.id));
+    }
+
+    function updateGraphVisibility() {
+      const visibleNodeIds = matchingNodeIds();
+      visNodes.forEach(node => visNodes.update({ id: node.id, hidden: !visibleNodeIds.has(node.id) }));
+      visEdges.forEach(edge => visEdges.update({
+        id: edge.id,
+        hidden: !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)
+      }));
+      document.getElementById('graphStatus').textContent = 'Showing ' + visibleNodeIds.size + ' of ' + graphData.nodes.length + ' nodes';
+    }
+
+    function updateNodeScale() {
+      visNodes.forEach(node => visNodes.update({ id: node.id, size: Math.round(node.baseSize * uiState.nodeScale) }));
+    }
+
+    function updateEdgeAppearance() {
+      visEdges.forEach(edge => visEdges.update({
+        id: edge.id,
+        color: { color: 'rgba(148, 163, 184, ' + uiState.edgeOpacity + ')', highlight: '#38bdf8' },
+        font: { color: uiState.showEdgeLabels ? '#94a3b8' : 'rgba(148, 163, 184, 0)', size: 9, align: 'middle' }
+      }));
+    }
+
+    function fitGraph() {
+      network.fit({ animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
+    }
+
+    function updateLayoutSpacing() {
+      network.setOptions({
+        physics: {
+          forceAtlas2Based: {
+            springLength: uiState.innerSpacing,
+            centralGravity: uiState.outerPull
+          }
+        }
+      });
+      network.startSimulation();
+    }
+
+    function resetGraph() {
+      uiState.group = 'all';
+      uiState.term = '';
+      uiState.nodeScale = 1;
+      uiState.edgeOpacity = 0.35;
+      uiState.showEdgeLabels = false;
+      uiState.innerSpacing = 90;
+      uiState.outerPull = 0.005;
+      document.getElementById('searchInput').value = '';
+      document.getElementById('nodeScale').value = '100';
+      document.getElementById('edgeOpacity').value = '35';
+      document.getElementById('innerSpacing').value = '90';
+      document.getElementById('outerPull').value = '5';
+      document.getElementById('edgeLabelToggle').checked = false;
+      document.getElementById('physicsToggle').checked = true;
+      document.querySelectorAll('.filter-btn').forEach(button => button.classList.toggle('active', button.dataset.group === 'all'));
+      visNodes.forEach(node => visNodes.update({ id: node.id, fixed: false, x: null, y: null }));
+      updateGraphVisibility();
+      updateNodeScale();
+      updateEdgeAppearance();
+      updateLayoutSpacing();
+      network.setOptions({ physics: { enabled: true } });
+      fitGraph();
+    }
 
     // Node Selection & Detailed Inspector
     network.on('click', (params) => {
@@ -586,15 +729,8 @@ function generateOutput() {
 
     // Search filter
     document.getElementById('searchInput').addEventListener('input', (e) => {
-      const term = e.target.value.toLowerCase().trim();
-      if (!term) {
-        visNodes.forEach(n => visNodes.update({ id: n.id, hidden: false }));
-        return;
-      }
-      visNodes.forEach(n => {
-        const matches = n.label.toLowerCase().includes(term) || (n.id && n.id.toLowerCase().includes(term));
-        visNodes.update({ id: n.id, hidden: !matches });
-      });
+      uiState.term = e.target.value.toLowerCase().trim();
+      updateGraphVisibility();
     });
 
     // Filter Buttons
@@ -602,16 +738,45 @@ function generateOutput() {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        const group = btn.dataset.group;
-        if (group === 'all') {
-          visNodes.forEach(n => visNodes.update({ id: n.id, hidden: false }));
-        } else {
-          visNodes.forEach(n => {
-            visNodes.update({ id: n.id, hidden: n.group !== group });
-          });
-        }
+        uiState.group = btn.dataset.group;
+        updateGraphVisibility();
       });
     });
+
+    document.getElementById('physicsToggle').addEventListener('change', (event) => {
+      network.setOptions({ physics: { enabled: event.target.checked } });
+      if (event.target.checked) network.startSimulation();
+    });
+
+    document.getElementById('edgeLabelToggle').addEventListener('change', (event) => {
+      uiState.showEdgeLabels = event.target.checked;
+      updateEdgeAppearance();
+    });
+
+    document.getElementById('nodeScale').addEventListener('input', (event) => {
+      uiState.nodeScale = Number(event.target.value) / 100;
+      updateNodeScale();
+    });
+
+    document.getElementById('edgeOpacity').addEventListener('input', (event) => {
+      uiState.edgeOpacity = Number(event.target.value) / 100;
+      updateEdgeAppearance();
+    });
+
+    document.getElementById('innerSpacing').addEventListener('input', (event) => {
+      uiState.innerSpacing = Number(event.target.value);
+      updateLayoutSpacing();
+    });
+
+    document.getElementById('outerPull').addEventListener('input', (event) => {
+      uiState.outerPull = Number(event.target.value) / 1000;
+      updateLayoutSpacing();
+    });
+
+    document.getElementById('fitGraph').addEventListener('click', fitGraph);
+    document.getElementById('resetGraph').addEventListener('click', resetGraph);
+    updateGraphVisibility();
+    updateEdgeAppearance();
   </script>
 </body>
 </html>`;

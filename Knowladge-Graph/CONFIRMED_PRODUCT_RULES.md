@@ -9,6 +9,7 @@ Confirmed with the product owner on 2026-08-23. These rules override older notes
 - Admin can perform all administrative operations, including customer/provider management, plans, bookings, provider assignment, KYC, refunds, promotions, reports, support, and scheduling.
 - Customers can buy subscription plans and book services.
 - Providers fulfil automatically assigned customer bookings.
+- Providers must keep an approved KYC record and verified WhatsApp number to access operational work.
 
 ## Booking flow
 
@@ -31,13 +32,15 @@ Bookings cannot be cancelled once they are `IN_PROGRESS`. Cancellation and entit
 
 - Subscription plans are the purchasing model.
 - Demo payment is used for development/testing.
-- PayHere is the production payment gateway; no PayPal flow is part of the confirmed product.
+- PayHere is the production payment gateway; demo is the local/test payment flow.
 - Credits are deducted when a booking is created/confirmed according to the service category.
 - Buying or renewing a package creates or renews the corresponding credit entitlements.
+- Admin manages package title, type, price, description, coins, and recommendation badge; package duration is fixed at 30 days.
+- PayHere checkout requires public HTTPS return, cancel, and webhook URLs before it can be enabled.
 
 ## Notifications
 
-Purchasing, booking, assignment, status changes, payment events, and other customer/provider/admin operational events should create notifications through the backend notification flow. Confirmed integrations are Resend email and Google sign-in; SMS is not confirmed as active.
+Purchasing, booking, assignment, status changes, payment events, and other customer/provider/admin operational events should create notifications through the backend notification flow. Confirmed integrations are Resend email, Google sign-in, and Meta WhatsApp Cloud API verification. SMS is not used.
 
 ## Provider earnings and profile data
 
@@ -52,14 +55,15 @@ Purchasing, booking, assignment, status changes, payment events, and other custo
 - Google sign-in
 - Resend
 - PayHere
+- Meta WhatsApp Cloud API
 - Development demo-payment mode
 
-## Implementation audit (2026-08-23)
+## Implementation audit (2026-08-25)
 
-The rules above are the product source of truth. The current repository still has these contract gaps, which agents must treat as open implementation work rather than completed behavior:
+The confirmed rules are implemented in the current contract surface:
 
-- **Role authority gap:** the schema, auth middleware, admin routes, and admin UI still contain `isSuperAdmin` / “Super admin” scheduling gates. Those routes must be moved to the normal Admin authority and the obsolete concept removed or made inert.
-- **Payment cleanup gap:** PayHere and demo mode are wired, but PayPal enum/helpers remain in the Prisma schema and integration service. PayPal must not be exposed or selected by application flows.
-- **Earnings gap:** completed-job earnings currently use a global 85% of booking total. This does not implement provider/category fixed rates; rates and the credited amount need persisted configuration and a server-side calculation.
-- **Payout gap:** no confirmed monthly-31st withdrawal ledger, selected-bank model, idempotent payout run, or provider payout history was found in the current contract surface. These need to be designed before claiming automatic withdrawal is complete.
+- Admin owns scheduling and plan management without an additional administrator tier.
+- PayHere and demo payment are the only supported payment flows.
+- Provider earnings are fixed per configured service and captured on the booking when it is created.
+- Providers select a bank account, monthly payout records are queued idempotently on the 31st when `PAYOUT_SCHEDULER_ENABLED=true`, and Admin can review/settle the payout ledger.
 - **KG navigation:** use `AGENT_NAVIGATION_MAP.md` for request paths and trace every feature through route, service, schema, and UI before editing.
