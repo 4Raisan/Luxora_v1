@@ -17,6 +17,7 @@ import Reviews from './pages/Reviews'
 import ResetPassword from './pages/ResetPassword'
 import ErrorBoundary from './components/ErrorBoundary'
 import RequireAuth from './components/RequireAuth'
+import CursorGlow from './components/CursorGlow'
 import './App.css'
 
 // Main landing page layout
@@ -37,6 +38,7 @@ const HomePage = () => (
 function App() {
   return (
     <BrowserRouter>
+      <CursorGlow />
       <div className="app">
         <Routes>
           <Route path="/" element={<HomePage />} />

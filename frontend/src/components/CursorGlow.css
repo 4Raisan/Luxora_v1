@@ -1,0 +1,34 @@
+/* Mouse-following gold glow — one fixed layer above page backgrounds,
+   below nothing interactive (pointer-events: none). */
+.cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(201, 168, 76, 0.17) 0%,
+    rgba(201, 168, 76, 0.08) 36%,
+    rgba(201, 168, 76, 0.02) 58%,
+    rgba(201, 168, 76, 0) 72%
+  );
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  will-change: transform;
+}
+
+@media (max-width: 768px) {
+  .cursor-glow {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-glow {
+    display: none;
+  }
+}
