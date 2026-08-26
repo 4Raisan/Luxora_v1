@@ -72,7 +72,20 @@
   transform: translateX(4px);
 }
 
+.about__highlight {
+  color: var(--white);
+  font-weight: 600;
+}
+
 /* Right - Pillars */
+.about__section-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
 .about__pillars {
   display: grid;
   grid-template-columns: 1fr 1fr;

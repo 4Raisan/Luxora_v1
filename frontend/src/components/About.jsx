@@ -5,10 +5,10 @@ const About = () => {
   const [showVisionModal, setShowVisionModal] = useState(false)
 
   const pillars = [
-    { icon: '◈', title: 'Discretion', desc: 'Absolute privacy and confidentiality in every engagement.' },
-    { icon: '◇', title: 'Craftsmanship', desc: 'Every detail executed to the highest possible standard.' },
-    { icon: '◉', title: 'Exclusivity', desc: 'An intimate network of the world\'s finest service providers.' },
-    { icon: '◆', title: 'Continuity', desc: 'Seamless 24/7 service that anticipates your every need.' },
+    { icon: '◈', title: 'Discretion', desc: 'Your privacy, preferences, and personal spaces are treated with the utmost respect.' },
+    { icon: '◇', title: 'Precision', desc: 'Every service is thoughtfully coordinated and every detail handled with care.' },
+    { icon: '◉', title: 'Trust', desc: 'Verified professionals, dependable service, and a standard you can rely on.' },
+    { icon: '◆', title: 'Continuity', desc: 'Consistent care, seamlessly managed through one refined monthly experience.' },
   ]
 
   return (
@@ -17,16 +17,23 @@ const About = () => {
         {/* Left Column */}
         <div className="about__left">
           <span className="section-label">Our Story</span>
-          <h2 className="about__title">Born from the Belief<br />That Excellence is<br />Non-Negotiable</h2>
+          <h2 className="about__title">A More Refined<br />Way to Live</h2>
           <div className="about__divider" />
           <p className="about__text">
-            Luxora was founded with a singular vision: to create the world&apos;s most
-            refined estate management and concierge platform. We serve an exclusive clientele
-            of homeowners who demand nothing short of perfection.
+            Luxury is not simply about what surrounds you.
+            <br />
+            It is about having the freedom to enjoy it without the burden of managing every detail.
           </p>
           <p className="about__text">
-            Our curated network of approved service providers supports customers across Sri Lanka,
-            delivering a consistent Luxora standard wherever you are.
+            <strong className="about__highlight">
+              Luxora was created to make exceptional living effortless.
+            </strong>
+          </p>
+          <p className="about__text">
+            From the care of your vehicle and the refinement of your garden to the wellbeing of your pets, Luxora brings essential home services together through one seamless concierge experience.
+          </p>
+          <p className="about__text">
+            Our approach is simple: carefully selected professionals, thoughtfully managed services, and a consistent standard of care — all coordinated around your lifestyle.
           </p>
           <button
             className="about__cta"
@@ -40,6 +47,7 @@ const About = () => {
 
         {/* Right Column */}
         <div className="about__right">
+          <h3 className="about__section-heading">Our Principles</h3>
           <div className="about__pillars">
             {pillars.map((p) => (
               <div key={p.title} className="about__pillar">
@@ -56,9 +64,11 @@ const About = () => {
           <div className="about__quote">
             <div className="about__quote-mark">&ldquo;</div>
             <p>
-              The finest luxury is not what you own, but the life you live within it.
+              &ldquo;True luxury is not having more to manage.
+              <br />
+              It is having more time to live.&rdquo;
             </p>
-            <div className="about__quote-author">— Luxora Founding Charter</div>
+            <div className="about__quote-author">— The Luxora Philosophy</div>
           </div>
         </div>
       </div>
