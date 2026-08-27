@@ -103,6 +103,8 @@ const AdminDashboard = () => {
   const [refundNote, setRefundNote] = useState('')
   const [bookingEdit, setBookingEdit] = useState(null)
   const [planEditor, setPlanEditor] = useState(null)
+  const [planDetails, setPlanDetails] = useState(null)
+  const [confirmPlanRemoval, setConfirmPlanRemoval] = useState(false)
   const [promoForm, setPromoForm] = useState({ title: '', description: '', code: '', discount_pct: '' })
   const [reportRange, setReportRange] = useState({ from: '', to: '' })
 
@@ -269,6 +271,21 @@ const AdminDashboard = () => {
   const togglePlanActive = (plan) => runAction(async () => {
     await apiRequest(`/admin/subscriptions/${plan.id}`, 'PUT', { active: !plan.active }, token)
   }, `Package ${plan.active ? 'disabled' : 'enabled'}.`)
+
+  const openPlanEditor = (plan) => {
+    setPlanDetails(null)
+    setConfirmPlanRemoval(false)
+    setPlanEditor({
+      id: plan.id, title: plan.title, type: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Package'].includes(plan.type) ? plan.type : 'Auto Care', price: String(Number(plan.priceMonthly)), duration: plan.durationDays || 30, description: plan.description || '', recommended: Boolean(plan.recommended), active: plan.active,
+      entitlements: Object.fromEntries((plan.entitlements || []).map((entitlement) => [entitlement.categoryId, entitlement.units])),
+    })
+  }
+
+  const removePlan = (plan) => runAction(async () => {
+    await apiRequest(`/admin/subscriptions/${plan.id}`, 'DELETE', null, token)
+    setPlanDetails(null)
+    setConfirmPlanRemoval(false)
+  }, 'Package removed.')
 
   const createPromotion = () => {
     const pct = Number(promoForm.discount_pct)
@@ -561,7 +578,7 @@ const AdminDashboard = () => {
                 <thead><tr><th>ID</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
                 <tbody>
                   {plans.map((p) => (
-                    <tr key={p.id}>
+                    <tr key={p.id} onClick={() => { setPlanDetails(p); setConfirmPlanRemoval(false) }} style={{ cursor: 'pointer' }} title="View package details">
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
                       <td>{p.title}</td>
                       <td>{p.type || '—'}</td>
@@ -571,11 +588,8 @@ const AdminDashboard = () => {
                       <td>{p._count?.userSubscriptions ?? 0}</td>
                       <td><StatBadge value={p.active ? 'active' : 'closed'} /></td>
                       <td style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button style={ghostBtn} onClick={() => setPlanEditor({
-                          id: p.id, title: p.title, type: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Package'].includes(p.type) ? p.type : 'Auto Care', price: String(Number(p.priceMonthly)), duration: p.durationDays || 30, description: p.description || '', recommended: Boolean(p.recommended), active: p.active,
-                          entitlements: Object.fromEntries((p.entitlements || []).map((e) => [e.categoryId, e.units])),
-                        })}>Edit</button>
-                        <button style={p.active ? redBtn : goldBtn} disabled={busy} onClick={() => togglePlanActive(p)}>{p.active ? 'Disable' : 'Enable'}</button>
+                        <button style={ghostBtn} onClick={(event) => { event.stopPropagation(); openPlanEditor(p) }}>Edit</button>
+                        <button style={p.active ? redBtn : goldBtn} disabled={busy} onClick={(event) => { event.stopPropagation(); togglePlanActive(p) }}>{p.active ? 'Disable' : 'Enable'}</button>
                       </td>
                     </tr>
                   ))}
@@ -929,6 +943,42 @@ const AdminDashboard = () => {
             <button style={redBtn} disabled={busy} onClick={() => decideRefund('REJECTED')}>Reject</button>
             <button style={goldBtn} disabled={busy} onClick={() => decideRefund('APPROVED')}>Approve Refund</button>
           </div>
+        </Modal>
+      )}
+
+      {planDetails && (
+        <Modal title={`PACKAGE #${planDetails.id}`} eyebrow={planDetails.type || 'LUXORA PACKAGE'} onClose={() => { setPlanDetails(null); setConfirmPlanRemoval(false) }}>
+          {confirmPlanRemoval ? (
+            <>
+              <p style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.92rem' }}>Remove this package permanently?</p>
+              <p style={{ color: '#bbb', fontSize: '0.84rem', lineHeight: 1.55 }}>
+                This removes <strong style={{ color: '#fff' }}>{planDetails.title}</strong> from the catalogue. Packages with customer purchases or payment history cannot be removed and must be disabled instead.
+              </p>
+              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button style={ghostBtn} disabled={busy} onClick={() => setConfirmPlanRemoval(false)}>Keep Package</button>
+                <button style={redBtn} disabled={busy} onClick={() => removePlan(planDetails)}>{busy ? 'Removing…' : 'Yes, Remove Package'}</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ color: '#fff', fontWeight: 700, fontSize: '1rem', margin: '0 0 0.35rem' }}>{planDetails.title}</p>
+              {planDetails.description && <p style={{ color: '#bbb', fontSize: '0.84rem', lineHeight: 1.5 }}>{planDetails.description}</p>}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '1rem' }}>
+                <div><span style={{ color: '#777', fontSize: '0.7rem' }}>PRICE</span><strong style={{ display: 'block', color: '#fff', marginTop: '0.15rem' }}>{fmtMoney(planDetails.priceMonthly)} / {planDetails.durationDays || 30}d</strong></div>
+                <div><span style={{ color: '#777', fontSize: '0.7rem' }}>STATUS</span><div style={{ marginTop: '0.25rem' }}><StatBadge value={planDetails.active ? 'active' : 'closed'} /></div></div>
+                <div><span style={{ color: '#777', fontSize: '0.7rem' }}>SUBSCRIBERS</span><strong style={{ display: 'block', color: '#fff', marginTop: '0.15rem' }}>{planDetails._count?.userSubscriptions ?? 0}</strong></div>
+                <div><span style={{ color: '#777', fontSize: '0.7rem' }}>RECOMMENDED</span><strong style={{ display: 'block', color: '#fff', marginTop: '0.15rem' }}>{planDetails.recommended ? 'Yes' : 'No'}</strong></div>
+              </div>
+              <div style={{ borderTop: '1px solid #2a2a2a', marginTop: '1rem', paddingTop: '0.9rem' }}>
+                <span style={{ color: '#777', fontSize: '0.7rem', letterSpacing: '0.05em' }}>INCLUDED SERVICE COINS</span>
+                <div style={{ color: '#ddd', fontSize: '0.84rem', marginTop: '0.35rem' }}>{(planDetails.entitlements || []).map((entitlement) => `${entitlement.category?.name || entitlement.categoryId}: ${entitlement.units}`).join(' · ') || 'No entitlements'}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.2rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button style={ghostBtn} disabled={busy} onClick={() => openPlanEditor(planDetails)}>Edit Package</button>
+                <button style={redBtn} disabled={busy} onClick={() => setConfirmPlanRemoval(true)}>Remove Package</button>
+              </div>
+            </>
+          )}
         </Modal>
       )}
 

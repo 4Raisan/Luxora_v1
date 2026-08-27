@@ -120,6 +120,11 @@ const spec = {
         } } } } },
         responses: { '200': { description: 'Updated' } } },
     },
+    '/admin/subscriptions/{id}': {
+      delete: { tags: ['Admin'], summary: 'Remove an unused package', security: bearer,
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: { '200': { description: 'Package removed' }, '409': { description: 'Package has purchase history; disable it instead' } } },
+    },
     '/admin/complaints': { get: { tags: ['Admin'], summary: 'All complaints', security: bearer, responses: { '200': { description: 'Complaints' } } } },
     '/admin/complaints/{id}': {
       put: { tags: ['Admin'], summary: 'Update complaint status (accepts lowercase)', security: bearer,

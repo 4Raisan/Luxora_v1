@@ -41,7 +41,8 @@ All admin routes require Admin JWT; plan and scheduling mutations require Super 
 | GET/PUT | /admin/users[/:id], /admin/providers[/:id/kyc] | Users and KYC |
 | GET/PUT | /admin/bookings[/:id], /admin/complaints[/:id] | Management queues |
 | GET | /admin/subscriptions, /admin/refunds, /support, /promotions/all | Lists |
-| POST/PUT | /admin/subscriptions[/:id], /admin/refunds/:id, /support/:id, /promotions[/:id] | Mutations |
+| POST/PUT/DELETE | /admin/subscriptions[/:id] | Create, update, or remove an unused package |
+| PUT | /admin/refunds/:id, /support/:id, /promotions[/:id] | Mutations |
 | GET/PUT | /admin/settings/scheduling | Super Admin scheduling |
 | POST | /admin/settings/scheduling/restore-defaults | Super Admin reset |
 ## Errors

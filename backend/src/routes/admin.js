@@ -200,6 +200,37 @@ router.put('/subscriptions/:id', async (req, res) => {
   res.json(updated);
 });
 
+// Historical purchases must remain referentially intact. A package may only
+// be removed when it has never been purchased or used as a payment target.
+// Packages with history can be disabled through the existing update endpoint.
+router.delete('/subscriptions/:id', async (req, res) => {
+  const id = toPositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid package id' });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const plan = await tx.subscriptionPlan.findUnique({
+        where: { id },
+        select: { id: true, title: true, _count: { select: { userSubscriptions: true, payments: true } } },
+      });
+      if (!plan) {
+        const error = new Error('Package not found');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (plan._count.userSubscriptions || plan._count.payments) {
+        const error = new Error('This package has purchase history and cannot be removed. Disable it instead.');
+        error.statusCode = 409;
+        throw error;
+      }
+      await tx.subscriptionPlan.delete({ where: { id: plan.id } });
+    }, { isolationLevel: 'Serializable' });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    throw error;
+  }
+  res.json({ message: 'Package removed' });
+});
+
 router.get('/reports', async (req, res) => {
   const from = req.query.from ? new Date(`${req.query.from}T00:00:00.000Z`) : new Date(Date.now() - 30 * 86400000);
   const to = req.query.to ? new Date(`${req.query.to}T23:59:59.999Z`) : new Date();
