@@ -1,17 +1,17 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-25T01:18:05.286Z",
+  "generatedAt": "2026-08-27T10:32:58.653Z",
   "stats": {
-    "totalNodes": 175,
-    "totalEdges": 369,
+    "totalNodes": 177,
+    "totalEdges": 370,
     "nodesByGroup": {
       "database": 33,
       "middleware": 3,
       "service": 7,
       "routes": 16,
-      "api": 90,
-      "frontend": 26
+      "api": 91,
+      "frontend": 27
     }
   },
   "nodes": [
@@ -1796,6 +1796,18 @@
       }
     },
     {
+      "id": "endpoint:DELETE_/api/admin/subscriptions/:id",
+      "label": "DELETE /api/admin/subscriptions/:id",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "DELETE",
+        "path": "/api/admin/subscriptions/:id",
+        "routeFile": "admin.js"
+      }
+    },
+    {
       "id": "endpoint:GET_/api/admin/reports",
       "label": "GET /api/admin/reports",
       "type": "ApiEndpoint",
@@ -2980,6 +2992,14 @@
       "metadata": {}
     },
     {
+      "id": "frontend:CursorGlow",
+      "label": "CursorGlow.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/CursorGlow.jsx",
+      "metadata": {}
+    },
+    {
       "id": "frontend:ErrorBoundary",
       "label": "ErrorBoundary.jsx",
       "type": "FrontendComponent",
@@ -3617,12 +3637,6 @@
     },
     {
       "from": "routefile:admin",
-      "to": "model:SubscriptionEntitlement",
-      "type": "QUERIES_DB",
-      "label": "prisma.subscriptionEntitlement"
-    },
-    {
-      "from": "routefile:admin",
       "to": "model:Service",
       "type": "QUERIES_DB",
       "label": "prisma.service"
@@ -3704,6 +3718,12 @@
       "to": "endpoint:PUT_/api/admin/subscriptions/:id",
       "type": "EXPOSES_ENDPOINT",
       "label": "PUT"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "endpoint:DELETE_/api/admin/subscriptions/:id",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "DELETE"
     },
     {
       "from": "routefile:admin",
@@ -4874,6 +4894,12 @@
       "to": "endpoint:PUT_/api/admin/subscriptions/:id",
       "type": "FETCHES_API",
       "label": "PUT"
+    },
+    {
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:DELETE_/api/admin/subscriptions/:id",
+      "type": "FETCHES_API",
+      "label": "DELETE"
     },
     {
       "from": "frontend:AdminDashboard",
