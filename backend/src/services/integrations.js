@@ -19,38 +19,231 @@ export async function sendEmail({ to, subject, html, text = '' }) {
 
 const DEMO_WHATSAPP_CODE = '123456';
 
-const whatsAppConfigured = () => missing('WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_VERIFY_TEMPLATE').length === 0;
+/**
+ * Normalizes phone numbers to standard E.164 international format.
+ * Correctly handles Sri Lankan formats (07X, 7X, 947X, +947X) and general international numbers.
+ */
+export function normalizePhoneNumber(value) {
+  if (value === undefined || value === null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
 
-export async function sendWhatsAppVerificationCode(phone) {
-  const configured = whatsAppConfigured();
+  // Remove spaces, hyphens, parentheses, and dots
+  const cleaned = raw.replace(/[\s\-().]/g, '');
+
+  // Sri Lankan local 10-digit mobile (07X XXXXXXX -> +947XXXXXXXX)
+  if (/^07\d{8}$/.test(cleaned)) {
+    return `+94${cleaned.slice(1)}`;
+  }
+
+  // Sri Lankan 9-digit mobile without leading 0 (7X XXXXXXX -> +947XXXXXXXX)
+  if (/^7\d{8}$/.test(cleaned)) {
+    return `+94${cleaned}`;
+  }
+
+  // Sri Lankan 11-digit mobile without + (947X XXXXXXX -> +947XXXXXXXX)
+  if (/^947\d{8}$/.test(cleaned)) {
+    return `+${cleaned}`;
+  }
+
+  // Sri Lankan 12-char E.164 (+947X XXXXXXX)
+  if (/^\+947\d{8}$/.test(cleaned)) {
+    return cleaned;
+  }
+
+  // General international E.164 format (+ followed by 7-15 digits)
+  if (/^\+[1-9]\d{6,14}$/.test(cleaned)) {
+    return cleaned;
+  }
+
+  return null;
+}
+
+/**
+ * Validates whether the required Meta WhatsApp Cloud API environment variables are present.
+ */
+export function validateWhatsAppConfig({ strict = false } = {}) {
+  const missingVars = [];
+  if (!process.env.WHATSAPP_PHONE_NUMBER_ID) missingVars.push('WHATSAPP_PHONE_NUMBER_ID');
+  if (!process.env.WHATSAPP_ACCESS_TOKEN) missingVars.push('WHATSAPP_ACCESS_TOKEN');
+  if (!process.env.WHATSAPP_VERIFY_TEMPLATE) missingVars.push('WHATSAPP_VERIFY_TEMPLATE');
+
+  const configured = missingVars.length === 0;
+  if (!configured && strict) {
+    throw new Error(`WhatsApp Cloud API is not configured on the server. Missing environment variable(s): ${missingVars.join(', ')}`);
+  }
+  return { configured, missing: missingVars };
+}
+
+export const whatsAppConfigured = () => validateWhatsAppConfig({ strict: false }).configured;
+
+/**
+ * Sends a 6-digit OTP verification code via Meta WhatsApp Cloud API.
+ */
+export async function sendWhatsAppVerificationCode(phone, { demoAllowed = false } = {}) {
+  const normalizedPhone = normalizePhoneNumber(phone);
+  if (!normalizedPhone) {
+    throw new Error('Please enter a valid phone number in international format or Sri Lankan mobile number (e.g. +94771575701 or 0771575701).');
+  }
+
+  const { configured, missing } = validateWhatsAppConfig({ strict: false });
+
+  // Generate a cryptographically secure 6-digit OTP code (or demo code if unconfigured in dev/test)
   const code = configured ? crypto.randomInt(100000, 1000000).toString() : DEMO_WHATSAPP_CODE;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   const codeHash = await bcrypt.hash(code, 10);
-  await prisma.phoneOtpChallenge.upsert({ where: { phone }, update: { codeHash, expiresAt }, create: { phone, codeHash, expiresAt } });
 
-  if (!configured) return { configured: true, demo: true, channel: 'whatsapp', status: 'pending' };
-  const response = await fetch(`https://graph.facebook.com/${process.env.WHATSAPP_API_VERSION || 'v22.0'}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp', to: phone.replace(/^\+/, ''), type: 'template',
-      template: {
-        name: process.env.WHATSAPP_VERIFY_TEMPLATE,
-        language: { code: process.env.WHATSAPP_VERIFY_TEMPLATE_LANGUAGE || 'en_US' },
-        components: [{ type: 'body', parameters: [{ type: 'text', text: code }] }],
-      },
-    }),
+  await prisma.phoneOtpChallenge.upsert({
+    where: { phone: normalizedPhone },
+    update: { codeHash, expiresAt },
+    create: { phone: normalizedPhone, codeHash, expiresAt },
   });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.error?.message || `WhatsApp Cloud API request failed (${response.status})`);
-  return { configured: true, channel: 'whatsapp', status: 'pending', messageId: result.messages?.[0]?.id };
+
+  if (!configured) {
+    if (demoAllowed || process.env.ALLOW_DEMO_OTP === 'true' || process.env.NODE_ENV !== 'production') {
+      return { configured: false, demo: true, channel: 'whatsapp', status: 'pending', phone: normalizedPhone };
+    }
+    throw new Error(`WhatsApp Cloud API is not configured on the server. Missing environment variable(s): ${missing.join(', ')}`);
+  }
+
+  const apiVersion = process.env.WHATSAPP_API_VERSION || 'v22.0';
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const templateName = process.env.WHATSAPP_VERIFY_TEMPLATE;
+  const templateLang = process.env.WHATSAPP_VERIFY_TEMPLATE_LANGUAGE || 'en_US';
+  const recipient = normalizedPhone.replace(/^\+/, '');
+
+  const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+  const headers = {
+    Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+    'Content-Type': 'application/json',
+  };
+
+  const buildPayload = (includeButton = false) => {
+    if (templateName === 'hello_world') {
+      return {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: recipient,
+        type: 'template',
+        template: {
+          name: 'hello_world',
+          language: { code: templateLang },
+        },
+      };
+    }
+
+    const components = [
+      {
+        type: 'body',
+        parameters: [{ type: 'text', text: code }],
+      },
+    ];
+
+    if (includeButton) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: code }],
+      });
+    }
+
+    return {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: recipient,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: templateLang },
+        components,
+      },
+    };
+  };
+
+  let response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(buildPayload(false)),
+  });
+
+  let result = await response.json().catch(() => ({}));
+
+  // If Meta returns an error indicating button parameters are required (e.g. Authentication template with copy-code button), retry with button component
+  if (!response.ok && templateName !== 'hello_world') {
+    const errMsg = String(result?.error?.message || '');
+    if (errMsg.includes('button') || errMsg.includes('components[1]') || errMsg.includes('Param template') || errMsg.includes('missing')) {
+      const retryResponse = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(buildPayload(true)),
+      });
+      const retryResult = await retryResponse.json().catch(() => ({}));
+      if (retryResponse.ok) {
+        response = retryResponse;
+        result = retryResult;
+      }
+    }
+  }
+
+  if (!response.ok) {
+    const errorMsg = result?.error?.message || `WhatsApp Cloud API request failed (${response.status})`;
+    console.warn('[whatsapp] Meta Cloud API error:', result?.error?.code ? `[Code ${result.error.code}] ${errorMsg}` : errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  return {
+    configured: true,
+    channel: 'whatsapp',
+    status: 'pending',
+    phone: normalizedPhone,
+    messageId: result.messages?.[0]?.id,
+  };
 }
 
+/**
+ * Verifies a 6-digit OTP code against the active challenge in database.
+ */
 export async function verifyWhatsAppCode(phone, code) {
-  const challenge = await prisma.phoneOtpChallenge.findUnique({ where: { phone } });
-  const approved = Boolean(challenge && challenge.expiresAt > new Date() && await bcrypt.compare(String(code), challenge.codeHash));
-  if (approved) await prisma.phoneOtpChallenge.delete({ where: { phone } });
-  return { configured: true, demo: !whatsAppConfigured(), channel: 'whatsapp', approved, status: approved ? 'approved' : 'pending' };
+  const normalizedPhone = normalizePhoneNumber(phone);
+  if (!normalizedPhone) {
+    return { configured: whatsAppConfigured(), channel: 'whatsapp', approved: false, status: 'pending', error: 'Invalid phone number' };
+  }
+
+  const cleanCode = String(code || '').trim();
+  if (!/^\d{6}$/.test(cleanCode)) {
+    return { configured: whatsAppConfigured(), channel: 'whatsapp', approved: false, status: 'pending', error: 'Invalid code format' };
+  }
+
+  const challenge = await prisma.phoneOtpChallenge.findUnique({ where: { phone: normalizedPhone } });
+  const isExpired = !challenge || challenge.expiresAt <= new Date();
+  const matches = Boolean(challenge && !isExpired && await bcrypt.compare(cleanCode, challenge.codeHash));
+
+  if (matches) {
+    await prisma.phoneOtpChallenge.delete({ where: { phone: normalizedPhone } });
+  }
+
+  return {
+    configured: true,
+    demo: !whatsAppConfigured(),
+    channel: 'whatsapp',
+    approved: matches,
+    status: matches ? 'approved' : 'pending',
+    phone: normalizedPhone,
+  };
+}
+
+/**
+ * Disabled: Twilio OTP provider retained for fallback/reference.
+ * To switch delivery provider to Twilio in the future, configure TWILIO_ACCOUNT_SID,
+ * TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID.
+ */
+export async function sendTwilioVerificationCode(_phone) {
+  throw new Error('Twilio OTP delivery is currently disabled. Meta WhatsApp Cloud API is the active provider.');
+}
+
+export async function verifyTwilioCode(_phone, _code) {
+  throw new Error('Twilio OTP delivery is currently disabled. Meta WhatsApp Cloud API is the active provider.');
 }
 
 export function createPayHereFields({ amount, currency = 'LKR', orderId, customer = {}, returnUrl, cancelUrl }) {

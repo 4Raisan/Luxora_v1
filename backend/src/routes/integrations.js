@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/prisma.js';
 import { notify } from '../services/notify.js';
-import { createPayHereFields, sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode, verifyPayHereWebhook } from '../services/integrations.js';
+import { createPayHereFields, sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode, verifyPayHereWebhook, normalizePhoneNumber } from '../services/integrations.js';
 import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { toPositiveInt } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
@@ -180,14 +180,28 @@ router.post('/email', authenticateToken, emailLimiter, async (req, res) => {
   try { res.json(await sendEmail(req.body)); } catch (error) { console.warn('[email] send failed:', error.message); res.status(502).json({ error: 'Email delivery failed' }); }
 });
 router.post('/whatsapp/send', authenticateToken, otpSendLimiter, async (req, res) => {
-  const phone = String(req.body.phone || '').trim();
-  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return res.status(400).json({ error: 'phone must be in E.164 format' });
-  try { res.json(await sendWhatsAppVerificationCode(phone)); } catch (error) { console.warn('[whatsapp] send failed:', error.message); res.status(502).json({ error: 'Could not send WhatsApp verification code' }); }
+  const phone = normalizePhoneNumber(req.body.phone);
+  if (!phone) return res.status(400).json({ error: 'phone must be in valid international format, e.g. +94771234567' });
+  try {
+    const result = await sendWhatsAppVerificationCode(phone, { demoAllowed: true });
+    res.json(result);
+  } catch (error) {
+    console.warn('[whatsapp] send failed:', error.message);
+    res.status(502).json({ error: error.message || 'Could not send WhatsApp verification code' });
+  }
 });
+
 router.post('/whatsapp/verify', authenticateToken, otpVerifyLimiter, async (req, res) => {
-  const phone = String(req.body.phone || '').trim();
-  if (!/^\+[1-9]\d{7,14}$/.test(phone) || !/^\d{6}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'valid phone and 6-digit WhatsApp code are required' });
-  try { res.json(await verifyWhatsAppCode(phone, req.body.code)); } catch (error) { console.warn('[whatsapp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the WhatsApp code' }); }
+  const phone = normalizePhoneNumber(req.body.phone);
+  const code = String(req.body.code || '').trim();
+  if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'valid phone and 6-digit WhatsApp code are required' });
+  try {
+    const result = await verifyWhatsAppCode(phone, code);
+    res.json(result);
+  } catch (error) {
+    console.warn('[whatsapp] verify failed:', error.message);
+    res.status(502).json({ error: error.message || 'Could not verify the WhatsApp code' });
+  }
 });
 
 export default router;
