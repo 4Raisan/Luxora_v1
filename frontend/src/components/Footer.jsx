@@ -9,6 +9,7 @@ const Footer = () => {
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showMembershipTermsModal, setShowMembershipTermsModal] = useState(false)
   const [showCookieModal, setShowCookieModal] = useState(false)
+  const [showContactModal, setShowContactModal] = useState(false)
 
   const columns = [
     {
@@ -65,6 +66,9 @@ const Footer = () => {
     } else if (link === 'Our Vision') {
       e.preventDefault()
       setShowVisionModal(true)
+    } else if (link === 'Contact' || link === 'Contacts') {
+      e.preventDefault()
+      setShowContactModal(true)
     } else if (link === 'Privacy Policy' || link === 'Privacy') {
       e.preventDefault()
       setShowPrivacyModal(true)
@@ -224,6 +228,72 @@ const Footer = () => {
               <button
                 className="about-modal__btn"
                 onClick={() => setShowVisionModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Us Modal Pop-up Window */}
+      {showContactModal && (
+        <div className="about-modal__backdrop" onClick={() => setShowContactModal(false)}>
+          <div className="about-modal__window contact-modal__window" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="about-modal__close"
+              onClick={() => setShowContactModal(false)}
+              aria-label="Close Contact Window"
+            >
+              ✕
+            </button>
+            
+            <div className="about-modal__badge">GET IN TOUCH</div>
+            <h2 className="about-modal__title">Contact Us</h2>
+            
+            <div className="contact-modal__list">
+              <div className="contact-modal__item">
+                <div className="contact-modal__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                    <path d="M22 6l-10 7L2 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="contact-modal__details">
+                  <span className="contact-modal__label">Email Address</span>
+                  <a href="mailto:Luxora123@gmail.com" className="contact-modal__val">Luxora123@gmail.com</a>
+                </div>
+              </div>
+
+              <div className="contact-modal__item">
+                <div className="contact-modal__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="contact-modal__details">
+                  <span className="contact-modal__label">Phone No</span>
+                  <a href="tel:0112345689" className="contact-modal__val">0112345689</a>
+                </div>
+              </div>
+
+              <div className="contact-modal__item">
+                <div className="contact-modal__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="contact-modal__details">
+                  <span className="contact-modal__label">Facebook</span>
+                  <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="contact-modal__val">Luxora Kollow</a>
+                </div>
+              </div>
+            </div>
+
+            <div className="about-modal__footer">
+              <button
+                className="about-modal__btn"
+                onClick={() => setShowContactModal(false)}
               >
                 Close
               </button>
