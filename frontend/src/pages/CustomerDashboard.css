@@ -1135,6 +1135,148 @@
   margin-bottom: 2rem;
 }
 
+.cd-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.cd-profile-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1.25rem;
+}
+
+.cd-profile-avatar-wrap .cd-profile-avatar-lg {
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.cd-avatar-camera-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--gold, #c9a84c);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  border: 2.5px solid #141414;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.cd-avatar-camera-badge:hover {
+  transform: scale(1.12);
+  background: #dfbc5e;
+}
+
+.cd-avatar-delete-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #fff;
+  border: 2px solid #141414;
+  font-size: 0.65rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.cd-avatar-delete-badge:hover {
+  transform: scale(1.15);
+  background: #dc2626;
+}
+
+.cd-photo-edit-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: #101012;
+  border: 1px dashed rgba(201, 168, 76, 0.35);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.cd-photo-edit-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cd-photo-edit-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold, #c9a84c);
+}
+
+.cd-photo-edit-sub {
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.cd-photo-edit-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.cd-btn-photo-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(201, 168, 76, 0.15);
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  color: var(--gold, #c9a84c);
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.cd-btn-photo-pick:hover {
+  background: var(--gold, #c9a84c);
+  color: #000;
+}
+
+.cd-btn-photo-del {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cd-btn-photo-del:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
 .cd-profile-avatar-lg {
   width: 88px;
   height: 88px;
@@ -1148,7 +1290,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.25rem;
   box-shadow: 0 0 25px rgba(201, 168, 76, 0.15);
 }
 

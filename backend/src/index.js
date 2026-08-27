@@ -57,7 +57,7 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json({ limit: '256kb' }));
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '64kb' }));
 
 // Routes

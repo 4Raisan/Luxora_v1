@@ -15,6 +15,7 @@ model User {
   phone String?
   phoneVerified Boolean @default(false)
   town String?
+  avatar String?
   role Role @default(CUSTOMER)
   active Boolean @default(true)
   isSuperAdmin Boolean @default(false)

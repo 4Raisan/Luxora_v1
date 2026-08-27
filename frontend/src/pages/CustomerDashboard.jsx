@@ -61,6 +61,13 @@ const PhoneIcon = () => (
   </svg>
 )
 
+const CameraIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.75"/>
+  </svg>
+)
+
 const ShieldIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -418,7 +425,7 @@ const CustomerDashboard = () => {
   const [reviewComment, setReviewComment] = useState('')
   const [reviewBusy, setReviewBusy] = useState(false)
   const [reviewError, setReviewError] = useState('')
-  const [profileEdit, setProfileEdit] = useState({ name: '', phone: '', town: '' })
+  const [profileEdit, setProfileEdit] = useState({ name: '', phone: '', town: '', avatar: '' })
   const [profileBusy, setProfileBusy] = useState(false)
   const [profileSavedMsg, setProfileSavedMsg] = useState('')
   const [memberSince, setMemberSince] = useState('')
@@ -437,25 +444,30 @@ const CustomerDashboard = () => {
       ])
       if (mode?.mode) setPaymentMode(mode.mode)
       if (Array.isArray(dash?.activeSubscriptions)) setServerSubscriptions(dash.activeSubscriptions)
-      // Keep the displayed name/phone/town in sync with the server profile so a
+      // Keep the displayed name/phone/town/avatar in sync with the server profile so a
       // corrected profile replaces any stale copy cached in sessionStorage.
       if (dash?.profile) {
         setCurrentUser((prev) => {
           const updatedName = dash.profile.name || prev.name
           const updatedPhone = dash.profile.phone !== undefined ? (dash.profile.phone || '') : prev.phone
           const updatedTown = dash.profile.town !== undefined ? (dash.profile.town || '') : prev.town
+          const updatedAvatar = dash.profile.avatar !== undefined ? (dash.profile.avatar || '') : (prev.avatar || '')
           const updated = {
             ...prev,
             name: updatedName,
             phone: updatedPhone,
             town: updatedTown,
+            avatar: updatedAvatar,
           }
           try {
             const cached = JSON.parse(sessionStorage.getItem('user') || 'null')
             if (cached) {
-              sessionStorage.setItem('user', JSON.stringify({ ...cached, name: updatedName, phone: updatedPhone, town: updatedTown }))
+              sessionStorage.setItem('user', JSON.stringify({ ...cached, name: updatedName, phone: updatedPhone, town: updatedTown, avatar: updatedAvatar }))
             }
           } catch (_) {}
+          if (updatedAvatar) {
+            try { localStorage.setItem('userAvatar_' + (prev.email || 'guest'), updatedAvatar) } catch (_) {}
+          }
           return updated
         })
       }
@@ -595,6 +607,52 @@ const CustomerDashboard = () => {
     }
   }
 
+  const handleAvatarFileSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setProfileSavedMsg('Please select a valid image file (JPEG, PNG, WebP).')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileSavedMsg('Image must be smaller than 5MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const maxDim = 320
+        let w = img.width
+        let h = img.height
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w)
+            w = maxDim
+          } else {
+            w = Math.round((w * maxDim) / h)
+            h = maxDim
+          }
+        }
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, w, h)
+        const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.85)
+        setProfileEdit((prev) => ({ ...prev, avatar: resizedDataUrl }))
+        setProfileSavedMsg('Photo chosen! Click "SAVE PROFILE" below to apply.')
+      }
+      img.src = evt.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveAvatar = () => {
+    setProfileEdit((prev) => ({ ...prev, avatar: '' }))
+    setProfileSavedMsg('Photo removed. Click "SAVE PROFILE" below to apply.')
+  }
+
   const saveProfileEdits = async (e) => {
     e.preventDefault()
     const token = sessionStorage.getItem('token')
@@ -605,12 +663,21 @@ const CustomerDashboard = () => {
       if (profileEdit.name.trim() && profileEdit.name.trim() !== currentUser.name) body.name = profileEdit.name.trim()
       if (profileEdit.town.trim() && profileEdit.town.trim() !== (userAddress.city || '')) body.town = profileEdit.town.trim()
       if (profileEdit.phone !== undefined && profileEdit.phone.trim() !== (currentUser.phone || '')) body.phone = profileEdit.phone.trim()
+      if (profileEdit.avatar !== undefined && profileEdit.avatar !== (currentUser.avatar || '')) body.avatar = profileEdit.avatar
       if (!Object.keys(body).length) { setProfileSavedMsg('Nothing to update.'); return }
       await apiRequest('/profile', 'PUT', body, token)
       
       const updated = { ...currentUser }
       if (body.name) updated.name = body.name
       if (body.phone !== undefined) updated.phone = body.phone
+      if (body.avatar !== undefined) {
+        updated.avatar = body.avatar
+        if (body.avatar) {
+          try { localStorage.setItem('userAvatar_' + userKey, body.avatar) } catch (_) {}
+        } else {
+          try { localStorage.removeItem('userAvatar_' + userKey) } catch (_) {}
+        }
+      }
       setCurrentUser(updated)
       try {
         const cached = JSON.parse(sessionStorage.getItem('user') || '{}')
@@ -1164,12 +1231,14 @@ const CustomerDashboard = () => {
       if (u) {
         const parsed = JSON.parse(u)
         const saved = localStorage.getItem('user_' + (parsed.email || 'guest'))
+        const localAvatar = localStorage.getItem('userAvatar_' + (parsed.email || 'guest'))
         // Merge over defaults so a stale saved profile can never leave
         // name/email undefined for .trim() calls downstream.
         return {
           name: parsed.name || 'Member',
           email: parsed.email || '',
           phone: parsed.phone || '',
+          avatar: parsed.avatar || localAvatar || '',
           id: parsed.id ? `CUS-2026-0${parsed.id}` : '',
           ...(saved ? JSON.parse(saved) : {})
         }
@@ -1179,6 +1248,7 @@ const CustomerDashboard = () => {
       name: 'Member',
       email: '',
       phone: '',
+      avatar: '',
       id: ''
     }
   })
@@ -1343,11 +1413,12 @@ const CustomerDashboard = () => {
               className={`cd-user-info ${isGoldMember ? 'cd-user-pill--gold' : ''}`}
               onClick={() => {
                 // Seed the edit form with the current values so a save always
-                // REPLACES the name/phone/town instead of appending to it.
+                // REPLACES the name/phone/town/avatar instead of appending to it.
                 setProfileEdit({
                   name: currentUser.name || '',
                   phone: currentUser.phone || '',
-                  town: userAddress?.city || ''
+                  town: userAddress?.city || '',
+                  avatar: currentUser.avatar || ''
                 })
                 setProfileSavedMsg('')
                 setShowProfileDrawer(true)
@@ -1364,7 +1435,13 @@ const CustomerDashboard = () => {
                   <span className="cd-user-id">{currentUser.id}</span>
                 )}
               </div>
-              <div className={`cd-avatar ${isGoldMember ? 'gold-avatar' : ''}`}>{initials}</div>
+              <div className={`cd-avatar ${isGoldMember ? 'gold-avatar' : ''}`}>
+                {currentUser.avatar ? (
+                  <img src={currentUser.avatar} alt={currentUser.name} className="cd-avatar-img" />
+                ) : (
+                  initials
+                )}
+              </div>
             </div>
 
             <button className="cd-btn-logout" title="Log out" onClick={handleLogout}>
@@ -2616,7 +2693,39 @@ const CustomerDashboard = () => {
 
             {/* Profile Avatar Box */}
             <div className="cd-profile-hero">
-              <div className={`cd-profile-avatar-lg ${isGoldMember ? 'gold-avatar' : ''}`}>{initials}</div>
+              <div className="cd-profile-avatar-wrap">
+                <div className={`cd-profile-avatar-lg ${isGoldMember ? 'gold-avatar' : ''}`}>
+                  {(profileEdit.avatar !== undefined ? profileEdit.avatar : currentUser.avatar) ? (
+                    <img
+                      src={profileEdit.avatar !== undefined ? profileEdit.avatar : currentUser.avatar}
+                      alt={currentUser.name}
+                      className="cd-avatar-img"
+                    />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <label htmlFor="cd-avatar-camera-input" className="cd-avatar-camera-badge" title="Change Profile Picture">
+                  <CameraIcon />
+                  <input
+                    id="cd-avatar-camera-input"
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    style={{ display: 'none' }}
+                    onChange={handleAvatarFileSelect}
+                  />
+                </label>
+                {(profileEdit.avatar || currentUser.avatar) && (
+                  <button
+                    type="button"
+                    className="cd-avatar-delete-badge"
+                    title="Remove Profile Picture"
+                    onClick={handleRemoveAvatar}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               <h2 className="cd-profile-name">{currentUser.name}</h2>
               {isGoldMember ? (
                 <span className="cd-hero__gold-tag" style={{ marginTop: '0.35rem' }}>👑 LUXORA GOLD MEMBER ★</span>
@@ -2673,9 +2782,42 @@ const CustomerDashboard = () => {
                 {userAddress && (userAddress.street || userAddress.city) ? '✏️ Edit Delivery Address' : '📍 Set Delivery Address'}
               </button>
 
-              {/* Profile management: edit name, phone + service town on the server */}
+              {/* Profile management: edit picture, name, phone + service town on the server */}
               <form onSubmit={saveProfileEdits} style={{ marginTop: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 <h4 className="cd-profile-sublabel" style={{ marginBottom: 0 }}>EDIT PROFILE</h4>
+                
+                {/* Profile Picture Upload Section */}
+                <div className="cd-photo-edit-box">
+                  <div className="cd-photo-edit-info">
+                    <span className="cd-photo-edit-title">PROFILE PICTURE</span>
+                    <span className="cd-photo-edit-sub">
+                      {(profileEdit.avatar || currentUser.avatar) ? 'Photo selected. Click Save Profile to apply.' : 'Add a photo to customize your account.'}
+                    </span>
+                  </div>
+                  <div className="cd-photo-edit-btns">
+                    <label htmlFor="cd-form-avatar-file" className="cd-btn-photo-pick">
+                      📷 {(profileEdit.avatar || currentUser.avatar) ? 'Change Photo' : 'Add Photo'}
+                      <input
+                        id="cd-form-avatar-file"
+                        type="file"
+                        accept="image/png, image/jpeg, image/webp"
+                        style={{ display: 'none' }}
+                        onChange={handleAvatarFileSelect}
+                      />
+                    </label>
+                    {(profileEdit.avatar || currentUser.avatar) && (
+                      <button
+                        type="button"
+                        className="cd-btn-photo-del"
+                        onClick={handleRemoveAvatar}
+                        title="Remove photo"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <input
                   type="text"
                   value={profileEdit.name}
@@ -2711,7 +2853,7 @@ const CustomerDashboard = () => {
                   >
                     {profileBusy ? 'SAVING…' : '✓ SAVE PROFILE'}
                   </button>
-                  {profileSavedMsg && <small style={{ color: profileSavedMsg.includes('saved') || profileSavedMsg.includes('success') ? 'var(--gold, #c9a84c)' : '#ef4444', fontSize: '0.75rem' }}>{profileSavedMsg}</small>}
+                  {profileSavedMsg && <small style={{ color: profileSavedMsg.includes('saved') || profileSavedMsg.includes('success') || profileSavedMsg.includes('chosen') ? 'var(--gold, #c9a84c)' : '#ef4444', fontSize: '0.75rem' }}>{profileSavedMsg}</small>}
                 </div>
               </form>
             </div>

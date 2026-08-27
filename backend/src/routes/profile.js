@@ -11,7 +11,7 @@ const otpVerifyLimiter = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 });
 router.use(authenticateToken);
 
 router.get('/', async (req, res) => {
-  const profile = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, role: true, createdAt: true } });
+  const profile = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, avatar: true, role: true, createdAt: true } });
   if (!profile) return res.status(404).json({ error: 'User not found' });
   res.json(profile);
 });
@@ -39,8 +39,12 @@ router.put('/', async (req, res) => {
     if (town.length > 100) return res.status(400).json({ error: 'town must be at most 100 characters' });
     data.town = town || null;
   }
-  if (!Object.keys(data).length) return res.status(400).json({ error: 'Provide name, email, phone, or town to update' });
-  const profile = await prisma.user.update({ where: { id: req.user.id }, data, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, role: true } });
+  if (req.body.avatar !== undefined) {
+    const avatar = typeof req.body.avatar === 'string' ? req.body.avatar.trim() : null;
+    data.avatar = avatar;
+  }
+  if (!Object.keys(data).length) return res.status(400).json({ error: 'Provide name, email, phone, town, or avatar to update' });
+  const profile = await prisma.user.update({ where: { id: req.user.id }, data, select: { id: true, name: true, email: true, phone: true, phoneVerified: true, town: true, avatar: true, role: true } });
   res.json(profile);
 });
 
