@@ -285,7 +285,7 @@ const Footer = () => {
                 </div>
                 <div className="contact-modal__details">
                   <span className="contact-modal__label">Facebook</span>
-                  <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="contact-modal__val">Luxora Kollow</a>
+                  <a href="https://www.facebook.com/share/1BgSUm9pMF/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="contact-modal__val">Luxora</a>
                 </div>
               </div>
             </div>
