@@ -79,7 +79,11 @@ const ProviderRegister = () => {
   }
 
   const handleMobileChange = (e) => {
-    const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 10)
+    let raw = e.target.value.replace(/\D/g, '')
+    if (raw.startsWith('94') && raw.length === 11) {
+      raw = '0' + raw.slice(2)
+    }
+    const numbersOnly = raw.slice(0, 10)
     setForm((prev) => ({ ...prev, mobile: numbersOnly }))
     setIsOtpVerified(false)
     setOtpSent(false)
