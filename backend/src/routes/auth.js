@@ -6,7 +6,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
-import { sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode } from '../services/integrations.js';
+import { sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode, normalizePhoneNumber } from '../services/integrations.js';
 import { notify } from '../services/notify.js';
 
 const router = Router();
@@ -14,30 +14,31 @@ const router = Router();
 const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
 const phoneOtpLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 
-const phoneForVerify = (value) => {
-  const digits = String(value || '').replace(/\D/g, '');
-  if (/^07\d{8}$/.test(digits)) return `+94${digits.slice(1)}`;
-  return /^\+947\d{8}$/.test(String(value || '').trim()) ? String(value).trim() : null;
-};
-
 router.post('/register/phone/send', phoneOtpLimiter, async (req, res) => {
-  const phone = phoneForVerify(req.body.phone);
-  if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile number' });
+  const phone = normalizePhoneNumber(req.body.phone);
+  if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile or international number' });
   try {
-    const result = await sendWhatsAppVerificationCode(phone);
+    const result = await sendWhatsAppVerificationCode(phone, { demoAllowed: true });
     res.json({ phone, status: result.status, channel: 'whatsapp', mode: result.demo ? 'demo' : 'live' });
-  } catch (error) { console.warn('[whatsapp] send failed:', error.message); res.status(502).json({ error: 'Could not send WhatsApp verification code' }); }
+  } catch (error) {
+    console.warn('[whatsapp] send failed:', error.message);
+    res.status(502).json({ error: error.message || 'Could not send WhatsApp verification code' });
+  }
 });
 
 router.post('/register/phone/verify', async (req, res) => {
-  const phone = phoneForVerify(req.body.phone);
-  if (!phone || !/^\d{6}$/.test(String(req.body.code || ''))) return res.status(400).json({ error: 'Valid phone and 6-digit code are required' });
+  const phone = normalizePhoneNumber(req.body.phone);
+  const code = String(req.body.code || '').trim();
+  if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'Valid phone and 6-digit code are required' });
   try {
-    const result = await verifyWhatsAppCode(phone, req.body.code);
-    if (!result.approved) return res.status(400).json({ error: 'Invalid verification code' });
+    const result = await verifyWhatsAppCode(phone, code);
+    if (!result.approved) return res.status(400).json({ error: 'Invalid or expired verification code' });
     const verificationToken = jwt.sign({ scope: 'provider_phone_verified', phone }, JWT_SECRET, { expiresIn: '10m' });
     res.json({ verified: true, phone, verification_token: verificationToken });
-  } catch (error) { console.warn('[whatsapp] verify failed:', error.message); res.status(502).json({ error: 'Could not verify the WhatsApp code' }); }
+  } catch (error) {
+    console.warn('[whatsapp] verify failed:', error.message);
+    res.status(502).json({ error: error.message || 'Could not verify the WhatsApp code' });
+  }
 });
 
 // Register (customer or provider only — admin accounts are seeded, never self-registered)
@@ -50,7 +51,7 @@ router.post('/register', authLimiter, async (req, res) => {
 
   const normalizedEmail = email.trim().toLowerCase();
   const userRole = String(role || '').toLowerCase() === 'provider' ? 'PROVIDER' : 'CUSTOMER';
-  const verifiedPhone = phoneForVerify(phone);
+  const verifiedPhone = normalizePhoneNumber(phone);
   if (userRole === 'PROVIDER') {
     try {
       const proof = jwt.verify(String(req.body.phone_verification_token || ''), JWT_SECRET);
