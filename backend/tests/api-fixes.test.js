@@ -8,11 +8,16 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const backendDir = path.resolve(__dirname, '..');
 
 const PORT = 5017;
 const BASE = `http://127.0.0.1:${PORT}/api`;
@@ -45,7 +50,7 @@ const authJson = (token, path, options = {}) => json(path, {
 
 before(async () => {
   await prisma.user.updateMany({ where: { email: 'provider@luxora.lk' }, data: { phoneVerified: true } });
-  server = spawn(process.execPath, ['src/index.js'], { cwd: process.cwd(), env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`));
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
