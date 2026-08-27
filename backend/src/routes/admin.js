@@ -12,12 +12,44 @@ router.use(authenticateToken, requireRole('ADMIN'));
 // providers.serviceTowns is persisted as a comma-separated string; the admin UI
 // renders town lists as arrays, so every admin response serializes it explicitly.
 const townsList = (value) => String(value || '').split(',').map((town) => town.trim()).filter(Boolean);
-const normalizePackageType = (value) => {
+const normalizePackageType = (value, entitlements = []) => {
   const type = String(value || '').trim().toLowerCase();
-  if (type === 'single' || type === 'single package') return 'Single Package';
+  if (type === 'auto care' || type === 'auto') return 'Auto Care';
+  if (type === 'garden care' || type === 'garden') return 'Garden Care';
+  if (type === 'pet care' || type === 'pet') return 'Pet Care';
   if (type === 'combo' || type === 'combo package') return 'Combo Package';
+  if (type === 'single' || type === 'single package') {
+    const categoryName = entitlements[0]?.category?.name || entitlements[0]?.category_name;
+    return ['Auto Care', 'Garden Care', 'Pet Care'].includes(categoryName) ? categoryName : 'Auto Care';
+  }
   return null;
 };
+
+const CATEGORY_BY_PACKAGE_TYPE = {
+  'Auto Care': 'Auto Care',
+  'Garden Care': 'Garden Care',
+  'Pet Care': 'Pet Care',
+};
+
+async function validatePackageEntitlements(client, packageType, entitlements) {
+  if (!Array.isArray(entitlements) || !entitlements.length) {
+    return 'A package requires at least one category entitlement with one or more units';
+  }
+  const normalized = entitlements.map((item) => ({ categoryId: toPositiveInt(item.category_id), units: Number(item.units) }));
+  if (normalized.some((item) => !item.categoryId || !Number.isInteger(item.units) || item.units < 1)) {
+    return 'Each entitlement needs a valid category and one or more units';
+  }
+  if (new Set(normalized.map((item) => item.categoryId)).size !== normalized.length) {
+    return 'A category can only appear once in a package';
+  }
+  const singleCategoryName = CATEGORY_BY_PACKAGE_TYPE[packageType];
+  if (!singleCategoryName) {
+    return normalized.length >= 2 ? null : 'Combo Package must include at least two care categories';
+  }
+  if (normalized.length !== 1) return `${packageType} packages must include that category only`;
+  const category = await client.category.findUnique({ where: { id: normalized[0].categoryId }, select: { name: true } });
+  return category?.name === singleCategoryName ? null : `${packageType} packages must include that category only`;
+}
 // Admins can assign, unassign, or cancel operational work, but cannot bypass
 // the provider's photo + PIN verification stages.
 const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'CANCELLED'], IN_PROGRESS: ['CANCELLED'], CANCELLED: ['PENDING'], COMPLETED: [] };
@@ -118,7 +150,7 @@ router.get('/providers/:id', async (req, res) => {
 
 router.get('/subscriptions', async (_req, res) => {
   const plans = await prisma.subscriptionPlan.findMany({ include: { entitlements: { include: { category: true } }, _count: { select: { userSubscriptions: true } } }, orderBy: { id: 'desc' } });
-  res.json(plans.map((plan) => ({ ...plan, type: normalizePackageType(plan.type) || plan.type })));
+  res.json(plans.map((plan) => ({ ...plan, type: normalizePackageType(plan.type, plan.entitlements) || plan.type })));
 });
 
 router.post('/subscriptions', async (req, res) => {
@@ -126,8 +158,9 @@ router.post('/subscriptions', async (req, res) => {
   const normalizedType = normalizePackageType(type);
   if (typeof title !== 'string' || !title.trim() || !normalizedType || !Number.isFinite(Number(price_monthly)) || Number(price_monthly) <= 0 || Number(duration_days) !== 30) return res.status(400).json({ error: 'title, type, a positive price_monthly, and a 30-day duration are required' });
   if (!Array.isArray(features) || !Array.isArray(entitlements)) return res.status(400).json({ error: 'features and entitlements must be arrays' });
+  const entitlementError = await validatePackageEntitlements(prisma, normalizedType, entitlements);
+  if (entitlementError) return res.status(400).json({ error: entitlementError });
   const normalized = entitlements.map((item) => ({ categoryId: toPositiveInt(item.category_id), units: Number(item.units) }));
-  if (!normalized.length || normalized.some((item) => !item.categoryId || !Number.isInteger(item.units) || item.units < 1)) return res.status(400).json({ error: 'A package requires at least one category entitlement with one or more units' });
   if (typeof recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' });
   const plan = await prisma.subscriptionPlan.create({ data: { title: title.trim(), type: normalizedType, priceMonthly: Number(price_monthly), durationDays: 30, description: String(description).slice(0, 1000), recommended, features: JSON.stringify(features), entitlements: { create: normalized } }, include: { entitlements: true } });
   res.status(201).json(plan);
@@ -140,16 +173,30 @@ router.put('/subscriptions/:id', async (req, res) => {
   if (req.body.title !== undefined) data.title = String(req.body.title).trim();
   if (req.body.description !== undefined) data.description = String(req.body.description).slice(0, 1000);
   if (req.body.price_monthly !== undefined) { if (!Number.isFinite(Number(req.body.price_monthly)) || Number(req.body.price_monthly) <= 0) return res.status(400).json({ error: 'price_monthly must be positive' }); data.priceMonthly = Number(req.body.price_monthly); }
-  if (req.body.type !== undefined) { const type = normalizePackageType(req.body.type); if (!type) return res.status(400).json({ error: 'type must be Single Package or Combo Package' }); data.type = type; }
+  if (req.body.type !== undefined) { const type = normalizePackageType(req.body.type); if (!type) return res.status(400).json({ error: 'type must be Auto Care, Garden Care, Pet Care, or Combo Package' }); data.type = type; }
   if (req.body.duration_days !== undefined && Number(req.body.duration_days) !== 30) return res.status(400).json({ error: 'Packages always run for 30 days' });
   if (typeof req.body.active === 'boolean') data.active = req.body.active;
   if (req.body.recommended !== undefined) { if (typeof req.body.recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' }); data.recommended = req.body.recommended; }
   if (req.body.features !== undefined) { if (!Array.isArray(req.body.features)) return res.status(400).json({ error: 'features must be an array' }); data.features = JSON.stringify(req.body.features); }
-  const updated = await prisma.subscriptionPlan.update({ where: { id }, data, include: { entitlements: true } });
-  if (req.body.entitlements) {
+  const current = await prisma.subscriptionPlan.findUnique({ where: { id }, include: { entitlements: { include: { category: true } } } });
+  if (!current) return res.status(404).json({ error: 'Package not found' });
+  const nextType = data.type || normalizePackageType(current.type, current.entitlements);
+  const nextEntitlements = req.body.entitlements === undefined
+    ? current.entitlements.map((item) => ({ category_id: item.categoryId, units: item.units }))
+    : req.body.entitlements;
+  if (req.body.entitlements !== undefined) {
     if (!Array.isArray(req.body.entitlements)) return res.status(400).json({ error: 'entitlements must be an array' });
-    await prisma.$transaction([prisma.subscriptionEntitlement.deleteMany({ where: { planId: id } }), prisma.subscriptionEntitlement.createMany({ data: req.body.entitlements.map((item) => ({ planId: id, categoryId: toPositiveInt(item.category_id), units: Number(item.units) })) })]);
   }
+  const entitlementError = await validatePackageEntitlements(prisma, nextType, nextEntitlements);
+  if (entitlementError) return res.status(400).json({ error: entitlementError });
+  const updated = await prisma.$transaction(async (tx) => {
+    const plan = await tx.subscriptionPlan.update({ where: { id }, data });
+    if (req.body.entitlements !== undefined) {
+      await tx.subscriptionEntitlement.deleteMany({ where: { planId: id } });
+      await tx.subscriptionEntitlement.createMany({ data: req.body.entitlements.map((item) => ({ planId: id, categoryId: toPositiveInt(item.category_id), units: Number(item.units) })) });
+    }
+    return tx.subscriptionPlan.findUnique({ where: { id: plan.id }, include: { entitlements: true } });
+  });
   res.json(updated);
 });
 

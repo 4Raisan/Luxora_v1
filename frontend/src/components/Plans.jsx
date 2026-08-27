@@ -10,6 +10,13 @@ const CATEGORIES = [
   { id: 'combo', label: 'Combo Packages', icon: '✨' },
 ]
 
+const PACKAGE_TYPE_BY_CATEGORY = {
+  auto: 'Auto Care',
+  garden: 'Garden Care',
+  pet: 'Pet Care',
+  combo: 'Combo Package',
+}
+
 const CheckIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
     <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -50,10 +57,13 @@ const Plans = () => {
 
   const plansForCategory = (categoryId) => {
     if (!serverPlans) return null
-    if (categoryId === 'combo') {
-      return serverPlans
-        .filter((plan) => plan.type === 'combo' || (plan.entitlements || []).length > 1)
-        .map((plan) => {
+    const packageType = PACKAGE_TYPE_BY_CATEGORY[categoryId]
+    return serverPlans
+      // Package type is the display contract. Entitlements determine which
+      // services can be booked after purchase, but must not cause a Combo
+      // package to be displayed inside each individual care category.
+      .filter((plan) => plan.type === packageType)
+      .map((plan) => {
           const ents = plan.entitlements || []
           const coins = ents.reduce((total, entitlement) => total + (Number(entitlement.units) || 0), 0)
           return {
@@ -68,25 +78,6 @@ const Plans = () => {
             off: [],
           }
         })
-    }
-    return serverPlans
-      .filter((plan) => (plan.entitlements || []).some((ent) =>
-        String(ent.category_name || '').toLowerCase().includes(categoryId)))
-      .map((plan) => {
-        const ents = plan.entitlements || []
-        const coins = ents.reduce((total, entitlement) => total + (Number(entitlement.units) || 0), 0)
-        return {
-          id: `srv-${plan.id}`,
-          serverId: plan.id,
-          tier: plan.title,
-          price: Number(plan.priceMonthly) || 0,
-          coins,
-          highlight: Boolean(plan.recommended),
-          description: plan.description || '',
-          features: Array.isArray(plan.features) ? plan.features : [],
-          off: [],
-        }
-      })
   }
 
   const currentPlans = plansForCategory(activeCategory) || (plansUnavailable ? [] : null)

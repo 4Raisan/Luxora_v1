@@ -149,7 +149,7 @@ const CustomerDashboard = () => {
   const navigate = useNavigate()
 
   const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'booking' | 'active_bookings' | 'transaction_history'
-  const [bookingType, setBookingType] = useState('combo') // 'combo' | 'single'
+  const [bookingType, setBookingType] = useState('combo') // auto | garden | pet | combo
   const [historyFilter, setHistoryFilter] = useState('all') // 'all' | 'auto' | 'garden' | 'pet'
   const [historySearchInvoice, setHistorySearchInvoice] = useState('')
   const [historySearchPackage, setHistorySearchPackage] = useState('')
@@ -379,7 +379,7 @@ const CustomerDashboard = () => {
             id: 'SUB-' + p.id,
             serverId: p.id,
             title: p.title,
-            type: p.type || 'Single Package',
+            type: p.type || 'Auto Care',
             recommended: Boolean(p.recommended),
             description: p.description || '',
             cat: ents[0]?.category_name || 'Auto Care',
@@ -1699,7 +1699,8 @@ const CustomerDashboard = () => {
             <button className="cd-recom-btn" onClick={() => setBookingType('combo')}>View combo &rsaquo;</button>
           </div>
 
-          {/* Single / Combo Toggle */}
+          {/* Category selector — package type is authoritative, so each
+              single-care package is visible only in its own category. */}
           <div className="cd-toggle-bar">
             <button
               className={`cd-toggle-btn ${bookingType === 'combo' ? 'active' : ''}`}
@@ -1708,10 +1709,22 @@ const CustomerDashboard = () => {
               Combo Packages
             </button>
             <button
-              className={`cd-toggle-btn ${bookingType === 'single' ? 'active' : ''}`}
-              onClick={() => setBookingType('single')}
+              className={`cd-toggle-btn ${bookingType === 'auto' ? 'active' : ''}`}
+              onClick={() => setBookingType('auto')}
             >
-              Single Packages
+              Auto Care
+            </button>
+            <button
+              className={`cd-toggle-btn ${bookingType === 'garden' ? 'active' : ''}`}
+              onClick={() => setBookingType('garden')}
+            >
+              Garden Care
+            </button>
+            <button
+              className={`cd-toggle-btn ${bookingType === 'pet' ? 'active' : ''}`}
+              onClick={() => setBookingType('pet')}
+            >
+              Pet Care
             </button>
           </div>
 
@@ -1725,11 +1738,11 @@ const CustomerDashboard = () => {
             </div>
           )}
 
-          {/* ── Single Packages Grid ── */}
-          {bookingType === 'single' && (
+          {/* ── Individual category package grid ── */}
+          {['auto', 'garden', 'pet'].includes(bookingType) && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
               {adminSubscriptions
-                .filter(s => s.type === 'Single Package')
+                .filter(s => s.type === ({ auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }[bookingType]))
                 .map((s) => (
                   <div
                     key={s.id}
@@ -1739,7 +1752,7 @@ const CustomerDashboard = () => {
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <span className="cd-popular-badge" style={{ position: 'static', background: 'rgba(201, 168, 76, 0.15)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)' }}>
-                          {s.recommended ? 'MOST POPULAR' : (s.cat || 'SINGLE CARE').toUpperCase()}
+                          {s.recommended ? 'MOST POPULAR' : (s.type || 'CARE').toUpperCase()}
                         </span>
                         <span style={{ color: '#888', fontSize: '0.75rem', fontWeight: 600 }}>{s.id}</span>
                       </div>
@@ -1777,7 +1790,7 @@ const CustomerDashboard = () => {
                         setSelectedPackageToBook({
                           title: s.title.replace('Single Package: ', ''),
                           serverId: s.serverId,
-                          tier: 'Single Package Plan ★',
+                          tier: (s.type || 'Care') + ' Plan ★',
                           price: `LKR ${Number(s.price).toLocaleString()}`,
                           cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
                           duration: s.duration || 30,
@@ -1785,7 +1798,7 @@ const CustomerDashboard = () => {
                         })
                       }}
                     >
-                      Book Single Package &rsaquo;
+                      Book Care Package &rsaquo;
                     </button>
                   </div>
                 ))}

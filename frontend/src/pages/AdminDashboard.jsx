@@ -53,6 +53,16 @@ const StatBadge = ({ value }) => (
   </span>
 )
 
+const CARE_SETS = [
+  { label: 'Auto Care', names: ['Auto Care'], icon: '🚗', accent: '#60a5fa', bg: 'rgba(96,165,250,0.06)', border: 'rgba(96,165,250,0.18)', hint: '— vehicle wash, detailing, interior' },
+  { label: 'Garden Care', names: ['Garden Care'], icon: '🌿', accent: '#4ade80', bg: 'rgba(74,222,128,0.06)', border: 'rgba(74,222,128,0.18)', hint: '— lawn, plants, landscape' },
+  { label: 'Pet Care', names: ['Pet Care'], icon: '🐾', accent: '#f472b6', bg: 'rgba(244,114,182,0.06)', border: 'rgba(244,114,182,0.18)', hint: '— grooming, walking, aquarium' },
+]
+
+const CATEGORY_NAMES_BY_PACKAGE_TYPE = Object.fromEntries(
+  CARE_SETS.map((set) => [set.label, set.names])
+)
+
 const AdminDashboard = () => {
   const navigate = useNavigate()
   const [adminUser] = useState(() => {
@@ -235,8 +245,18 @@ const AdminDashboard = () => {
     const entitlements = Object.entries(ed.entitlements || {})
       .map(([category_id, units]) => ({ category_id: Number(category_id), units: Number(units) }))
       .filter((e) => e.category_id && Number.isInteger(e.units) && e.units >= 1)
+    const allowedCategoryNames = CATEGORY_NAMES_BY_PACKAGE_TYPE[ed.type]
+    if (allowedCategoryNames) {
+      const allowedCategoryIds = new Set(categories
+        .filter((category) => allowedCategoryNames.includes(category.name))
+        .map((category) => category.id))
+      if (entitlements.length !== 1 || !allowedCategoryIds.has(entitlements[0]?.category_id)) {
+        alert(`${ed.type} packages must include coins for that category only.`)
+        return
+      }
+    }
     const body = {
-      title: ed.title.trim(), type: ed.type || 'Single Package', price_monthly: price, duration_days: 30,
+      title: ed.title.trim(), type: ed.type || 'Auto Care', price_monthly: price, duration_days: 30,
       description: (ed.description || '').trim(), recommended: Boolean(ed.recommended), features: [], entitlements,
     }
     runAction(async () => {
@@ -535,7 +555,7 @@ const AdminDashboard = () => {
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
-                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Single Package', price: '', duration: 30, description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
+                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
               </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
@@ -552,7 +572,7 @@ const AdminDashboard = () => {
                       <td><StatBadge value={p.active ? 'active' : 'closed'} /></td>
                       <td style={{ display: 'flex', gap: '0.5rem' }}>
                         <button style={ghostBtn} onClick={() => setPlanEditor({
-                          id: p.id, title: p.title, type: p.type || 'Single Package', price: String(Number(p.priceMonthly)), duration: p.durationDays || 30, description: p.description || '', recommended: Boolean(p.recommended), active: p.active,
+                          id: p.id, title: p.title, type: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Package'].includes(p.type) ? p.type : 'Auto Care', price: String(Number(p.priceMonthly)), duration: p.durationDays || 30, description: p.description || '', recommended: Boolean(p.recommended), active: p.active,
                           entitlements: Object.fromEntries((p.entitlements || []).map((e) => [e.categoryId, e.units])),
                         })}>Edit</button>
                         <button style={p.active ? redBtn : goldBtn} disabled={busy} onClick={() => togglePlanActive(p)}>{p.active ? 'Disable' : 'Enable'}</button>
@@ -924,8 +944,13 @@ const AdminDashboard = () => {
                 <input style={fieldStyle} value="30 days" readOnly /></label>
             </div>
             <label style={{ color: '#888', fontSize: '0.75rem' }}>Type
-              <select style={fieldStyle} value={planEditor.type} onChange={(e) => setPlanEditor({ ...planEditor, type: e.target.value })}>
-                <option>Single Package</option><option>Combo Package</option>
+              <select style={fieldStyle} value={planEditor.type} onChange={(e) => {
+                const type = e.target.value
+                // A single-care package has exactly one matching entitlement.
+                // Clear stale category values when the admin changes its type.
+                setPlanEditor({ ...planEditor, type, entitlements: CATEGORY_NAMES_BY_PACKAGE_TYPE[type] ? {} : planEditor.entitlements })
+              }}>
+                <option>Auto Care</option><option>Garden Care</option><option>Pet Care</option><option>Combo Package</option>
               </select></label>
             <label style={{ color: '#888', fontSize: '0.75rem' }}>Description
               <textarea style={{ ...fieldStyle, minHeight: '76px', resize: 'vertical' }} value={planEditor.description || ''} maxLength={1000} onChange={(e) => setPlanEditor({ ...planEditor, description: e.target.value })} /></label>
@@ -934,14 +959,38 @@ const AdminDashboard = () => {
               Show the "Most Popular" banner on the homepage
             </label>
             <span style={{ color: '#888', fontSize: '0.75rem' }}>Entitlements (service coins / period)</span>
-            {categories.map((c) => (
-              <label key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', color: '#ccc', fontSize: '0.82rem' }}>
-                {c.name}
-                <input type="number" min="0" max="30" style={{ ...fieldStyle, maxWidth: '90px', textAlign: 'center' }}
-                  value={planEditor.entitlements[c.id] ?? 0}
-                  onChange={(e) => setPlanEditor({ ...planEditor, entitlements: { ...planEditor.entitlements, [c.id]: Number(e.target.value) } })} />
-              </label>
-            ))}
+            {CARE_SETS.some((set) => set.label === planEditor.type) ? (
+              CARE_SETS.filter((set) => set.label === planEditor.type).map((set) => {
+                const groupCategories = categories.filter((c) => set.names.includes(c.name))
+                if (!groupCategories.length) return null
+                return (
+                  <div key={set.label} style={{ background: set.bg, borderRadius: 10, padding: '0.75rem 0.85rem', border: `1px solid ${set.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.6rem' }}>
+                      <span style={{ fontSize: '1rem' }}>{set.icon}</span>
+                      <span style={{ color: set.accent, fontWeight: 700, fontSize: '0.78rem', letterSpacing: '0.04em' }}>{set.label}</span>
+                      <span style={{ color: '#666', fontSize: '0.68rem' }}>{set.hint}</span>
+                    </div>
+                    {groupCategories.map((c) => (
+                      <label key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', color: '#ccc', fontSize: '0.82rem', marginBottom: '0.3rem' }}>
+                        {c.name}
+                        <input type="number" min="0" max="30" style={{ ...fieldStyle, maxWidth: '90px', textAlign: 'center' }}
+                          value={planEditor.entitlements[c.id] ?? 0}
+                          onChange={(e) => setPlanEditor({ ...planEditor, entitlements: { ...planEditor.entitlements, [c.id]: Number(e.target.value) } })} />
+                      </label>
+                    ))}
+                  </div>
+                )
+              })
+            ) : (
+              categories.map((c) => (
+                <label key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', color: '#ccc', fontSize: '0.82rem' }}>
+                  {c.name}
+                  <input type="number" min="0" max="30" style={{ ...fieldStyle, maxWidth: '90px', textAlign: 'center' }}
+                    value={planEditor.entitlements[c.id] ?? 0}
+                    onChange={(e) => setPlanEditor({ ...planEditor, entitlements: { ...planEditor.entitlements, [c.id]: Number(e.target.value) } })} />
+                </label>
+              ))
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
             <button style={ghostBtn} onClick={() => setPlanEditor(null)}>Cancel</button>

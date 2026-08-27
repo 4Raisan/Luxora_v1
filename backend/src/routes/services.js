@@ -7,11 +7,20 @@ import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { notify } from '../services/notify.js';
 
 const router = Router();
-const displayPackageType = (value) => {
+const displayPackageType = (value, entitlements = []) => {
   const type = String(value || '').trim().toLowerCase();
-  if (type === 'single' || type === 'single package') return 'Single Package';
+  if (type === 'auto care' || type === 'auto') return 'Auto Care';
+  if (type === 'garden care' || type === 'garden') return 'Garden Care';
+  if (type === 'pet care' || type === 'pet') return 'Pet Care';
   if (type === 'combo' || type === 'combo package') return 'Combo Package';
-  return String(value || 'Single Package');
+  // Older seeded plans used the generic "single" value. Infer their real
+  // category from the one entitlement so they render in the right section
+  // until an admin saves them with the canonical package type.
+  if (type === 'single' || type === 'single package') {
+    const categoryName = entitlements[0]?.category?.name || entitlements[0]?.category_name;
+    return ['Auto Care', 'Garden Care', 'Pet Care'].includes(categoryName) ? categoryName : 'Auto Care';
+  }
+  return String(value || 'Auto Care');
 };
 
 router.get('/categories', async (_req, res) => {
@@ -29,7 +38,7 @@ router.get('/services', async (_req, res) => {
 
 router.get('/subscriptions', async (_req, res) => {
   const plans = await prisma.subscriptionPlan.findMany({ where: { active: true }, include: { entitlements: { include: { category: true } } } });
-  res.json(plans.map((p) => ({ ...p, type: displayPackageType(p.type), features: JSON.parse(p.features || '[]'), entitlements: p.entitlements.map((item) => ({ category_id: item.categoryId, category_name: item.category.name, units: item.units })) })));
+  res.json(plans.map((p) => ({ ...p, type: displayPackageType(p.type, p.entitlements), features: JSON.parse(p.features || '[]'), entitlements: p.entitlements.map((item) => ({ category_id: item.categoryId, category_name: item.category.name, units: item.units })) })));
 });
 
 export async function renewDueDemoSubscriptions() {

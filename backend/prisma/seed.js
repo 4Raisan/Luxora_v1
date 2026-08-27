@@ -57,9 +57,9 @@ async function main() {
   if (planCount === 0) {
     await prisma.subscriptionPlan.createMany({
       data: [
-        { title: 'Single Care - Auto Elite', type: 'single', priceMonthly: 12000, description: 'Bi-weekly exterior wash + interior vacuum for 1 luxury vehicle.', recommended: true, features: JSON.stringify(['2x Wash + Vacuum per month', 'Dedicated KYC provider', 'Priority booking window', '10% off add-on detailing']) },
-        { title: 'Single Care - Garden Oasis', type: 'single', priceMonthly: 15000, description: 'Weekly garden upkeep, lawn mowing, and soil nourishment.', features: JSON.stringify(['4x Lawn Mowing & Plant Watering', 'Monthly organic fertilizer treatment', 'Landscape consultation']) },
-        { title: 'Luxora Tri-Combo Luxury Suite', type: 'combo', priceMonthly: 32000, description: 'Complete home concierge covering Auto, Garden, and Pet Care under one subscription.', features: JSON.stringify(['2x Auto Wash + Vacuum', '4x Garden Care & Lawn Mowing', '2x Pet Spa Bathing or Aquarium Service', 'Zero cancellation fees', 'VIP concierge hotline support']) },
+        { title: 'Single Care - Auto Elite', type: 'Auto Care', priceMonthly: 12000, description: 'Bi-weekly exterior wash + interior vacuum for 1 luxury vehicle.', recommended: true, features: JSON.stringify(['2x Wash + Vacuum per month', 'Dedicated KYC provider', 'Priority booking window', '10% off add-on detailing']) },
+        { title: 'Single Care - Garden Oasis', type: 'Garden Care', priceMonthly: 15000, description: 'Weekly garden upkeep, lawn mowing, and soil nourishment.', features: JSON.stringify(['4x Lawn Mowing & Plant Watering', 'Monthly organic fertilizer treatment', 'Landscape consultation']) },
+        { title: 'Luxora Tri-Combo Luxury Suite', type: 'Combo Package', priceMonthly: 32000, description: 'Complete home concierge covering Auto, Garden, and Pet Care under one subscription.', features: JSON.stringify(['2x Auto Wash + Vacuum', '4x Garden Care & Lawn Mowing', '2x Pet Spa Bathing or Aquarium Service', 'Zero cancellation fees', 'VIP concierge hotline support']) },
       ],
     });
   }
