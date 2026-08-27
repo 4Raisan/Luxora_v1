@@ -18,7 +18,7 @@ router.post('/register/phone/send', phoneOtpLimiter, async (req, res) => {
   const phone = normalizePhoneNumber(req.body.phone);
   if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile or international number' });
   try {
-    const result = await sendWhatsAppVerificationCode(phone, { demoAllowed: true });
+    const result = await sendWhatsAppVerificationCode(phone);
     res.json({ phone, status: result.status, channel: 'whatsapp', mode: result.demo ? 'demo' : 'live' });
   } catch (error) {
     console.warn('[whatsapp] send failed:', error.message);

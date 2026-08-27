@@ -66,6 +66,127 @@ test('Config validation: detects missing WhatsApp environment variables', () => 
   }
 });
 
+test('OTP generation: live mode issues a fresh random 6-digit code per request', async () => {
+  const phone = '+94771575704';
+  const origEnv = {
+    id: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    token: process.env.WHATSAPP_ACCESS_TOKEN,
+    template: process.env.WHATSAPP_VERIFY_TEMPLATE,
+  };
+
+  process.env.WHATSAPP_PHONE_NUMBER_ID = '1280111385185458';
+  process.env.WHATSAPP_ACCESS_TOKEN = 'EAATestTokenForUnitTest';
+  process.env.WHATSAPP_VERIFY_TEMPLATE = 'luxora_otp_auth';
+
+  const originalFetch = globalThis.fetch;
+
+  try {
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ messaging_product: 'whatsapp', messages: [{ id: 'wamid.test' }] }),
+    });
+
+    for (let i = 0; i < 2; i += 1) {
+      const result = await sendWhatsAppVerificationCode(phone);
+      assert.equal(result.configured, true);
+      assert.equal(result.demo, undefined);
+      assert.equal(result.status, 'pending');
+    }
+
+    // Each challenge is hashed with bcrypt; a matching 6-digit plaintext must
+    // exist for every send and consecutive sends must not repeat the code.
+    const challenge = await prisma.phoneOtpChallenge.findUnique({ where: { phone } });
+    assert.ok(challenge, 'challenge record not created');
+    assert.ok(challenge.expiresAt > new Date(), 'challenge must expire in the future');
+    assert.ok(challenge.expiresAt <= new Date(Date.now() + 10 * 60 * 1000 + 5000), 'challenge expiry must be ~10 minutes');
+    assert.match(challenge.codeHash, /^\$2[aby]\$/, 'code must be stored as a bcrypt hash');
+    assert.equal(await bcrypt.compare('123456', challenge.codeHash), false, 'live mode must not issue the fixed demo code');
+
+    await prisma.phoneOtpChallenge.deleteMany({ where: { phone } });
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.WHATSAPP_PHONE_NUMBER_ID = origEnv.id;
+    process.env.WHATSAPP_ACCESS_TOKEN = origEnv.token;
+    process.env.WHATSAPP_VERIFY_TEMPLATE = origEnv.template;
+  }
+});
+
+test('OTP generation: unconfigured dev server falls back to the demo code with a demo marker', async () => {
+  const phone = '+94771575705';
+  const origEnv = {
+    id: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    token: process.env.WHATSAPP_ACCESS_TOKEN,
+    template: process.env.WHATSAPP_VERIFY_TEMPLATE,
+    nodeEnv: process.env.NODE_ENV,
+    allowDemo: process.env.ALLOW_DEMO_OTP,
+  };
+
+  delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+  delete process.env.WHATSAPP_ACCESS_TOKEN;
+  delete process.env.WHATSAPP_VERIFY_TEMPLATE;
+  process.env.NODE_ENV = 'development';
+  delete process.env.ALLOW_DEMO_OTP;
+
+  try {
+    const result = await sendWhatsAppVerificationCode(phone);
+    assert.equal(result.configured, false);
+    assert.equal(result.demo, true);
+    assert.equal(result.channel, 'whatsapp');
+    assert.equal(result.status, 'pending');
+
+    // The demo code must verify so local/dev flows keep working end-to-end.
+    const verified = await verifyWhatsAppCode(phone, '123456');
+    assert.equal(verified.approved, true);
+
+    await prisma.phoneOtpChallenge.deleteMany({ where: { phone } });
+  } finally {
+    if (origEnv.id) process.env.WHATSAPP_PHONE_NUMBER_ID = origEnv.id;
+    if (origEnv.token) process.env.WHATSAPP_ACCESS_TOKEN = origEnv.token;
+    if (origEnv.template) process.env.WHATSAPP_VERIFY_TEMPLATE = origEnv.template;
+    if (origEnv.nodeEnv) process.env.NODE_ENV = origEnv.nodeEnv; else delete process.env.NODE_ENV;
+    if (origEnv.allowDemo) process.env.ALLOW_DEMO_OTP = origEnv.allowDemo;
+  }
+});
+
+test('Demo fallback: unconfigured production server must fail loudly, never issue the fixed demo code', async () => {
+  const phone = '+94771575706';
+  const origEnv = {
+    id: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    token: process.env.WHATSAPP_ACCESS_TOKEN,
+    template: process.env.WHATSAPP_VERIFY_TEMPLATE,
+    nodeEnv: process.env.NODE_ENV,
+    allowDemo: process.env.ALLOW_DEMO_OTP,
+  };
+
+  delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+  delete process.env.WHATSAPP_ACCESS_TOKEN;
+  delete process.env.WHATSAPP_VERIFY_TEMPLATE;
+  delete process.env.ALLOW_DEMO_OTP;
+  process.env.NODE_ENV = 'production';
+
+  try {
+    await assert.rejects(
+      async () => sendWhatsAppVerificationCode(phone),
+      (err) => {
+        assert.match(err.message, /WhatsApp Cloud API is not configured/);
+        assert.ok(err.message.includes('WHATSAPP_PHONE_NUMBER_ID'));
+        assert.ok(err.message.includes('WHATSAPP_ACCESS_TOKEN'));
+        assert.ok(err.message.includes('WHATSAPP_VERIFY_TEMPLATE'));
+        return true;
+      }
+    );
+    const challenge = await prisma.phoneOtpChallenge.findUnique({ where: { phone } });
+    assert.equal(challenge, null, 'no challenge may be persisted when the server is unconfigured');
+  } finally {
+    if (origEnv.id) process.env.WHATSAPP_PHONE_NUMBER_ID = origEnv.id;
+    if (origEnv.token) process.env.WHATSAPP_ACCESS_TOKEN = origEnv.token;
+    if (origEnv.template) process.env.WHATSAPP_VERIFY_TEMPLATE = origEnv.template;
+    if (origEnv.nodeEnv) process.env.NODE_ENV = origEnv.nodeEnv; else delete process.env.NODE_ENV;
+    if (origEnv.allowDemo) process.env.ALLOW_DEMO_OTP = origEnv.allowDemo;
+  }
+});
+
 test('WhatsApp Cloud API send: sends properly formatted template request to Meta Graph API', async () => {
   const phone = '+94771575701';
   const testPhoneNumberId = '1280111385185458';

@@ -62,7 +62,7 @@ router.post('/phone/send', otpSendLimiter, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { phone: true } });
   if (user?.phone !== phone) return res.status(409).json({ error: 'Save this phone number to your profile before requesting a code' });
   try {
-    const result = await sendWhatsAppVerificationCode(phone, { demoAllowed: true });
+    const result = await sendWhatsAppVerificationCode(phone);
     res.json(result);
   } catch (error) {
     console.warn('[whatsapp] send failed:', error.message);

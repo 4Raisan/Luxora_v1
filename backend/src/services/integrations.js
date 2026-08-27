@@ -79,8 +79,12 @@ export const whatsAppConfigured = () => validateWhatsAppConfig({ strict: false }
 
 /**
  * Sends a 6-digit OTP verification code via Meta WhatsApp Cloud API.
+ *
+ * Demo mode (fixed code) is only permitted outside production or when
+ * ALLOW_DEMO_OTP=true; an unconfigured production server must fail loudly
+ * instead of silently issuing the well-known demo code.
  */
-export async function sendWhatsAppVerificationCode(phone, { demoAllowed = false } = {}) {
+export async function sendWhatsAppVerificationCode(phone) {
   const normalizedPhone = normalizePhoneNumber(phone);
   if (!normalizedPhone) {
     throw new Error('Please enter a valid phone number in international format or Sri Lankan mobile number (e.g. +94771575701 or 0771575701).');
@@ -88,9 +92,27 @@ export async function sendWhatsAppVerificationCode(phone, { demoAllowed = false 
 
   const { configured, missing } = validateWhatsAppConfig({ strict: false });
 
-  // Generate a cryptographically secure 6-digit OTP code (or demo code if unconfigured in dev/test)
-  const code = configured ? crypto.randomInt(100000, 1000000).toString() : DEMO_WHATSAPP_CODE;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  if (!configured) {
+    const demoPermitted = process.env.ALLOW_DEMO_OTP === 'true' || process.env.NODE_ENV !== 'production';
+    if (!demoPermitted) {
+      throw new Error(`WhatsApp Cloud API is not configured on the server. Missing environment variable(s): ${missing.join(', ')}`);
+    }
+    // Demo mode: persist the fixed dev code only when demo delivery is
+    // actually permitted, so an unconfigured production server never leaves
+    // a guessable challenge in the database.
+    const codeHash = await bcrypt.hash(DEMO_WHATSAPP_CODE, 10);
+    await prisma.phoneOtpChallenge.upsert({
+      where: { phone: normalizedPhone },
+      update: { codeHash, expiresAt },
+      create: { phone: normalizedPhone, codeHash, expiresAt },
+    });
+    return { configured: false, demo: true, channel: 'whatsapp', status: 'pending', phone: normalizedPhone };
+  }
+
+  // Generate a cryptographically secure 6-digit OTP code
+  const code = crypto.randomInt(100000, 1000000).toString();
   const codeHash = await bcrypt.hash(code, 10);
 
   await prisma.phoneOtpChallenge.upsert({
@@ -98,13 +120,6 @@ export async function sendWhatsAppVerificationCode(phone, { demoAllowed = false 
     update: { codeHash, expiresAt },
     create: { phone: normalizedPhone, codeHash, expiresAt },
   });
-
-  if (!configured) {
-    if (demoAllowed || process.env.ALLOW_DEMO_OTP === 'true' || process.env.NODE_ENV !== 'production') {
-      return { configured: false, demo: true, channel: 'whatsapp', status: 'pending', phone: normalizedPhone };
-    }
-    throw new Error(`WhatsApp Cloud API is not configured on the server. Missing environment variable(s): ${missing.join(', ')}`);
-  }
 
   const apiVersion = process.env.WHATSAPP_API_VERSION || 'v22.0';
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;

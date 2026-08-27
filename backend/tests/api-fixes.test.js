@@ -23,7 +23,9 @@ const PORT = 5017;
 const BASE = `http://127.0.0.1:${PORT}/api`;
 const RND = crypto.randomUUID().slice(0, 8);
 // Empty Meta/Resend credentials select local WhatsApp demo mode and avoid
-// external message or email cost during abuse tests.
+// external message or email cost during abuse tests. ALLOW_DEMO_OTP keeps the
+// demo OTP path available to the test server even when the host machine sets
+// NODE_ENV=production.
 const SERVER_ENV = {
   ...process.env,
   PORT: String(PORT),
@@ -31,6 +33,7 @@ const SERVER_ENV = {
   WHATSAPP_PHONE_NUMBER_ID: '',
   WHATSAPP_ACCESS_TOKEN: '',
   WHATSAPP_VERIFY_TEMPLATE: '',
+  ALLOW_DEMO_OTP: 'true',
   RESEND_API_KEY: '',
   GOOGLE_CLIENT_ID: '',
 };
