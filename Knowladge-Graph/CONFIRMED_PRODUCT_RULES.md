@@ -9,7 +9,7 @@ Confirmed with the product owner on 2026-08-23. These rules override older notes
 - Admin can perform all administrative operations, including customer/provider management, plans, bookings, provider assignment, KYC, refunds, promotions, reports, support, and scheduling.
 - Customers can buy subscription plans and book services.
 - Providers fulfil automatically assigned customer bookings.
-- Providers must keep an approved KYC record and verified WhatsApp number to access operational work.
+- Providers must keep an approved KYC record to access operational work.
 
 ## Booking flow
 
@@ -32,15 +32,15 @@ Bookings cannot be cancelled once they are `IN_PROGRESS`. Cancellation and entit
 
 - Subscription plans are the purchasing model.
 - Demo payment is used for development/testing.
-- PayHere is the production payment gateway; demo is the local/test payment flow.
+- PayHere and NOWPayments are the supported production payment gateways; demo is the local/test payment flow.
 - Credits are deducted when a booking is created/confirmed according to the service category.
 - Buying or renewing a package creates or renews the corresponding credit entitlements.
 - Admin manages package title, type, price, description, coins, and recommendation badge; package duration is fixed at 30 days.
 - PayHere checkout requires public HTTPS return, cancel, and webhook URLs before it can be enabled.
 
-## Notifications
+## Notifications & Account Verification
 
-Purchasing, booking, assignment, status changes, payment events, and other customer/provider/admin operational events should create notifications through the backend notification flow. Confirmed integrations are Resend email, Google sign-in, and Meta WhatsApp Cloud API verification. SMS is not used.
+Purchasing, booking, assignment, status changes, payment events, and other customer/provider/admin operational events create notifications through the backend notification flow. Confirmed integrations are Resend email and Google sign-in. Phone numbers are stored as standard profile contact info without SMS/OTP verification.
 
 ## Provider earnings and profile data
 
@@ -55,7 +55,7 @@ Purchasing, booking, assignment, status changes, payment events, and other custo
 - Google sign-in
 - Resend
 - PayHere
-- Meta WhatsApp Cloud API
+- NOWPayments
 - Development demo-payment mode
 
 ## Implementation audit (2026-08-25)

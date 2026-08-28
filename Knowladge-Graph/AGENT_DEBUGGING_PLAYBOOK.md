@@ -13,9 +13,9 @@ Trace: page -> `apiRequest()` -> mounted route -> middleware -> service -> Prism
 
 | Symptom | Check |
 | --- | --- |
-| `401` / `403` | `sessionStorage` token, JWT, role, KYC, WhatsApp verification |
+| `401` / `403` | `sessionStorage` token, JWT, role, KYC |
 | Missing coins | Active subscription, entitlement rows, booking category, refund/cancel state |
-| Provider not assigned | KYC, phone verification, availability, town/province, schedule conflict |
+| Provider not assigned | KYC, availability, town/province, schedule conflict |
 | PayHere failure | Payment mode, public HTTPS callbacks, order ID, amount/currency, webhook signature |
 | UI stale data | API response shape, `apiRequest()` path, loading/error state, server refresh after mutation |
 
@@ -33,6 +33,6 @@ For frontend changes, also check desktop and mobile layouts, browser console, an
 ## Change rules
 
 - Do not invent frontend records or balances.
-- Do not bypass KYC, WhatsApp verification, role, or payment gates.
+- Do not bypass KYC, role, or payment gates.
 - Keep API validation, persistence, and UI states aligned.
 - Use `prisma migrate deploy` in production; reserve `db:push` for disposable local databases.

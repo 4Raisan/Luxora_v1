@@ -1,17 +1,17 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-28T13:37:10.432Z",
+  "generatedAt": "2026-08-28T14:53:50.659Z",
   "stats": {
-    "totalNodes": 186,
-    "totalEdges": 390,
+    "totalNodes": 175,
+    "totalEdges": 365,
     "nodesByGroup": {
-      "database": 33,
+      "database": 32,
       "middleware": 3,
       "service": 8,
       "routes": 16,
-      "api": 97,
-      "frontend": 29
+      "api": 88,
+      "frontend": 28
     }
   },
   "nodes": [
@@ -46,22 +46,6 @@
           {
             "name": "phoneVerified",
             "type": "Boolean"
-          },
-          {
-            "name": "telegramId",
-            "type": "String?"
-          },
-          {
-            "name": "telegramUsername",
-            "type": "String?"
-          },
-          {
-            "name": "telegramPhotoUrl",
-            "type": "String?"
-          },
-          {
-            "name": "telegramAuthDate",
-            "type": "DateTime?"
           },
           {
             "name": "town",
@@ -178,46 +162,6 @@
           {
             "name": "@@index([userId,",
             "type": "expiresAt])"
-          }
-        ],
-        "relations": []
-      }
-    },
-    {
-      "id": "model:PhoneOtpChallenge",
-      "label": "PhoneOtpChallenge",
-      "type": "DatabaseModel",
-      "group": "database",
-      "file": "backend/prisma/schema.prisma",
-      "metadata": {
-        "fields": [
-          {
-            "name": "id",
-            "type": "Int"
-          },
-          {
-            "name": "phone",
-            "type": "String"
-          },
-          {
-            "name": "codeHash",
-            "type": "String"
-          },
-          {
-            "name": "expiresAt",
-            "type": "DateTime"
-          },
-          {
-            "name": "attempts",
-            "type": "Int"
-          },
-          {
-            "name": "lastSentAt",
-            "type": "DateTime"
-          },
-          {
-            "name": "createdAt",
-            "type": "DateTime"
           }
         ],
         "relations": []
@@ -1619,10 +1563,7 @@
       "group": "service",
       "file": "backend/src/services/integrations.js",
       "metadata": {
-        "modelsAccessed": [
-          "phoneOtpChallenge",
-          "user"
-        ]
+        "modelsAccessed": []
       }
     },
     {
@@ -1947,66 +1888,6 @@
       "file": "backend/src/routes/auth.js",
       "metadata": {
         "baseMount": "/api/auth"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/auth/phone/send-otp",
-      "label": "POST /api/auth/phone/send-otp",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/auth.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/auth/phone/send-otp",
-        "routeFile": "auth.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/auth/phone/verify-otp",
-      "label": "POST /api/auth/phone/verify-otp",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/auth.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/auth/phone/verify-otp",
-        "routeFile": "auth.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/auth/telegram",
-      "label": "POST /api/auth/telegram",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/auth.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/auth/telegram",
-        "routeFile": "auth.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/auth/register/phone/send",
-      "label": "POST /api/auth/register/phone/send",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/auth.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/auth/register/phone/send",
-        "routeFile": "auth.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/auth/register/phone/verify",
-      "label": "POST /api/auth/register/phone/verify",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/auth.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/auth/register/phone/verify",
-        "routeFile": "auth.js"
       }
     },
     {
@@ -2432,30 +2313,6 @@
       }
     },
     {
-      "id": "endpoint:POST_/api/whatsapp/send",
-      "label": "POST /api/whatsapp/send",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/integrations.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/whatsapp/send",
-        "routeFile": "integrations.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/whatsapp/verify",
-      "label": "POST /api/whatsapp/verify",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/integrations.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/whatsapp/verify",
-        "routeFile": "integrations.js"
-      }
-    },
-    {
       "id": "routefile:notifications",
       "label": "notifications.js",
       "type": "RouteModule",
@@ -2544,30 +2401,6 @@
       "metadata": {
         "method": "PUT",
         "path": "/api/profile",
-        "routeFile": "profile.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/profile/phone/send",
-      "label": "POST /api/profile/phone/send",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/profile.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/profile/phone/send",
-        "routeFile": "profile.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/profile/phone/verify",
-      "label": "POST /api/profile/phone/verify",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/profile.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/profile/phone/verify",
         "routeFile": "profile.js"
       }
     },
@@ -3220,14 +3053,6 @@
       "metadata": {}
     },
     {
-      "id": "frontend:TelegramLoginButton",
-      "label": "TelegramLoginButton.jsx",
-      "type": "FrontendComponent",
-      "group": "frontend",
-      "file": "frontend/src/components/TelegramLoginButton.jsx",
-      "metadata": {}
-    },
-    {
       "id": "frontend:ui",
       "label": "ui.jsx",
       "type": "FrontendComponent",
@@ -3664,18 +3489,6 @@
       "label": "bankAccount"
     },
     {
-      "from": "service:integrations",
-      "to": "model:PhoneOtpChallenge",
-      "type": "QUERIES_DB",
-      "label": "prisma.phoneOtpChallenge"
-    },
-    {
-      "from": "service:integrations",
-      "to": "model:User",
-      "type": "QUERIES_DB",
-      "label": "prisma.user"
-    },
-    {
       "from": "service:notify",
       "to": "model:Notification",
       "type": "QUERIES_DB",
@@ -3956,36 +3769,6 @@
       "to": "model:PasswordResetToken",
       "type": "QUERIES_DB",
       "label": "prisma.passwordResetToken"
-    },
-    {
-      "from": "routefile:auth",
-      "to": "endpoint:POST_/api/auth/phone/send-otp",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
-    },
-    {
-      "from": "routefile:auth",
-      "to": "endpoint:POST_/api/auth/phone/verify-otp",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
-    },
-    {
-      "from": "routefile:auth",
-      "to": "endpoint:POST_/api/auth/telegram",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
-    },
-    {
-      "from": "routefile:auth",
-      "to": "endpoint:POST_/api/auth/register/phone/send",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
-    },
-    {
-      "from": "routefile:auth",
-      "to": "endpoint:POST_/api/auth/register/phone/verify",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
     },
     {
       "from": "routefile:auth",
@@ -4372,18 +4155,6 @@
       "label": "POST"
     },
     {
-      "from": "routefile:integrations",
-      "to": "endpoint:POST_/api/whatsapp/send",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
-    },
-    {
-      "from": "routefile:integrations",
-      "to": "endpoint:POST_/api/whatsapp/verify",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
-    },
-    {
       "from": "routefile:notifications",
       "to": "middleware:auth",
       "type": "USES_AUTH",
@@ -4427,12 +4198,6 @@
     },
     {
       "from": "routefile:profile",
-      "to": "middleware:rateLimit",
-      "type": "USES_RATE_LIMIT",
-      "label": ""
-    },
-    {
-      "from": "routefile:profile",
       "to": "middleware:validators",
       "type": "USES_VALIDATION",
       "label": ""
@@ -4460,18 +4225,6 @@
       "to": "endpoint:PUT_/api/profile",
       "type": "EXPOSES_ENDPOINT",
       "label": "PUT"
-    },
-    {
-      "from": "routefile:profile",
-      "to": "endpoint:POST_/api/profile/phone/send",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
-    },
-    {
-      "from": "routefile:profile",
-      "to": "endpoint:POST_/api/profile/phone/verify",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST"
     },
     {
       "from": "routefile:promotions",
@@ -5207,18 +4960,6 @@
     },
     {
       "from": "frontend:CustomerDashboard",
-      "to": "endpoint:POST_/api/profile/phone/send",
-      "type": "FETCHES_API",
-      "label": "POST"
-    },
-    {
-      "from": "frontend:CustomerDashboard",
-      "to": "endpoint:POST_/api/profile/phone/verify",
-      "type": "FETCHES_API",
-      "label": "POST"
-    },
-    {
-      "from": "frontend:CustomerDashboard",
       "to": "endpoint:PUT_/api/bookings/:id/cancel",
       "type": "FETCHES_API",
       "label": "PUT"
@@ -5320,12 +5061,6 @@
       "label": ""
     },
     {
-      "from": "frontend:Login",
-      "to": "frontend:TelegramLoginButton",
-      "type": "RENDERS_COMPONENT",
-      "label": ""
-    },
-    {
       "from": "frontend:ProviderDashboard",
       "to": "frontend:api_client",
       "type": "USES_CLIENT",
@@ -5399,21 +5134,9 @@
     },
     {
       "from": "frontend:ProviderDashboard",
-      "to": "endpoint:POST_/api/profile/phone/send",
-      "type": "FETCHES_API",
-      "label": "POST"
-    },
-    {
-      "from": "frontend:ProviderDashboard",
       "to": "endpoint:PUT_/api/provider/service-towns",
       "type": "FETCHES_API",
       "label": "PUT"
-    },
-    {
-      "from": "frontend:ProviderDashboard",
-      "to": "endpoint:POST_/api/profile/phone/verify",
-      "type": "FETCHES_API",
-      "label": "POST"
     },
     {
       "from": "frontend:ProviderDashboard",
@@ -5426,18 +5149,6 @@
       "to": "frontend:api_client",
       "type": "USES_CLIENT",
       "label": ""
-    },
-    {
-      "from": "frontend:ProviderRegister",
-      "to": "endpoint:POST_/api/auth/register/phone/send",
-      "type": "FETCHES_API",
-      "label": "POST"
-    },
-    {
-      "from": "frontend:ProviderRegister",
-      "to": "endpoint:POST_/api/auth/register/phone/verify",
-      "type": "FETCHES_API",
-      "label": "POST"
     },
     {
       "from": "frontend:ProviderRegister",
@@ -5500,12 +5211,6 @@
       "label": ""
     },
     {
-      "from": "frontend:Signup",
-      "to": "frontend:TelegramLoginButton",
-      "type": "RENDERS_COMPONENT",
-      "label": ""
-    },
-    {
       "from": "frontend:AccountVerificationPanel",
       "to": "frontend:api_client",
       "type": "USES_CLIENT",
@@ -5513,27 +5218,9 @@
     },
     {
       "from": "frontend:AccountVerificationPanel",
-      "to": "endpoint:POST_/api/auth/phone/send-otp",
-      "type": "FETCHES_API",
-      "label": "POST"
-    },
-    {
-      "from": "frontend:AccountVerificationPanel",
-      "to": "endpoint:POST_/api/auth/phone/verify-otp",
-      "type": "FETCHES_API",
-      "label": "POST"
-    },
-    {
-      "from": "frontend:AccountVerificationPanel",
       "to": "endpoint:POST_/api/auth/password-reset/request",
       "type": "FETCHES_API",
       "label": "POST"
-    },
-    {
-      "from": "frontend:AccountVerificationPanel",
-      "to": "frontend:TelegramLoginButton",
-      "type": "RENDERS_COMPONENT",
-      "label": ""
     },
     {
       "from": "frontend:GoogleSignIn",
@@ -5564,18 +5251,6 @@
       "to": "frontend:ui",
       "type": "RENDERS_COMPONENT",
       "label": ""
-    },
-    {
-      "from": "frontend:TelegramLoginButton",
-      "to": "frontend:api_client",
-      "type": "USES_CLIENT",
-      "label": ""
-    },
-    {
-      "from": "frontend:TelegramLoginButton",
-      "to": "endpoint:POST_/api/auth/telegram",
-      "type": "FETCHES_API",
-      "label": "POST"
     }
   ]
 }

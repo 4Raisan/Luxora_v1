@@ -28,7 +28,7 @@ flowchart LR
 
 `ProviderDashboard.jsx` -> `api.js` -> `/api/provider/availability`, `/api/provider/earnings`, `/api/provider/service-towns`, `/api/bookings/assigned`, `/api/bookings/:id/status`, `/api/bookings/:id/photos` -> provider/bookings/uploads routes -> `Provider`, `Booking`, `ServicePhoto`, `User` models.
 
-Provider operations require a bearer token, `PROVIDER` role, approved KYC, and a verified WhatsApp number. KYC document upload remains available while KYC is pending. Booking status transitions and PIN/photo checks are server-side rules.
+Provider operations require a bearer token, `PROVIDER` role, and approved KYC. KYC document upload remains available while KYC is pending. Booking status transitions and PIN/photo checks are server-side rules.
 
 ### Admin
 
@@ -43,7 +43,7 @@ Provider operations require a bearer token, `PROVIDER` role, approved KYC, and a
 | Shared portal shell and UI effects | `frontend/src/components/PortalShell.jsx`, `PortalShell.css`, `PortalMotion.css`, `PortalSpatial.css`, `PortalPolish.css` |
 | Provider UI | `frontend/src/pages/ProviderDashboard.jsx`, `ProviderDashboard.css`, `frontend/src/components/ProviderCalendar.jsx` |
 | Route mounting and static frontend serving | `backend/src/index.js` |
-| JWT, role, and WhatsApp verification gates | `backend/src/middleware/auth.js` |
+| JWT and role gates | `backend/src/middleware/auth.js` |
 | Database client | `backend/src/config/prisma.js` |
 | Database contract | `backend/prisma/schema.prisma` |
 | Local database | `docker-compose.yml` (`postgres:5432`) |

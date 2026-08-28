@@ -26,39 +26,39 @@ Open `index.html` to explore the graph. The sidebar inspector is collapsible and
 
 | Group | Mount | Main responsibility |
 | --- | --- | --- |
-| Auth | `/api/auth` | Login, registration, Google sign-in, WhatsApp registration proof |
+| Auth | `/api/auth` | Login, registration, Google sign-in, password reset/email verification |
 | Services | `/api` | Categories, services, subscriptions, entitlements |
 | Bookings | `/api/bookings` | Booking, cancellation, provider status, PIN/photo lifecycle |
 | Customer | `/api/customer` | Dashboard data |
 | Provider | `/api/provider` | Availability, towns, earnings, bank accounts |
 | Admin | `/api/admin` | Operations, plans, KYC, payouts, reports |
-| Integrations | `/api` | PayHere, demo payments, email, WhatsApp verification |
+| Integrations | `/api` | PayHere, NOWPayments, demo payments, email verification |
 
 ## Gates
 
 | Action | Required checks |
 | --- | --- |
 | Customer booking | JWT, customer role, active entitlement, booking validation |
-| Provider operations | JWT, provider role, approved KYC, verified WhatsApp number |
+| Provider operations | JWT, provider role, approved KYC |
 | Provider KYC upload | JWT and provider role only; pending KYC is allowed |
 | Admin operations | JWT and admin role |
 | PayHere webhook | Public endpoint with verified PayHere signature |
+| NOWPayments IPN | Public endpoint with verified NOWPayments IPN HMAC-SHA512 signature |
 
 ## Product rules
 
 - Roles: Customer, Provider, Admin. There is no Super Admin.
 - Plans are admin-managed and always run for 30 days.
 - Plan type is `Single Package` or `Combo Package`.
-- Demo and PayHere are the only payment flows.
-- PayHere checkout requires valid public HTTPS callback URLs.
+- Demo, PayHere, and NOWPayments are the supported payment flows.
+- PayHere and NOWPayments checkouts require valid public HTTPS callback URLs.
 - Entitlements and booking state are server-authoritative.
-- A provider who changes phone must verify the new WhatsApp number before operating.
 
 ## Core models
 
 | Model | Purpose |
 | --- | --- |
-| `User`, `Provider`, `KycDocument` | Accounts, provider KYC, WhatsApp verification state |
+| `User`, `Provider`, `KycDocument` | Accounts, provider KYC |
 | `SubscriptionPlan`, `SubscriptionEntitlement`, `UserSubscription` | Packages and coins |
 | `Booking`, `ServicePhoto` | Fulfilment, PINs, evidence |
 | `Payment`, `RefundRequest` | Payment and refund state |
