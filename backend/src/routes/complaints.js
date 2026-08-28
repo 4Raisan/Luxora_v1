@@ -8,8 +8,21 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/my', async (req, res) => {
-  const complaints = await prisma.complaint.findMany({ where: { userId: req.user.id }, include: { booking: { select: { id: true, bookingDate: true, bookingTime: true, service: { select: { title: true } } } } }, orderBy: { updatedAt: 'desc' } });
-  res.json(complaints.map((item) => ({ id: item.id, subject: item.subject, description: item.description, status: item.status.toLowerCase(), admin_note: item.adminNote, created_at: item.createdAt, updated_at: item.updatedAt, booking: item.booking && { id: item.booking.id, date: item.booking.bookingDate, time: item.booking.bookingTime, service: item.booking.service?.title } })));
+  const complaints = await prisma.complaint.findMany({
+    where: { userId: req.user.id },
+    include: { booking: { select: { id: true, bookingDate: true, bookingTime: true, service: { select: { title: true } } } } },
+    orderBy: { updatedAt: 'desc' },
+  });
+  res.json(complaints.map((item) => ({
+    id: item.id,
+    subject: item.subject,
+    description: item.description,
+    status: item.status.toLowerCase(),
+    admin_note: item.adminNote,
+    created_at: item.createdAt,
+    updated_at: item.updatedAt,
+    booking: item.booking && { id: item.booking.id, date: item.booking.bookingDate, time: item.booking.bookingTime, service: item.booking.service?.title },
+  })));
 });
 
 router.post('/', async (req, res) => {
@@ -26,8 +39,28 @@ router.post('/', async (req, res) => {
     if (!booking) return res.status(400).json({ error: 'Booking not found among your bookings' });
   }
 
+  const cleanSubject = subject.trim();
+  const cleanDescription = description.trim();
+
+  // Deduplicate rapid duplicate clicks within 15 seconds
+  const recentDuplicate = await prisma.complaint.findFirst({
+    where: {
+      userId: req.user.id,
+      bookingId,
+      subject: cleanSubject,
+      createdAt: { gte: new Date(Date.now() - 15000) },
+    },
+  });
+
+  if (recentDuplicate) {
+    return res.status(200).json({
+      message: 'Complaint registered successfully. Admin will review shortly.',
+      complaint: { id: recentDuplicate.id, subject: recentDuplicate.subject, description: recentDuplicate.description, status: recentDuplicate.status.toLowerCase(), created_at: recentDuplicate.createdAt },
+    });
+  }
+
   const complaint = await prisma.complaint.create({
-    data: { userId: req.user.id, bookingId, subject: subject.trim(), description: description.trim() },
+    data: { userId: req.user.id, bookingId, subject: cleanSubject, description: cleanDescription },
   });
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
   await Promise.all(admins.map((admin) => notify(admin.id, `New complaint #${complaint.id}: ${complaint.subject}`, '/admin-dashboard')));

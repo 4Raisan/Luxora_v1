@@ -11,7 +11,25 @@ router.post('/', async (req, res) => {
   if (!isNonEmptyString(req.body.subject, 150) || !isNonEmptyString(req.body.message, 4000)) return res.status(400).json({ error: 'subject and message are required' });
   const priority = toEnum(req.body.priority || 'normal', ['LOW', 'NORMAL', 'HIGH', 'URGENT']);
   if (!priority) return res.status(400).json({ error: 'Invalid priority' });
-  const ticket = await prisma.supportTicket.create({ data: { userId: req.user.id, subject: req.body.subject.trim(), message: req.body.message.trim(), priority } });
+
+  const cleanSubject = req.body.subject.trim();
+  const cleanMessage = req.body.message.trim();
+
+  // Deduplicate rapid duplicate clicks within 15 seconds
+  const recentDuplicate = await prisma.supportTicket.findFirst({
+    where: {
+      userId: req.user.id,
+      subject: cleanSubject,
+      message: cleanMessage,
+      createdAt: { gte: new Date(Date.now() - 15000) },
+    },
+  });
+
+  if (recentDuplicate) {
+    return res.status(200).json(recentDuplicate);
+  }
+
+  const ticket = await prisma.supportTicket.create({ data: { userId: req.user.id, subject: cleanSubject, message: cleanMessage, priority } });
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
   await Promise.all(admins.map((admin) => notify(admin.id, `New support ticket #${ticket.id}: ${ticket.subject}`, '/admin/support')));
   res.status(201).json(ticket);
