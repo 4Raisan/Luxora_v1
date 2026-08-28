@@ -7,10 +7,7 @@ import { notify } from '../services/notify.js';
 import {
   createPayHereFields,
   sendEmail,
-  sendWhatsAppVerificationCode,
-  verifyWhatsAppCode,
   verifyPayHereWebhook,
-  normalizePhoneNumber,
   createNowPaymentsInvoice,
   nowPaymentsConfigured,
   fetchNowPaymentsPaymentStatus,
@@ -31,8 +28,6 @@ const sameMoney = (left, right) => {
   try { return new Prisma.Decimal(left).toDecimalPlaces(2).equals(new Prisma.Decimal(right).toDecimalPlaces(2)); }
   catch { return false; }
 };
-const otpSendLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
-const otpVerifyLimiter = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 });
 const emailLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 const environment = () => String(process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk').includes('sandbox') ? 'SANDBOX' : 'LIVE';
 const payHereUrls = () => {
@@ -481,30 +476,6 @@ router.post('/email', authenticateToken, emailLimiter, async (req, res) => {
   if (!req.body.to || !req.body.subject || !req.body.html) return res.status(400).json({ error: 'to, subject and html are required' });
   if (req.body.to !== req.user.email && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'You can only email your own address' });
   try { res.json(await sendEmail(req.body)); } catch (error) { console.warn('[email] send failed:', error.message); res.status(502).json({ error: 'Email delivery failed' }); }
-});
-router.post('/whatsapp/send', authenticateToken, otpSendLimiter, async (req, res) => {
-  const phone = normalizePhoneNumber(req.body.phone);
-  if (!phone) return res.status(400).json({ error: 'phone must be in valid international format, e.g. +94771234567' });
-  try {
-    const result = await sendWhatsAppVerificationCode(phone, { demoAllowed: true });
-    res.json(result);
-  } catch (error) {
-    console.warn('[whatsapp] send failed:', error.message);
-    res.status(502).json({ error: error.message || 'Could not send WhatsApp verification code' });
-  }
-});
-
-router.post('/whatsapp/verify', authenticateToken, otpVerifyLimiter, async (req, res) => {
-  const phone = normalizePhoneNumber(req.body.phone);
-  const code = String(req.body.code || '').trim();
-  if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'valid phone and 6-digit WhatsApp code are required' });
-  try {
-    const result = await verifyWhatsAppCode(phone, code);
-    res.json(result);
-  } catch (error) {
-    console.warn('[whatsapp] verify failed:', error.message);
-    res.status(502).json({ error: error.message || 'Could not verify the WhatsApp code' });
-  }
 });
 
 export default router;
