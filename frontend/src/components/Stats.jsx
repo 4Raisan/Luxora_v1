@@ -2,26 +2,34 @@ import { useEffect, useRef, useState } from 'react'
 import './Stats.css'
 
 const useCountUp = (target, duration = 2000, start = false) => {
-  const [count, setCount] = useState(target)
+  const [count, setCount] = useState(target || '0')
 
   useEffect(() => {
-    // If value contains '/', treat it as static — don't animate
-    if (!start || target.includes('/')) {
-      setCount(target)
+    if (!target) return
+    const targetStr = String(target)
+    if (!start || targetStr.includes('/')) {
+      setCount(targetStr)
       return
     }
     let startTime = null
-    const numericTarget = parseInt(target.replace(/\D/g, ''))
-    const suffix = target.replace(/[0-9]/g, '')
+    const numericTarget = parseInt(targetStr.replace(/\D/g, ''), 10) || 0
+    const suffix = targetStr.replace(/[0-9]/g, '')
+    let reqId = null
 
     const step = (timestamp) => {
-      if (!startTime) startTime = timestamp
-      const progress = Math.min((timestamp - startTime) / duration, 1)
+      const currentTimestamp = typeof timestamp === 'number' ? timestamp : (typeof performance !== 'undefined' ? performance.now() : Date.now())
+      if (!startTime) startTime = currentTimestamp
+      const progress = Math.min((currentTimestamp - startTime) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3)
       setCount(Math.floor(eased * numericTarget) + suffix)
-      if (progress < 1) requestAnimationFrame(step)
+      if (progress < 1) {
+        reqId = requestAnimationFrame(step)
+      }
     }
-    requestAnimationFrame(step)
+    reqId = requestAnimationFrame(step)
+    return () => {
+      if (reqId) cancelAnimationFrame(reqId)
+    }
   }, [start, target, duration])
 
   return count || '0'

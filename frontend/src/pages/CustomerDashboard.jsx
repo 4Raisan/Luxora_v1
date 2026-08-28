@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import AccountVerificationPanel from '../components/AccountVerificationPanel'
@@ -295,19 +295,19 @@ const CustomerDashboard = () => {
     const currentUserName = (() => {
       try { return JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Customer' } catch { return 'Customer' }
     })()
-    return (rows || []).map((booking) => ({
-      id: booking.id,
+    return (rows || []).filter(Boolean).map((booking) => ({
+      id: booking?.id,
       customer: currentUserName,
-      service: booking.service_title || 'Concierge Service',
-      status: (booking.status || '').toUpperCase(),
-      color: booking.status === 'cancelled' ? '#ef4444' : '#4ade80',
-      date: booking.bookingDate,
-      time: booking.bookingTime,
-      amount: `LKR ${Number(booking.totalPrice || 0).toLocaleString()}`,
-      pin: booking.pin_code,
-      location: booking.town || 'Town not set',
-      providerName: booking.provider_name || 'Awaiting assignment',
-      providerPhone: booking.provider_phone,
+      service: booking?.service_title || 'Concierge Service',
+      status: (booking?.status || '').toUpperCase(),
+      color: booking?.status === 'cancelled' ? '#ef4444' : '#4ade80',
+      date: booking?.bookingDate,
+      time: booking?.bookingTime,
+      amount: `LKR ${Number(booking?.totalPrice || 0).toLocaleString()}`,
+      pin: booking?.pin_code,
+      location: booking?.town || 'Town not set',
+      providerName: booking?.provider_name || 'Awaiting assignment',
+      providerPhone: booking?.provider_phone,
       isSession: true,
     }))
   }, [])
@@ -1078,13 +1078,8 @@ const CustomerDashboard = () => {
   // booking dated today or later). Null → the banner invites a booking.
   const todayStr = new Date().toISOString().slice(0, 10)
   const nextBooking = [...customerActiveBookings]
-    .filter(b => b.status !== 'CANCELLED' && b.date && b.date >= todayStr)
+    .filter(b => b && b.status !== 'CANCELLED' && b.date && b.date >= todayStr)
     .sort((a, b) => `${a.date} ${a.time || ''}`.localeCompare(`${b.date} ${b.time || ''}`))[0] || null
-
-    + activePackages.reduce((sum, pkg) => {
-      const num = parseInt((pkg.price || '').replace(/[^0-9]/g, '')) || 0
-      return sum + num
-    }, 0)
 
   const filteredHistory = historyFilter === 'all'
     ? historyData
