@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-const sameMoney = (left, right, toleranceCents = 1) => {
+const sameMoney = (left, right, toleranceCents = 0) => {
   const numLeft = Number(left);
   const numRight = Number(right);
   if (!Number.isFinite(numLeft) || !Number.isFinite(numRight)) return false;
@@ -75,7 +75,7 @@ export function classifyNowPaymentsIpn(payment, payload = {}) {
   if (payload.price_amount !== undefined && payload.price_amount !== null) {
     const amount = Number(payload.price_amount);
     const currency = String(payload.price_currency || '').toUpperCase();
-    if (!sameMoney(amount, expectedGatewayAmount) || (currency && currency !== expectedGatewayCurrency)) {
+    if (!sameMoney(amount, expectedGatewayAmount, conversion ? 1 : 0) || (currency && currency !== expectedGatewayCurrency)) {
       return 'amount_mismatch';
     }
   }
