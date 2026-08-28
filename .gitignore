@@ -4,9 +4,35 @@ node_modules/
 !.env.example
 dist/
 build/
+coverage/
+.vite/
+frontend/.vite/
 *.db
 *.sqlite
 *.sqlite3
 
-# Uploaded KYC/booking files never belong in git
+# Uploaded KYC/booking files and private assets
 private-uploads/
+uploads/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Certificates and private keys
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
