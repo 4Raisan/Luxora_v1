@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import { ActionButton } from '../components/ui'
 import GoogleSignIn from '../components/GoogleSignIn'
 import './Auth.css'
 import '../components/Footer.css'
@@ -289,17 +290,15 @@ const Signup = () => {
           </label>
 
           {/* Submit */}
-          <button
+          <ActionButton
             type="submit"
             id="signup-submit-btn"
-            className={`auth-submit ${loading ? 'loading' : ''}`}
-            disabled={loading}
+            className="auth-submit"
+            loading={loading}
+            loadingText="Creating account..."
           >
-            {loading
-              ? <span className="auth-spinner" />
-              : 'CREATE ACCOUNT'
-            }
-          </button>
+            CREATE ACCOUNT
+          </ActionButton>
         </form>
 
         {/* Google sign-up for customer accounts */}

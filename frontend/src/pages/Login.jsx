@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import { ActionButton } from '../components/ui'
 import GoogleSignIn from '../components/GoogleSignIn'
 import './Auth.css'
 
@@ -205,17 +206,15 @@ const Login = () => {
           </div>
 
           {/* Submit */}
-          <button
+          <ActionButton
             type="submit"
             id="login-submit-btn"
-            className={`auth-submit ${loading ? 'loading' : ''}`}
-            disabled={loading}
+            className="auth-submit"
+            loading={loading}
+            loadingText="Signing in..."
           >
-            {loading
-              ? <span className="auth-spinner" />
-              : 'SIGN IN'
-            }
-          </button>
+            SIGN IN
+          </ActionButton>
         </form>
 
         {/* Google sign-in for customer accounts */}
@@ -323,14 +322,15 @@ const Login = () => {
                   />
                 </div>
 
-                <button
+                <ActionButton
                   type="submit"
-                  className={`auth-submit ${forgotLoading ? 'loading' : ''}`}
+                  className="auth-submit"
                   style={{ marginTop: '1.2rem' }}
-                  disabled={forgotLoading}
+                  loading={forgotLoading}
+                  loadingText="Sending reset link..."
                 >
-                  {forgotLoading ? 'SENDING...' : 'SEND RESET LINK →'}
-                </button>
+                  SEND RESET LINK →
+                </ActionButton>
             </form>
           </div>
         </div>
