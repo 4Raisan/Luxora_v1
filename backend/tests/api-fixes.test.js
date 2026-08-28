@@ -52,7 +52,6 @@ const authJson = (token, path, options = {}) => json(path, {
 });
 
 before(async () => {
-  await prisma.user.updateMany({ where: { email: 'provider@luxora.lk' }, data: { phoneVerified: true } });
   server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`));
   for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -126,11 +125,10 @@ test('B1: no credential fields in any list/dashboard API response', async () => 
 
 test('B3: pre-KYC provider token gets no operational access, but can upload KYC documents', async () => {
   const email = `pending-${RND}@test.com`;
-  const proof = jwt.sign({ scope: 'provider_phone_verified', phone: '+94771234567' }, process.env.JWT_SECRET);
   const { status, body } = await json('/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Pending Provider', email, password: 'secret123', phone: '0771234567', role: 'provider', phone_verification_token: proof, category: 'Auto Care' }),
+    body: JSON.stringify({ name: 'Pending Provider', email, password: 'secret123', phone: '0771234567', role: 'provider', category: 'Auto Care' }),
   });
   assert.equal(status, 201);
   const token = body.token;
@@ -166,8 +164,7 @@ test('B3: pre-KYC provider token gets no operational access, but can upload KYC 
 
   // A rejected provider stays locked out
   const rejectEmail = `rejected-${RND}@test.com`;
-  const rejectProof = jwt.sign({ scope: 'provider_phone_verified', phone: '+94771234568' }, process.env.JWT_SECRET);
-  const rejected = await json('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Rejected Provider', email: rejectEmail, password: 'secret123', phone: '0771234568', role: 'provider', phone_verification_token: rejectProof, category: 'Auto Care' }) });
+  const rejected = await json('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Rejected Provider', email: rejectEmail, password: 'secret123', phone: '0771234568', role: 'provider', category: 'Auto Care' }) });
   assert.equal(rejected.status, 201);
   assert.equal((await authJson(rejected.body.token, '/bookings/assigned')).status, 403);
 });
@@ -182,18 +179,7 @@ test('Google sign-in endpoint is guarded when unconfigured', async () => {
   assert.ok(!String(unconfigured.body.error).includes('fetch'));
 });
 
-test('WhatsApp verification issues a durable six-digit challenge', async () => {
-  const phone = '+94779911111';
-  const sent = await json('/auth/register/phone/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
-  assert.equal(sent.status, 200);
-  assert.equal(sent.body.channel, 'whatsapp');
-  const verified = await json('/auth/register/phone/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, code: '123456' }) });
-  assert.equal(verified.status, 200);
-  assert.equal(verified.body.verified, true);
-  assert.ok(verified.body.verification_token);
-});
-
-test('Changing a saved phone requires WhatsApp verification for that exact number', async () => {
+test('Profile phone number updates directly as standard contact info without OTP', async () => {
   const email = `profile-phone-${RND}@test.com`;
   const { status, body: registration } = await json('/auth/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Phone Profile', email, password: 'secret123' }),
@@ -203,40 +189,15 @@ test('Changing a saved phone requires WhatsApp verification for that exact numbe
   const changed = await authJson(token, '/profile', { method: 'PUT', body: JSON.stringify({ phone: '0771234567' }) });
   assert.equal(changed.status, 200);
   assert.equal(changed.body.phone, '+94771234567');
-  assert.equal(changed.body.phoneVerified, false);
-  assert.equal((await authJson(token, '/profile/phone/send', { method: 'POST', body: JSON.stringify({ phone: '+94770000000' }) })).status, 409);
-  assert.equal((await authJson(token, '/profile/phone/send', { method: 'POST', body: JSON.stringify({ phone: changed.body.phone }) })).status, 200);
-  const verified = await authJson(token, '/profile/phone/verify', { method: 'POST', body: JSON.stringify({ phone: changed.body.phone, code: '123456' }) });
-  assert.equal(verified.status, 200);
-  assert.equal(verified.body.approved, true);
-  assert.equal((await authJson(token, '/profile')).body.phoneVerified, true);
+
+  const profile = await authJson(token, '/profile');
+  assert.equal(profile.status, 200);
+  assert.equal(profile.body.phone, '+94771234567');
 
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   const notification = await prisma.notification.create({ data: { userId: user.id, message: 'dismiss me' } });
   assert.equal((await authJson(token, `/notifications/${notification.id}`, { method: 'DELETE' })).status, 200);
   assert.equal(await prisma.notification.count({ where: { id: notification.id } }), 0);
-});
-
-test('An approved provider cannot operate after changing an unverified phone', async () => {
-  const email = `provider-phone-${RND}@test.com`;
-  const phone = '+94773334455';
-  const proof = jwt.sign({ scope: 'provider_phone_verified', phone }, process.env.JWT_SECRET);
-  const { status, body: registration } = await json('/auth/register', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Phone-gated Provider', email, password: 'secret123', phone, role: 'provider', phone_verification_token: proof, category: 'Auto Care' }),
-  });
-  assert.equal(status, 201);
-  const user = await prisma.user.findUnique({ where: { email }, include: { provider: true } });
-  await prisma.provider.update({ where: { id: user.provider.id }, data: { kycStatus: 'APPROVED' } });
-  const token = registration.token;
-
-  const changed = await authJson(token, '/profile', { method: 'PUT', body: JSON.stringify({ phone: '0773334455' }) });
-  assert.equal(changed.status, 200);
-  assert.equal(changed.body.phoneVerified, false);
-  assert.equal((await authJson(token, '/provider/availability')).status, 403);
-  assert.equal((await authJson(token, '/profile/phone/send', { method: 'POST', body: JSON.stringify({ phone: changed.body.phone }) })).status, 200);
-  assert.equal((await authJson(token, '/profile/phone/verify', { method: 'POST', body: JSON.stringify({ phone: changed.body.phone, code: '123456' }) })).status, 200);
-  assert.equal((await authJson(token, '/provider/availability')).status, 200);
 });
 
 test('Entitlement reads do not renew due demo subscriptions', async () => {
@@ -258,19 +219,7 @@ test('Entitlement reads do not renew due demo subscriptions', async () => {
   assert.equal((await prisma.payment.count({ where: { userId: user.id } })), 0);
 });
 
-test('B5: WhatsApp and email senders are rate limited', async () => {  // 5 allowed, 6th must hit 429
-  let sawLimit = false;
-  let sawWhatsApp = false;
-  for (let i = 0; i < 6; i += 1) {
-    const { status, body } = await json('/auth/register/phone/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: '0771112233' }) });
-    if (status === 429) { sawLimit = true; break; }
-    assert.equal(status, 200);
-    assert.equal(body.channel, 'whatsapp');
-    sawWhatsApp = true;
-  }
-  assert.ok(sawLimit, 'WhatsApp send was not rate limited');
-  assert.ok(sawWhatsApp, 'WhatsApp demo delivery was not exercised');
-
+test('B5: Email sender is rate limited', async () => {
   const customer = await login('customer@luxora.lk');
   let emailLimited = false;
   for (let i = 0; i < 6; i += 1) {
@@ -279,13 +228,6 @@ test('B5: WhatsApp and email senders are rate limited', async () => {  // 5 allo
     assert.ok([200, 502].includes(status));
   }
   assert.ok(emailLimited, 'email endpoint was not rate limited');
-
-  let whatsAppLimited = false;
-  for (let i = 0; i < 6; i += 1) {
-    const { status } = await authJson(customer, '/whatsapp/send', { method: 'POST', body: JSON.stringify({ phone: '+94771112233' }) });
-    if (status === 429) { whatsAppLimited = true; break; }
-  }
-  assert.ok(whatsAppLimited, 'authenticated WhatsApp send was not rate limited');
 });
 
 test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitlements idempotently, money stays exact', async () => {
