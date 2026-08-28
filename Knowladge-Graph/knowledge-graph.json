@@ -1,7 +1,7 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-28T17:27:33.450Z",
+  "generatedAt": "2026-08-28T17:39:37.791Z",
   "stats": {
     "totalNodes": 176,
     "totalEdges": 374,
@@ -4936,12 +4936,6 @@
     },
     {
       "from": "frontend:CustomerDashboard",
-      "to": "endpoint:GET_/api/bookings/my",
-      "type": "FETCHES_API",
-      "label": "GET"
-    },
-    {
-      "from": "frontend:CustomerDashboard",
       "to": "endpoint:GET_/api/customer/dashboard",
       "type": "FETCHES_API",
       "label": "GET"
@@ -4967,6 +4961,12 @@
     {
       "from": "frontend:CustomerDashboard",
       "to": "endpoint:GET_/api/payments/mode",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:GET_/api/bookings/my",
       "type": "FETCHES_API",
       "label": "GET"
     },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { apiRequest } from '../services/api'
@@ -15,25 +15,35 @@ export default function Reviews() {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const loadCompletedBookings = useCallback(async () => {
     if (!token) { navigate('/login'); return }
-    apiRequest('/bookings/my', 'GET', null, token)
-      .then((b) => {
-        const done = b.filter((x) => x.status === 'completed')
-        setBookings(done)
-        if (done.length) setSelected(done[0].id)
-      })
-      .catch(() => {})
+    try {
+      const b = await apiRequest('/bookings/my', 'GET', null, token)
+      const done = (b || []).filter((x) => x.status === 'completed')
+      setBookings(done)
+      if (done.length) setSelected(done[0].id)
+      else setSelected(null)
+    } catch {
+      // non-fatal
+    }
   }, [token, navigate])
+
+  useEffect(() => {
+    void loadCompletedBookings()
+  }, [loadCompletedBookings])
 
   const submit = async (e) => {
     e.preventDefault()
-    setMsg(''); setError('')
+    setMsg('')
+    setError('')
     if (!rating) { setError('Please select a star rating.'); return }
+    if (!selected) { setError('Please select a completed booking to review.'); return }
     try {
       await apiRequest('/reviews', 'POST', { booking_id: Number(selected), rating, comment }, token)
       setMsg('Thank you — your review has been recorded.')
-      setComment(''); setRating(0)
+      setComment('')
+      setRating(0)
+      await loadCompletedBookings()
     } catch (err) {
       setError(err.message)
     }

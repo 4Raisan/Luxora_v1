@@ -291,31 +291,25 @@ const CustomerDashboard = () => {
   const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
   const [customerActiveBookings, setCustomerActiveBookings] = useState([])
 
-  useEffect(() => {
-    const token = sessionStorage.getItem('token')
-    if (!token || token === 'demo-token') return
-    apiRequest('/bookings/my', 'GET', null, token).then((rows) => {
-      const mapped = rows.map((booking) => ({
-        id: booking.id,
-        customer: (() => {
-          try { return JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Customer' } catch { return 'Customer' }
-        })(),
-        service: booking.service_title || 'Concierge Service',
-        status: booking.status.toUpperCase(),
-        color: booking.status === 'cancelled' ? '#ef4444' : '#4ade80',
-        date: booking.bookingDate,
-        time: booking.bookingTime,
-        amount: `LKR ${Number(booking.totalPrice || 0).toLocaleString()}`,
-        pin: booking.pin_code,
-        location: booking.town || 'Town not set',
-        providerName: booking.provider_name || 'Awaiting assignment',
-        providerPhone: booking.provider_phone,
-        isSession: true,
-      }))
-      // The server list is the source of truth — an empty response must also
-      // clear any stale locally-cached rows.
-      setCustomerActiveBookings(mapped)
-    }).catch((error) => console.warn('Could not load customer bookings.', error))
+  const mapCustomerBookingRows = useCallback((rows) => {
+    const currentUserName = (() => {
+      try { return JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Customer' } catch { return 'Customer' }
+    })()
+    return (rows || []).map((booking) => ({
+      id: booking.id,
+      customer: currentUserName,
+      service: booking.service_title || 'Concierge Service',
+      status: (booking.status || '').toUpperCase(),
+      color: booking.status === 'cancelled' ? '#ef4444' : '#4ade80',
+      date: booking.bookingDate,
+      time: booking.bookingTime,
+      amount: `LKR ${Number(booking.totalPrice || 0).toLocaleString()}`,
+      pin: booking.pin_code,
+      location: booking.town || 'Town not set',
+      providerName: booking.provider_name || 'Awaiting assignment',
+      providerPhone: booking.provider_phone,
+      isSession: true,
+    }))
   }, [])
 
   /* ── Server-synced proposal features: memberships, notifications,
@@ -338,16 +332,20 @@ const CustomerDashboard = () => {
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') return
     try {
-      const [dash, notes, paymentRows, entitlementRows, planRows, mode] = await Promise.all([
+      const [dash, notes, paymentRows, entitlementRows, planRows, mode, bookingRows] = await Promise.all([
         apiRequest('/customer/dashboard', 'GET', null, token),
         apiRequest('/notifications', 'GET', null, token),
         apiRequest('/payments/my', 'GET', null, token),
         apiRequest('/subscriptions/entitlements', 'GET', null, token),
         apiRequest('/subscriptions'),
         apiRequest('/payments/mode', 'GET', null, token),
+        apiRequest('/bookings/my', 'GET', null, token).catch(() => []),
       ])
       if (mode?.mode) setPaymentMode(mode.mode)
       if (Array.isArray(dash?.activeSubscriptions)) setServerSubscriptions(dash.activeSubscriptions)
+      if (Array.isArray(bookingRows)) {
+        setCustomerActiveBookings(mapCustomerBookingRows(bookingRows))
+      }
       // Keep the displayed name/phone/town in sync with the server profile so a
       // corrected profile replaces any stale copy cached in sessionStorage.
       if (dash?.profile) {
@@ -441,7 +439,7 @@ const CustomerDashboard = () => {
     } catch (error) { console.warn('Could not sync server data.', error) }
   }
 
-  useEffect(() => { loadServerData() }, [])
+  useEffect(() => { loadServerData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // PayHere and NOWPayments hosted checkout returns to /customer-dashboard
   // Strip query parameters immediately, then confirm the authoritative payment
@@ -461,7 +459,7 @@ const CustomerDashboard = () => {
         resolvePaymentReturn(orderId, paymentFlag === 'cancelled')
       }
     } catch { /* ignore malformed query strings */ }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Real start/completion PINs for an expanded booking row (the list endpoint
   // no longer returns plaintext PINs; they live behind /bookings/:id/pins).
@@ -718,9 +716,12 @@ const CustomerDashboard = () => {
     })
     setShowSessionConfirmedModal(true)
     setServiceBookingForm(prev => ({ ...prev, packageId: '' }))
-    // Re-sync coin counters, memberships and notifications from the server so
-    // the header no longer shows stale entitlement values after a booking.
-    loadServerData()
+
+    // 1. Immediate optimistic UI update with full booking details
+    setCustomerActiveBookings((prev) => [newB, ...prev.filter((b) => b.id !== newB.id)])
+
+    // 2. Authoritative server refresh of active bookings, coin counters, memberships and notifications
+    await loadServerData()
   }
 
   // Custom Request State — real support tickets from GET /support/my only.
@@ -934,9 +935,9 @@ const CustomerDashboard = () => {
       setSupportBusy(false)
     }
     const ref = created?.complaint?.id ? `SUP-${String(created.complaint.id).padStart(4, '0')}` : 'SUP-REGISTERED'
-
     setSupportRefNum(ref)
     setSupportSentSuccess(true)
+    void loadServerData()
 
     setTimeout(() => {
       setSupportSentSuccess(false)
@@ -2224,7 +2225,7 @@ const CustomerDashboard = () => {
                   const filteredActive = customerActiveBookings
                     .filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
                     .filter(b => {
-                      const matchId = !activeBookingIdFilter || (b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
+                      const matchId = !activeBookingIdFilter || String(b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
                       const matchDate = !activeBookingDateFilter || b.date === activeBookingDateFilter
                       return matchId && matchDate
                     })

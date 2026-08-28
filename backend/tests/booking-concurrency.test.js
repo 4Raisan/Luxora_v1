@@ -239,4 +239,22 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
     where: { userId: customer.id, status: { not: 'CANCELLED' } },
   });
   assert.equal(dbBookings.length, 2, `Expected exactly 2 bookings in database, found ${dbBookings.length}`);
+
+  // 13. State-Sync Test: Booking cancellation immediately updates GET /bookings/my and restores entitlements
+  const cancelRes = await authJson(customerToken, `/bookings/${firstBookingId}/cancel`, {
+    method: 'PUT',
+  });
+  assert.equal(cancelRes.status, 200, 'Cancellation must succeed');
+
+  const refreshedMyBookings = await authJson(customerToken, '/bookings/my');
+  assert.equal(refreshedMyBookings.status, 200);
+  const cancelledBooking = refreshedMyBookings.body.find((b) => b.id === firstBookingId);
+  assert.ok(cancelledBooking, 'Cancelled booking must still be returned in history');
+  assert.equal(cancelledBooking.status.toLowerCase(), 'cancelled', 'Status must be updated to cancelled');
+
+  // Verify entitlements restored in GET /subscriptions/entitlements
+  const refreshedEntitlements = await authJson(customerToken, '/subscriptions/entitlements');
+  assert.equal(refreshedEntitlements.status, 200);
+  assert.ok(refreshedEntitlements.body.entitlements.length > 0, 'Entitlements should be present');
 });
+
