@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import AccountVerificationPanel from '../components/AccountVerificationPanel'
+import { ActionButton } from '../components/ui'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -253,6 +254,7 @@ const CustomerDashboard = () => {
         if (payment) {
           if (payment.status === 'COMPLETED') {
             setPayhereResult({ status: 'success', payment })
+            void loadServerData()
             return
           }
           if (payment.status === 'FAILED') {
@@ -617,8 +619,10 @@ const CustomerDashboard = () => {
   const [insufficientTokenCategory, setInsufficientTokenCategory] = useState('')
   const [showSessionConfirmedModal, setShowSessionConfirmedModal] = useState(false)
   const [confirmedModalDetails, setConfirmedModalDetails] = useState(null)
+  const [bookingSessionBusy, setBookingSessionBusy] = useState(false)
 
   const handleConfirmServiceBooking = async () => {
+    if (bookingSessionBusy) return
     if (!userAddress || (!userAddress.street && !userAddress.city)) {
       setShowAddressModal(true)
       setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before booking a session.')
@@ -649,6 +653,7 @@ const CustomerDashboard = () => {
       return
     }
     let created
+    setBookingSessionBusy(true)
     try {
       await apiRequest('/profile', 'PUT', {
         town: userAddress.city,
@@ -666,6 +671,8 @@ const CustomerDashboard = () => {
     } catch (error) {
       alert(error.message || 'Could not create this booking.')
       return
+    } finally {
+      setBookingSessionBusy(false)
     }
     const newB = {
       id: created.booking_id,
@@ -889,10 +896,11 @@ const CustomerDashboard = () => {
   const [supportMessage, setSupportMessage] = useState('')
   const [supportSentSuccess, setSupportSentSuccess] = useState(false)
   const [supportRefNum, setSupportRefNum] = useState('')
+  const [supportBusy, setSupportBusy] = useState(false)
 
   const handleSendSupportMessage = async (e) => {
     e.preventDefault()
-    if (!supportMessage.trim()) return
+    if (!supportMessage.trim() || supportBusy) return
 
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') {
@@ -900,6 +908,7 @@ const CustomerDashboard = () => {
       return
     }
     let created
+    setSupportBusy(true)
     try {
       created = await apiRequest('/complaints', 'POST', {
         subject: supportCategory,
@@ -908,6 +917,8 @@ const CustomerDashboard = () => {
     } catch (error) {
       alert(error.message || 'Could not send your support request.')
       return
+    } finally {
+      setSupportBusy(false)
     }
     const ref = created?.complaint?.id ? `SUP-${String(created.complaint.id).padStart(4, '0')}` : 'SUP-REGISTERED'
 
@@ -1569,7 +1580,9 @@ const CustomerDashboard = () => {
 
                 {/* Action Button */}
                 <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
+                  <ActionButton
+                    loading={bookingSessionBusy}
+                    loadingText="Reserving Concierge..."
                     onClick={handleConfirmServiceBooking}
                     style={{
                       width: '100%',
@@ -1586,7 +1599,7 @@ const CustomerDashboard = () => {
                     }}
                   >
                     CONFIRM &amp; BOOK SERVICE SESSION ✨
-                  </button>
+                  </ActionButton>
                 </div>
               </section>
 
@@ -3441,9 +3454,14 @@ const CustomerDashboard = () => {
                 </div>
 
                 <div className="cd-support-actions">
-                  <button type="submit" className="cd-support-send-btn">
+                  <ActionButton
+                    type="submit"
+                    className="cd-support-send-btn"
+                    loading={supportBusy}
+                    loadingText="SENDING MESSAGE..."
+                  >
                     SEND MESSAGE &rarr;
-                  </button>
+                  </ActionButton>
                 </div>
               </form>
             )}
@@ -3656,9 +3674,15 @@ const CustomerDashboard = () => {
                   <span className="cd-easypay__title">CREDIT / DEBIT CARD</span>
                   <span className="cd-easypay__badge">{payhereEnv === 'LIVE' ? 'PAYHERE' : 'SANDBOX / DEMO PAYMENT'}</span>
                 </div>
-                <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('payhere', selectedPackageToBook)}>
-                  {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYHERE'}
-                </button>
+                <ActionButton
+                  type="button"
+                  className="cd-support-send-btn"
+                  loading={paymentBusy}
+                  loadingText="Preparing payment..."
+                  onClick={() => startPayment('payhere', selectedPackageToBook)}
+                >
+                  PAY WITH PAYHERE
+                </ActionButton>
                 <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
                   Redirects to PayHere {payhereEnv === 'LIVE' ? '' : 'sandbox '}hosted checkout. Package activates automatically upon verified server callback.
                 </small>
@@ -3684,9 +3708,16 @@ const CustomerDashboard = () => {
                   <span className="cd-easypay__title">CRYPTOCURRENCY</span>
                   <span className="cd-easypay__badge" style={{ background: 'rgba(212, 175, 55, 0.15)', color: '#d4af37' }}>USDT-BSC / BTC / ETH</span>
                 </div>
-                <button type="button" className="cd-support-send-btn" style={{ background: 'linear-gradient(135deg, #d4af37 0%, #aa8010 100%)', color: '#000', fontWeight: 'bold' }} disabled={paymentBusy} onClick={() => startPayment('nowpayments', selectedPackageToBook)}>
-                  {paymentBusy ? 'OPENING CRYPTO CHECKOUT…' : 'PAY WITH CRYPTO (NOWPAYMENTS)'}
-                </button>
+                <ActionButton
+                  type="button"
+                  className="cd-support-send-btn"
+                  style={{ background: 'linear-gradient(135deg, #d4af37 0%, #aa8010 100%)', color: '#000', fontWeight: 'bold' }}
+                  loading={paymentBusy}
+                  loadingText="Preparing payment..."
+                  onClick={() => startPayment('nowpayments', selectedPackageToBook)}
+                >
+                  PAY WITH CRYPTO (NOWPAYMENTS)
+                </ActionButton>
                 <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
                   Live LKR to USD conversion with instant crypto invoice. Settles strictly after full blockchain finality.
                 </small>

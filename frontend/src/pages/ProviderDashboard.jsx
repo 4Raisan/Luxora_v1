@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Calendar from '../components/Calendar'
 import { apiRequest } from '../services/api'
+import { ActionButton } from '../components/ui'
 import './ProviderDashboard.css'
 
 /* ── SVG Icons ─────────────────────────────────────── */
@@ -692,11 +693,7 @@ const ProviderDashboard = () => {
 
                           <div className="pd-cr-footer">
                             <div className="pd-cr-meta" style={{ alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              <label className={`pd-photo-upload ${photoBusy ? 'pd-photo-upload--busy' : ''}`} style={{ display: 'inline-block' }}>
-                                + AFTER PHOTO
-                                <input type="file" accept="image/jpeg,image/png" multiple hidden disabled={photoBusy} onChange={(e) => uploadPhotos(e, b, 'AFTER')} />
-                              </label>
-                              {(photosByBooking[b.apiId] || []).filter((p) => p.kind === 'AFTER').map((p) => (
+                                                     {(photosByBooking[b.apiId] || []).filter((p) => p.kind === 'AFTER').map((p) => (
                                 <span key={p.id} className="pd-photo-chip">🖼 {p.original_name}</span>
                               ))}
                             </div>
@@ -932,16 +929,22 @@ const ProviderDashboard = () => {
                 value={pinDialog.pin}
                 autoFocus
                 onChange={(e) => setPinDialog((d) => ({ ...d, pin: e.target.value, error: '' }))}
-                onKeyDown={(e) => { if (e.key === 'Enter') submitPinStatus() }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !busy) submitPinStatus() }}
               />
               {pinDialog.error && <p style={{ color: '#ef4444', fontSize: '0.82rem', marginTop: '0.5rem' }}>{pinDialog.error}</p>}
             </div>
 
             <div className="pd-modal__footer">
               <button type="button" className="pd-modal-btn-secondary" onClick={() => setPinDialog(null)}>CANCEL</button>
-              <button type="button" className="pd-modal-btn-danger pd-pin-submit" disabled={busy} onClick={submitPinStatus}>
-                ✓ VERIFY & {pinDialog.next === 'in_progress' ? 'START' : 'COMPLETE'}
-              </button>
+              <ActionButton
+                type="button"
+                className="pd-modal-btn-danger pd-pin-submit"
+                loading={busy}
+                loadingText="Verifying PIN..."
+                onClick={submitPinStatus}
+              >
+                {`✓ VERIFY & ${pinDialog.next === 'in_progress' ? 'START' : 'COMPLETE'}`}
+              </ActionButton>
             </div>
           </div>
         </div>
