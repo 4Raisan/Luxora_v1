@@ -27,7 +27,15 @@ export default function BookService() {
     e.preventDefault()
     setError(''); setResult(null); setLoading(true)
     try {
-      const r = await apiRequest('/bookings', 'POST', { service_id: Number(serviceId), booking_date: date, booking_time: time }, token)
+      let r = await apiRequest('/bookings', 'POST', { service_id: Number(serviceId), booking_date: date, booking_time: time }, token)
+      if (r && !r.pin_code && !r.start_pin && r.booking_id) {
+        try {
+          const pins = await apiRequest('/bookings/' + r.booking_id + '/pins', 'GET', null, token)
+          r = { ...r, pin_code: pins.start_pin, start_pin: pins.start_pin, completion_pin: pins.completion_pin }
+        } catch {
+          // PIN recovery will occur on the customer dashboard
+        }
+      }
       setResult(r)
     } catch (err) {
       setError(err.message)

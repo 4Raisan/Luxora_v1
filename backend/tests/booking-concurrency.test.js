@@ -150,10 +150,62 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
 
   assert.equal(res2.status, 200, `Expected 200 OK on duplicate within 15s, got ${res2.status}: ${JSON.stringify(res2.body)}`);
   assert.equal(res2.body.booking_id, firstBookingId, 'Should return the identical existing booking ID');
-  assert.equal(res2.body.start_pin, firstStartPin, 'Should decrypt and return the exact original start PIN');
-  assert.equal(res2.body.completion_pin, firstCompletionPin, 'Should decrypt and return the exact original completion PIN');
+  assert.equal(res2.body.duplicate, true, 'Should mark response as duplicate');
+  assert.equal(res2.body.start_pin, undefined, 'Duplicate response MUST NOT expose start_pin');
+  assert.equal(res2.body.completion_pin, undefined, 'Duplicate response MUST NOT expose completion_pin');
+  assert.equal(res2.body.pin_code, undefined, 'Duplicate response MUST NOT expose pin_code');
 
-  // 6. Test 3: Concurrent simultaneous booking requests for a new time slot
+  // 6. Test 3: Authorized Owner PIN Retrieval via GET /api/bookings/:id/pins
+  const ownerPinRes = await authJson(customerToken, `/bookings/${firstBookingId}/pins`);
+  assert.equal(ownerPinRes.status, 200, `Owner must be able to retrieve PINs, got ${ownerPinRes.status}`);
+  assert.equal(ownerPinRes.body.start_pin, firstStartPin, 'Decrypted start_pin must match original');
+  assert.equal(ownerPinRes.body.completion_pin, firstCompletionPin, 'Decrypted completion_pin must match original');
+
+  // 7. Test 4: Another Customer cannot access owner's PINs (ID Manipulation Defense)
+  const otherCustomer = await prisma.user.create({
+    data: {
+      email: `other_cust_${RND}@example.com`,
+      passwordHash: 'fakehash',
+      role: 'CUSTOMER',
+      name: 'Other Customer',
+      town: 'Colombo',
+    },
+  });
+  const otherCustomerToken = jwt.sign({ id: otherCustomer.id, email: otherCustomer.email, role: 'CUSTOMER' }, JWT_SECRET, { expiresIn: '1h' });
+
+  const attackerPinRes = await authJson(otherCustomerToken, `/bookings/${firstBookingId}/pins`);
+  assert.equal(attackerPinRes.status, 404, 'Other customer must NOT be able to view another customer PINs');
+  assert.equal(attackerPinRes.body.start_pin, undefined);
+
+  // 8. Test 5: Provider cannot access customer's PIN endpoint
+  const providerUser = await prisma.user.create({
+    data: {
+      email: `provider_${RND}@example.com`,
+      passwordHash: 'fakehash',
+      role: 'PROVIDER',
+      name: 'Test Provider',
+    },
+  });
+  const providerToken = jwt.sign({ id: providerUser.id, email: providerUser.email, role: 'PROVIDER' }, JWT_SECRET, { expiresIn: '1h' });
+
+  const providerPinRes = await authJson(providerToken, `/bookings/${firstBookingId}/pins`);
+  assert.equal(providerPinRes.status, 403, 'Provider must be rejected with 403 on customer PIN endpoint');
+
+  // 9. Test 6: Manipulated non-existent booking ID
+  const fakeIdRes = await authJson(customerToken, '/bookings/99999999/pins');
+  assert.equal(fakeIdRes.status, 404, 'Manipulated booking ID must return 404');
+
+  // 10. Test 7: GET /api/bookings/my does NOT expose plaintext PINs
+  const myListRes = await authJson(customerToken, '/bookings/my');
+  assert.equal(myListRes.status, 200);
+  const myBooking = myListRes.body.find((b) => b.id === firstBookingId);
+  assert.ok(myBooking, 'Booking must be in customer list');
+  assert.equal(myBooking.pin_code, undefined, 'GET /my must not expose pin_code');
+  assert.equal(myBooking.start_pin, undefined, 'GET /my must not expose start_pin');
+  assert.equal(myBooking.completion_pin, undefined, 'GET /my must not expose completion_pin');
+  assert.equal(myBooking.customerStartPinCipher, undefined, 'GET /my must not expose cipher');
+
+  // 11. Test 8: Concurrent simultaneous booking requests for a new time slot
   const newTime = '02:00 PM';
   const [concRes1, concRes2] = await Promise.all([
     authJson(customerToken, '/bookings', {
@@ -182,7 +234,7 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
   assert.notEqual(concRes1.status, 500, 'concRes1 must not return HTTP 500');
   assert.notEqual(concRes2.status, 500, 'concRes2 must not return HTTP 500');
 
-  // 7. Verify in database: Exactly 2 active bookings created in total
+  // 12. Verify in database: Exactly 2 active bookings created in total
   const dbBookings = await prisma.booking.findMany({
     where: { userId: customer.id, status: { not: 'CANCELLED' } },
   });

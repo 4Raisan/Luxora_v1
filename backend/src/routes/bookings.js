@@ -131,17 +131,12 @@ router.post('/', async (req, res) => {
   });
 
   if (recentDuplicate) {
-    const startPin = recentDuplicate.customerStartPinCipher ? decryptPin(recentDuplicate.customerStartPinCipher) : '';
-    const completionPin = recentDuplicate.customerCompletionPinCipher ? decryptPin(recentDuplicate.customerCompletionPinCipher) : '';
     return res.status(200).json({
       booking_id: recentDuplicate.id,
-      pin_code: startPin,
-      start_pin: startPin,
-      completion_pin: completionPin,
-      pin_expires_at: recentDuplicate.pinExpiresAt,
       status: recentDuplicate.status.toLowerCase(),
       total_price: recentDuplicate.totalPrice,
-      message: 'Booking placed successfully',
+      duplicate: true,
+      message: 'A booking for this service and time slot was already submitted and is confirmed',
       entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits },
     });
   }
@@ -217,17 +212,12 @@ router.post('/', async (req, res) => {
         where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } },
       });
       if (existing) {
-        const startPin = existing.customerStartPinCipher ? decryptPin(existing.customerStartPinCipher) : '';
-        const completionPin = existing.customerCompletionPinCipher ? decryptPin(existing.customerCompletionPinCipher) : '';
         return res.status(200).json({
           booking_id: existing.id,
-          pin_code: startPin,
-          start_pin: startPin,
-          completion_pin: completionPin,
-          pin_expires_at: existing.pinExpiresAt,
           status: existing.status.toLowerCase(),
           total_price: existing.totalPrice,
-          message: 'Booking placed successfully',
+          duplicate: true,
+          message: 'A booking for this service and time slot was already submitted and is confirmed',
           entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits },
         });
       }
@@ -255,8 +245,8 @@ router.post('/', async (req, res) => {
   });
 });
 
-// My bookings (customer). The PIN belongs to the customer, so it is returned
-// on their own bookings — they need it to verify the provider on arrival.
+// My bookings (customer). Generic booking list returns high-level status;
+// active service PINs are retrieved on demand via GET /bookings/:id/pins.
 router.get('/my', async (req, res) => {
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
@@ -270,10 +260,10 @@ router.get('/my', async (req, res) => {
     customerStartPinCipher: undefined,
     customerCompletionPinCipher: undefined,
     pinCode: undefined,
+    pin_code: undefined,
     pinAttempts: undefined,
     pinLockedUntil: undefined,
     expectedEndTime: undefined,
-    pin_code: b.status === 'CANCELLED' ? undefined : b.pinCode,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
     category_name: b.service?.category?.name,
@@ -314,10 +304,31 @@ router.get('/assigned', async (req, res) => {
 });
 
 router.get('/:id/pins', async (req, res) => {
-  const booking = await prisma.booking.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
-  if (!booking || ['CANCELLED', 'COMPLETED'].includes(booking.status)) return res.status(404).json({ error: 'Active booking PINs not found' });
-  if (!booking.customerStartPinCipher || !booking.customerCompletionPinCipher) return res.status(409).json({ error: 'PIN recovery is unavailable for this legacy booking' });
-  try { res.json({ start_pin: decryptPin(booking.customerStartPinCipher), completion_pin: decryptPin(booking.customerCompletionPinCipher), expires_at: booking.pinExpiresAt }); } catch { res.status(500).json({ error: 'Could not recover booking PINs' }); }
+  if (req.user.role !== 'CUSTOMER') {
+    return res.status(403).json({ error: 'Only the booking customer can view their Service PINs' });
+  }
+  const bookingId = toPositiveInt(req.params.id);
+  if (!bookingId) {
+    return res.status(400).json({ error: 'Valid booking ID is required' });
+  }
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, userId: req.user.id },
+  });
+  if (!booking || ['CANCELLED', 'COMPLETED'].includes(booking.status)) {
+    return res.status(404).json({ error: 'Active booking PINs not found' });
+  }
+  if (!booking.customerStartPinCipher || !booking.customerCompletionPinCipher) {
+    return res.status(409).json({ error: 'PIN recovery is unavailable for this legacy booking' });
+  }
+  try {
+    res.json({
+      start_pin: decryptPin(booking.customerStartPinCipher),
+      completion_pin: decryptPin(booking.customerCompletionPinCipher),
+      expires_at: booking.pinExpiresAt,
+    });
+  } catch {
+    res.status(500).json({ error: 'Could not recover booking PINs' });
+  }
 });
 
 // Update status (provider, with PIN for start/complete)

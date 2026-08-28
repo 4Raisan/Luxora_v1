@@ -674,6 +674,19 @@ const CustomerDashboard = () => {
     } finally {
       setBookingSessionBusy(false)
     }
+
+    let startPin = created?.start_pin
+    let completionPin = created?.completion_pin
+    if (!startPin && created?.booking_id) {
+      try {
+        const pins = await apiRequest('/bookings/' + created.booking_id + '/pins', 'GET', null, token)
+        startPin = pins.start_pin
+        completionPin = pins.completion_pin
+      } catch {
+        // Pins will still be fetched on dashboard active bookings list
+      }
+    }
+
     const newB = {
       id: created.booking_id,
       customer: currentUser?.name || 'Customer',
@@ -683,8 +696,8 @@ const CustomerDashboard = () => {
       date: serviceBookingForm.date,
       time: selectedTimeFormatted,
       amount: `LKR ${Number(created.total_price).toLocaleString()}`,
-      pin: created.start_pin,
-      endPin: created.completion_pin,
+      pin: startPin,
+      endPin: completionPin,
       location: `${userAddress.street}, ${userAddress.city}${userAddress.district ? `, ${userAddress.district}` : ''}`,
       providerName: String(created.status).toLowerCase() === 'assigned' ? 'Assigned Provider' : 'Awaiting assignment',
       providerRole: '',
