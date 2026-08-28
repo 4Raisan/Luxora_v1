@@ -109,3 +109,67 @@ export function CategoryIcon({ icon, name, size = 16 }) {
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="luxora-category-icon">{glyph}</svg>
 }
+
+// Lightweight spinner matching Luxora's accent tokens
+export function InlineSpinner({ size = 15, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="ui-spinner" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="3" strokeOpacity="0.25" />
+      <path d="M12 2a10 10 0 0 1 10 10" stroke={color} strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// Unified ActionButton with instant loading feedback, slow-request timer, and duplicate-click prevention
+export function ActionButton({
+  loading = false,
+  loadingText,
+  disabled = false,
+  children,
+  onClick,
+  className = '',
+  variant = 'primary',
+  type = 'button',
+  ...props
+}) {
+  const [slowNotice, setSlowNotice] = useState(false)
+
+  useEffect(() => {
+    let timer
+    if (loading) {
+      timer = setTimeout(() => setSlowNotice(true), 4000)
+    } else {
+      setSlowNotice(false)
+    }
+    return () => clearTimeout(timer)
+  }, [loading])
+
+  const handleClick = (e) => {
+    if (loading || disabled) {
+      e.preventDefault()
+      return
+    }
+    onClick?.(e)
+  }
+
+  const variantClass = variant.startsWith('ui-button') ? variant : `ui-button--${variant}`
+  const isButtonClassPresent = className.includes('ui-button') || className.includes('btn') || className.includes('auth-btn')
+
+  return (
+    <button
+      type={type}
+      className={`ui-action-btn ${!isButtonClassPresent ? 'ui-button ' + variantClass : ''} ${className} ${loading ? 'is-loading' : ''}`}
+      disabled={disabled || loading}
+      onClick={handleClick}
+      aria-busy={loading}
+      {...props}
+    >
+      {loading && <InlineSpinner size={15} />}
+      <span>
+        {loading
+          ? (slowNotice ? 'This is taking a little longer...' : (loadingText || 'Processing...'))
+          : children}
+      </span>
+    </button>
+  )
+}

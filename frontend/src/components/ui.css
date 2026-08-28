@@ -137,3 +137,16 @@
 .credit-summary-grid>div span{display:inline-flex;align-items:center;gap:8px}
 .wizard-category:disabled{opacity:.45;cursor:not-allowed}
 .wizard-category:disabled:hover{transform:none;border-color:var(--p-line,#2a2d2c)}
+
+/* Action buttons & universal loading spinner */
+.ui-spinner{animation:ui-spin .75s linear infinite;display:inline-block;vertical-align:middle;flex-shrink:0}
+@keyframes ui-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.ui-action-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:opacity .15s ease,filter .15s ease}
+.ui-action-btn:disabled,.ui-action-btn.is-loading{opacity:.65;cursor:not-allowed;pointer-events:none}
+.ui-button{border-radius:8px;padding:10px 18px;font:650 13px var(--font-primary,inherit);border:1px solid transparent}
+.ui-button--primary{background:var(--p-accent,#c5a764);color:var(--p-accent-ink,#17140d);border-color:var(--p-accent,#c5a764)}
+.ui-button--primary:hover{filter:brightness(1.08)}
+.ui-button--secondary{background:#191b1a;border:1px solid var(--p-line,#2a2d2c);color:var(--p-text,#f3f1eb)}
+.ui-button--secondary:hover{border-color:#4a4c48;color:#fff}
+.ui-button--text{background:transparent;color:var(--p-muted,#989b96);border:0}
+.ui-button--text:hover{color:var(--p-text,#f3f1eb)}
