@@ -1,7 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { sendWhatsAppVerificationCode, verifyWhatsAppCode, normalizePhoneNumber } from '../services/integrations.js';
+import {
+  sendSmsVerificationCode,
+  verifySmsCode,
+  sendWhatsAppVerificationCode,
+  verifyWhatsAppCode,
+  normalizePhoneNumber,
+} from '../services/integrations.js';
 import { isEmail, isNonEmptyString } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
@@ -62,27 +68,33 @@ router.post('/phone/send', otpSendLimiter, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { phone: true } });
   if (user?.phone !== phone) return res.status(409).json({ error: 'Save this phone number to your profile before requesting a code' });
   try {
-    const result = await sendWhatsAppVerificationCode(phone);
+    const channel = String(req.body.channel || 'sms').toLowerCase();
+    const result = channel === 'whatsapp'
+      ? await sendWhatsAppVerificationCode(phone)
+      : await sendSmsVerificationCode(phone);
     res.json(result);
   } catch (error) {
-    console.warn('[whatsapp] send failed:', error.message);
-    res.status(502).json({ error: error.message || 'Could not send WhatsApp verification code' });
+    console.warn('[otp] send failed:', error.message);
+    res.status(502).json({ error: error.message || 'Could not send verification code' });
   }
 });
 
 router.post('/phone/verify', otpVerifyLimiter, async (req, res) => {
   const phone = normalizePhoneNumber(req.body.phone);
   const code = String(req.body.code || '').trim();
-  if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'valid phone and 6-digit WhatsApp code are required' });
+  if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'valid phone and 6-digit verification code are required' });
   const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { phone: true } });
   if (user?.phone !== phone) return res.status(409).json({ error: 'The verification code must match your current saved phone number' });
   try {
-    const result = await verifyWhatsAppCode(phone, code);
+    const channel = String(req.body.channel || 'sms').toLowerCase();
+    const result = channel === 'whatsapp'
+      ? await verifyWhatsAppCode(phone, code)
+      : await verifySmsCode(phone, code);
     if (result.approved) await prisma.user.update({ where: { id: req.user.id }, data: { phone, phoneVerified: true } });
     res.json(result);
   } catch (error) {
-    console.warn('[whatsapp] verify failed:', error.message);
-    res.status(502).json({ error: error.message || 'Could not verify the WhatsApp code' });
+    console.warn('[otp] verify failed:', error.message);
+    res.status(502).json({ error: error.message || 'Could not verify the code' });
   }
 });
 

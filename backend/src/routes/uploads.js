@@ -99,9 +99,15 @@ router.get('/uploads/photos/:id', authenticateToken, async (req, res) => {
   return fileResponse(res, photo);
 });
 
-router.get('/uploads/kyc/:id', authenticateToken, requireRole('ADMIN'), async (req, res) => {
-  const document = await prisma.kycDocument.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 } });
+router.get('/uploads/kyc/:id', authenticateToken, async (req, res) => {
+  const document = await prisma.kycDocument.findUnique({
+    where: { id: toPositiveInt(req.params.id) || 0 },
+    include: { provider: true },
+  });
   if (!document) return res.status(404).json({ error: 'KYC document not found' });
+  const isOwner = req.user.role === 'PROVIDER' && document.provider?.userId === req.user.id;
+  const isAdmin = req.user.role === 'ADMIN';
+  if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied: insufficient permissions to view this KYC document' });
   return fileResponse(res, document);
 });
 

@@ -1,10 +1,10 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-28T12:38:28.693Z",
+  "generatedAt": "2026-08-28T13:37:10.432Z",
   "stats": {
     "totalNodes": 186,
-    "totalEdges": 389,
+    "totalEdges": 390,
     "nodesByGroup": {
       "database": 33,
       "middleware": 3,
@@ -4664,6 +4664,12 @@
       "to": "middleware:auth",
       "type": "USES_AUTH",
       "label": "authenticateToken"
+    },
+    {
+      "from": "routefile:reviews",
+      "to": "middleware:auth",
+      "type": "USES_RBAC",
+      "label": "requireRole"
     },
     {
       "from": "routefile:reviews",

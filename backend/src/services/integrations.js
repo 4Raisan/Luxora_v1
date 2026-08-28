@@ -424,7 +424,7 @@ export async function sendTextBeeSms(phone, message) {
 /**
  * Generates and sends a secure 6-digit SMS OTP via TextBee.
  */
-export async function sendSmsVerificationCode(phone) {
+export async function sendSmsVerificationCode(phone, options = {}) {
   const normalizedPhone = normalizePhoneNumber(phone);
   if (!normalizedPhone) {
     throw new Error('Enter a valid Sri Lankan mobile (07X...) or international number');
@@ -475,13 +475,13 @@ export async function sendSmsVerificationCode(phone) {
     },
   });
 
-  if (hasTextBee) {
+  if (hasTextBee && !options.skipSend) {
     const message = `Your Luxora verification code is ${code}. It expires in 5 minutes.`;
     await sendTextBeeSms(normalizedPhone, message);
     return { success: true, phone: normalizedPhone, channel: 'sms', ttlMinutes: 5 };
   }
 
-  return { success: true, phone: normalizedPhone, channel: 'sms', demo: true, ttlMinutes: 5 };
+  return { success: true, phone: normalizedPhone, channel: 'sms', demo: !hasTextBee, ttlMinutes: 5 };
 }
 
 /**

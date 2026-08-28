@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { toPositiveInt, isNonEmptyString } from '../middleware/validators.js';
 
 const router = Router();
-router.use(authenticateToken);
+router.use(authenticateToken, requireRole('CUSTOMER'));
 
 router.post('/', async (req, res) => {
   const { booking_id, rating, comment } = req.body;

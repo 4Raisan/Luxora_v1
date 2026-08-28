@@ -27,7 +27,7 @@ test('TextBee SMS OTP Lifecycle: generate, rate limit, verify, wrong code, and r
   await prisma.phoneOtpChallenge.deleteMany({ where: { phone: testPhone } });
 
   // 1. Send OTP
-  const sendResult = await sendSmsVerificationCode(testPhone);
+  const sendResult = await sendSmsVerificationCode(testPhone, { skipSend: true });
   assert.equal(sendResult.success, true);
   assert.equal(sendResult.phone, testPhone);
 
