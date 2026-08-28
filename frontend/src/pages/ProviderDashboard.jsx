@@ -70,7 +70,7 @@ const SRI_LANKA_AREAS = {
   'North Western': ['Kurunegala', 'Puttalam', 'Chilaw', 'Kuliyapitiya', 'Nikaweratiya', 'Anamaduwa'],
   'North Central': ['Anuradhapura', 'Polonnaruwa', 'Kekirawa', 'Medawachchiya', 'Thambuttegama'],
   'Uva': ['Badulla', 'Bandarawela', 'Hali-Ela', 'Welimada', 'Monaragala', 'Ella', 'Mahiyangana'],
-  'Sabaragamuwa': ['Ratnapura', 'Kegalle', 'Embilipitiya', 'Balangoda', 'Kahawatta', 'Mawanella'],
+  'Sabaragamuwa': ['Ratpanura', 'Kegalle', 'Embilipitiya', 'Balangoda', 'Kahawatta', 'Mawanella'],
 }
 const PROVINCE_NAMES = Object.keys(SRI_LANKA_AREAS)
 
@@ -114,17 +114,6 @@ const ProviderDashboard = () => {
   const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', services: [], towns: [], provinces: [] })
   const [townSearch, setTownSearch] = useState('')
   const [areaMode, setAreaMode] = useState('towns')
-  const [providerPhoneOtp, setProviderPhoneOtp] = useState('')
-  const [providerPhoneVerificationRequired, setProviderPhoneVerificationRequired] = useState(Boolean(currentProvider.phone) && !currentProvider.phoneVerified)
-  const [providerPhoneVerificationBusy, setProviderPhoneVerificationBusy] = useState(false)
-
-  const toggleSettingsTown = (town) => {
-    setSettingsForm((prev) => {
-      if (prev.towns.includes(town)) return { ...prev, towns: prev.towns.filter((t) => t !== town), provinces: [] }
-      if (prev.towns.length >= 10) return prev
-      return { ...prev, towns: [...prev.towns, town], provinces: [] }
-    })
-  }
   const switchToProvinceMode = () => {
     setAreaMode('provinces')
     setSettingsForm((prev) => ({ ...prev, towns: [] }))
@@ -311,12 +300,9 @@ const ProviderDashboard = () => {
       const phone = settingsForm.phone.trim()
       if (phone && phone !== (currentProvider.phone || currentProvider.mobile || '')) {
         const saved = await apiRequest('/profile', 'PUT', { phone }, token)
-        const updated = { ...currentProvider, name, phone: saved.phone, phoneVerified: false }
+        const updated = { ...currentProvider, name, phone: saved.phone }
         setCurrentProvider(updated)
         sessionStorage.setItem('user', JSON.stringify(updated))
-        await apiRequest('/profile/phone/send', 'POST', { phone: saved.phone }, token)
-        setProviderPhoneVerificationRequired(true)
-        setProviderPhoneOtp('')
       }
       const area = settingsForm.towns.length
         ? settingsForm.towns.join(', ')
@@ -331,23 +317,6 @@ const ProviderDashboard = () => {
     }
   }
 
-  const verifyProviderPhone = async () => {
-    if (!currentProvider.phone || !/^\d{6}$/.test(providerPhoneOtp)) return
-    setProviderPhoneVerificationBusy(true)
-    try {
-      const result = await apiRequest('/profile/phone/verify', 'POST', { phone: currentProvider.phone, code: providerPhoneOtp }, token)
-      if (!result.approved) throw new Error('Invalid WhatsApp verification code.')
-      const updated = { ...currentProvider, phoneVerified: true }
-      setCurrentProvider(updated)
-      sessionStorage.setItem('user', JSON.stringify(updated))
-      setProviderPhoneVerificationRequired(false)
-      setProviderPhoneOtp('')
-    } catch (error) {
-      alert(error.message || 'Could not verify this WhatsApp number.')
-    } finally {
-      setProviderPhoneVerificationBusy(false)
-    }
-  }
 
   const handleLogout = () => {
     sessionStorage.removeItem('token')
@@ -1157,22 +1126,7 @@ const ProviderDashboard = () => {
                 <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.3rem' }}>
                   Keep your mobile number current so customers can reach you about assigned work.
                 </small>
-                {providerPhoneVerificationRequired && (
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.65rem' }}>
-                    <input
-                      type="text"
-                      className="pd-edit-input"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={providerPhoneOtp}
-                      onChange={(e) => setProviderPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="WhatsApp verification code"
-                    />
-                    <button type="button" disabled={providerPhoneVerificationBusy || providerPhoneOtp.length !== 6} onClick={verifyProviderPhone} style={{ background: 'var(--gold)', border: 'none', color: '#111', borderRadius: '6px', padding: '0 0.85rem', fontWeight: 800, cursor: 'pointer' }}>
-                      {providerPhoneVerificationBusy ? 'VERIFYING…' : 'VERIFY'}
-                    </button>
-                  </div>
-                )}
+
               </div>
 
               {/* Service category — fixed at registration on the server */}

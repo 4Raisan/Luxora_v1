@@ -330,9 +330,6 @@ const CustomerDashboard = () => {
   const [profileEdit, setProfileEdit] = useState({ name: '', phone: '', town: '' })
   const [profileBusy, setProfileBusy] = useState(false)
   const [profileSavedMsg, setProfileSavedMsg] = useState('')
-  const [profilePhoneOtp, setProfilePhoneOtp] = useState('')
-  const [phoneVerificationBusy, setPhoneVerificationBusy] = useState(false)
-  const [phoneVerificationRequired, setPhoneVerificationRequired] = useState(false)
   const [memberSince, setMemberSince] = useState('')
 
   const loadServerData = async () => {
@@ -364,7 +361,6 @@ const CustomerDashboard = () => {
             name: updatedName,
             phone: updatedPhone,
             town: updatedTown,
-            phoneVerified: Boolean(dash.profile.phoneVerified),
           }
           try {
             const cached = JSON.parse(sessionStorage.getItem('user') || 'null')
@@ -374,7 +370,6 @@ const CustomerDashboard = () => {
           } catch {}
           return updated
         })
-        setPhoneVerificationRequired(Boolean(dash.profile.phone) && !dash.profile.phoneVerified)
       }
       if (dash?.profile?.createdAt) {
         setMemberSince(new Date(dash.profile.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))
@@ -542,7 +537,6 @@ const CustomerDashboard = () => {
       if (body.name) updated.name = body.name
       if (body.phone !== undefined) {
         updated.phone = savedProfile.phone
-        updated.phoneVerified = false
       }
       setCurrentUser(updated)
       try {
@@ -556,37 +550,11 @@ const CustomerDashboard = () => {
         setUserAddress(newAddr)
         localStorage.setItem('userAddress_' + userKey, JSON.stringify(newAddr))
       }
-      if (body.phone !== undefined && savedProfile.phone) {
-        await apiRequest('/profile/phone/send', 'POST', { phone: savedProfile.phone }, token)
-        setPhoneVerificationRequired(true)
-        setProfilePhoneOtp('')
-        setProfileSavedMsg('Phone updated. Enter the WhatsApp code to verify it.')
-      } else {
-        setProfileSavedMsg('Profile saved successfully!')
-      }
+      setProfileSavedMsg('Profile saved successfully!')
     } catch (error) {
       setProfileSavedMsg(error.message || 'Could not save profile.')
     } finally {
       setProfileBusy(false)
-    }
-  }
-
-  const verifyProfilePhone = async () => {
-    if (!currentUser.phone || !/^\d{6}$/.test(profilePhoneOtp)) return
-    const token = sessionStorage.getItem('token')
-    setPhoneVerificationBusy(true)
-    setProfileSavedMsg('')
-    try {
-      const result = await apiRequest('/profile/phone/verify', 'POST', { phone: currentUser.phone, code: profilePhoneOtp }, token)
-      if (!result.approved) throw new Error('Invalid WhatsApp verification code.')
-      setCurrentUser((prev) => ({ ...prev, phoneVerified: true }))
-      setPhoneVerificationRequired(false)
-      setProfilePhoneOtp('')
-      setProfileSavedMsg('WhatsApp number verified.')
-    } catch (error) {
-      setProfileSavedMsg(error.message || 'Could not verify this WhatsApp number.')
-    } finally {
-      setPhoneVerificationBusy(false)
     }
   }
 
@@ -2627,22 +2595,6 @@ const CustomerDashboard = () => {
                   maxLength={15}
                   style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
                 />
-                {phoneVerificationRequired && (
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={profilePhoneOtp}
-                      onChange={(e) => setProfilePhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="WhatsApp code"
-                      style={{ flex: 1, background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
-                    />
-                    <button type="button" disabled={phoneVerificationBusy || profilePhoneOtp.length !== 6} onClick={verifyProfilePhone} style={{ background: 'var(--gold, #c9a84c)', border: 'none', color: '#000', padding: '0.6rem 0.8rem', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}>
-                      {phoneVerificationBusy ? 'VERIFYING…' : 'VERIFY'}
-                    </button>
-                  </div>
-                )}
                 <input
                   type="text"
                   value={profileEdit.town}
