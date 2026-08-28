@@ -122,6 +122,13 @@ test('2. Complete Booking Flow on Fresh DB: Purchase, Auto-Assignment, Service P
   }).then(r => r.json());
 
   // 1. Customer purchases Auto Elite plan
+  const existingCust = await prisma.user.findUnique({ where: { email: 'customer@luxora.lk' } });
+  if (existingCust) {
+    await prisma.servicePhoto.deleteMany({ where: { booking: { userId: existingCust.id } } });
+    await prisma.booking.deleteMany({ where: { userId: existingCust.id } });
+    await prisma.userSubscription.deleteMany({ where: { userId: existingCust.id } });
+  }
+
   const plan = await prisma.subscriptionPlan.findFirst({ where: { title: 'Single Care - Auto Elite' } });
   assert.ok(plan, 'Plan must exist');
 

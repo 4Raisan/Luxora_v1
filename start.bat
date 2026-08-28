@@ -3,13 +3,144 @@ setlocal enabledelayedexpansion
 title Luxora Concierge Platform - One Click Start
 color 0E
 
+:: Ensure we are in project root
+cd /d "%~dp0"
+
+:: -----------------------------------------------------------------
+:: Subcommand Routing
+:: -----------------------------------------------------------------
+if /i "%~1"=="db" goto :cmd_db
+if /i "%~1"=="server" goto :cmd_server
+if /i "%~1"=="status" goto :cmd_status
+if /i "%~1"=="check" goto :cmd_status
+if /i "%~1"=="recover" goto :cmd_recover
+if /i "%~1"=="demo" goto :cmd_demo_seed
+if /i "%~1"=="demo:seed" goto :cmd_demo_seed
+if /i "%~1"=="demo:clean" goto :cmd_demo_clean
+if /i "%~1"=="help" goto :cmd_help
+if /i "%~1"=="--help" goto :cmd_help
+if /i "%~1"=="-h" goto :cmd_help
+
+:: Default workflow: All-in-One Full Launcher
+goto :full_startup
+
+:: =================================================================
+:: Subcommand: DB Only
+:: =================================================================
+:cmd_db
+echo ================================================================
+echo   LUXORA - POSTGRESQL DATABASE MANAGER
+echo ================================================================
+echo.
+call :sub_ensure_db
+if %errorlevel% neq 0 (
+    echo [ERROR] PostgreSQL startup failed.
+    exit /b 1
+)
+echo.
+echo [OK] PostgreSQL is online and ready.
+exit /b 0
+
+:: =================================================================
+:: Subcommand: Server Only
+:: =================================================================
+:cmd_server
+echo ================================================================
+echo   LUXORA - BACKEND EXPRESS API SERVER (:5000)
+echo ================================================================
+echo.
+call :free_port_5000
+cd /d "%~dp0backend"
+echo [i] Starting Luxora Backend Server on http://localhost:5000 ...
+node src/index.js
+exit /b %errorlevel%
+
+:: =================================================================
+:: Subcommand: Status (Subsumes Docker-Check.ps1)
+:: =================================================================
+:cmd_status
+echo ================================================================
+echo   LUXORA - SYSTEM ^& CONTAINER STATUS
+echo ================================================================
+echo.
+docker info >nul 2>&1
+if %errorlevel% equ 0 (
+    echo Docker Daemon: ONLINE
+    echo.
+    echo NAME                   IMAGE                SERVICE    STATUS
+    echo ----------------------------------------------------------------
+    docker compose ps --format "table {{.Name}}	{{.Image}}	{{.Service}}	{{.Status}}"
+) else (
+    echo Docker Daemon: OFFLINE / UNRESPONSIVE
+)
+echo.
+echo Port Probes:
+node -e "const net=require('net');function chk(p,n){const s=net.createConnection(p,'127.0.0.1',()=>{console.log('  [ONLINE]  Port '+p+' ('+n+')');s.destroy();});s.on('error',()=>{console.log('  [OFFLINE] Port '+p+' ('+n+')');});}chk(5432,'PostgreSQL Docker');chk(5433,'PostgreSQL Local Fallback');chk(5000,'Backend API');chk(5173,'Vite Dev Server');"
+echo.
+exit /b 0
+
+:: =================================================================
+:: Subcommand: Recover (Subsumes pg-recover.ps1 & port unlocks)
+:: =================================================================
+:cmd_recover
+echo ================================================================
+echo   LUXORA - PROCESS ^& DATABASE RECOVERY
+echo ================================================================
+echo.
+echo [i] Freeing port 5000 (Backend API)...
+call :free_port_5000
+
+echo [i] Recovering PostgreSQL zombie processes and clearing lockfiles...
+powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $svc=Get-Service | Where-Object { $_.Name -like 'postgresql*' -and $_.Status -eq 'Running' }; if (-not $svc) { Get-Process postgres | Stop-Process -Force } else { Get-CimInstance Win32_Process -Filter \"Name='postgres.exe'\" | Where-Object { $_.CommandLine -like '*luxora-pg-data*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force } }; Start-Sleep -Seconds 1; $pidFile=Join-Path $env:TEMP 'luxora-pg-data\postmaster.pid'; if (Test-Path $pidFile) { Remove-Item $pidFile -Force }; Write-Output '[OK] PostgreSQL zombie processes and PID locks cleared.'"
+
+echo [i] Restarting Docker PostgreSQL container if running...
+docker info >nul 2>&1
+if %errorlevel% equ 0 (
+    docker compose restart postgres >nul 2>&1
+    echo [OK] Docker PostgreSQL container restarted.
+)
+echo.
+echo [OK] System recovery complete.
+exit /b 0
+
+:: =================================================================
+:: Subcommand: Demo Bookings
+:: =================================================================
+:cmd_demo_seed
+echo [i] Seeding demo bookings for Provider Dashboard testing...
+node backend/prisma/demo-bookings.js seed
+exit /b %errorlevel%
+
+:cmd_demo_clean
+echo [i] Cleaning up demo bookings and reversing credited earnings...
+node backend/prisma/demo-bookings.js clean
+exit /b %errorlevel%
+
+:: =================================================================
+:: Subcommand: Help
+:: =================================================================
+:cmd_help
+echo Luxora Concierge Platform - Windows CLI
+echo.
+echo Usage:
+echo   start.bat              Full all-in-one startup (preflight, db, deps, build, prisma, seed, launch)
+echo   start.bat db           Start and verify PostgreSQL database only
+echo   start.bat server       Start backend Express API server only
+echo   start.bat status       Check Docker containers and service port status
+echo   start.bat recover      Kill zombie database processes and unlock ports
+echo   start.bat demo:seed    Seed demo bookings for provider testing
+echo   start.bat demo:clean   Clean up demo bookings and reverse earnings
+echo   start.bat help         Display this help message
+exit /b 0
+
+:: =================================================================
+:: Main All-in-One Full Startup Workflow
+:: =================================================================
+:full_startup
 echo ================================================================
 echo   LUXORA CONCIERGE PLATFORM - ONE CLICK STARTER ^& SELF-HEALER
 echo ================================================================
 echo.
-
-:: Ensure we are in project root
-cd /d "%~dp0"
 
 :: -----------------------------------------------------------------
 :: Step 0: Preflight Verification & Environment Setup
@@ -31,16 +162,16 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Auto-create backend\.env if missing
-if not exist "backend\.env" (
-    echo [i] Creating backend\.env with local development defaults...
+:: Auto-create backend.env if missing
+if not exist "backend.env" (
+    echo [i] Creating backend.env with local development defaults...
     call :create_backend_env
 ) else (
     :: Self-heal: ensure 127.0.0.1 is used instead of localhost to prevent Windows IPv6 issues
     call :heal_backend_env
 )
 
-:: Free port 5000 from stale background instances (prevents Prisma DLL lock & EADDRINUSE)
+:: Free port 5000 from stale background instances
 call :free_port_5000
 echo [OK] Preflight checks passed.
 echo.
@@ -49,79 +180,12 @@ echo.
 :: Step 1: Database Startup ^& Multi-Layer Self-Healing
 :: -----------------------------------------------------------------
 echo [1/7] Initializing PostgreSQL database...
-
-docker info >nul 2>&1
+call :sub_ensure_db
 if %errorlevel% neq 0 (
-    echo [i] Docker daemon is not responding. Attempting self-heal: starting Docker Desktop...
-    call :start_docker_desktop
-)
-
-docker info >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [WARN] Docker Desktop is not running. Checking for local PostgreSQL fallback...
-    call :check_local_pg_fallback
-    if !USE_LOCAL_PG! neq 1 (
-        echo [ERROR] No PostgreSQL provider available.
-        echo         Please start Docker Desktop or install PostgreSQL on this PC.
-        pause
-        exit /b 1
-    )
-    goto :database_ready
-)
-
-:: Docker is running - start the postgres container
-echo [i] Starting PostgreSQL container via Docker Compose...
-docker compose up -d postgres
-if %errorlevel% neq 0 (
-    echo [ERROR] Docker Compose could not start the PostgreSQL container.
-    docker compose ps
-    docker compose logs --tail=30 postgres
+    echo [ERROR] Database initialization failed.
     pause
     exit /b 1
 )
-
-echo [i] Waiting for PostgreSQL to accept connections on port 5432...
-set /a PG_TRIES=0
-:wait_pg_loop
-:: Fast 50ms Node TCP socket probe
-node -e "const s=require('net').createConnection(5432,'127.0.0.1',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),1000);" >nul 2>&1
-if %errorlevel% equ 0 (
-    docker compose exec -T postgres pg_isready -U luxora_user -d luxoradb >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [OK] PostgreSQL is healthy and accepting connections on 127.0.0.1:5432.
-        goto :database_ready
-    )
-)
-
-set /a PG_TRIES+=1
-if %PG_TRIES% lss 20 (
-    timeout /t 1 /nobreak >nul
-    goto :wait_pg_loop
-)
-
-echo [WARN] PostgreSQL taking longer than expected. Attempting self-heal: recreating container...
-docker compose rm -sf postgres >nul 2>&1
-docker compose up -d postgres
-set /a PG_TRIES=0
-
-:retry_pg_loop
-node -e "const s=require('net').createConnection(5432,'127.0.0.1',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),1000);" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] PostgreSQL recovered and accepting connections.
-    goto :database_ready
-)
-set /a PG_TRIES+=1
-if %PG_TRIES% lss 20 (
-    timeout /t 1 /nobreak >nul
-    goto :retry_pg_loop
-)
-
-echo [ERROR] PostgreSQL self-heal failed. Check Docker Desktop logs:
-docker compose logs --tail=50 postgres
-pause
-exit /b 1
-
-:database_ready
 echo.
 
 :: -----------------------------------------------------------------
@@ -203,7 +267,6 @@ echo.
 :: -----------------------------------------------------------------
 echo [5/7] Synchronizing database schema...
 pushd backend
-call node prisma/migrate-service-towns.js
 call npx prisma db push --accept-data-loss
 if %errorlevel% neq 0 (
     echo [WARN] Database push encountered a temporary glitch. Retrying in 2 seconds...
@@ -262,10 +325,8 @@ echo   Press Ctrl+C in this window to stop the server.
 echo ================================================================
 echo.
 
-:: Auto-open the web application in user's default browser after 1 second
 start "" "http://localhost:5000"
 
-:: Start the backend Express server
 cd /d "%~dp0backend"
 node src/index.js
 
@@ -275,6 +336,74 @@ exit /b 0
 :: =================================================================
 :: Subroutines and Self-Healing Functions
 :: =================================================================
+
+:: ---------- Ensure Database is running ----------
+:sub_ensure_db
+docker info >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [i] Docker daemon is not responding. Attempting self-heal: starting Docker Desktop...
+    call :start_docker_desktop
+)
+
+docker info >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [WARN] Docker Desktop is not running. Checking for local PostgreSQL fallback...
+    call :check_local_pg_fallback
+    if !USE_LOCAL_PG! neq 1 (
+        echo [ERROR] No PostgreSQL provider available.
+        echo         Please start Docker Desktop or install PostgreSQL on this PC.
+        exit /b 1
+    )
+    exit /b 0
+)
+
+echo [i] Starting PostgreSQL container via Docker Compose...
+docker compose up -d postgres
+if %errorlevel% neq 0 (
+    echo [ERROR] Docker Compose could not start the PostgreSQL container.
+    docker compose ps
+    docker compose logs --tail=30 postgres
+    exit /b 1
+)
+
+echo [i] Waiting for PostgreSQL to accept connections on port 5432...
+set /a PG_TRIES=0
+:wait_pg_loop
+node -e "const s=require('net').createConnection(5432,'127.0.0.1',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),1000);" >nul 2>&1
+if %errorlevel% equ 0 (
+    docker compose exec -T postgres pg_isready -U luxora_user -d luxoradb >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo [OK] PostgreSQL is healthy and accepting connections on 127.0.0.1:5432.
+        exit /b 0
+    )
+)
+
+set /a PG_TRIES+=1
+if %PG_TRIES% lss 20 (
+    timeout /t 1 /nobreak >nul
+    goto :wait_pg_loop
+)
+
+echo [WARN] PostgreSQL taking longer than expected. Attempting self-heal: recreating container...
+docker compose rm -sf postgres >nul 2>&1
+docker compose up -d postgres
+set /a PG_TRIES=0
+
+:retry_pg_loop
+node -e "const s=require('net').createConnection(5432,'127.0.0.1',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),1000);" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] PostgreSQL recovered and accepting connections.
+    exit /b 0
+)
+set /a PG_TRIES+=1
+if %PG_TRIES% lss 20 (
+    timeout /t 1 /nobreak >nul
+    goto :retry_pg_loop
+)
+
+echo [ERROR] PostgreSQL self-heal failed. Check Docker Desktop logs:
+docker compose logs --tail=50 postgres
+exit /b 1
 
 :: ---------- Create backend/.env with local defaults ----------
 :create_backend_env
