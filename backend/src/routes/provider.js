@@ -74,11 +74,23 @@ router.post('/bank-accounts', async (req, res) => {
   if (!bankName || !accountHolder || accountNumber.length < 4 || accountNumber.length > 40) return res.status(400).json({ error: 'bank_name, account_holder, and a valid account_number are required' });
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+
+  const existing = await prisma.providerBankAccount.findFirst({
+    where: { providerId: provider.id, accountNumber },
+  });
+
   const account = await prisma.$transaction(async (tx) => {
     await tx.providerBankAccount.updateMany({ where: { providerId: provider.id }, data: { selected: false } });
+    if (existing) {
+      return tx.providerBankAccount.update({
+        where: { id: existing.id },
+        data: { bankName, accountHolder, selected: true },
+      });
+    }
     return tx.providerBankAccount.create({ data: { providerId: provider.id, bankName, accountHolder, accountNumber, selected: true } });
   });
-  res.status(201).json({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: true });
+
+  res.status(existing ? 200 : 201).json({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: true });
 });
 
 router.put('/bank-accounts/:id/select', async (req, res) => {

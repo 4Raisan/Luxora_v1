@@ -116,6 +116,36 @@ router.post('/', async (req, res) => {
   const entitlement = await findBookableEntitlement(prisma, userId, service.categoryId);
   if (!entitlement) return res.status(403).json({ error: `An active ${service.category.name} entitlement with remaining service units is required to book this service` });
 
+  const normalizedTime = booking_time.trim().toUpperCase();
+
+  // Rapid double-click / retry idempotency check within 15 seconds
+  const recentDuplicate = await prisma.booking.findFirst({
+    where: {
+      userId,
+      serviceId,
+      bookingDate: booking_date,
+      bookingTime: normalizedTime,
+      status: { not: 'CANCELLED' },
+      createdAt: { gte: new Date(Date.now() - 15000) },
+    },
+  });
+
+  if (recentDuplicate) {
+    const startPin = recentDuplicate.customerStartPinCipher ? decryptPin(recentDuplicate.customerStartPinCipher) : '';
+    const completionPin = recentDuplicate.customerCompletionPinCipher ? decryptPin(recentDuplicate.customerCompletionPinCipher) : '';
+    return res.status(200).json({
+      booking_id: recentDuplicate.id,
+      pin_code: startPin,
+      start_pin: startPin,
+      completion_pin: completionPin,
+      pin_expires_at: recentDuplicate.pinExpiresAt,
+      status: recentDuplicate.status.toLowerCase(),
+      total_price: recentDuplicate.totalPrice,
+      message: 'Booking placed successfully',
+      entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits },
+    });
+  }
+
   const startPin = crypto.randomInt(100000, 1000000).toString();
   const completionPin = crypto.randomInt(100000, 1000000).toString();
 
@@ -128,7 +158,6 @@ router.post('/', async (req, res) => {
     if (!lockedEntitlement) { const error = new Error('No remaining entitlement units'); error.statusCode = 409; throw error; }
     entitlement.subscriptionId = lockedEntitlement.subscriptionId;
     entitlement.remainingUnits = lockedEntitlement.remainingUnits;
-    const normalizedTime = booking_time.trim().toUpperCase();
     const duplicate = await tx.booking.findFirst({ where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } }, select: { id: true } });
     if (duplicate) {
       const error = new Error('You already have this service booked for the selected date and time');
@@ -337,27 +366,42 @@ router.put('/:id/status', async (req, res) => {
     });
   }
 
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      status: nextStatus,
-      providerId: provider.id,
-      beforePhoto: before_photo || undefined,
-      afterPhoto: after_photo || undefined,
-      startPinUsedAt: nextStatus === 'IN_PROGRESS' ? new Date() : undefined,
-      completionPinUsedAt: nextStatus === 'COMPLETED' ? new Date() : undefined,
-    },
-  });
+  let completedFreshly = false;
+  if (nextStatus === 'COMPLETED') {
+    await prisma.$transaction(async (tx) => {
+      const fresh = await tx.booking.findUnique({ where: { id: booking.id } });
+      if (!fresh || fresh.status === 'COMPLETED') return; // already completed idempotently
+      completedFreshly = true;
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: {
+          status: 'COMPLETED',
+          providerId: provider.id,
+          afterPhoto: after_photo || undefined,
+          completionPinUsedAt: new Date(),
+        },
+      });
+      const payout = new Prisma.Decimal(fresh.providerEarning || 0).toDecimalPlaces(2);
+      await tx.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
+    }, { isolationLevel: 'Serializable' });
+  } else {
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        status: nextStatus,
+        providerId: provider.id,
+        beforePhoto: before_photo || undefined,
+        startPinUsedAt: nextStatus === 'IN_PROGRESS' ? new Date() : undefined,
+      },
+    });
+  }
 
   if (nextStatus === 'COMPLETED') {
-    // Guard against double payout: only pay when transitioning from a non-COMPLETED state
-    if (booking.status !== 'COMPLETED') {
-      const payout = new Prisma.Decimal(booking.providerEarning || 0).toDecimalPlaces(2);
-      await prisma.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
+    if (completedFreshly) {
+      await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');
+      const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
+      sendEmail({ to: customer?.email, subject: `Luxora service completed #${id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${id} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
     }
-    await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');
-    const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
-    sendEmail({ to: customer?.email, subject: `Luxora service completed #${id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${id} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
   } else if (nextStatus === 'IN_PROGRESS') {
     await notify(booking.userId, `Your provider has started service on booking #${id}.`);
   } else if (nextStatus === 'ASSIGNED') {
