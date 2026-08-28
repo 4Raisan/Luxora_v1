@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import GoogleSignIn from '../components/GoogleSignIn'
-import TelegramLoginButton from '../components/TelegramLoginButton'
 import './Auth.css'
 import '../components/Footer.css'
 
@@ -303,11 +302,10 @@ const Signup = () => {
           </button>
         </form>
 
-        {/* Google & Telegram sign-up for customer accounts */}
+        {/* Google sign-up for customer accounts */}
         <div className="auth-or"><span>or</span></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', alignItems: 'center' }}>
           <GoogleSignIn onSuccess={handleGoogle} onError={() => {}} />
-          <TelegramLoginButton onAuthSuccess={handleGoogle} onError={(err) => setErrorMsg(err)} />
         </div>
 
         {/* Divider */}

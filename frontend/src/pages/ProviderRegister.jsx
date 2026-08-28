@@ -33,10 +33,6 @@ const UploadBox = ({ label, id, onChange, preview }) => (
 const ProviderRegister = () => {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
-  const [otpSent, setOtpSent] = useState(false)
-  const [isOtpVerified, setIsOtpVerified] = useState(false)
-  const [otpError, setOtpError] = useState('')
-  const [phoneVerificationToken, setPhoneVerificationToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -48,7 +44,6 @@ const ProviderRegister = () => {
     confirmPassword: '',
     nicNumber: '',
     mobile: '',
-    otp: '',
     nicFront: null,
     nicBack: null,
     nicFrontPreview: null,
@@ -85,15 +80,6 @@ const ProviderRegister = () => {
     }
     const numbersOnly = raw.slice(0, 10)
     setForm((prev) => ({ ...prev, mobile: numbersOnly }))
-    setIsOtpVerified(false)
-    setOtpSent(false)
-    setPhoneVerificationToken('')
-    setOtpError('')
-  }
-
-  const handleOtpChange = (e) => {
-    const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 6)
-    setForm((prev) => ({ ...prev, otp: numbersOnly }))
   }
 
   const compressImage = (file) => {
@@ -147,46 +133,11 @@ const ProviderRegister = () => {
     }))
   }
 
-  const handleSendOtp = async () => {
-    if (!form.mobile || form.mobile.length !== 10) {
-      setOtpError('Enter a valid 10-digit mobile number first.')
-      return
-    }
-    try {
-      await apiRequest('/auth/register/phone/send', 'POST', { phone: form.mobile })
-      setOtpSent(true)
-      setIsOtpVerified(false)
-      setPhoneVerificationToken('')
-      setOtpError('')
-    } catch (error) { setOtpError(error.message || 'Could not send the WhatsApp code.') }
-  }
-
-  const handleVerifyOtp = async () => {
-    if (!form.otp || form.otp.length !== 6) {
-      setOtpError('Enter the 6-digit verification code sent on WhatsApp.')
-      return
-    }
-    try {
-      const result = await apiRequest('/auth/register/phone/verify', 'POST', { phone: form.mobile, code: form.otp })
-      setPhoneVerificationToken(result.verification_token)
-      setIsOtpVerified(true)
-      setOtpError('')
-    } catch (error) { setOtpError(error.message || 'WhatsApp verification failed.') }
-  }
-
   const nextStep = (e) => {
     e.preventDefault()
     if (step === 0) {
       if (form.mobile.length !== 10) {
-        alert('Mobile number must be exactly 10 digits.')
-        return
-      }
-      if (!otpSent) {
-        alert('Click SEND WHATSAPP CODE to receive your mobile verification code.')
-        return
-      }
-      if (!isOtpVerified) {
-        alert('WhatsApp verification required. Enter the code and click VERIFY CODE to continue.')
+        alert('Mobile number must be exactly 10 digits (e.g. 0771234567).')
         return
       }
       if ((form.password || '').length < 6) {
@@ -242,16 +193,16 @@ const ProviderRegister = () => {
       setLastApplication(appRecord)
 
       const registration = await apiRequest('/auth/register', 'POST', {
-          name: form.fullName,
-          email: form.email,
-          password: form.password,
-          phone: form.mobile,
-          role: 'provider',
-          nic: form.nicNumber,
-          category: form.services[0],
-          service_towns: form.city,
-          phone_verification_token: phoneVerificationToken,
-        })
+        name: form.fullName,
+        email: form.email,
+        password: form.password,
+        phone: form.mobile,
+        role: 'provider',
+        nic: form.nicNumber,
+        category: form.services[0],
+        service_towns: form.city,
+      })
+
       const uploadDocument = async (file, documentType) => {
         if (!file) return
         const payload = new FormData()
@@ -259,6 +210,7 @@ const ProviderRegister = () => {
         payload.append('documents', file)
         await apiRequest('/provider/kyc-documents', 'POST', payload, registration.token)
       }
+
       await uploadDocument(form.nicFront, 'NIC')
       await uploadDocument(form.nicBack, 'NIC')
       await uploadDocument(form.selfie, 'SELFIE')
@@ -423,6 +375,7 @@ const ProviderRegister = () => {
         >
           ✕
         </button>
+
         {/* Step Header */}
         <div className="pr-card__step-label">
           <div className="pr-card__step-num">{steps[step].num}</div>
@@ -471,41 +424,12 @@ const ProviderRegister = () => {
                 preview={form.selfiePreview} />
             </div>
 
-            <div className="pr-row pr-row--otp">
+            <div className="pr-row" style={{ gridTemplateColumns: '1fr' }}>
               <input id="pr-mobile" name="mobile" type="tel" className="pr-input"
-                placeholder="Mobile Number" value={form.mobile}
+                placeholder="Mobile Number (e.g. 0771234567)" value={form.mobile}
                 onChange={handleMobileChange}
                 maxLength={10} inputMode="numeric" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" required />
-              <button type="button" id="pr-send-otp-btn"
-                className={`pr-otp-btn ${isOtpVerified ? 'pr-otp-btn--sent' : otpSent ? 'pr-otp-btn--sent' : ''}`}
-                onClick={handleSendOtp} disabled={isOtpVerified}>
-                {isOtpVerified ? 'VERIFIED ✓' : otpSent ? 'RESEND WHATSAPP' : 'SEND WHATSAPP CODE'}
-              </button>
             </div>
-
-            {otpSent && !isOtpVerified && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#111', padding: '0.85rem', borderRadius: '8px', border: '1px solid #222' }}>
-                <span style={{ color: 'var(--gold)', fontSize: '0.75rem', fontWeight: '600' }}>
-                  Enter the verification code sent via WhatsApp to +94 {form.mobile}
-                </span>
-                <div className="pr-row" style={{ gridTemplateColumns: '1fr auto', gap: '0.6rem' }}>
-                  <input id="pr-otp" name="otp" type="text" className="pr-input"
-                    placeholder="Enter 6-Digit Code" value={form.otp}
-                    onChange={(e) => { handleOtpChange(e); setOtpError('') }} required maxLength={6} inputMode="numeric" pattern="[0-9]{6}" title="Please enter the 6-digit WhatsApp verification code" />
-                  <button type="button" id="pr-verify-otp-btn" className="pr-otp-btn"
-                    style={{ background: 'var(--gold)', color: '#000', fontWeight: '800' }} onClick={handleVerifyOtp}>
-                    VERIFY CODE
-                  </button>
-                </div>
-                {otpError && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{otpError}</span>}
-              </div>
-            )}
-
-            {isOtpVerified && (
-              <div style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#4ade80', padding: '0.7rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                ✓ WhatsApp number +94 {form.mobile} verified successfully
-              </div>
-            )}
 
             <div className="pr-actions">
               <div />
