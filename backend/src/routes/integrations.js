@@ -77,12 +77,77 @@ export async function activateSubscription(payment, payload = {}, { capturedAmou
   }, { isolationLevel: 'Serializable' });
 }
 
+function buildReceiptHtml({ user, payment, _mode, coinsGranted, providerName, displayAmount, conversionInfo }) {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #111; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+      <div style="background-color: #0b0b0d; color: #d4af37; padding: 24px; text-align: center;">
+        <h1 style="margin: 0; font-size: 22px; letter-spacing: 2px;">LUXORA</h1>
+        <p style="margin: 4px 0 0; font-size: 12px; text-transform: uppercase; color: #bbb;">The Gold Standard of Modern Living</p>
+      </div>
+      <div style="padding: 24px 28px;">
+        <h2 style="margin-top: 0; color: #0b0b0d; font-size: 18px;">Payment Receipt</h2>
+        <p>Hi <strong>${user?.name || 'Customer'}</strong>,</p>
+        <p>Thank you for your payment. Your subscription to <strong>${payment.plan?.title || 'Luxora Package'}</strong> is now active.</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Order ID:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.gatewayOrderId}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Plan / Service:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.plan?.title || 'Package'}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Amount:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #0b0b0d;">${payment.expectedCurrency} ${displayAmount}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Payment Gateway:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right;">${providerName}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Transaction Reference:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.webhookPayload?.payment_id || payment.webhookPayload?.nowpayments_payment_id || payment.gatewayOrderId}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Payment Status:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #16a34a;">PAID / COMPLETED</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Service Coins Added:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #b45309;">+${coinsGranted} coins</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px 0; color: #666;">Subscription Valid Until:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.subscription?.endDate ? payment.subscription.endDate.toISOString().slice(0, 10) : 'Active'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Date / Time:</td>
+            <td style="padding: 8px 0; font-weight: bold; text-align: right;">${new Date().toUTCString()}</td>
+          </tr>
+        </table>
+        
+        ${conversionInfo}
+        
+        <p style="margin-top: 24px; font-size: 13px; color: #666;">You can view and manage your active entitlements anytime in your <a href="${process.env.FRONTEND_URL || 'https://luxora.bond'}/customer-dashboard" style="color: #d4af37; text-decoration: none; font-weight: bold;">Customer Dashboard</a>.</p>
+      </div>
+      <div style="background-color: #f9f9f9; padding: 12px 24px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+        Luxora Home Concierge — Automated Transaction Notification
+      </div>
+    </div>
+  `;
+}
+
 async function completePaymentExperience(payment, mode) {
-  const coinsGranted = payment.plan.entitlements.reduce((total, entitlement) => total + entitlement.units, 0);
+  const coinsGranted = Array.isArray(payment.plan?.entitlements)
+    ? payment.plan.entitlements.reduce((total, entitlement) => total + entitlement.units, 0)
+    : 0;
+
   const [entitlements, user] = await Promise.all([
     getEntitlementSnapshot(prisma, payment.userId),
     prisma.user.findUnique({ where: { id: payment.userId }, select: { email: true, name: true } }),
-    notify(payment.userId, `${mode === 'demo' ? 'Demo ' : ''}payment successful. Your ${payment.plan.title} package is active with ${coinsGranted} service coin${coinsGranted === 1 ? '' : 's'}.`, '/customer-dashboard'),
+    notify(payment.userId, `${mode === 'demo' ? 'Demo ' : ''}payment successful. Your ${payment.plan?.title || 'package'} is active with ${coinsGranted} service coin${coinsGranted === 1 ? '' : 's'}.`, '/customer-dashboard'),
   ]);
 
   const providerName = mode === 'nowpayments' ? 'NOWPayments (Cryptocurrency)' : mode === 'payhere' ? 'PayHere' : 'Demo Checkout';
@@ -91,84 +156,60 @@ async function completePaymentExperience(payment, mode) {
     ? `<p style="margin:4px 0;color:#666;font-size:13px;">Converted Crypto Invoice: <strong>$${payment.webhookPayload.conversion.convertedAmount} ${payment.webhookPayload.conversion.convertedCurrency}</strong> (Rate: 1 USD = ${payment.webhookPayload.conversion.exchangeRate} LKR)</p>`
     : '';
 
-  const emailDelivery = await sendEmail({
-    to: user?.email,
-    subject: `Luxora Payment Confirmation & Receipt — ${payment.plan.title}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #111; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: #0b0b0d; color: #d4af37; padding: 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 22px; letter-spacing: 2px;">LUXORA</h1>
-          <p style="margin: 4px 0 0; font-size: 12px; text-transform: uppercase; color: #bbb;">The Gold Standard of Modern Living</p>
-        </div>
-        <div style="padding: 24px 28px;">
-          <h2 style="margin-top: 0; color: #0b0b0d; font-size: 18px;">Payment Receipt</h2>
-          <p>Hi <strong>${user?.name || 'Customer'}</strong>,</p>
-          <p>Thank you for your payment. Your subscription to <strong>${payment.plan.title}</strong> is now active.</p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Order ID:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.gatewayOrderId}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Plan / Service:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.plan.title}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Amount:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #0b0b0d;">${payment.expectedCurrency} ${displayAmount}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Payment Gateway:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${providerName}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Transaction Reference:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.webhookPayload?.payment_id || payment.webhookPayload?.nowpayments_payment_id || payment.gatewayOrderId}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Payment Status:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #16a34a;">PAID / COMPLETED</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Service Coins Added:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #b45309;">+${coinsGranted} coins</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px 0; color: #666;">Subscription Valid Until:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.subscription.endDate.toISOString().slice(0, 10)}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #666;">Date / Time:</td>
-              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${new Date().toUTCString()}</td>
-            </tr>
-          </table>
-          
-          ${conversionInfo}
-          
-          <p style="margin-top: 24px; font-size: 13px; color: #666;">You can view and manage your active entitlements anytime in your <a href="${process.env.FRONTEND_URL || 'https://luxora.bond'}/customer-dashboard" style="color: #d4af37; text-decoration: none; font-weight: bold;">Customer Dashboard</a>.</p>
-        </div>
-        <div style="background-color: #f9f9f9; padding: 12px 24px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
-          Luxora Home Concierge — Automated Transaction Notification
-        </div>
-      </div>
-    `,
-  }).then((result) => result.configured ? 'sent' : 'not_configured').catch((error) => {
+  const html = buildReceiptHtml({ user, payment, mode, coinsGranted, providerName, displayAmount, conversionInfo });
+
+  let emailDelivery = 'not_configured';
+  let emailError = null;
+  let resendMessageId = null;
+
+  try {
+    const result = await sendEmail({
+      to: user?.email,
+      subject: `Luxora Payment Confirmation & Receipt — ${payment.plan?.title || 'Luxora Package'}`,
+      html,
+    });
+    if (result.configured) {
+      emailDelivery = 'sent';
+      resendMessageId = result.id || null;
+    }
+  } catch (error) {
+    emailDelivery = 'failed';
+    emailError = error.message;
     console.warn('[email] payment receipt failed:', error.message);
-    return 'failed';
-  });
+  }
+
+  // Update payment record with receipt delivery status for full idempotency and retryability
+  try {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        webhookPayload: {
+          ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+          receipt: {
+            status: emailDelivery,
+            recipient: user?.email || null,
+            attemptedAt: new Date().toISOString(),
+            resendId: resendMessageId,
+            error: emailError,
+          },
+        },
+      },
+    });
+  } catch (dbErr) {
+    console.warn('[payment] could not persist receipt delivery state:', dbErr.message);
+  }
 
   return {
     entitlement_snapshot: entitlements,
     receipt: {
       payment_id: payment.id,
       plan_id: payment.planId,
-      plan_title: payment.plan.title,
+      plan_title: payment.plan?.title,
       amount: Number(payment.expectedAmount),
       currency: payment.expectedCurrency,
       coins_granted: coinsGranted,
-      subscription_id: payment.subscription.id,
-      active_until: payment.subscription.endDate,
+      subscription_id: payment.subscription?.id,
+      active_until: payment.subscription?.endDate,
       provider: providerName,
     },
     email_delivery: emailDelivery,
@@ -228,8 +269,26 @@ router.post('/payments/payhere/order', authenticateToken, async (req, res) => {
     if (!plan || !user) return res.status(404).json({ error: 'Plan or customer not found' });
     const amount = money(plan.priceMonthly);
     const urls = payHereUrls();
-    const orderId = `LUX-PH-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    const payment = await prisma.payment.create({ data: { userId: user.id, planId: plan.id, gateway: 'PAYHERE', gatewayOrderId: orderId, idempotencyKey: orderId, expectedAmount: amount, expectedCurrency: 'LKR' } });
+
+    // Deduplicate rapid duplicate clicks within 15 seconds
+    const recentPending = await prisma.payment.findFirst({
+      where: {
+        userId: user.id,
+        planId: plan.id,
+        gateway: 'PAYHERE',
+        status: 'PENDING',
+        createdAt: { gte: new Date(Date.now() - 15000) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let payment = recentPending;
+    let orderId = recentPending?.gatewayOrderId;
+    if (!payment) {
+      orderId = `LUX-PH-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      payment = await prisma.payment.create({ data: { userId: user.id, planId: plan.id, gateway: 'PAYHERE', gatewayOrderId: orderId, idempotencyKey: orderId, expectedAmount: amount, expectedCurrency: 'LKR' } });
+    }
+
     const fields = createPayHereFields({ amount, orderId, currency: 'LKR', customer: { firstName: user.name.split(/\s+/)[0], lastName: user.name.split(/\s+/).slice(1).join(' ') || 'Customer', email: user.email, phone: user.phone || '', city: user.town || '', items: plan.title }, returnUrl: urls.returnUrl, cancelUrl: urls.cancelUrl });
     fields.notify_url = urls.notifyUrl;
     res.json({ paymentId: payment.id, orderId, environment: environment(), checkoutUrl: `${process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk'}/pay/checkout`, fields });
@@ -253,22 +312,38 @@ router.post('/payments/nowpayments/order', authenticateToken, async (req, res) =
 
     const lkrAmount = Number(plan.priceMonthly);
     const conversion = await convertLkrToUsd(lkrAmount);
-    const orderId = `LUX-NP-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
-    const payment = await prisma.payment.create({
-      data: {
+    // Deduplicate rapid duplicate clicks within 15 seconds
+    const recentPending = await prisma.payment.findFirst({
+      where: {
         userId: user.id,
         planId: plan.id,
         gateway: 'NOWPAYMENTS',
-        gatewayOrderId: orderId,
-        idempotencyKey: orderId,
-        expectedAmount: money(lkrAmount),
-        expectedCurrency: 'LKR',
-        webhookPayload: {
-          conversion,
-        },
+        status: 'PENDING',
+        createdAt: { gte: new Date(Date.now() - 15000) },
       },
+      orderBy: { createdAt: 'desc' },
     });
+
+    let payment = recentPending;
+    let orderId = recentPending?.gatewayOrderId;
+    if (!payment) {
+      orderId = `LUX-NP-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      payment = await prisma.payment.create({
+        data: {
+          userId: user.id,
+          planId: plan.id,
+          gateway: 'NOWPAYMENTS',
+          gatewayOrderId: orderId,
+          idempotencyKey: orderId,
+          expectedAmount: money(lkrAmount),
+          expectedCurrency: 'LKR',
+          webhookPayload: {
+            conversion,
+          },
+        },
+      });
+    }
 
     const backendUrl = (process.env.BACKEND_PUBLIC_URL || 'https://site--luxora-backend--6kb9tg67ytl4.code.run').replace(/\/+$/, '');
     const frontendUrl = (process.env.FRONTEND_URL || 'https://luxora.bond').replace(/\/+$/, '');
@@ -476,6 +551,66 @@ router.post('/email', authenticateToken, emailLimiter, async (req, res) => {
   if (!req.body.to || !req.body.subject || !req.body.html) return res.status(400).json({ error: 'to, subject and html are required' });
   if (req.body.to !== req.user.email && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'You can only email your own address' });
   try { res.json(await sendEmail(req.body)); } catch (error) { console.warn('[email] send failed:', error.message); res.status(502).json({ error: 'Email delivery failed' }); }
+});
+
+router.post('/payments/:id/receipt/resend', authenticateToken, async (req, res) => {
+  const paymentId = toPositiveInt(req.params.id);
+  if (!paymentId) return res.status(400).json({ error: 'Valid payment ID is required' });
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { plan: { include: { entitlements: true } }, subscription: true },
+  });
+
+  if (!payment) return res.status(404).json({ error: 'Payment not found' });
+  if (payment.userId !== req.user.id && req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Unauthorized to resend receipt for this payment' });
+  }
+  if (payment.status !== 'COMPLETED') {
+    return res.status(400).json({ error: 'Receipts can only be sent for completed payments' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payment.userId }, select: { email: true, name: true } });
+  if (!user?.email) return res.status(400).json({ error: 'Customer has no email address configured' });
+
+  const coinsGranted = Array.isArray(payment.plan?.entitlements)
+    ? payment.plan.entitlements.reduce((total, entitlement) => total + entitlement.units, 0)
+    : 0;
+  const providerName = payment.gateway === 'NOWPAYMENTS' ? 'NOWPayments (Cryptocurrency)' : payment.gateway === 'PAYHERE' ? 'PayHere' : 'Demo Checkout';
+  const displayAmount = Number(payment.expectedAmount).toLocaleString();
+  const conversionInfo = payment.webhookPayload?.conversion
+    ? `<p style="margin:4px 0;color:#666;font-size:13px;">Converted Crypto Invoice: <strong>$${payment.webhookPayload.conversion.convertedAmount} ${payment.webhookPayload.conversion.convertedCurrency}</strong> (Rate: 1 USD = ${payment.webhookPayload.conversion.exchangeRate} LKR)</p>`
+    : '';
+
+  const html = buildReceiptHtml({ user, payment, mode: payment.gateway.toLowerCase(), coinsGranted, providerName, displayAmount, conversionInfo });
+
+  try {
+    const result = await sendEmail({
+      to: user.email,
+      subject: `Luxora Payment Confirmation & Receipt — ${payment.plan?.title || 'Luxora Package'} (Resent)`,
+      html,
+    });
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        webhookPayload: {
+          ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+          receipt: {
+            status: result.configured ? 'sent' : 'not_configured',
+            recipient: user.email,
+            attemptedAt: new Date().toISOString(),
+            resendId: result.id || null,
+          },
+        },
+      },
+    });
+
+    res.json({ message: 'Receipt resent successfully', email_delivery: result.configured ? 'sent' : 'not_configured' });
+  } catch (error) {
+    console.warn('[email] resending receipt failed:', error.message);
+    res.status(502).json({ error: 'Could not deliver receipt email. Please try again later.' });
+  }
 });
 
 export default router;
