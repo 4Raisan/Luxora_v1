@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import { ActionButton } from '../components/ui'
 import { generateProviderPDF } from '../utils/pdfGenerator'
 import './ProviderRegister.css'
 
@@ -527,11 +528,15 @@ const ProviderRegister = () => {
 
             <div className="pr-actions">
               <button type="button" className="pr-btn-back" onClick={prevStep}>← Back</button>
-              <button type="submit" id="pr-submit-btn"
-                className={`pr-btn-next pr-btn-submit ${loading ? 'loading' : ''}`}
-                disabled={loading}>
-                {loading ? <span className="auth-spinner" /> : 'SUBMIT APPLICATION'}
-              </button>
+              <ActionButton
+                type="submit"
+                id="pr-submit-btn"
+                className="pr-btn-next pr-btn-submit"
+                loading={loading}
+                loadingText="Submitting application..."
+              >
+                SUBMIT APPLICATION
+              </ActionButton>
             </div>
           </form>
         )}
