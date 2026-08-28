@@ -1,16 +1,16 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-28T14:53:50.659Z",
+  "generatedAt": "2026-08-28T16:35:45.823Z",
   "stats": {
-    "totalNodes": 175,
-    "totalEdges": 365,
+    "totalNodes": 176,
+    "totalEdges": 374,
     "nodesByGroup": {
       "database": 32,
       "middleware": 3,
       "service": 8,
       "routes": 16,
-      "api": 88,
+      "api": 89,
       "frontend": 28
     }
   },
@@ -2313,6 +2313,18 @@
       }
     },
     {
+      "id": "endpoint:POST_/api/payments/:id/receipt/resend",
+      "label": "POST /api/payments/:id/receipt/resend",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/integrations.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/payments/:id/receipt/resend",
+        "routeFile": "integrations.js"
+      }
+    },
+    {
       "id": "routefile:notifications",
       "label": "notifications.js",
       "type": "RouteModule",
@@ -3850,6 +3862,12 @@
     },
     {
       "from": "routefile:bookings",
+      "to": "model:Booking",
+      "type": "QUERIES_DB",
+      "label": "prisma.booking"
+    },
+    {
+      "from": "routefile:bookings",
       "to": "model:User",
       "type": "QUERIES_DB",
       "label": "prisma.user"
@@ -3859,12 +3877,6 @@
       "to": "model:Provider",
       "type": "QUERIES_DB",
       "label": "prisma.provider"
-    },
-    {
-      "from": "routefile:bookings",
-      "to": "model:Booking",
-      "type": "QUERIES_DB",
-      "label": "prisma.booking"
     },
     {
       "from": "routefile:bookings",
@@ -4151,6 +4163,12 @@
     {
       "from": "routefile:integrations",
       "to": "endpoint:POST_/api/email",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST"
+    },
+    {
+      "from": "routefile:integrations",
+      "to": "endpoint:POST_/api/payments/:id/receipt/resend",
       "type": "EXPOSES_ENDPOINT",
       "label": "POST"
     },
@@ -4869,6 +4887,12 @@
       "label": "PUT"
     },
     {
+      "from": "frontend:AdminDashboard",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
+    },
+    {
       "from": "frontend:BookService",
       "to": "frontend:api_client",
       "type": "USES_CLIENT",
@@ -4891,6 +4915,12 @@
       "to": "endpoint:POST_/api/bookings",
       "type": "FETCHES_API",
       "label": "POST"
+    },
+    {
+      "from": "frontend:BookService",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
     },
     {
       "from": "frontend:CustomerDashboard",
@@ -5037,6 +5067,12 @@
       "label": ""
     },
     {
+      "from": "frontend:CustomerDashboard",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
+    },
+    {
       "from": "frontend:Login",
       "to": "frontend:api_client",
       "type": "USES_CLIENT",
@@ -5053,6 +5089,12 @@
       "to": "endpoint:POST_/api/auth/login",
       "type": "FETCHES_API",
       "label": "POST"
+    },
+    {
+      "from": "frontend:Login",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
     },
     {
       "from": "frontend:Login",
@@ -5145,6 +5187,12 @@
       "label": ""
     },
     {
+      "from": "frontend:ProviderDashboard",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
+    },
+    {
       "from": "frontend:ProviderRegister",
       "to": "frontend:api_client",
       "type": "USES_CLIENT",
@@ -5163,6 +5211,12 @@
       "label": "POST"
     },
     {
+      "from": "frontend:ProviderRegister",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
+    },
+    {
       "from": "frontend:ResetPassword",
       "to": "frontend:api_client",
       "type": "USES_CLIENT",
@@ -5173,6 +5227,12 @@
       "to": "endpoint:POST_/api/auth/password-reset/confirm",
       "type": "FETCHES_API",
       "label": "POST"
+    },
+    {
+      "from": "frontend:ResetPassword",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
     },
     {
       "from": "frontend:Reviews",
@@ -5203,6 +5263,12 @@
       "to": "endpoint:POST_/api/auth/register",
       "type": "FETCHES_API",
       "label": "POST"
+    },
+    {
+      "from": "frontend:Signup",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": ""
     },
     {
       "from": "frontend:Signup",
