@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { apiRequest } from '../services/api'
+import { ActionButton } from '../components/ui'
 import './BookService.css'
 
 export default function BookService() {
@@ -87,9 +88,14 @@ export default function BookService() {
               </div>
             </div>
 
-            <button className="bs-submit" type="submit" disabled={loading}>
-              {loading ? 'Reserving…' : 'Confirm Reservation'}
-            </button>
+            <ActionButton
+              className="bs-submit"
+              type="submit"
+              loading={loading}
+              loadingText="Reserving concierge..."
+            >
+              Confirm Reservation
+            </ActionButton>
           </form>
         )}
       </div>

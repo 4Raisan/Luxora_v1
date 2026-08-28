@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
+import { ActionButton } from '../components/ui'
 import './AdminDashboard.css'
 
 /* Admin control center — backup visual language (ad- design system),
@@ -852,9 +853,14 @@ const AdminDashboard = () => {
           {kycDecision.mode === 'approve' && <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Approve {kycDecision.provider.name} ({kycDecision.provider.category || 'provider'})? They will be notified and can start receiving bookings.</p>}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
             <button style={ghostBtn} onClick={() => { setKycDecision(null); setRejectReason('') }}>Cancel</button>
-            <button style={kycDecision.mode === 'approve' ? goldBtn : redBtn} disabled={busy} onClick={decideKyc}>
+            <ActionButton
+              style={kycDecision.mode === 'approve' ? goldBtn : redBtn}
+              loading={busy}
+              loadingText={kycDecision.mode === 'approve' ? 'Approving...' : 'Rejecting...'}
+              onClick={decideKyc}
+            >
               {kycDecision.mode === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
-            </button>
+            </ActionButton>
           </div>
         </Modal>
       )}
@@ -940,8 +946,8 @@ const AdminDashboard = () => {
           <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Admin note</label>
           <textarea rows={3} style={fieldStyle} value={refundNote} onChange={(e) => setRefundNote(e.target.value)} placeholder="Decision note…" />
           <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
-            <button style={redBtn} disabled={busy} onClick={() => decideRefund('REJECTED')}>Reject</button>
-            <button style={goldBtn} disabled={busy} onClick={() => decideRefund('APPROVED')}>Approve Refund</button>
+            <ActionButton style={redBtn} loading={busy} loadingText="Rejecting..." onClick={() => decideRefund('REJECTED')}>Reject</ActionButton>
+            <ActionButton style={goldBtn} loading={busy} loadingText="Approving..." onClick={() => decideRefund('APPROVED')}>Approve Refund</ActionButton>
           </div>
         </Modal>
       )}
@@ -1044,7 +1050,7 @@ const AdminDashboard = () => {
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
             <button style={ghostBtn} onClick={() => setPlanEditor(null)}>Cancel</button>
-            <button style={goldBtn} disabled={busy} onClick={savePlan}>Save Package</button>
+            <ActionButton style={goldBtn} loading={busy} loadingText="Saving Package..." onClick={savePlan}>Save Package</ActionButton>
           </div>
         </Modal>
       )}
