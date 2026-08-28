@@ -74,7 +74,7 @@ export async function activateSubscription(payment, payload = {}, { capturedAmou
       },
       include: { plan: { include: { entitlements: true } }, subscription: true },
     });
-  }, { isolationLevel: 'Serializable' });
+  }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
 }
 
 function buildReceiptHtml({ user, payment, _mode, coinsGranted, providerName, displayAmount, conversionInfo }) {

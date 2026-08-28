@@ -148,51 +148,97 @@ router.post('/', async (req, res) => {
 
   const startPin = crypto.randomInt(100000, 1000000).toString();
   const completionPin = crypto.randomInt(100000, 1000000).toString();
+  const [startPinHash, completionPinHash] = await Promise.all([
+    bcrypt.hash(startPin, 12),
+    bcrypt.hash(completionPin, 12),
+  ]);
+  const customerStartPinCipher = encryptPin(startPin);
+  const customerCompletionPinCipher = encryptPin(completionPin);
 
   const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true, addressStreet: true, addressDistrict: true, email: true, name: true } });
   const town = normalizeTown(customer?.town);
   const settings = await getPlatformSettings(prisma);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time, settings);
-  const booking = await prisma.$transaction(async (tx) => {
-    const lockedEntitlement = await findBookableEntitlement(tx, userId, service.categoryId);
-    if (!lockedEntitlement) { const error = new Error('No remaining entitlement units'); error.statusCode = 409; throw error; }
-    entitlement.subscriptionId = lockedEntitlement.subscriptionId;
-    entitlement.remainingUnits = lockedEntitlement.remainingUnits;
-    const duplicate = await tx.booking.findFirst({ where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } }, select: { id: true } });
-    if (duplicate) {
-      const error = new Error('You already have this service booked for the selected date and time');
-      error.statusCode = 409;
-      throw error;
+  const provider = shouldAutoAssign ? await pickProvider(prisma, service.category.name, town, customer?.addressDistrict, booking_date, booking_time, service, settings) : null;
+  const scheduled = bookingStart(booking_date, booking_time);
+  const pinExpiresAt = scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null;
+
+  let booking;
+  try {
+    booking = await prisma.$transaction(async (tx) => {
+      const lockedEntitlement = await findBookableEntitlement(tx, userId, service.categoryId);
+      if (!lockedEntitlement) {
+        const error = new Error('No remaining entitlement units');
+        error.statusCode = 409;
+        throw error;
+      }
+      entitlement.subscriptionId = lockedEntitlement.subscriptionId;
+      entitlement.remainingUnits = lockedEntitlement.remainingUnits;
+
+      const duplicate = await tx.booking.findFirst({
+        where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } },
+        select: { id: true },
+      });
+      if (duplicate) {
+        const error = new Error('You already have this service booked for the selected date and time');
+        error.statusCode = 409;
+        throw error;
+      }
+
+      return tx.booking.create({
+        data: {
+          userId,
+          providerId: provider?.id || null,
+          serviceId,
+          subscriptionId: lockedEntitlement.subscriptionId,
+          bookingDate: booking_date,
+          bookingTime: normalizedTime,
+          town,
+          addressStreet: customer?.addressStreet || null,
+          addressDistrict: customer?.addressDistrict || null,
+          status: provider ? 'ASSIGNED' : 'PENDING',
+          autoAssigned: Boolean(provider),
+          startPinHash,
+          completionPinHash,
+          customerStartPinCipher,
+          customerCompletionPinCipher,
+          pinExpiresAt,
+          totalPrice: service.price,
+          providerEarning: service.providerEarning,
+        },
+      });
+    }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
     }
-    const provider = shouldAutoAssign ? await pickProvider(tx, service.category.name, town, customer?.addressDistrict, booking_date, booking_time, service, settings) : null;
-    const scheduled = bookingStart(booking_date, booking_time);
-    return tx.booking.create({
-      data: {
-        userId,
-        providerId: provider?.id || null,
-        serviceId,
-        subscriptionId: entitlement.subscriptionId,
-        bookingDate: booking_date,
-        bookingTime: normalizedTime,
-        town,
-        addressStreet: customer?.addressStreet || null,
-        addressDistrict: customer?.addressDistrict || null,
-        status: provider ? 'ASSIGNED' : 'PENDING',
-        autoAssigned: Boolean(provider),
-        startPinHash: await bcrypt.hash(startPin, 12),
-        completionPinHash: await bcrypt.hash(completionPin, 12),
-        customerStartPinCipher: encryptPin(startPin),
-        customerCompletionPinCipher: encryptPin(completionPin),
-        pinExpiresAt: scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null,
-        totalPrice: service.price,
-        providerEarning: service.providerEarning,
-      },
-    });
-  }, { isolationLevel: 'Serializable' });
+    if (err.code === 'P2034' || err.message?.includes('could not serialize access')) {
+      const existing = await prisma.booking.findFirst({
+        where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } },
+      });
+      if (existing) {
+        const startPin = existing.customerStartPinCipher ? decryptPin(existing.customerStartPinCipher) : '';
+        const completionPin = existing.customerCompletionPinCipher ? decryptPin(existing.customerCompletionPinCipher) : '';
+        return res.status(200).json({
+          booking_id: existing.id,
+          pin_code: startPin,
+          start_pin: startPin,
+          completion_pin: completionPin,
+          pin_expires_at: existing.pinExpiresAt,
+          status: existing.status.toLowerCase(),
+          total_price: existing.totalPrice,
+          message: 'Booking placed successfully',
+          entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits },
+        });
+      }
+      return res.status(409).json({ error: 'A conflicting booking request is being processed. Please try again.' });
+    }
+    throw err;
+  }
 
   if (booking.providerId) {
-    const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
-    if (provider) await notify(provider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
+    const assignedProvider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
+    if (assignedProvider) await notify(assignedProvider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
   }
   sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your ${service.title} booking is scheduled for ${booking_date} at ${booking_time}.</p><p>Booking status: ${booking.status.toLowerCase()}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
@@ -383,7 +429,7 @@ router.put('/:id/status', async (req, res) => {
       });
       const payout = new Prisma.Decimal(fresh.providerEarning || 0).toDecimalPlaces(2);
       await tx.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
-    }, { isolationLevel: 'Serializable' });
+    }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
   } else {
     await prisma.booking.update({
       where: { id: booking.id },
