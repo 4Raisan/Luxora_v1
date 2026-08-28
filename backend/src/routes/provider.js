@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
-import { authenticateToken, requireRole, requireVerifiedPhone } from '../middleware/auth.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { maskAccountNumber } from '../services/payouts.js';
 
 const router = Router();
-router.use(authenticateToken, requireRole('PROVIDER'), requireVerifiedPhone);
+router.use(authenticateToken, requireRole('PROVIDER'));
 router.use(async (req, res, next) => {
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id }, select: { kycStatus: true } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });

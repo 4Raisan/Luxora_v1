@@ -14,14 +14,6 @@ import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCa
 const router = Router();
 router.use(authenticateToken);
 
-function requireVerifiedProviderPhone(req, res) {
-  if (req.user.role === 'PROVIDER' && !req.user.phoneVerified) {
-    res.status(403).json({ error: 'Verify your WhatsApp number before accessing provider operations' });
-    return false;
-  }
-  return true;
-}
-
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 const pinKey = crypto.createHash('sha256').update(JWT_SECRET).digest();
@@ -217,7 +209,6 @@ router.get('/my', async (req, res) => {
 
 // Providers fulfil only bookings assigned by the server scheduling flow.
 router.get('/assigned', async (req, res) => {
-  if (!requireVerifiedProviderPhone(req, res)) return;
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   if (provider.kycStatus !== 'APPROVED') {
@@ -256,7 +247,6 @@ router.get('/:id/pins', async (req, res) => {
 
 // Update status (provider, with PIN for start/complete)
 router.put('/:id/status', async (req, res) => {
-  if (!requireVerifiedProviderPhone(req, res)) return;
   const { id } = req.params;
   const { status, pin_code, before_photo, after_photo } = req.body;
 
@@ -379,7 +369,6 @@ router.put('/:id/status', async (req, res) => {
 
 // Internal provider scheduling only. Customer endpoints deliberately omit this field.
 router.put('/:id/schedule', async (req, res) => {
-  if (!requireVerifiedProviderPhone(req, res)) return;
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   if (provider.kycStatus !== 'APPROVED') {

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { prisma } from '../config/prisma.js';
-import { authenticateToken, requireRole, requireVerifiedPhone } from '../middleware/auth.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { toPositiveInt } from '../middleware/validators.js';
 
 const router = Router();
@@ -68,7 +68,7 @@ router.post('/provider/kyc-documents', authenticateToken, requireRole('PROVIDER'
   res.status(201).json({ documents: documents.map((d) => ({ id: d.id, document_type: d.documentType, original_name: d.originalName, mime_type: d.mimeType, size_bytes: d.sizeBytes, created_at: d.createdAt })) });
 });
 
-router.post('/bookings/:id/photos', authenticateToken, requireRole('PROVIDER'), requireVerifiedPhone, imageUpload.array('photos', 5), async (req, res) => {
+router.post('/bookings/:id/photos', authenticateToken, requireRole('PROVIDER'), imageUpload.array('photos', 5), async (req, res) => {
   const bookingId = toPositiveInt(req.params.id);
   const kind = String(req.body.kind || '').trim().toUpperCase();
   const files = req.files || [];
