@@ -230,6 +230,52 @@ const CustomerDashboard = () => {
   const [paymentBusy, setPaymentBusy] = useState(false)
   const [selectedReceiptItem, setSelectedReceiptItem] = useState(null)
 
+  // Easy Pay (PayHere) — backend-verified result shown after returning from
+  // the hosted checkout. Never trusts the redirect itself: the status below is
+  // always read from GET /payments/my, which only flips to COMPLETED when the
+  // verified PayHere webhook has confirmed the charge server-side.
+  const [payhereResult, setPayhereResult] = useState(null)
+  const [payhereEnv, setPayhereEnv] = useState('SANDBOX')
+
+  const resolvePayhereReturn = async (fromCancelUrl) => {
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') return
+    setPayhereResult({ status: 'checking' })
+    // The webhook can land a moment after the browser redirect — poll briefly.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const data = await apiRequest('/payments/my', 'GET', null, token)
+        if (data?.environment) setPayhereEnv(data.environment)
+        const payment = Array.isArray(data?.payments)
+          ? data.payments.find((p) => p.gateway === 'PAYHERE')
+          : null
+        if (payment) {
+          if (payment.status === 'COMPLETED') {
+            setPayhereResult({ status: 'success', payment })
+            return
+          }
+          if (payment.status === 'FAILED') {
+            setPayhereResult({ status: 'failed', payment })
+            return
+          }
+          if (payment.status === 'REFUNDED') {
+            setPayhereResult({ status: 'cancelled', payment })
+            return
+          }
+          if (fromCancelUrl) {
+            setPayhereResult({ status: 'cancelled', payment })
+            return
+          }
+        } else if (fromCancelUrl) {
+          setPayhereResult({ status: 'cancelled', payment: null })
+          return
+        }
+      } catch { /* fall through to retry */ }
+      await new Promise((resolve) => setTimeout(resolve, attempt === 3 ? 0 : 2000))
+    }
+    setPayhereResult({ status: 'pending', payment: null })
+  }
+
   // Subscription plan catalogue — server-fed only (loadServerData maps
   // GET /subscriptions into these cards). No hardcoded fallback catalogue
   // and no localStorage cache, so the member always sees the real plans.
@@ -398,6 +444,19 @@ const CustomerDashboard = () => {
   }
 
   useEffect(() => { loadServerData() }, [])
+
+  // PayHere hosted checkout returns to /customer-dashboard?payhere=return|cancel.
+  // Strip the marker from the URL immediately, then confirm the real payment
+  // state from the backend before showing any success UI.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const flag = params.get('payhere')
+      if (flag !== 'return' && flag !== 'cancel') return
+      window.history.replaceState({}, '', window.location.pathname)
+      resolvePayhereReturn(flag === 'cancel')
+    } catch { /* ignore malformed query strings */ }
+  }, [])
 
   // Real start/completion PINs for an expanded booking row (the list endpoint
   // no longer returns plaintext PINs; they live behind /bookings/:id/pins).
@@ -1048,6 +1107,68 @@ const CustomerDashboard = () => {
               <div className="cd-book-confirm-row"><span>Receipt email</span><small>{paymentSuccess.emailDelivery === 'sent' ? 'Sent to your account email' : paymentSuccess.emailDelivery === 'not_configured' ? 'Email delivery is not configured' : 'Could not be delivered'}</small></div>
             </div>
             <button type="button" className="cd-support-send-btn" style={{ marginTop: '1.5rem' }} onClick={() => setPaymentSuccess(null)}>VIEW MY PACKAGE</button>
+          </div>
+        </div>
+      )}
+      {/* ── PayHere result — status read from the backend, never from the redirect ── */}
+      {payhereResult && (
+        <div className="cd-support-overlay" style={{ zIndex: 1000 }} onClick={() => payhereResult.status !== 'checking' && setPayhereResult(null)}>
+          <div className="cd-support-modal animate-fade-in" style={{ maxWidth: '460px', textAlign: 'center' }} role="dialog" aria-modal="true" aria-label="PayHere payment result">
+            {payhereResult.status === 'checking' && (
+              <>
+                <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
+                  <div className="cd-support-icon-box">…</div>
+                  <h2 className="cd-support-modal__title">Checking your payment</h2>
+                  <p className="cd-support-modal__subtitle">Confirming the payment status with the Luxora server…</p>
+                </div>
+              </>
+            )}
+            {payhereResult.status === 'success' && (() => {
+              const p = payhereResult.payment
+              const txRef = p?.webhookPayload?.payment_id || p?.gatewayOrderId
+              return (
+                <>
+                  <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
+                    <div className="cd-support-icon-box" style={{ background: 'rgba(34, 197, 94, 0.16)', color: '#4ade80' }}>✓</div>
+                    <h2 className="cd-support-modal__title">Payment Successful</h2>
+                    <p className="cd-support-modal__subtitle">Confirmed by the Luxora server via PayHere</p>
+                  </div>
+                  <div className="cd-book-confirm-details" style={{ marginTop: '1rem', textAlign: 'left' }}>
+                    <div className="cd-book-confirm-row"><span>Status</span><strong style={{ color: '#4ade80' }}>PAID</strong></div>
+                    <div className="cd-book-confirm-row"><span>Luxora Order ID</span><strong>{p?.gatewayOrderId}</strong></div>
+                    <div className="cd-book-confirm-row"><span>Amount</span><strong>{p?.capturedCurrency || p?.expectedCurrency} {Number(p?.capturedAmount ?? p?.expectedAmount ?? 0).toLocaleString()}</strong></div>
+                    <div className="cd-book-confirm-row"><span>Payment Method</span><strong className="gold-accent">PayHere</strong></div>
+                    {txRef && <div className="cd-book-confirm-row"><span>Transaction Reference</span><small style={{ wordBreak: 'break-all' }}>{txRef}</small></div>}
+                    <div className="cd-book-confirm-row"><span>Paid At</span><small>{p?.updatedAt ? new Date(p.updatedAt).toLocaleString() : '—'}</small></div>
+                  </div>
+                  <button type="button" className="cd-support-send-btn" style={{ marginTop: '1.5rem' }} onClick={() => { setPayhereResult(null); loadServerData(); setActiveTab('overview') }}>VIEW MY PACKAGE</button>
+                </>
+              )
+            })()}
+            {(payhereResult.status === 'pending') && (
+              <>
+                <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
+                  <div className="cd-support-icon-box" style={{ background: 'rgba(234, 179, 8, 0.16)', color: '#eab308' }}>⏳</div>
+                  <h2 className="cd-support-modal__title">Payment Pending</h2>
+                  <p className="cd-support-modal__subtitle">The payment has not been confirmed yet. If you completed the checkout, confirmation usually arrives within a minute — check your payments history shortly.</p>
+                </div>
+                <button type="button" className="cd-support-send-btn" style={{ marginTop: '1.5rem' }} onClick={() => { setPayhereResult(null); loadServerData() }}>OK</button>
+              </>
+            )}
+            {(payhereResult.status === 'failed' || payhereResult.status === 'cancelled') && (
+              <>
+                <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
+                  <div className="cd-support-icon-box" style={{ background: 'rgba(239, 68, 68, 0.16)', color: '#ef4444' }}>✕</div>
+                  <h2 className="cd-support-modal__title">{payhereResult.status === 'failed' ? 'Payment Failed' : 'Payment Cancelled'}</h2>
+                  <p className="cd-support-modal__subtitle">
+                    {payhereResult.status === 'failed'
+                      ? 'The payment was not completed and you have not been charged. You can safely try again.'
+                      : 'The checkout was cancelled and nothing was charged. Your package was not activated.'}
+                  </p>
+                </div>
+                <button type="button" className="cd-support-send-btn" style={{ marginTop: '1.5rem' }} onClick={() => setPayhereResult(null)}>OK</button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -3546,9 +3667,30 @@ const CustomerDashboard = () => {
 
             <div className="cd-support-actions" style={{ marginTop: '1.5rem' }}>
               {paymentMode === 'payhere' ? (
-                <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('payhere', selectedPackageToBook)}>
-                  {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYHERE'}
-                </button>
+                <div className="cd-easypay">
+                  <div className="cd-easypay__head">
+                    <span className="cd-easypay__title">EASY PAY</span>
+                    <span className="cd-easypay__badge">{payhereEnv === 'LIVE' ? '' : 'SANDBOX / TEST PAYMENT'}</span>
+                  </div>
+                  <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('payhere', selectedPackageToBook)}>
+                    {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYHERE'}
+                  </button>
+                  <small style={{ display: 'block', marginTop: '0.6rem', color: '#888', fontSize: '0.72rem' }}>
+                    You will be redirected to the PayHere {payhereEnv === 'LIVE' ? '' : 'sandbox '}hosted checkout to complete payment. Your package activates only after PayHere confirms the payment to Luxora's server.
+                  </small>
+                  <details className="cd-easypay__help">
+                    <summary>Test card details (sandbox)</summary>
+                    <div className="cd-easypay__help-body">
+                      <p>Use PayHere's official sandbox test cards — no real money is charged:</p>
+                      <ul>
+                        <li><strong>Visa:</strong> 4916217501611292</li>
+                        <li><strong>Mastercard:</strong> 5484181001001004</li>
+                        <li><strong>American Express:</strong> 345678901234564</li>
+                      </ul>
+                      <p>Use any future expiry date, any CVV, and a name on card of <strong>Test User</strong>. Never enter real card information.</p>
+                    </div>
+                  </details>
+                </div>
               ) : (
                 <button
                   type="button"
@@ -3561,11 +3703,11 @@ const CustomerDashboard = () => {
                     : `${bookingBillingType === 'auto_renew' ? 'CONFIRM & SUBSCRIBE (AUTO-RENEW)' : 'CONFIRM & GET ONE-TIME PASS'} — DEMO, NO REAL CHARGE →`}
                 </button>
               )}
-              <small style={{ display: 'block', marginTop: '0.6rem', color: '#888', fontSize: '0.72rem' }}>
-                {paymentMode === 'demo'
-                  ? 'Demo checkout: the subscription is created on the server without a real payment.'
-                  : 'You will be redirected to the PayHere hosted checkout to complete payment.'}
-              </small>
+              {paymentMode !== 'payhere' && (
+                <small style={{ display: 'block', marginTop: '0.6rem', color: '#888', fontSize: '0.72rem' }}>
+                  Demo checkout: the subscription is created on the server without a real payment.
+                </small>
+              )}
             </div>
           </div>
         </div>
