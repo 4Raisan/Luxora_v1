@@ -9,7 +9,7 @@
     "dev:all": "concurrently -n SERVER,WEB -c gold,cyan \"npm:backend\" \"npm:frontend\"",
     "build": "npm --prefix frontend run build",
     "lint": "oxlint",
-    "test": "node --test backend/tests/security-audit.test.js backend/tests/currency.test.js backend/tests/nowpayments.test.js backend/tests/nowpayments-e2e.test.js backend/tests/payment-contract.test.js backend/tests/unit-fixes.test.js backend/tests/api-fixes.test.js backend/tests/booking-concurrency.test.js",
+    "test": "node --test backend/tests/fresh-db-smoke.test.js backend/tests/security-audit.test.js backend/tests/currency.test.js backend/tests/nowpayments.test.js backend/tests/nowpayments-e2e.test.js backend/tests/payment-contract.test.js backend/tests/unit-fixes.test.js backend/tests/api-fixes.test.js backend/tests/booking-concurrency.test.js",
     "graph": "node Knowladge-Graph/generate-graph.js"
   },
   "dependencies": {

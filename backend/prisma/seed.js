@@ -5,9 +5,9 @@ import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';
 
-const CUSTOMER_PASSWORD = process.env.CUSTOMER_PASSWORD || 'customer123';
-const PROVIDER_PASSWORD = process.env.PROVIDER_PASSWORD || 'provider123';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const CUSTOMER_PASSWORD = process.env.CUSTOMER_PASSWORD || 'luxora123';
+const PROVIDER_PASSWORD = process.env.PROVIDER_PASSWORD || 'luxora123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'luxora123';
 
 async function main() {
   // Categories (upsert so a renamed/missing row never crashes the seed)
@@ -87,15 +87,16 @@ async function main() {
   const ensure = async (name, email, phone, role, nic, category, password, town = null, serviceTowns = '') => {
     const pwHash = bcrypt.hashSync(password, 10);
     const existing = await prisma.user.findUnique({ where: { email } });
+    let user = existing;
     if (existing) {
-      await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, phone: phone || '', phoneVerified: role === 'PROVIDER', role, town } });
-      return;
+      user = await prisma.user.update({ where: { email }, data: { passwordHash: pwHash, phone: phone || '', phoneVerified: role === 'PROVIDER', role, town } });
+    } else {
+      user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', phoneVerified: role === 'PROVIDER', town, role } });
     }
-    const user = await prisma.user.create({ data: { name, email, passwordHash: pwHash, phone: phone || '', phoneVerified: role === 'PROVIDER', town, role } });
     if (role === 'PROVIDER') {
       await prisma.provider.upsert({
         where: { userId: user.id },
-        update: { serviceTowns },
+        update: { serviceTowns, kycStatus: 'APPROVED' },
         create: { userId: user.id, nic: nic || '123456789V', category: category || 'Auto Care', serviceTowns, kycStatus: 'APPROVED' },
       });
     }

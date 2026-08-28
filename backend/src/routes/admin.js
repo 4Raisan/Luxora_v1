@@ -56,9 +56,9 @@ const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PEND
 
 router.get('/settings/scheduling', async (_req, res) => res.json(await getPlatformSettings(prisma)));
 router.put('/settings/scheduling', async (req, res) => {
-  const cooldown = Number(req.body.auto_assignment_cooldown_hours);
-  const start = Number(req.body.auto_assignment_start_hour);
-  const end = Number(req.body.auto_assignment_end_hour);
+  const cooldown = Number(req.body.auto_assignment_cooldown_hours ?? req.body.autoAssignmentCooldownHours);
+  const start = Number(req.body.auto_assignment_start_hour ?? req.body.autoAssignmentStartHour);
+  const end = Number(req.body.auto_assignment_end_hour ?? req.body.autoAssignmentEndHour);
   if (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 24 || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > 23 || start > end) return res.status(400).json({ error: 'Use cooldown 1-24 hours and valid start/end hours (0-23)' });
   const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1, autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end }, update: { autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end } });
   logAdminAction({ adminId: req.user.id, action: 'UPDATE_SCHEDULING_SETTINGS', targetType: 'PlatformSetting', targetId: '1', details: { cooldown, start, end }, ipAddress: req.ip }).catch(() => {});
