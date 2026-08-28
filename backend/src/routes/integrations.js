@@ -4,8 +4,23 @@ import { Prisma } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/prisma.js';
 import { notify } from '../services/notify.js';
-import { createPayHereFields, sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode, verifyPayHereWebhook, normalizePhoneNumber } from '../services/integrations.js';
+import {
+  createPayHereFields,
+  sendEmail,
+  sendWhatsAppVerificationCode,
+  verifyWhatsAppCode,
+  verifyPayHereWebhook,
+  normalizePhoneNumber,
+  createNowPaymentsInvoice,
+  nowPaymentsConfigured,
+  fetchNowPaymentsPaymentStatus,
+} from '../services/integrations.js';
+import {
+  verifyNowPaymentsSignature,
+  classifyNowPaymentsIpn,
+} from '../services/paymentContracts.js';
 import { getEntitlementSnapshot } from '../services/entitlements.js';
+import { convertLkrToUsd } from '../services/currency.js';
 import { toPositiveInt } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
@@ -20,12 +35,16 @@ const otpSendLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 const otpVerifyLimiter = rateLimit({ max: 10, windowMs: 15 * 60 * 1000 });
 const emailLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 const environment = () => String(process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk').includes('sandbox') ? 'SANDBOX' : 'LIVE';
-const payHereUrls = () => ({
-  returnUrl: String(process.env.PAYHERE_RETURN_URL || '').trim(),
-  cancelUrl: String(process.env.PAYHERE_CANCEL_URL || '').trim(),
-  notifyUrl: String(process.env.PAYHERE_NOTIFY_URL || '').trim(),
-});
-const isPublicHttpsUrl = (value) => /^https:\/\/[^/]+/i.test(value) && !value.includes('YOUR_');
+const payHereUrls = () => {
+  const frontend = (process.env.FRONTEND_URL || 'https://luxora.bond').replace(/\/+$/, '');
+  const backend = (process.env.BACKEND_PUBLIC_URL || 'https://site--luxora-backend--6kb9tg67ytl4.code.run').replace(/\/+$/, '');
+  return {
+    returnUrl: String(process.env.PAYHERE_RETURN_URL || `${frontend}/customer-dashboard?payhere=return`).trim(),
+    cancelUrl: String(process.env.PAYHERE_CANCEL_URL || `${frontend}/customer-dashboard?payhere=cancel`).trim(),
+    notifyUrl: String(process.env.PAYHERE_NOTIFY_URL || `${backend}/api/payments/payhere/webhook`).trim(),
+  };
+};
+const isPublicHttpsUrl = (value) => /^https?:\/\/[^/]+/i.test(value) && !value.includes('YOUR_');
 const payHereIsReady = () => {
   const urls = payHereUrls();
   return Boolean(process.env.PAYHERE_MERCHANT_ID && process.env.PAYHERE_MERCHANT_SECRET)
@@ -35,7 +54,7 @@ const payHereIsReady = () => {
 // intentionally unavailable unless PAYMENT_MODE=demo is set on the backend.
 const paymentMode = () => String(process.env.PAYMENT_MODE || 'payhere').trim().toLowerCase() === 'demo' ? 'demo' : 'payhere';
 
-export async function activateSubscription(payment, payload, { capturedAmount, capturedCurrency, autoRenew = false } = {}) {
+export async function activateSubscription(payment, payload = {}, { capturedAmount, capturedCurrency, autoRenew = false } = {}) {
   return prisma.$transaction(async (tx) => {
     const fresh = await tx.payment.findUnique({ where: { id: payment.id }, include: { plan: { include: { entitlements: true } } } });
     if (!fresh || fresh.status === 'COMPLETED') return null;
@@ -43,7 +62,23 @@ export async function activateSubscription(payment, payload, { capturedAmount, c
     const days = fresh.plan.durationDays || 30;
     const endDate = new Date(Date.now() + days * 86400000);
     const subscription = await tx.userSubscription.create({ data: { userId: fresh.userId, planId: fresh.planId, endDate, status: 'active', autoRenew, renewalIntervalDays: days, nextRenewalDate: endDate } });
-    return tx.payment.update({ where: { id: fresh.id }, data: { status: 'COMPLETED', capturedAmount: Number(capturedAmount ?? payload.payhere_amount), capturedCurrency: String(capturedCurrency ?? payload.payhere_currency).toUpperCase(), webhookPayload: payload, subscriptionId: subscription.id }, include: { plan: { include: { entitlements: true } }, subscription: true } });
+    const finalAmount = Number(capturedAmount ?? payload.payhere_amount ?? payload.price_amount ?? fresh.expectedAmount);
+    const finalCurrency = String(capturedCurrency ?? payload.payhere_currency ?? payload.price_currency ?? fresh.expectedCurrency).toUpperCase();
+    return tx.payment.update({
+      where: { id: fresh.id },
+      data: {
+        status: 'COMPLETED',
+        capturedAmount: finalAmount,
+        capturedCurrency: finalCurrency,
+        webhookPayload: {
+          ...(typeof fresh.webhookPayload === 'object' && fresh.webhookPayload ? fresh.webhookPayload : {}),
+          ...payload,
+          settledAt: new Date().toISOString(),
+        },
+        subscriptionId: subscription.id,
+      },
+      include: { plan: { include: { entitlements: true } }, subscription: true },
+    });
   }, { isolationLevel: 'Serializable' });
 }
 
@@ -54,26 +89,92 @@ async function completePaymentExperience(payment, mode) {
     prisma.user.findUnique({ where: { id: payment.userId }, select: { email: true, name: true } }),
     notify(payment.userId, `${mode === 'demo' ? 'Demo ' : ''}payment successful. Your ${payment.plan.title} package is active with ${coinsGranted} service coin${coinsGranted === 1 ? '' : 's'}.`, '/customer-dashboard'),
   ]);
-  const amount = Number(payment.capturedAmount ?? payment.expectedAmount).toLocaleString();
+
+  const providerName = mode === 'nowpayments' ? 'NOWPayments (Cryptocurrency)' : mode === 'payhere' ? 'PayHere' : 'Demo Checkout';
+  const displayAmount = Number(payment.expectedAmount).toLocaleString();
+  const conversionInfo = payment.webhookPayload?.conversion
+    ? `<p style="margin:4px 0;color:#666;font-size:13px;">Converted Crypto Invoice: <strong>$${payment.webhookPayload.conversion.convertedAmount} ${payment.webhookPayload.conversion.convertedCurrency}</strong> (Rate: 1 USD = ${payment.webhookPayload.conversion.exchangeRate} LKR)</p>`
+    : '';
+
   const emailDelivery = await sendEmail({
     to: user?.email,
-    subject: `Luxora payment successful: ${payment.plan.title}`,
-    html: `<p>Hi ${user?.name || 'Customer'},</p><p>Your <strong>${payment.plan.title}</strong> package is active until ${payment.subscription.endDate.toISOString().slice(0, 10)}.</p><p>Service coins added: <strong>${coinsGranted}</strong></p><p>Payment: ${payment.capturedCurrency || payment.expectedCurrency} ${amount}${mode === 'demo' ? ' (demo, no real charge)' : ''}</p>`,
+    subject: `Luxora Payment Confirmation & Receipt — ${payment.plan.title}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #111; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #0b0b0d; color: #d4af37; padding: 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 22px; letter-spacing: 2px;">LUXORA</h1>
+          <p style="margin: 4px 0 0; font-size: 12px; text-transform: uppercase; color: #bbb;">The Gold Standard of Modern Living</p>
+        </div>
+        <div style="padding: 24px 28px;">
+          <h2 style="margin-top: 0; color: #0b0b0d; font-size: 18px;">Payment Receipt</h2>
+          <p>Hi <strong>${user?.name || 'Customer'}</strong>,</p>
+          <p>Thank you for your payment. Your subscription to <strong>${payment.plan.title}</strong> is now active.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Order ID:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.gatewayOrderId}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Plan / Service:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.plan.title}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Amount:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #0b0b0d;">${payment.expectedCurrency} ${displayAmount}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Payment Gateway:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${providerName}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Transaction Reference:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.webhookPayload?.payment_id || payment.webhookPayload?.nowpayments_payment_id || payment.gatewayOrderId}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Payment Status:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #16a34a;">PAID / COMPLETED</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Service Coins Added:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right; color: #b45309;">+${coinsGranted} coins</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px 0; color: #666;">Subscription Valid Until:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${payment.subscription.endDate.toISOString().slice(0, 10)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;">Date / Time:</td>
+              <td style="padding: 8px 0; font-weight: bold; text-align: right;">${new Date().toUTCString()}</td>
+            </tr>
+          </table>
+          
+          ${conversionInfo}
+          
+          <p style="margin-top: 24px; font-size: 13px; color: #666;">You can view and manage your active entitlements anytime in your <a href="${process.env.FRONTEND_URL || 'https://luxora.bond'}/customer-dashboard" style="color: #d4af37; text-decoration: none; font-weight: bold;">Customer Dashboard</a>.</p>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 12px 24px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+          Luxora Home Concierge — Automated Transaction Notification
+        </div>
+      </div>
+    `,
   }).then((result) => result.configured ? 'sent' : 'not_configured').catch((error) => {
     console.warn('[email] payment receipt failed:', error.message);
     return 'failed';
   });
+
   return {
     entitlement_snapshot: entitlements,
     receipt: {
       payment_id: payment.id,
       plan_id: payment.planId,
       plan_title: payment.plan.title,
-      amount: Number(payment.capturedAmount ?? payment.expectedAmount),
-      currency: payment.capturedCurrency || payment.expectedCurrency,
+      amount: Number(payment.expectedAmount),
+      currency: payment.expectedCurrency,
       coins_granted: coinsGranted,
       subscription_id: payment.subscription.id,
       active_until: payment.subscription.endDate,
+      provider: providerName,
     },
     email_delivery: emailDelivery,
   };
@@ -139,6 +240,208 @@ router.post('/payments/payhere/order', authenticateToken, async (req, res) => {
     res.json({ paymentId: payment.id, orderId, environment: environment(), checkoutUrl: `${process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk'}/pay/checkout`, fields });
   } catch (error) { console.error('[payhere] order creation failed:', error.message); res.status(502).json({ error: 'Could not create payment order' }); }
 });
+
+router.post('/payments/nowpayments/order', authenticateToken, async (req, res) => {
+  try {
+    if (paymentMode() === 'demo') return res.status(409).json({ error: 'Demo payment mode is enabled; use the demo checkout.' });
+    if (!nowPaymentsConfigured()) {
+      return res.status(503).json({ error: 'NOWPayments is not configured on the server. Please configure NOWPAYMENTS_API_KEY and NOWPAYMENTS_IPN_SECRET.' });
+    }
+
+    const planId = toPositiveInt(req.body.plan_id);
+    if (!planId) return res.status(400).json({ error: 'plan_id is required' });
+    const [plan, user] = await Promise.all([
+      prisma.subscriptionPlan.findFirst({ where: { id: planId, active: true } }),
+      prisma.user.findUnique({ where: { id: req.user.id } }),
+    ]);
+    if (!plan || !user) return res.status(404).json({ error: 'Plan or customer not found' });
+
+    const lkrAmount = Number(plan.priceMonthly);
+    const conversion = await convertLkrToUsd(lkrAmount);
+    const orderId = `LUX-NP-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+
+    const payment = await prisma.payment.create({
+      data: {
+        userId: user.id,
+        planId: plan.id,
+        gateway: 'NOWPAYMENTS',
+        gatewayOrderId: orderId,
+        idempotencyKey: orderId,
+        expectedAmount: money(lkrAmount),
+        expectedCurrency: 'LKR',
+        webhookPayload: {
+          conversion,
+        },
+      },
+    });
+
+    const backendUrl = (process.env.BACKEND_PUBLIC_URL || 'https://site--luxora-backend--6kb9tg67ytl4.code.run').replace(/\/+$/, '');
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://luxora.bond').replace(/\/+$/, '');
+    const ipnCallbackUrl = `${backendUrl}/api/payments/nowpayments/ipn`;
+    const successUrl = `${frontendUrl}/customer-dashboard?payment=success&order_id=${encodeURIComponent(orderId)}`;
+    const cancelUrl = `${frontendUrl}/customer-dashboard?payment=cancelled&order_id=${encodeURIComponent(orderId)}`;
+
+    const invoice = await createNowPaymentsInvoice({
+      amount: conversion.convertedAmount,
+      currency: conversion.convertedCurrency,
+      orderId,
+      orderDescription: `Luxora Plan: ${plan.title} (LKR ${lkrAmount.toLocaleString()})`,
+      ipnCallbackUrl,
+      successUrl,
+      cancelUrl,
+    });
+
+    res.json({
+      paymentId: payment.id,
+      orderId,
+      invoiceId: invoice.id,
+      invoiceUrl: invoice.invoiceUrl,
+      originalAmount: lkrAmount,
+      originalCurrency: 'LKR',
+      convertedAmount: conversion.convertedAmount,
+      convertedCurrency: conversion.convertedCurrency,
+      exchangeRate: conversion.exchangeRate,
+    });
+  } catch (error) {
+    console.error('[nowpayments] order creation failed:', error.message);
+    res.status(502).json({ error: error.message || 'Could not create NOWPayments payment order' });
+  }
+});
+
+async function handleNowPaymentsIpn(req, res) {
+  const payload = req.body || {};
+  const signature = req.headers['x-nowpayments-sig'];
+
+  if (!signature || !verifyNowPaymentsSignature(payload, signature)) {
+    return res.status(400).json({ error: 'Invalid IPN signature' });
+  }
+
+  const orderId = String(payload.order_id || '').trim();
+  if (!orderId) {
+    return res.status(400).json({ error: 'order_id is required in IPN payload' });
+  }
+
+  const payment = await prisma.payment.findUnique({
+    where: { gatewayOrderId: orderId },
+  });
+
+  if (!payment || payment.gateway !== 'NOWPAYMENTS') {
+    return res.status(404).json({ error: 'Payment record not found' });
+  }
+
+  const classification = classifyNowPaymentsIpn(payment, payload);
+
+  // Idempotency: duplicate delivery of an already-completed payment is acknowledged immediately
+  if (classification === 'already_completed') {
+    return res.status(200).json({ status: 'ok', message: 'Payment already completed' });
+  }
+
+  if (classification === 'amount_mismatch') {
+    if (payment.status === 'PENDING') {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'FAILED',
+          webhookPayload: {
+            ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+            mismatchedPayload: payload,
+          },
+        },
+      });
+    }
+    return res.status(400).json({ error: 'Amount or currency mismatch' });
+  }
+
+  if (classification === 'success') {
+    // Perform server-side NOWPayments payment-status verification where practical before final settlement
+    if (payload.payment_id && process.env.NOWPAYMENTS_API_KEY) {
+      try {
+        const livePayment = await fetchNowPaymentsPaymentStatus(payload.payment_id);
+        if (livePayment && String(livePayment.payment_status || '').toLowerCase() !== 'finished') {
+          console.warn(`[nowpayments] IPN reported finished, but live API verification returned '${livePayment.payment_status}' for payment ${payload.payment_id}`);
+          await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              webhookPayload: {
+                ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+                ...payload,
+                liveApiStatus: livePayment.payment_status,
+              },
+            },
+          });
+          return res.status(200).json({ status: 'pending', message: 'Payment status pending blockchain completion' });
+        }
+      } catch (error) {
+        console.warn('[nowpayments] Live status verification warning:', error.message);
+      }
+    }
+
+    const capturedAmount = payload.price_amount !== undefined ? payload.price_amount : (payload.actually_paid || payload.pay_amount || payment.expectedAmount);
+    const capturedCurrency = payload.price_currency || payload.pay_currency || payment.expectedCurrency;
+
+    const completed = await activateSubscription(payment, payload, {
+      capturedAmount,
+      capturedCurrency,
+    });
+
+    if (completed) {
+      await completePaymentExperience(completed, 'nowpayments');
+    }
+  } else if (classification === 'failed') {
+    if (payment.status === 'PENDING') {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'FAILED',
+          webhookPayload: {
+            ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+            ...payload,
+          },
+        },
+      });
+      await notify(payment.userId, 'Your Luxora cryptocurrency payment was not completed.', '/customer-dashboard');
+    }
+  } else if (classification === 'refunded') {
+    if (payment.status === 'COMPLETED') {
+      await prisma.$transaction([
+        prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'REFUNDED',
+            webhookPayload: {
+              ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+              ...payload,
+            },
+          },
+        }),
+        ...(payment.subscriptionId
+          ? [
+              prisma.userSubscription.update({
+                where: { id: payment.subscriptionId },
+                data: { status: 'refunded', autoRenew: false, nextRenewalDate: null },
+              }),
+            ]
+          : []),
+      ]);
+      await notify(payment.userId, 'Your Luxora payment has been refunded.', '/customer-dashboard');
+    }
+  } else if (payment.status === 'PENDING') {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        webhookPayload: {
+          ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+          ...payload,
+        },
+      },
+    });
+  }
+
+  return res.status(200).json({ status: 'ok' });
+}
+
+router.post('/payments/nowpayments/ipn', handleNowPaymentsIpn);
+router.post('/payments/nowpayments/webhook', handleNowPaymentsIpn);
 
 router.get('/payments/mode', authenticateToken, (_req, res) => res.json({ mode: paymentMode(), label: paymentMode() === 'demo' ? 'DEMO / TEST — no real charge' : `PayHere ${environment()}` }));
 

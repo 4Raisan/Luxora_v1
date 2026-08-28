@@ -237,17 +237,17 @@ const CustomerDashboard = () => {
   const [payhereResult, setPayhereResult] = useState(null)
   const [payhereEnv, setPayhereEnv] = useState('SANDBOX')
 
-  const resolvePayhereReturn = async (fromCancelUrl) => {
+  const resolvePaymentReturn = async (orderId, fromCancelUrl) => {
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') return
     setPayhereResult({ status: 'checking' })
-    // The webhook can land a moment after the browser redirect — poll briefly.
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    // The webhook / IPN can land a moment after the browser redirect — poll briefly.
+    for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const data = await apiRequest('/payments/my', 'GET', null, token)
         if (data?.environment) setPayhereEnv(data.environment)
         const payment = Array.isArray(data?.payments)
-          ? data.payments.find((p) => p.gateway === 'PAYHERE')
+          ? (orderId ? data.payments.find((p) => p.gatewayOrderId === orderId) : data.payments[0])
           : null
         if (payment) {
           if (payment.status === 'COMPLETED') {
@@ -271,7 +271,7 @@ const CustomerDashboard = () => {
           return
         }
       } catch { /* fall through to retry */ }
-      await new Promise((resolve) => setTimeout(resolve, attempt === 3 ? 0 : 2000))
+      await new Promise((resolve) => setTimeout(resolve, attempt === 5 ? 0 : 2500))
     }
     setPayhereResult({ status: 'pending', payment: null })
   }
@@ -445,16 +445,23 @@ const CustomerDashboard = () => {
 
   useEffect(() => { loadServerData() }, [])
 
-  // PayHere hosted checkout returns to /customer-dashboard?payhere=return|cancel.
-  // Strip the marker from the URL immediately, then confirm the real payment
-  // state from the backend before showing any success UI.
+  // PayHere and NOWPayments hosted checkout returns to /customer-dashboard
+  // Strip query parameters immediately, then confirm the authoritative payment
+  // state from the backend before displaying any completion UI.
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search)
-      const flag = params.get('payhere')
-      if (flag !== 'return' && flag !== 'cancel') return
-      window.history.replaceState({}, '', window.location.pathname)
-      resolvePayhereReturn(flag === 'cancel')
+      const payhereFlag = params.get('payhere')
+      const paymentFlag = params.get('payment')
+      const orderId = params.get('order_id')
+
+      if (payhereFlag === 'return' || payhereFlag === 'cancel') {
+        window.history.replaceState({}, '', window.location.pathname)
+        resolvePaymentReturn(orderId, payhereFlag === 'cancel')
+      } else if (paymentFlag === 'success' || paymentFlag === 'cancelled') {
+        window.history.replaceState({}, '', window.location.pathname)
+        resolvePaymentReturn(orderId, paymentFlag === 'cancelled')
+      }
     } catch { /* ignore malformed query strings */ }
   }, [])
 
@@ -882,16 +889,29 @@ const CustomerDashboard = () => {
     if (!Number.isFinite(amount) || amount <= 0) { alert('This package has no valid payment amount.'); return }
     setPaymentBusy(true)
     try {
-      // Resolve the selected package to a server subscription plan; the backend
-      // checkout works on plan_id, not a raw amount.
+      // Resolve the selected package to a server subscription plan
       const plans = await apiRequest('/subscriptions')
       const plan = plans.find((p) => p.id === pkg.serverId) || plans.find((p) => p.title === pkg.title) || plans.find((p) => Number(p.priceMonthly) === amount)
       if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
+
+      if (provider === 'nowpayments') {
+        const order = await apiRequest('/payments/nowpayments/order', 'POST', { plan_id: plan.id }, token)
+        if (order.invoiceUrl) {
+          window.location.href = order.invoiceUrl
+          return
+        }
+        throw new Error('Invoice URL not returned by payment gateway.')
+      }
+
       const order = await apiRequest('/payments/payhere/order', 'POST', { plan_id: plan.id }, token)
       const form = document.createElement('form'); form.method = 'POST'; form.action = order.checkoutUrl
       Object.entries(order.fields).forEach(([name, value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value ?? ''; form.appendChild(input) })
       document.body.appendChild(form); form.submit()
-    } catch (error) { alert(error.message || 'Payment could not be started.') } finally { setPaymentBusy(false) }
+    } catch (error) {
+      alert(error.message || 'Payment could not be started.')
+    } finally {
+      setPaymentBusy(false)
+    }
   }
 
   // Support Modal State
@@ -1131,13 +1151,13 @@ const CustomerDashboard = () => {
                   <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
                     <div className="cd-support-icon-box" style={{ background: 'rgba(34, 197, 94, 0.16)', color: '#4ade80' }}>✓</div>
                     <h2 className="cd-support-modal__title">Payment Successful</h2>
-                    <p className="cd-support-modal__subtitle">Confirmed by the Luxora server via PayHere</p>
+                    <p className="cd-support-modal__subtitle">Confirmed by the Luxora server via {p?.gateway === 'NOWPAYMENTS' ? 'NOWPayments' : 'PayHere'}</p>
                   </div>
                   <div className="cd-book-confirm-details" style={{ marginTop: '1rem', textAlign: 'left' }}>
                     <div className="cd-book-confirm-row"><span>Status</span><strong style={{ color: '#4ade80' }}>PAID</strong></div>
                     <div className="cd-book-confirm-row"><span>Luxora Order ID</span><strong>{p?.gatewayOrderId}</strong></div>
                     <div className="cd-book-confirm-row"><span>Amount</span><strong>{p?.capturedCurrency || p?.expectedCurrency} {Number(p?.capturedAmount ?? p?.expectedAmount ?? 0).toLocaleString()}</strong></div>
-                    <div className="cd-book-confirm-row"><span>Payment Method</span><strong className="gold-accent">PayHere</strong></div>
+                    <div className="cd-book-confirm-row"><span>Payment Method</span><strong className="gold-accent">{p?.gateway === 'NOWPAYMENTS' ? 'Cryptocurrency (NOWPayments)' : 'PayHere'}</strong></div>
                     {txRef && <div className="cd-book-confirm-row"><span>Transaction Reference</span><small style={{ wordBreak: 'break-all' }}>{txRef}</small></div>}
                     <div className="cd-book-confirm-row"><span>Paid At</span><small>{p?.updatedAt ? new Date(p.updatedAt).toLocaleString() : '—'}</small></div>
                   </div>
@@ -3665,20 +3685,21 @@ const CustomerDashboard = () => {
               </div>
             </div>
 
-            <div className="cd-support-actions" style={{ marginTop: '1.5rem' }}>
-              {paymentMode === 'payhere' ? (
-                <div className="cd-easypay">
-                  <div className="cd-easypay__head">
-                    <span className="cd-easypay__title">EASY PAY</span>
-                    <span className="cd-easypay__badge">{payhereEnv === 'LIVE' ? '' : 'SANDBOX / TEST PAYMENT'}</span>
-                  </div>
-                  <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('payhere', selectedPackageToBook)}>
-                    {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYHERE'}
-                  </button>
-                  <small style={{ display: 'block', marginTop: '0.6rem', color: '#888', fontSize: '0.72rem' }}>
-                    You will be redirected to the PayHere {payhereEnv === 'LIVE' ? '' : 'sandbox '}hosted checkout to complete payment. Your package activates only after PayHere confirms the payment to Luxora's server.
-                  </small>
-                  <details className="cd-easypay__help">
+            <div className="cd-support-actions" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Option 1: PayHere */}
+              <div className="cd-easypay">
+                <div className="cd-easypay__head">
+                  <span className="cd-easypay__title">CREDIT / DEBIT CARD</span>
+                  <span className="cd-easypay__badge">{payhereEnv === 'LIVE' ? 'PAYHERE' : 'SANDBOX / DEMO PAYMENT'}</span>
+                </div>
+                <button type="button" className="cd-support-send-btn" disabled={paymentBusy} onClick={() => startPayment('payhere', selectedPackageToBook)}>
+                  {paymentBusy ? 'OPENING CHECKOUT…' : 'PAY WITH PAYHERE'}
+                </button>
+                <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
+                  Redirects to PayHere {payhereEnv === 'LIVE' ? '' : 'sandbox '}hosted checkout. Package activates automatically upon verified server callback.
+                </small>
+                {payhereEnv !== 'LIVE' && (
+                  <details className="cd-easypay__help" style={{ marginTop: '0.4rem' }}>
                     <summary>Test card details (sandbox)</summary>
                     <div className="cd-easypay__help-body">
                       <p>Use PayHere's official sandbox test cards — no real money is charged:</p>
@@ -3687,26 +3708,39 @@ const CustomerDashboard = () => {
                         <li><strong>Mastercard:</strong> 5484181001001004</li>
                         <li><strong>American Express:</strong> 345678901234564</li>
                       </ul>
-                      <p>Use any future expiry date, any CVV, and a name on card of <strong>Test User</strong>. Never enter real card information.</p>
+                      <p>Use any future expiry date (e.g. 12/28), any 3-digit CVV, and name <strong>Test User</strong>.</p>
                     </div>
                   </details>
+                )}
+              </div>
+
+              {/* Option 2: NOWPayments Crypto */}
+              <div className="cd-easypay" style={{ borderColor: 'rgba(212, 175, 55, 0.3)' }}>
+                <div className="cd-easypay__head">
+                  <span className="cd-easypay__title">CRYPTOCURRENCY</span>
+                  <span className="cd-easypay__badge" style={{ background: 'rgba(212, 175, 55, 0.15)', color: '#d4af37' }}>USDT-BSC / BTC / ETH</span>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  className="cd-support-send-btn"
-                  disabled={paymentBusy}
-                  onClick={() => handleConfirmBooking(selectedPackageToBook)}
-                >
-                  {paymentBusy
-                    ? 'PROCESSING…'
-                    : `${bookingBillingType === 'auto_renew' ? 'CONFIRM & SUBSCRIBE (AUTO-RENEW)' : 'CONFIRM & GET ONE-TIME PASS'} — DEMO, NO REAL CHARGE →`}
+                <button type="button" className="cd-support-send-btn" style={{ background: 'linear-gradient(135deg, #d4af37 0%, #aa8010 100%)', color: '#000', fontWeight: 'bold' }} disabled={paymentBusy} onClick={() => startPayment('nowpayments', selectedPackageToBook)}>
+                  {paymentBusy ? 'OPENING CRYPTO CHECKOUT…' : 'PAY WITH CRYPTO (NOWPAYMENTS)'}
                 </button>
-              )}
-              {paymentMode !== 'payhere' && (
-                <small style={{ display: 'block', marginTop: '0.6rem', color: '#888', fontSize: '0.72rem' }}>
-                  Demo checkout: the subscription is created on the server without a real payment.
+                <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
+                  Live LKR to USD conversion with instant crypto invoice. Settles strictly after full blockchain finality.
                 </small>
+              </div>
+
+              {/* Demo fallback if PAYMENT_MODE=demo */}
+              {paymentMode === 'demo' && (
+                <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    className="cd-support-send-btn"
+                    style={{ background: '#333', color: '#ccc', fontSize: '0.8rem' }}
+                    disabled={paymentBusy}
+                    onClick={() => handleConfirmBooking(selectedPackageToBook)}
+                  >
+                    DEMO INSTANT PASS (DEVELOPMENT ONLY)
+                  </button>
+                </div>
               )}
             </div>
           </div>

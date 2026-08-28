@@ -282,3 +282,92 @@ export function verifyPayHereWebhook({ merchant_id, order_id, payhere_amount, st
   const computed = Buffer.from(expected, 'utf8');
   return provided.length === computed.length && crypto.timingSafeEqual(provided, computed);
 }
+
+/**
+ * Validates whether NOWPayments environment variables are configured.
+ */
+export function validateNowPaymentsConfig({ strict = false } = {}) {
+  const missingVars = [];
+  if (!process.env.NOWPAYMENTS_API_KEY) missingVars.push('NOWPAYMENTS_API_KEY');
+  if (!process.env.NOWPAYMENTS_IPN_SECRET) missingVars.push('NOWPAYMENTS_IPN_SECRET');
+
+  const configured = missingVars.length === 0;
+  if (!configured && strict) {
+    throw new Error(`NOWPayments is not configured on the server. Missing environment variable(s): ${missingVars.join(', ')}`);
+  }
+  return { configured, missing: missingVars };
+}
+
+export const nowPaymentsConfigured = () => validateNowPaymentsConfig({ strict: false }).configured;
+
+/**
+ * Creates an invoice with NOWPayments API.
+ */
+export async function createNowPaymentsInvoice({
+  amount,
+  currency = 'USD',
+  orderId,
+  orderDescription = 'Luxora service package',
+  ipnCallbackUrl,
+  successUrl,
+  cancelUrl,
+}) {
+  validateNowPaymentsConfig({ strict: true });
+
+  const baseUrl = (process.env.NOWPAYMENTS_BASE_URL || 'https://api.nowpayments.io/v1').replace(/\/+$/, '');
+  const numericAmount = Prisma.Decimal.isDecimal(amount) ? Number(amount.toFixed(2)) : Number(Number(amount).toFixed(2));
+
+  const body = {
+    price_amount: numericAmount,
+    price_currency: String(currency).toLowerCase(),
+    order_id: String(orderId),
+    order_description: String(orderDescription).slice(0, 200),
+  };
+
+  if (ipnCallbackUrl) body.ipn_callback_url = ipnCallbackUrl;
+  if (successUrl) body.success_url = successUrl;
+  if (cancelUrl) body.cancel_url = cancelUrl;
+
+  const response = await fetch(`${baseUrl}/invoice`, {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.NOWPAYMENTS_API_KEY.trim(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errorMsg = result?.message || result?.error || `NOWPayments invoice creation failed (${response.status})`;
+    console.warn('[nowpayments] invoice creation failed:', errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  return {
+    id: result.id,
+    orderId: result.order_id || orderId,
+    invoiceUrl: result.invoice_url,
+    priceAmount: result.price_amount,
+    priceCurrency: result.price_currency,
+  };
+}
+
+/**
+ * Queries NOWPayments API for authoritative server-side payment status.
+ */
+export async function fetchNowPaymentsPaymentStatus(paymentId) {
+  if (!process.env.NOWPAYMENTS_API_KEY || !paymentId) return null;
+  const baseUrl = (process.env.NOWPAYMENTS_BASE_URL || 'https://api.nowpayments.io/v1').replace(/\/+$/, '');
+  const response = await fetch(`${baseUrl}/payment/${paymentId}`, {
+    method: 'GET',
+    headers: {
+      'x-api-key': process.env.NOWPAYMENTS_API_KEY.trim(),
+    },
+  });
+  if (!response.ok) {
+    console.warn(`[nowpayments] status query failed for payment ${paymentId} (${response.status})`);
+    return null;
+  }
+  return response.json().catch(() => null);
+}

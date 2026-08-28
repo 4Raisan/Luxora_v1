@@ -402,6 +402,7 @@ enum BookingStatus {
 enum PaymentGateway {
   PAYHERE
   DEMO
+  NOWPAYMENTS
 }
 enum PaymentStatus {
   PENDING

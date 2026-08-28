@@ -1,16 +1,16 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-27T23:42:17.761Z",
+  "generatedAt": "2026-08-28T09:17:47.877Z",
   "stats": {
-    "totalNodes": 177,
-    "totalEdges": 370,
+    "totalNodes": 181,
+    "totalEdges": 375,
     "nodesByGroup": {
       "database": 33,
       "middleware": 3,
-      "service": 7,
+      "service": 8,
       "routes": 16,
-      "api": 91,
+      "api": 94,
       "frontend": 27
     }
   },
@@ -1432,7 +1432,8 @@
       "metadata": {
         "values": [
           "PAYHERE",
-          "DEMO"
+          "DEMO",
+          "NOWPAYMENTS"
         ]
       }
     },
@@ -1565,6 +1566,16 @@
       "file": "backend/src/middleware/validators.js",
       "metadata": {
         "description": "Backend middleware in validators.js"
+      }
+    },
+    {
+      "id": "service:currency",
+      "label": "currency.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/currency.js",
+      "metadata": {
+        "modelsAccessed": []
       }
     },
     {
@@ -2260,6 +2271,42 @@
       "metadata": {
         "method": "POST",
         "path": "/api/payments/payhere/order",
+        "routeFile": "integrations.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/payments/nowpayments/order",
+      "label": "POST /api/payments/nowpayments/order",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/integrations.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/payments/nowpayments/order",
+        "routeFile": "integrations.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/payments/nowpayments/ipn",
+      "label": "POST /api/payments/nowpayments/ipn",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/integrations.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/payments/nowpayments/ipn",
+        "routeFile": "integrations.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/payments/nowpayments/webhook",
+      "label": "POST /api/payments/nowpayments/webhook",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/integrations.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/payments/nowpayments/webhook",
         "routeFile": "integrations.js"
       }
     },
@@ -4129,6 +4176,12 @@
     },
     {
       "from": "routefile:integrations",
+      "to": "service:paymentContracts",
+      "type": "CALLS_SERVICE",
+      "label": ""
+    },
+    {
+      "from": "routefile:integrations",
       "to": "service:integrations",
       "type": "CALLS_SERVICE",
       "label": ""
@@ -4166,6 +4219,24 @@
     {
       "from": "routefile:integrations",
       "to": "endpoint:POST_/api/payments/payhere/order",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST"
+    },
+    {
+      "from": "routefile:integrations",
+      "to": "endpoint:POST_/api/payments/nowpayments/order",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST"
+    },
+    {
+      "from": "routefile:integrations",
+      "to": "endpoint:POST_/api/payments/nowpayments/ipn",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST"
+    },
+    {
+      "from": "routefile:integrations",
+      "to": "endpoint:POST_/api/payments/nowpayments/webhook",
       "type": "EXPOSES_ENDPOINT",
       "label": "POST"
     },
@@ -4969,6 +5040,12 @@
     },
     {
       "from": "frontend:CustomerDashboard",
+      "to": "endpoint:GET_/api/payments/my",
+      "type": "FETCHES_API",
+      "label": "GET"
+    },
+    {
+      "from": "frontend:CustomerDashboard",
       "to": "endpoint:GET_/api/bookings/my",
       "type": "FETCHES_API",
       "label": "GET"
@@ -4982,12 +5059,6 @@
     {
       "from": "frontend:CustomerDashboard",
       "to": "endpoint:GET_/api/notifications",
-      "type": "FETCHES_API",
-      "label": "GET"
-    },
-    {
-      "from": "frontend:CustomerDashboard",
-      "to": "endpoint:GET_/api/payments/my",
       "type": "FETCHES_API",
       "label": "GET"
     },
@@ -5084,6 +5155,12 @@
     {
       "from": "frontend:CustomerDashboard",
       "to": "endpoint:POST_/api/payments/demo/:id/complete",
+      "type": "FETCHES_API",
+      "label": "POST"
+    },
+    {
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:POST_/api/payments/nowpayments/order",
       "type": "FETCHES_API",
       "label": "POST"
     },

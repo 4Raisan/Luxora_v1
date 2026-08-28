@@ -130,6 +130,9 @@ app.use((err, _req, res, _next) => {
   }
 });
 
+// Ensure PostgreSQL enum contains NOWPAYMENTS (idempotent)
+prisma.$executeRawUnsafe('ALTER TYPE "PaymentGateway" ADD VALUE IF NOT EXISTS \'NOWPAYMENTS\';').catch(() => {});
+
 // Seed a welcome promotion on first run (idempotent)
 prisma.promotion.count().then((c) => {
   if (c === 0) {
