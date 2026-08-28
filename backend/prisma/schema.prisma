@@ -14,6 +14,10 @@ model User {
   passwordHash String
   phone String?
   phoneVerified Boolean @default(false)
+  telegramId String? @unique
+  telegramUsername String?
+  telegramPhotoUrl String?
+  telegramAuthDate DateTime?
   town String?
   addressStreet String?
   addressDistrict String?
@@ -52,11 +56,12 @@ model PhoneOtpChallenge {
   phone String @unique
   codeHash String
   expiresAt DateTime
+  attempts Int @default(0)
+  lastSentAt DateTime @default(now())
   createdAt DateTime @default(now())
   @@index([expiresAt])
   @@map("phone_otp_challenges")
 }
-
 model Provider {
   id Int @id @default(autoincrement())
   userId Int @unique

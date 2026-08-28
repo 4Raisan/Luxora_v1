@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import AccountVerificationPanel from '../components/AccountVerificationPanel'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -2661,6 +2662,17 @@ const CustomerDashboard = () => {
                   {profileSavedMsg && <small style={{ color: profileSavedMsg.includes('saved') || profileSavedMsg.includes('success') ? 'var(--gold, #c9a84c)' : '#ef4444', fontSize: '0.75rem' }}>{profileSavedMsg}</small>}
                 </div>
               </form>
+
+              {/* ── LUXORA MULTI-METHOD ACCOUNT VERIFICATION ── */}
+              <AccountVerificationPanel
+                currentUser={currentUser}
+                onUserUpdated={(updated) => {
+                  setCurrentUser(updated);
+                  try {
+                    sessionStorage.setItem('user', JSON.stringify(updated));
+                  } catch {}
+                }}
+              />
             </div>
 
             <div className="cd-profile-section-divider" />

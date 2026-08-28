@@ -130,8 +130,16 @@ app.use((err, _req, res, _next) => {
   }
 });
 
-// Ensure PostgreSQL enum contains NOWPAYMENTS (idempotent)
-prisma.$executeRawUnsafe('ALTER TYPE "PaymentGateway" ADD VALUE IF NOT EXISTS \'NOWPAYMENTS\';').catch(() => {});
+// Ensure PostgreSQL schema columns and enums exist (idempotent migrations)
+Promise.all([
+  prisma.$executeRawUnsafe('ALTER TYPE "PaymentGateway" ADD VALUE IF NOT EXISTS \'NOWPAYMENTS\';').catch(() => {}),
+  prisma.$executeRawUnsafe('ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegramId" TEXT UNIQUE;').catch(() => {}),
+  prisma.$executeRawUnsafe('ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegramUsername" TEXT;').catch(() => {}),
+  prisma.$executeRawUnsafe('ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegramPhotoUrl" TEXT;').catch(() => {}),
+  prisma.$executeRawUnsafe('ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegramAuthDate" TIMESTAMP(3);').catch(() => {}),
+  prisma.$executeRawUnsafe('ALTER TABLE "phone_otp_challenges" ADD COLUMN IF NOT EXISTS "attempts" INTEGER NOT NULL DEFAULT 0;').catch(() => {}),
+  prisma.$executeRawUnsafe('ALTER TABLE "phone_otp_challenges" ADD COLUMN IF NOT EXISTS "lastSentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;').catch(() => {}),
+]).catch(() => {});
 
 // Seed a welcome promotion on first run (idempotent)
 prisma.promotion.count().then((c) => {

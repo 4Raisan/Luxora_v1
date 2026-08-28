@@ -371,3 +371,224 @@ export async function fetchNowPaymentsPaymentStatus(paymentId) {
   }
   return response.json().catch(() => null);
 }
+
+/**
+ * Dispatches an SMS via TextBee Gateway REST API.
+ */
+export async function sendTextBeeSms(phone, message) {
+  const apiKey = process.env.TEXTBEE_API_KEY;
+  if (!apiKey) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('TextBee SMS gateway is not configured on the server');
+    }
+    console.warn('[textbee] TEXTBEE_API_KEY is not configured in development mode');
+    return { success: false, demo: true };
+  }
+
+  const normalizedPhone = normalizePhoneNumber(phone);
+  if (!normalizedPhone) {
+    throw new Error('Invalid phone number for SMS dispatch');
+  }
+
+  const payload = {
+    recipients: [normalizedPhone],
+    message: String(message),
+  };
+  if (process.env.TEXTBEE_DEVICE_ID) {
+    payload.device_id = process.env.TEXTBEE_DEVICE_ID.trim();
+  }
+
+  const response = await fetch('https://api.textbee.dev/api/v1/gateway/send-sms', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey.trim(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errMsg = result?.message || result?.error || `TextBee SMS request failed (${response.status})`;
+    console.warn('[textbee] SMS sending failed:', errMsg);
+    throw new Error(errMsg);
+  }
+
+  return {
+    success: true,
+    batchId: result?.data?.smsBatchId || result?.data?.id,
+    recipientCount: result?.data?.recipientCount || 1,
+  };
+}
+
+/**
+ * Generates and sends a secure 6-digit SMS OTP via TextBee.
+ */
+export async function sendSmsVerificationCode(phone) {
+  const normalizedPhone = normalizePhoneNumber(phone);
+  if (!normalizedPhone) {
+    throw new Error('Enter a valid Sri Lankan mobile (07X...) or international number');
+  }
+
+  // Rate limiting: 1 request per 60 seconds per phone
+  const existing = await prisma.phoneOtpChallenge.findUnique({
+    where: { phone: normalizedPhone },
+  });
+
+  if (existing && existing.lastSentAt) {
+    const elapsedMs = Date.now() - new Date(existing.lastSentAt).getTime();
+    if (elapsedMs < 60 * 1000) {
+      const waitSec = Math.ceil((60 * 1000 - elapsedMs) / 1000);
+      throw new Error(`Please wait ${waitSec} seconds before requesting another code`);
+    }
+  }
+
+  const isProd = process.env.NODE_ENV === 'production';
+  const hasTextBee = Boolean(process.env.TEXTBEE_API_KEY);
+
+  if (isProd && !hasTextBee) {
+    throw new Error('SMS verification service is not configured');
+  }
+
+  // Generate secure 6-digit OTP
+  const code = (!hasTextBee && !isProd)
+    ? '123456'
+    : crypto.randomInt(100000, 1000000).toString();
+
+  const codeHash = await bcrypt.hash(code, 10);
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes TTL
+
+  await prisma.phoneOtpChallenge.upsert({
+    where: { phone: normalizedPhone },
+    update: {
+      codeHash,
+      expiresAt,
+      attempts: 0,
+      lastSentAt: new Date(),
+    },
+    create: {
+      phone: normalizedPhone,
+      codeHash,
+      expiresAt,
+      attempts: 0,
+      lastSentAt: new Date(),
+    },
+  });
+
+  if (hasTextBee) {
+    const message = `Your Luxora verification code is ${code}. It expires in 5 minutes.`;
+    await sendTextBeeSms(normalizedPhone, message);
+    return { success: true, phone: normalizedPhone, channel: 'sms', ttlMinutes: 5 };
+  }
+
+  return { success: true, phone: normalizedPhone, channel: 'sms', demo: true, ttlMinutes: 5 };
+}
+
+/**
+ * Verifies a 6-digit SMS OTP code against the stored challenge.
+ */
+export async function verifySmsCode(phone, code, userId = null) {
+  const normalizedPhone = normalizePhoneNumber(phone);
+  const trimmedCode = String(code || '').trim();
+
+  if (!normalizedPhone || !/^\d{6}$/.test(trimmedCode)) {
+    throw new Error('Valid phone number and 6-digit verification code are required');
+  }
+
+  const challenge = await prisma.phoneOtpChallenge.findUnique({
+    where: { phone: normalizedPhone },
+  });
+
+  if (!challenge) {
+    throw new Error('No pending verification found for this phone number. Please request a code.');
+  }
+
+  if (challenge.expiresAt < new Date()) {
+    await prisma.phoneOtpChallenge.delete({ where: { id: challenge.id } }).catch(() => {});
+    throw new Error('Verification code has expired. Please request a new code.');
+  }
+
+  if (challenge.attempts >= 5) {
+    await prisma.phoneOtpChallenge.delete({ where: { id: challenge.id } }).catch(() => {});
+    throw new Error('Too many failed verification attempts. Please request a new code.');
+  }
+
+  const isValid = await bcrypt.compare(trimmedCode, challenge.codeHash);
+  if (!isValid) {
+    await prisma.phoneOtpChallenge.update({
+      where: { id: challenge.id },
+      data: { attempts: { increment: 1 } },
+    }).catch(() => {});
+    throw new Error('Invalid verification code. Please check and try again.');
+  }
+
+  // Valid OTP — delete challenge to prevent reuse
+  await prisma.phoneOtpChallenge.delete({ where: { id: challenge.id } }).catch(() => {});
+
+  if (userId) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { phone: normalizedPhone, phoneVerified: true },
+    });
+  }
+
+  return { verified: true, phone: normalizedPhone };
+}
+
+/**
+ * Cryptographically verifies Telegram Login Widget authentication data.
+ * Adheres to Telegram's official data-check-string and HMAC-SHA256 protocol.
+ */
+export function verifyTelegramAuth(data = {}) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    throw new Error('TELEGRAM_BOT_TOKEN is not configured on the server');
+  }
+
+  const { hash, ...authData } = data;
+  if (!hash || !authData.id || !authData.auth_date) {
+    return { valid: false, error: 'Incomplete Telegram authentication payload' };
+  }
+
+  // Prevent replay attacks: auth_date must be within 24 hours (86400 seconds)
+  const authTimestamp = Number(authData.auth_date);
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(authTimestamp) || Math.abs(currentTimestamp - authTimestamp) > 86400) {
+    return { valid: false, error: 'Telegram authentication token has expired' };
+  }
+
+  // Build the data-check-string: sorted alphabetically in format key=value\n
+  const dataCheckString = Object.keys(authData)
+    .sort()
+    .map((key) => `${key}=${authData[key]}`)
+    .join('\n');
+
+  // Compute secret_key = SHA256(bot_token)
+  const secretKey = crypto.createHash('sha256').update(botToken.trim()).digest();
+
+  // Compute HMAC-SHA256(data_check_string, secret_key)
+  const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+  // Timing-safe comparison
+  try {
+    const hashBuffer = Buffer.from(hash, 'hex');
+    const computedBuffer = Buffer.from(computedHash, 'hex');
+    if (hashBuffer.length !== computedBuffer.length || !crypto.timingSafeEqual(hashBuffer, computedBuffer)) {
+      return { valid: false, error: 'Invalid Telegram authentication signature' };
+    }
+  } catch {
+    return { valid: false, error: 'Malformed signature' };
+  }
+
+  return {
+    valid: true,
+    profile: {
+      telegramId: String(authData.id),
+      firstName: String(authData.first_name || ''),
+      lastName: String(authData.last_name || ''),
+      username: authData.username ? String(authData.username) : null,
+      photoUrl: authData.photo_url ? String(authData.photo_url) : null,
+      authDate: new Date(authTimestamp * 1000),
+    },
+  };
+}

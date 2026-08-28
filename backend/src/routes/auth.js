@@ -6,7 +6,13 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
-import { sendEmail, sendWhatsAppVerificationCode, verifyWhatsAppCode, normalizePhoneNumber } from '../services/integrations.js';
+import {
+  sendEmail,
+  sendSmsVerificationCode,
+  verifySmsCode,
+  verifyTelegramAuth,
+  normalizePhoneNumber,
+} from '../services/integrations.js';
 import { notify } from '../services/notify.js';
 
 const router = Router();
@@ -14,15 +20,175 @@ const router = Router();
 const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
 const phoneOtpLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
 
+// Send SMS OTP via TextBee
+router.post('/phone/send-otp', phoneOtpLimiter, async (req, res) => {
+  const phone = normalizePhoneNumber(req.body.phone);
+  if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile (07X...) or international number' });
+  try {
+    const result = await sendSmsVerificationCode(phone);
+    res.json({ success: true, phone: result.phone, channel: 'sms', mode: result.demo ? 'demo' : 'live', message: 'Verification code sent via SMS' });
+  } catch (error) {
+    console.warn('[sms-otp] send failed:', error.message);
+    res.status(400).json({ error: error.message || 'Could not send SMS verification code' });
+  }
+});
+
+// Verify SMS OTP
+router.post('/phone/verify-otp', async (req, res) => {
+  const phone = normalizePhoneNumber(req.body.phone);
+  const code = String(req.body.code || '').trim();
+  if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'Valid phone number and 6-digit code are required' });
+
+  // If user is already authenticated with Bearer token, extract userId
+  let userId = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+      userId = decoded.id;
+    } catch { /* unauthenticated flow */ }
+  }
+
+  try {
+    const result = await verifySmsCode(phone, code, userId);
+    const verificationToken = jwt.sign({ scope: 'phone_verified', phone: result.phone }, JWT_SECRET, { expiresIn: '15m' });
+    res.json({ success: true, verified: true, phone: result.phone, verification_token: verificationToken, message: 'Phone number verified successfully' });
+  } catch (error) {
+    console.warn('[sms-otp] verify failed:', error.message);
+    res.status(400).json({ error: error.message || 'Could not verify the SMS code' });
+  }
+});
+
+// Telegram Login Widget Authentication & Account Linking
+router.post('/telegram', authLimiter, async (req, res) => {
+  const telegramData = req.body || {};
+  if (!telegramData.id || !telegramData.hash) {
+    return res.status(400).json({ error: 'Telegram authentication data is required' });
+  }
+
+  let currentUserId = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+      currentUserId = decoded.id;
+    } catch { /* unauthenticated login/signup */ }
+  }
+
+  try {
+    const verification = verifyTelegramAuth(telegramData);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error || 'Invalid Telegram authentication signature' });
+    }
+
+    const { profile } = verification;
+
+    // 1. Linking flow for existing logged-in user
+    if (currentUserId) {
+      const existingConflict = await prisma.user.findUnique({
+        where: { telegramId: profile.telegramId },
+      });
+      if (existingConflict && existingConflict.id !== currentUserId) {
+        return res.status(409).json({ error: 'This Telegram account is already linked to another Luxora user.' });
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: currentUserId },
+        data: {
+          telegramId: profile.telegramId,
+          telegramUsername: profile.username,
+          telegramPhotoUrl: profile.photoUrl,
+          telegramAuthDate: profile.authDate,
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Telegram account linked successfully',
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          phone: updatedUser.phone,
+          phoneVerified: updatedUser.phoneVerified,
+          telegramId: updatedUser.telegramId,
+          telegramUsername: updatedUser.telegramUsername,
+        },
+      });
+    }
+
+    // 2. Login or Register flow
+    let user = await prisma.user.findUnique({
+      where: { telegramId: profile.telegramId },
+    });
+
+    if (user && !user.active) {
+      return res.status(403).json({ error: 'This account has been deactivated. Contact Luxora support.' });
+    }
+
+    if (!user) {
+      const syntheticEmail = `telegram_${profile.telegramId}@luxora.bond`;
+      const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.username || 'Telegram Member';
+      const randomPassword = crypto.randomBytes(24).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+      const emailExists = await prisma.user.findUnique({ where: { email: syntheticEmail } });
+      const finalEmail = emailExists ? `telegram_${profile.telegramId}_${Date.now()}@luxora.bond` : syntheticEmail;
+
+      user = await prisma.user.create({
+        data: {
+          name: displayName.slice(0, 100),
+          email: finalEmail,
+          passwordHash,
+          role: 'CUSTOMER',
+          telegramId: profile.telegramId,
+          telegramUsername: profile.username,
+          telegramPhotoUrl: profile.photoUrl,
+          telegramAuthDate: profile.authDate,
+        },
+      });
+
+      await notify(user.id, `Welcome to Luxora, ${user.name}! Your account is now verified via Telegram.`, '/customer-dashboard').catch(() => {});
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, name: user.name },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        phoneVerified: user.phoneVerified,
+        telegramId: user.telegramId,
+        telegramUsername: user.telegramUsername,
+        town: user.town,
+      },
+    });
+  } catch (error) {
+    console.warn('[telegram-auth] verification failed:', error.message);
+    res.status(500).json({ error: error.message || 'Telegram authentication failed' });
+  }
+});
+
+// Legacy / Alternative phone verification aliases
 router.post('/register/phone/send', phoneOtpLimiter, async (req, res) => {
   const phone = normalizePhoneNumber(req.body.phone);
   if (!phone) return res.status(400).json({ error: 'Enter a valid Sri Lankan mobile or international number' });
   try {
-    const result = await sendWhatsAppVerificationCode(phone);
-    res.json({ phone, status: result.status, channel: 'whatsapp', mode: result.demo ? 'demo' : 'live' });
+    const result = await sendSmsVerificationCode(phone);
+    res.json({ phone, status: 'pending', channel: 'sms', mode: result.demo ? 'demo' : 'live' });
   } catch (error) {
-    console.warn('[whatsapp] send failed:', error.message);
-    res.status(502).json({ error: error.message || 'Could not send WhatsApp verification code' });
+    console.warn('[phone-otp] send failed:', error.message);
+    res.status(400).json({ error: error.message || 'Could not send verification code' });
   }
 });
 
@@ -31,13 +197,12 @@ router.post('/register/phone/verify', async (req, res) => {
   const code = String(req.body.code || '').trim();
   if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'Valid phone and 6-digit code are required' });
   try {
-    const result = await verifyWhatsAppCode(phone, code);
-    if (!result.approved) return res.status(400).json({ error: 'Invalid or expired verification code' });
-    const verificationToken = jwt.sign({ scope: 'provider_phone_verified', phone }, JWT_SECRET, { expiresIn: '10m' });
-    res.json({ verified: true, phone, verification_token: verificationToken });
+    const result = await verifySmsCode(phone, code);
+    const verificationToken = jwt.sign({ scope: 'provider_phone_verified', phone: result.phone }, JWT_SECRET, { expiresIn: '15m' });
+    res.json({ verified: true, phone: result.phone, verification_token: verificationToken });
   } catch (error) {
-    console.warn('[whatsapp] verify failed:', error.message);
-    res.status(502).json({ error: error.message || 'Could not verify the WhatsApp code' });
+    console.warn('[phone-otp] verify failed:', error.message);
+    res.status(400).json({ error: error.message || 'Could not verify the code' });
   }
 });
 
