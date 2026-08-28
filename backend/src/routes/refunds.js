@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { toPositiveInt } from '../middleware/validators.js';
-import { notify } from '../services/notify.js';
+import { notify, logAdminAction } from '../services/notify.js';
 
 const router = Router();
 
@@ -69,6 +69,7 @@ router.put('/admin/refunds/:id', authenticateToken, requireRole('ADMIN'), async 
         ? `Refund request #${refund.id} was approved. PayHere will confirm the refund; your package remains active until the gateway confirms it.`
         : `Refund request #${refund.id} was ${finalStatus.toLowerCase()}.`;
   await notify(refund.userId, message, '/customer-dashboard');
+  logAdminAction({ adminId: req.user.id, action: `REFUND_${finalStatus}`, targetType: 'RefundRequest', targetId: String(refund.id), details: { status: finalStatus, adminNote, awaitingGateway }, ipAddress: req.ip }).catch(() => {});
   res.json({ status: finalStatus.toLowerCase(), ...(awaitingGateway ? { awaiting_gateway_confirmation: true } : {}) });
 });
 

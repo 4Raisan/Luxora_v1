@@ -258,3 +258,140 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
   assert.ok(refreshedEntitlements.body.entitlements.length > 0, 'Entitlements should be present');
 });
 
+test('Audit Verification: Concurrent Payment Settlement Idempotency', async () => {
+  const customer = await prisma.user.create({
+    data: {
+      email: `conc_pay_${Date.now()}_${RND}@example.com`,
+      passwordHash: 'fakehash',
+      role: 'CUSTOMER',
+      name: 'Concurrent Pay Customer',
+    },
+  });
+  const token = jwt.sign({ id: customer.id, email: customer.email, role: 'CUSTOMER' }, JWT_SECRET, { expiresIn: '1h' });
+
+  const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
+  assert.ok(plan, 'Plan must exist');
+
+  // Create demo order
+  const orderRes = await authJson(token, '/payments/demo/order', {
+    method: 'POST',
+    body: JSON.stringify({ plan_id: plan.id }),
+  });
+  assert.equal(orderRes.status, 201);
+  const paymentId = orderRes.body.payment_id;
+
+  // Execute 5 concurrent completion requests
+  const completionPromises = Array.from({ length: 5 }, () =>
+    authJson(token, `/payments/demo/${paymentId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ outcome: 'success' }),
+    })
+  );
+
+  const results = await Promise.all(completionPromises);
+  const successCount = results.filter((r) => r.status === 200).length;
+  const conflictCount = results.filter((r) => r.status === 409).length;
+
+  assert.equal(successCount, 1, 'Exactly one concurrent completion must succeed with 200');
+  assert.equal(conflictCount, 4, 'Other 4 concurrent completions must receive 409 (already completed)');
+
+  // Verify only 1 subscription record exists for this payment
+  const subscriptions = await prisma.userSubscription.findMany({
+    where: { userId: customer.id, planId: plan.id },
+  });
+  assert.equal(subscriptions.length, 1, 'Exactly 1 subscription record must be created');
+
+  // Verify payment status is COMPLETED
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  assert.equal(payment.status, 'COMPLETED');
+});
+
+test('Audit Verification: Payment Receipt Resend & Failure Recovery', async () => {
+  const customer = await prisma.user.create({
+    data: {
+      email: `receipt_retry_${Date.now()}@example.com`,
+      passwordHash: 'fakehash',
+      role: 'CUSTOMER',
+      name: 'Receipt Retry Customer',
+    },
+  });
+  const token = jwt.sign({ id: customer.id, email: customer.email, role: 'CUSTOMER' }, JWT_SECRET, { expiresIn: '1h' });
+  const otherCustomer = await prisma.user.create({
+    data: {
+      email: `other_cust_${Date.now()}@example.com`,
+      passwordHash: 'fakehash',
+      role: 'CUSTOMER',
+      name: 'Other Customer',
+    },
+  });
+  const otherToken = jwt.sign({ id: otherCustomer.id, email: otherCustomer.email, role: 'CUSTOMER' }, JWT_SECRET, { expiresIn: '1h' });
+
+  const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
+
+  // Create and complete demo payment
+  const orderRes = await authJson(token, '/payments/demo/order', {
+    method: 'POST',
+    body: JSON.stringify({ plan_id: plan.id }),
+  });
+  const paymentId = orderRes.body.payment_id;
+  await authJson(token, `/payments/demo/${paymentId}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ outcome: 'success' }),
+  });
+
+  // 1. Resend receipt authorized customer call
+  const resendRes = await authJson(token, `/payments/${paymentId}/receipt/resend`, { method: 'POST' });
+  assert.equal(resendRes.status, 200);
+
+  // 2. Resend receipt IDOR attempt by other customer -> 403 Forbidden
+  const idorResendRes = await authJson(otherToken, `/payments/${paymentId}/receipt/resend`, { method: 'POST' });
+  assert.equal(idorResendRes.status, 403, 'Cross-customer receipt resend must return 403');
+});
+
+test('Audit Verification: Admin Action Audit Trail Logging', async () => {
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', active: true } });
+  assert.ok(admin, 'Admin user must exist');
+  const adminToken = jwt.sign({ id: admin.id, email: admin.email, role: 'ADMIN' }, JWT_SECRET, { expiresIn: '1h' });
+
+  // Perform an admin mutation
+  const updateRes = await authJson(adminToken, '/admin/settings/scheduling', {
+    method: 'PUT',
+    body: JSON.stringify({
+      auto_assignment_cooldown_hours: 6,
+      auto_assignment_start_hour: 8,
+      auto_assignment_end_hour: 17,
+    }),
+  });
+  assert.equal(updateRes.status, 200);
+
+  // Verify audit log entry was created
+  const auditRes = await authJson(adminToken, '/admin/audit-logs?limit=10');
+  assert.equal(auditRes.status, 200);
+  assert.ok(Array.isArray(auditRes.body));
+  const entry = auditRes.body.find((l) => l.action === 'UPDATE_SCHEDULING_SETTINGS');
+  assert.ok(entry, 'Audit log entry for scheduling update must exist');
+  assert.equal(entry.adminId, admin.id);
+});
+
+test('Audit Verification: IDOR and Role Access Boundary Enforcement', async () => {
+  const customer = await prisma.user.create({
+    data: {
+      email: `idor_test_${Date.now()}@example.com`,
+      passwordHash: 'fakehash',
+      role: 'CUSTOMER',
+      name: 'IDOR Customer',
+    },
+  });
+  const customerToken = jwt.sign({ id: customer.id, email: customer.email, role: 'CUSTOMER' }, JWT_SECRET, { expiresIn: '1h' });
+
+  // Customer attempting admin endpoints must get 403
+  assert.equal((await authJson(customerToken, '/admin/users')).status, 403);
+  assert.equal((await authJson(customerToken, '/admin/stats')).status, 403);
+  assert.equal((await authJson(customerToken, '/admin/audit-logs')).status, 403);
+
+  // Customer attempting provider operational endpoints must get 403
+  assert.equal((await authJson(customerToken, '/provider/availability')).status, 403);
+  assert.equal((await authJson(customerToken, '/provider/earnings')).status, 403);
+});
+
+

@@ -50,31 +50,39 @@ const payHereIsReady = () => {
 const paymentMode = () => String(process.env.PAYMENT_MODE || 'payhere').trim().toLowerCase() === 'demo' ? 'demo' : 'payhere';
 
 export async function activateSubscription(payment, payload = {}, { capturedAmount, capturedCurrency, autoRenew = false } = {}) {
-  return prisma.$transaction(async (tx) => {
-    const fresh = await tx.payment.findUnique({ where: { id: payment.id }, include: { plan: { include: { entitlements: true } } } });
-    if (!fresh || fresh.status === 'COMPLETED') return null;
-    if (fresh.status !== 'PENDING') return null;
-    const days = fresh.plan.durationDays || 30;
-    const endDate = new Date(Date.now() + days * 86400000);
-    const subscription = await tx.userSubscription.create({ data: { userId: fresh.userId, planId: fresh.planId, endDate, status: 'active', autoRenew, renewalIntervalDays: days, nextRenewalDate: endDate } });
-    const finalAmount = Number(capturedAmount ?? payload.payhere_amount ?? payload.price_amount ?? fresh.expectedAmount);
-    const finalCurrency = String(capturedCurrency ?? payload.payhere_currency ?? payload.price_currency ?? fresh.expectedCurrency).toUpperCase();
-    return tx.payment.update({
-      where: { id: fresh.id },
-      data: {
-        status: 'COMPLETED',
-        capturedAmount: finalAmount,
-        capturedCurrency: finalCurrency,
-        webhookPayload: {
-          ...(typeof fresh.webhookPayload === 'object' && fresh.webhookPayload ? fresh.webhookPayload : {}),
-          ...payload,
-          settledAt: new Date().toISOString(),
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const fresh = await tx.payment.findUnique({ where: { id: payment.id }, include: { plan: { include: { entitlements: true } } } });
+      if (!fresh || fresh.status === 'COMPLETED') return null;
+      if (fresh.status !== 'PENDING') return null;
+      const days = fresh.plan.durationDays || 30;
+      const endDate = new Date(Date.now() + days * 86400000);
+      const subscription = await tx.userSubscription.create({ data: { userId: fresh.userId, planId: fresh.planId, endDate, status: 'active', autoRenew, renewalIntervalDays: days, nextRenewalDate: endDate } });
+      const finalAmount = Number(capturedAmount ?? payload.payhere_amount ?? payload.price_amount ?? fresh.expectedAmount);
+      const finalCurrency = String(capturedCurrency ?? payload.payhere_currency ?? payload.price_currency ?? fresh.expectedCurrency).toUpperCase();
+      return tx.payment.update({
+        where: { id: fresh.id },
+        data: {
+          status: 'COMPLETED',
+          capturedAmount: finalAmount,
+          capturedCurrency: finalCurrency,
+          webhookPayload: {
+            ...(typeof fresh.webhookPayload === 'object' && fresh.webhookPayload ? fresh.webhookPayload : {}),
+            ...payload,
+            settledAt: new Date().toISOString(),
+          },
+          subscriptionId: subscription.id,
         },
-        subscriptionId: subscription.id,
-      },
-      include: { plan: { include: { entitlements: true } }, subscription: true },
-    });
-  }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
+        include: { plan: { include: { entitlements: true } }, subscription: true },
+      });
+    }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
+  } catch (err) {
+    if (err.code === 'P2034' || err.message?.includes('could not serialize access') || err.message?.includes('deadlock')) {
+      const current = await prisma.payment.findUnique({ where: { id: payment.id } });
+      if (current?.status === 'COMPLETED') return null;
+    }
+    throw err;
+  }
 }
 
 function buildReceiptHtml({ user, payment, _mode, coinsGranted, providerName, displayAmount, conversionInfo }) {

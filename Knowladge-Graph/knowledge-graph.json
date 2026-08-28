@@ -1,16 +1,16 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-28T19:21:51.758Z",
+  "generatedAt": "2026-08-28T19:30:39.477Z",
   "stats": {
-    "totalNodes": 176,
-    "totalEdges": 375,
+    "totalNodes": 178,
+    "totalEdges": 380,
     "nodesByGroup": {
-      "database": 32,
+      "database": 33,
       "middleware": 3,
       "service": 8,
       "routes": 16,
-      "api": 89,
+      "api": 90,
       "frontend": 28
     }
   },
@@ -118,6 +118,10 @@
           {
             "name": "reviewedRefundRequests",
             "type": "RefundRequest[]"
+          },
+          {
+            "name": "adminAuditLogs",
+            "type": "AdminAuditLog[]"
           }
         ],
         "relations": []
@@ -1356,6 +1360,58 @@
       }
     },
     {
+      "id": "model:AdminAuditLog",
+      "label": "AdminAuditLog",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "Int"
+          },
+          {
+            "name": "adminId",
+            "type": "Int"
+          },
+          {
+            "name": "action",
+            "type": "String"
+          },
+          {
+            "name": "targetType",
+            "type": "String"
+          },
+          {
+            "name": "targetId",
+            "type": "String?"
+          },
+          {
+            "name": "details",
+            "type": "Json?"
+          },
+          {
+            "name": "ipAddress",
+            "type": "String?"
+          },
+          {
+            "name": "createdAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "admin",
+            "type": "User"
+          },
+          {
+            "name": "@@index([targetType,",
+            "type": "targetId])"
+          }
+        ],
+        "relations": []
+      }
+    },
+    {
       "id": "enum:Role",
       "label": "Role",
       "type": "Enum",
@@ -1582,7 +1638,8 @@
       "file": "backend/src/services/notify.js",
       "metadata": {
         "modelsAccessed": [
-          "notification"
+          "notification",
+          "adminAuditLog"
         ]
       }
     },
@@ -1885,6 +1942,18 @@
       "metadata": {
         "method": "PUT",
         "path": "/api/admin/payouts/:id",
+        "routeFile": "admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/audit-logs",
+      "label": "GET /api/admin/audit-logs",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/audit-logs",
         "routeFile": "admin.js"
       }
     },
@@ -3149,6 +3218,12 @@
       "label": "refundRequests"
     },
     {
+      "from": "model:User",
+      "to": "model:AdminAuditLog",
+      "type": "DB_RELATION",
+      "label": "adminAuditLogs"
+    },
+    {
       "from": "model:PasswordResetToken",
       "to": "model:User",
       "type": "DB_RELATION",
@@ -3509,10 +3584,22 @@
       "label": "bankAccount"
     },
     {
+      "from": "model:AdminAuditLog",
+      "to": "model:User",
+      "type": "DB_RELATION",
+      "label": "admin"
+    },
+    {
       "from": "service:notify",
       "to": "model:Notification",
       "type": "QUERIES_DB",
       "label": "prisma.notification"
+    },
+    {
+      "from": "service:notify",
+      "to": "model:AdminAuditLog",
+      "type": "QUERIES_DB",
+      "label": "prisma.adminAuditLog"
     },
     {
       "from": "routefile:admin",
@@ -3609,6 +3696,12 @@
       "to": "model:ProviderPayout",
       "type": "QUERIES_DB",
       "label": "prisma.providerPayout"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "model:AdminAuditLog",
+      "type": "QUERIES_DB",
+      "label": "prisma.adminAuditLog"
     },
     {
       "from": "routefile:admin",
@@ -3735,6 +3828,12 @@
       "to": "endpoint:PUT_/api/admin/payouts/:id",
       "type": "EXPOSES_ENDPOINT",
       "label": "PUT"
+    },
+    {
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/audit-logs",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET"
     },
     {
       "from": "routefile:auth",
@@ -4098,15 +4197,15 @@
     },
     {
       "from": "routefile:integrations",
-      "to": "model:User",
-      "type": "QUERIES_DB",
-      "label": "prisma.user"
-    },
-    {
-      "from": "routefile:integrations",
       "to": "model:Payment",
       "type": "QUERIES_DB",
       "label": "prisma.payment"
+    },
+    {
+      "from": "routefile:integrations",
+      "to": "model:User",
+      "type": "QUERIES_DB",
+      "label": "prisma.user"
     },
     {
       "from": "routefile:integrations",

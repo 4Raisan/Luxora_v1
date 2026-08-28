@@ -32,6 +32,7 @@ model User {
   supportTickets SupportTicket[]
   refundRequests RefundRequest[] @relation("RefundCustomer")
   reviewedRefundRequests RefundRequest[] @relation("RefundReviewer")
+  adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogs")
   @@map("users")
 }
 
@@ -372,6 +373,23 @@ model ProviderPayout {
   @@unique([providerId, period])
   @@index([period, status])
   @@map("provider_payouts")
+}
+
+model AdminAuditLog {
+  id Int @id @default(autoincrement())
+  adminId Int
+  action String
+  targetType String
+  targetId String?
+  details Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  admin User @relation("AdminAuditLogs", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 enum Role {

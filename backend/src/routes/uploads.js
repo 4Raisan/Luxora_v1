@@ -45,7 +45,13 @@ function persistValidatedFile(file, allowedTypes) {
 }
 
 function removeFiles(files = []) { for (const persisted of files) fs.unlink(path.resolve(root, persisted), () => {}); }
-function fileResponse(res, record) { return res.sendFile(path.resolve(root, record.filePath)); }
+function fileResponse(res, record) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Type', record.mimeType);
+  res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(path.basename(record.originalName || 'file'))}"`);
+  return res.sendFile(path.resolve(root, record.filePath));
+}
 
 router.post('/provider/kyc-documents', authenticateToken, requireRole('PROVIDER'), upload.array('documents', 3), async (req, res) => {
   const files = req.files || [];

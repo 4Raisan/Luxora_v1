@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
-import { notify } from '../services/notify.js';
+import { notify, logAdminAction } from '../services/notify.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
 import { getPlatformSettings, providerCanTakeBooking } from '../services/scheduling.js';
 import { maskAccountNumber, queueMonthlyPayouts } from '../services/payouts.js';
@@ -61,10 +61,12 @@ router.put('/settings/scheduling', async (req, res) => {
   const end = Number(req.body.auto_assignment_end_hour);
   if (!Number.isInteger(cooldown) || cooldown < 1 || cooldown > 24 || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > 23 || start > end) return res.status(400).json({ error: 'Use cooldown 1-24 hours and valid start/end hours (0-23)' });
   const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1, autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end }, update: { autoAssignmentCooldownHours: cooldown, autoAssignmentStartHour: start, autoAssignmentEndHour: end } });
+  logAdminAction({ adminId: req.user.id, action: 'UPDATE_SCHEDULING_SETTINGS', targetType: 'PlatformSetting', targetId: '1', details: { cooldown, start, end }, ipAddress: req.ip }).catch(() => {});
   res.json(setting);
 });
-router.post('/settings/scheduling/restore-defaults', async (_req, res) => {
+router.post('/settings/scheduling/restore-defaults', async (req, res) => {
   const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1 }, update: { autoAssignmentCooldownHours: 6, autoAssignmentStartHour: 7, autoAssignmentEndHour: 16 } });
+  logAdminAction({ adminId: req.user.id, action: 'RESTORE_SCHEDULING_DEFAULTS', targetType: 'PlatformSetting', targetId: '1', ipAddress: req.ip }).catch(() => {});
   res.json(setting);
 });
 
@@ -98,6 +100,8 @@ router.put('/providers/:id/kyc', async (req, res) => {
   } else if (status === 'REJECTED') {
     await notify(provider.userId, 'Your KYC has been rejected. Please contact support.');
   }
+
+  logAdminAction({ adminId: req.user.id, action: `KYC_${status}`, targetType: 'Provider', targetId: String(provider.id), details: { status, rejectionReason }, ipAddress: req.ip }).catch(() => {});
 
   res.json({ message: `Provider KYC updated to ${status.toLowerCase()}`, status: status.toLowerCase() });
 });
@@ -138,6 +142,7 @@ router.put('/users/:id', async (req, res) => {
   if (!id || typeof req.body.active !== 'boolean') return res.status(400).json({ error: 'A valid user id and boolean active value are required' });
   if (id === req.user.id && !req.body.active) return res.status(400).json({ error: 'You cannot deactivate your own account' });
   const user = await prisma.user.update({ where: { id }, data: { active: req.body.active }, select: { id: true, active: true } });
+  logAdminAction({ adminId: req.user.id, action: req.body.active ? 'ACTIVATE_USER' : 'DEACTIVATE_USER', targetType: 'User', targetId: String(id), ipAddress: req.ip }).catch(() => {});
   res.json(user);
 });
 
@@ -163,6 +168,7 @@ router.post('/subscriptions', async (req, res) => {
   const normalized = entitlements.map((item) => ({ categoryId: toPositiveInt(item.category_id), units: Number(item.units) }));
   if (typeof recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' });
   const plan = await prisma.subscriptionPlan.create({ data: { title: title.trim(), type: normalizedType, priceMonthly: Number(price_monthly), durationDays: 30, description: String(description).slice(0, 1000), recommended, features: JSON.stringify(features), entitlements: { create: normalized } }, include: { entitlements: true } });
+  logAdminAction({ adminId: req.user.id, action: 'CREATE_PLAN', targetType: 'SubscriptionPlan', targetId: String(plan.id), details: { title: plan.title, type: plan.type, priceMonthly: plan.priceMonthly }, ipAddress: req.ip }).catch(() => {});
   res.status(201).json(plan);
 });
 
@@ -197,6 +203,7 @@ router.put('/subscriptions/:id', async (req, res) => {
     }
     return tx.subscriptionPlan.findUnique({ where: { id: plan.id }, include: { entitlements: true } });
   });
+  logAdminAction({ adminId: req.user.id, action: 'UPDATE_PLAN', targetType: 'SubscriptionPlan', targetId: String(id), details: { changes: data }, ipAddress: req.ip }).catch(() => {});
   res.json(updated);
 });
 
@@ -224,6 +231,7 @@ router.delete('/subscriptions/:id', async (req, res) => {
       }
       await tx.subscriptionPlan.delete({ where: { id: plan.id } });
     }, { isolationLevel: 'Serializable' });
+    logAdminAction({ adminId: req.user.id, action: 'DELETE_PLAN', targetType: 'SubscriptionPlan', targetId: String(id), ipAddress: req.ip }).catch(() => {});
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
     throw error;
@@ -346,6 +354,8 @@ router.put('/bookings/:id', async (req, res) => {
     if (provider) await notify(provider.userId, `Booking #${id} has been assigned to you.`);
   }
 
+  logAdminAction({ adminId: req.user.id, action: 'OVERRIDE_BOOKING', targetType: 'Booking', targetId: String(id), details: { status: nextStatus, providerId: nextProviderId }, ipAddress: req.ip }).catch(() => {});
+
   res.json({ message: `Booking #${id} updated` });
 });
 
@@ -377,6 +387,7 @@ router.put('/complaints/:id', async (req, res) => {
   if (status === 'RESOLVED') {
     await notify(complaint.userId, `Your complaint #${complaint.id} has been resolved.`);
   }
+  logAdminAction({ adminId: req.user.id, action: `COMPLAINT_${status}`, targetType: 'Complaint', targetId: String(complaint.id), details: { status, adminNote }, ipAddress: req.ip }).catch(() => {});
   res.json({ message: `Complaint updated to ${status.toLowerCase()}` });
 });
 
@@ -402,6 +413,7 @@ router.get('/payouts', async (_req, res) => {
 router.post('/payouts/run', async (req, res) => {
   const period = typeof req.body.period === 'string' && /^\d{4}-\d{2}$/.test(req.body.period) ? req.body.period : undefined;
   const payouts = await queueMonthlyPayouts({ period });
+  logAdminAction({ adminId: req.user.id, action: 'RUN_PAYOUTS', targetType: 'ProviderPayout', details: { period, queued: payouts.length }, ipAddress: req.ip }).catch(() => {});
   res.status(201).json({ queued: payouts.length, payouts });
 });
 
@@ -411,7 +423,18 @@ router.put('/payouts/:id', async (req, res) => {
   const payout = await prisma.providerPayout.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 } });
   if (!payout || payout.status !== 'PENDING') return res.status(404).json({ error: 'Pending payout not found' });
   const updated = await prisma.providerPayout.update({ where: { id: payout.id }, data: { status, paidAt: status === 'PAID' ? new Date() : null } });
+  logAdminAction({ adminId: req.user.id, action: `PAYOUT_${status}`, targetType: 'ProviderPayout', targetId: String(payout.id), details: { status }, ipAddress: req.ip }).catch(() => {});
   res.json({ id: updated.id, status: updated.status.toLowerCase(), paid_at: updated.paidAt });
+});
+
+router.get('/audit-logs', async (req, res) => {
+  const take = Math.min(toPositiveInt(req.query.limit) || 100, 200);
+  const logs = await prisma.adminAuditLog.findMany({
+    include: { admin: { select: { id: true, name: true, email: true } } },
+    orderBy: { createdAt: 'desc' },
+    take,
+  });
+  res.json(logs);
 });
 
 export default router;
