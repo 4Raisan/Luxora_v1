@@ -48,7 +48,11 @@ export function startMonthlyPayoutScheduler() {
   const tick = async () => {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
-    if (now.getUTCDate() !== 31 || lastRun === today) return;
+    // Run on the last day of every month: if tomorrow's UTC date is 1, today
+    // is the last day of this month.  The old check `getUTCDate() !== 31`
+    // silently skipped Feb, Apr, Jun, Sep, and Nov.
+    const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    if (tomorrow.getUTCDate() !== 1 || lastRun === today) return;
     lastRun = today;
     try { await queueMonthlyPayouts(); }
     catch (error) { console.error('[payouts] monthly queue failed:', error.message); }

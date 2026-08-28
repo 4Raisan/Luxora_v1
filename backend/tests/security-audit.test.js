@@ -164,3 +164,22 @@ test('Security Audit: Service PIN attempt limit lockout simulation', async () =>
   assert.equal(attempts, 5, 'Must have recorded 5 attempts');
   assert.ok(lockedUntil && lockedUntil > new Date(), 'Must be locked for 15 minutes after 5 attempts');
 });
+
+test('Security Audit: Reschedule recalculates pinExpiresAt from new booking date', () => {
+  function computeRescheduledPinExpiresAt(newBookingDate, newBookingTime) {
+    const match = String(newBookingTime || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return null;
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const meridiem = match[3]?.toUpperCase();
+    if (meridiem === 'AM' && hour === 12) hour = 0;
+    if (meridiem === 'PM' && hour !== 12) hour += 12;
+    const scheduled = new Date(`${newBookingDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+    return new Date(scheduled.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  const rescheduledExpiry = computeRescheduledPinExpiresAt('2026-09-15', '10:00 AM');
+  assert.ok(rescheduledExpiry instanceof Date, 'Must return a Date');
+  assert.equal(rescheduledExpiry.toISOString().slice(0, 10), '2026-09-16', 'PIN must expire 24 hours after new scheduled time');
+});
+

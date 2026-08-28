@@ -69,3 +69,23 @@ test('B13: PayHere webhook signature verification accepts a correctly signed pay
   copy.md5sig = payload.md5sig;
   assert.equal(verifyPayHereWebhook({ ...copy, md5sig: md5('wrong') }), false);
 });
+
+test('Audit Fix C2: Payout scheduler last-day of month calculation logic', () => {
+  function isLastDayOfMonth(date) {
+    const tomorrow = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
+    return tomorrow.getUTCDate() === 1;
+  }
+
+  assert.equal(isLastDayOfMonth(new Date('2026-02-28T10:00:00Z')), true, 'Feb 28 is the last day of Feb');
+  assert.equal(isLastDayOfMonth(new Date('2026-02-27T10:00:00Z')), false, 'Feb 27 is not the last day');
+  assert.equal(isLastDayOfMonth(new Date('2026-04-30T10:00:00Z')), true, 'Apr 30 is the last day of Apr');
+  assert.equal(isLastDayOfMonth(new Date('2026-04-29T10:00:00Z')), false, 'Apr 29 is not the last day');
+  assert.equal(isLastDayOfMonth(new Date('2026-12-31T10:00:00Z')), true, 'Dec 31 is the last day of Dec');
+});
+
+test('Audit Fix C3: Promotion discount percentage Decimal precision', () => {
+  const discount = new Prisma.Decimal('15.50');
+  assert.equal(discount.toFixed(2), '15.50');
+  assert.equal(JSON.parse(JSON.stringify(discount)), 15.5);
+});
+

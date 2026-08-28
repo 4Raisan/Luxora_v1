@@ -312,19 +312,31 @@ router.put('/bookings/:id', async (req, res) => {
   if (nextStatus === undefined && nextProviderId === undefined) return res.status(400).json({ error: 'status or provider_id is required' });
   if (nextStatus === 'COMPLETED' && !(nextProviderId ?? booking.providerId)) return res.status(400).json({ error: 'A provider is required before completing a booking' });
 
-  // Pay out exactly once, only when transitioning INTO COMPLETED
-  if (nextStatus === 'COMPLETED' && booking.status !== 'COMPLETED' && (nextProviderId ?? booking.providerId)) {
-    const payout = booking.providerEarning;
-    await prisma.provider.update({
-      where: { id: nextProviderId ?? booking.providerId },
-      data: { earnings: { increment: payout } },
+  // Atomic transition: re-read inside a Serializable transaction so
+  // concurrent admin clicks cannot double-pay provider earnings.
+  if (nextStatus === 'COMPLETED' && booking.status !== 'COMPLETED') {
+    await prisma.$transaction(async (tx) => {
+      const fresh = await tx.booking.findUnique({ where: { id: booking.id } });
+      if (!fresh || fresh.status === 'COMPLETED') return; // already completed
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: { status: 'COMPLETED', providerId: nextProviderId ?? fresh.providerId },
+      });
+      const payoutProviderId = nextProviderId ?? fresh.providerId;
+      if (payoutProviderId) {
+        const payout = fresh.providerEarning;
+        await tx.provider.update({
+          where: { id: payoutProviderId },
+          data: { earnings: { increment: payout } },
+        });
+      }
+    }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
+  } else {
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: nextStatus, providerId: nextProviderId },
     });
   }
-
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: { status: nextStatus, providerId: nextProviderId },
-  });
 
   if (nextStatus && nextStatus !== booking.status) {
     await notify(booking.userId, `Your booking #${id} status is now ${nextStatus.toLowerCase()}.`);

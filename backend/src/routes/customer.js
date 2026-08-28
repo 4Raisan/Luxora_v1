@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 router.use(authenticateToken);
 
 // The town is retained on the user and copied to each newly-created booking.
-router.put('/town', async (req, res) => {
+router.put('/town', requireRole('CUSTOMER'), async (req, res) => {
   const town = typeof req.body.town === 'string' ? req.body.town.trim().replace(/\s+/g, ' ') : '';
   if (town.length > 100) return res.status(400).json({ error: 'town must be at most 100 characters' });
   await prisma.user.update({ where: { id: req.user.id }, data: { town: town || null } });
@@ -52,7 +52,7 @@ router.get('/dashboard', async (req, res) => {
 
   // expectedEndTime is provider-only scheduling metadata. Keep this helper at
   // every customer-facing booking boundary, including nested review bookings.
-  const withoutProviderSchedule = (booking) => ({ ...booking, startPinHash: undefined, completionPinHash: undefined, customerStartPinCipher: undefined, customerCompletionPinCipher: undefined, pinCode: undefined, expectedEndTime: undefined });
+  const withoutProviderSchedule = (booking) => ({ ...booking, startPinHash: undefined, completionPinHash: undefined, customerStartPinCipher: undefined, customerCompletionPinCipher: undefined, pinCode: undefined, pinAttempts: undefined, pinLockedUntil: undefined, expectedEndTime: undefined });
   res.json({
     profile,
     activeSubscriptions: activeSubs,

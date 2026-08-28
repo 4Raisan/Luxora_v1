@@ -46,6 +46,7 @@ model PasswordResetToken {
   @@index([userId, expiresAt])
   @@map("password_reset_tokens")
 }
+
 model Provider {
   id Int @id @default(autoincrement())
   userId Int @unique
@@ -56,6 +57,8 @@ model Provider {
   serviceTowns String @default("")
   availabilityStatus String @default("available")
   earnings Decimal @default(0) @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
   bankAccounts ProviderBankAccount[]
   payouts ProviderPayout[]
   bookings Booking[]
@@ -304,7 +307,7 @@ model Promotion {
   title String
   description String?
   code String? @unique
-  discountPct Float @default(0)
+  discountPct Decimal @default(0) @db.Decimal(5, 2)
   active Boolean @default(true)
   startsAt DateTime?
   endsAt DateTime?

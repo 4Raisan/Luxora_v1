@@ -50,7 +50,7 @@ app.use(
         !origin ||
         allowedOrigins.includes(origin) ||
         allowedOrigins.includes('*') ||
-        isLocalhostRegex.test(origin)
+        (process.env.NODE_ENV !== 'production' && isLocalhostRegex.test(origin))
       ) {
         return callback(null, true);
       }
@@ -132,6 +132,9 @@ app.use((err, _req, res, _next) => {
 
 // Ensure PostgreSQL schema columns and enums exist (idempotent migrations)
 prisma.$executeRawUnsafe('ALTER TYPE "PaymentGateway" ADD VALUE IF NOT EXISTS \'NOWPAYMENTS\';').catch(() => {});
+prisma.$executeRawUnsafe('ALTER TABLE providers ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;').catch(() => {});
+prisma.$executeRawUnsafe('ALTER TABLE providers ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;').catch(() => {});
+prisma.$executeRawUnsafe('ALTER TABLE promotions ALTER COLUMN "discountPct" TYPE DECIMAL(5,2);').catch(() => {});
 
 // Seed a welcome promotion on first run (idempotent)
 prisma.promotion.count().then((c) => {

@@ -293,7 +293,6 @@ router.get('/assigned', async (req, res) => {
     customerCompletionPinCipher: undefined,
     pinCode: undefined,
     pinAttempts: undefined,
-    pinLockedUntil: undefined,
     status: b.status.toLowerCase(),
     service_title: b.service?.title,
     service_desc: b.service?.description,
@@ -523,7 +522,9 @@ router.put('/:id/reschedule', async (req, res) => {
     const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, service }, { ignoreBookingId: booking.id });
     if (!eligibility.ok) return res.status(409).json({ error: `Reschedule unavailable: ${eligibility.error}` });
   }
-  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, rescheduleReason: reason } });
+  const newStart = bookingStart(req.body.booking_date, String(req.body.booking_time).trim().toUpperCase());
+  const newPinExpiresAt = newStart ? new Date(newStart.getTime() + 24 * 60 * 60 * 1000) : booking.pinExpiresAt;
+  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, rescheduleReason: reason, pinExpiresAt: newPinExpiresAt } });
   if (booking.providerId) { const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } }); if (provider) await notify(provider.userId, `Booking #${booking.id} has been rescheduled by the customer.`); }
   await notify(booking.userId, `Booking #${booking.id} has been rescheduled.`);
   res.json({ id: updated.id, status: updated.status.toLowerCase(), booking_date: updated.bookingDate, booking_time: updated.bookingTime });

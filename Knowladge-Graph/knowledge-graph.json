@@ -1,10 +1,10 @@
 {
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
-  "generatedAt": "2026-08-28T17:39:37.791Z",
+  "generatedAt": "2026-08-28T19:21:51.758Z",
   "stats": {
     "totalNodes": 176,
-    "totalEdges": 374,
+    "totalEdges": 375,
     "nodesByGroup": {
       "database": 32,
       "middleware": 3,
@@ -210,6 +210,14 @@
           {
             "name": "earnings",
             "type": "Decimal"
+          },
+          {
+            "name": "createdAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "updatedAt",
+            "type": "DateTime"
           },
           {
             "name": "bankAccounts",
@@ -1109,7 +1117,7 @@
           },
           {
             "name": "discountPct",
-            "type": "Float"
+            "type": "Decimal"
           },
           {
             "name": "active",
@@ -3985,6 +3993,12 @@
       "to": "middleware:auth",
       "type": "USES_AUTH",
       "label": "authenticateToken"
+    },
+    {
+      "from": "routefile:customer",
+      "to": "middleware:auth",
+      "type": "USES_RBAC",
+      "label": "requireRole"
     },
     {
       "from": "routefile:customer",

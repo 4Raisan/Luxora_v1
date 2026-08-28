@@ -118,7 +118,7 @@ router.post('/password-reset/request', resetLimiter, async (req, res) => {
   res.json({ message: 'If that account exists, a password reset email has been sent.' });
 });
 
-router.post('/password-reset/confirm', async (req, res) => {
+router.post('/password-reset/confirm', resetLimiter, async (req, res) => {
   const record = await prisma.passwordResetToken.findFirst({
     where: {
       tokenHash: resetTokenHash(req.body.token),
