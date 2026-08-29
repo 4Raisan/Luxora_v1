@@ -536,7 +536,7 @@ function generateOutput() {
         <div class="settings-section">
           <div class="settings-label">Display</div>
           <label class="settings-row"><span>Enable physics</span><input id="physicsToggle" type="checkbox" checked></label>
-          <label class="settings-row"><span>Living motion</span><input id="livingMotionToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Orbital drift</span><input id="livingMotionToggle" type="checkbox" checked></label>
           <label class="settings-row"><span>Show edge labels</span><input id="edgeLabelToggle" type="checkbox"></label>
         </div>
         <div class="settings-section">
@@ -624,9 +624,8 @@ function generateOutput() {
           springLength: 90,
           springConstant: 0.15
         },
-        maxVelocity: 8,
-        minVelocity: 0.01,
-        stabilization: { enabled: false }
+        maxVelocity: 25,
+        stabilization: { iterations: 220 }
       },
       interaction: { hover: true, tooltipDelay: 100, zoomView: true }
     };
@@ -656,27 +655,65 @@ function generateOutput() {
       physicsEnabled: true,
       livingMotion: true
     };
-    let livingMotionTimer;
+    let orbitFrame;
+    let orbitLayout;
+    let orbitStartedAt = 0;
 
-    function applyLivingPhysics() {
-      const phase = Date.now() / 8500 * Math.PI * 2;
-      const drift = uiState.livingMotion ? Math.sin(phase) : 0;
-      network.setOptions({
-        physics: {
-          forceAtlas2Based: {
-            springLength: uiState.innerSpacing + drift * 4,
-            centralGravity: Math.max(0.001, uiState.outerPull + drift * 0.0015)
-          }
-        }
-      });
-      if (uiState.physicsEnabled) network.startSimulation();
+    function stopOrbit() {
+      if (orbitFrame) window.cancelAnimationFrame(orbitFrame);
+      orbitFrame = undefined;
     }
 
-    function setLivingMotion(enabled) {
-      window.clearInterval(livingMotionTimer);
-      if (!enabled) return;
-      applyLivingPhysics();
-      livingMotionTimer = window.setInterval(applyLivingPhysics, 900);
+    function startOrbit() {
+      stopOrbit();
+      if (!uiState.livingMotion || !orbitLayout) return;
+      orbitStartedAt = performance.now();
+      const renderOrbit = (now) => {
+        if (!uiState.livingMotion || !orbitLayout) return;
+        const elapsed = now - orbitStartedAt;
+        const outerAngle = elapsed * 0.000014;
+        const innerAngle = elapsed * -0.000006;
+        for (const node of orbitLayout.nodes) {
+          const angle = node.angle + (node.outer ? outerAngle : innerAngle);
+          network.moveNode(node.id,
+            orbitLayout.center.x + node.radius * Math.cos(angle),
+            orbitLayout.center.y + node.radius * Math.sin(angle));
+        }
+        orbitFrame = window.requestAnimationFrame(renderOrbit);
+      };
+      orbitFrame = window.requestAnimationFrame(renderOrbit);
+    }
+
+    function captureOrbitLayout() {
+      const positions = network.getPositions();
+      const entries = Object.entries(positions);
+      const center = entries.reduce((sum, [, position]) => ({ x: sum.x + position.x, y: sum.y + position.y }), { x: 0, y: 0 });
+      center.x /= entries.length;
+      center.y /= entries.length;
+      const nodes = entries.map(([id, position]) => {
+        const x = position.x - center.x;
+        const y = position.y - center.y;
+        return { id, radius: Math.hypot(x, y), angle: Math.atan2(y, x) };
+      });
+      const radii = nodes.map(node => node.radius).sort((a, b) => a - b);
+      const outerThreshold = radii[Math.floor(radii.length * 0.72)];
+      orbitLayout = { center, nodes: nodes.map(node => ({ ...node, outer: node.radius >= outerThreshold })) };
+      startOrbit();
+    }
+
+    function reheatLayout() {
+      stopOrbit();
+      network.setOptions({
+        physics: {
+          enabled: true,
+          forceAtlas2Based: { springLength: uiState.innerSpacing, centralGravity: uiState.outerPull }
+        }
+      });
+      network.once('stabilizationIterationsDone', () => {
+        network.stopSimulation();
+        captureOrbitLayout();
+      });
+      network.startSimulation();
     }
 
     function matchingNodeIds() {
@@ -714,7 +751,7 @@ function generateOutput() {
     }
 
     function updateLayoutSpacing() {
-      applyLivingPhysics();
+      reheatLayout();
     }
 
     function resetGraph() {
@@ -740,10 +777,8 @@ function generateOutput() {
       updateGraphVisibility();
       updateNodeScale();
       updateEdgeAppearance();
-      updateLayoutSpacing();
-      network.setOptions({ physics: { enabled: true } });
-      setLivingMotion(true);
-      fitGraph();
+      reheatLayout();
+      network.once('stabilizationIterationsDone', fitGraph);
     }
 
     // Node Selection & Detailed Inspector
@@ -823,13 +858,14 @@ function generateOutput() {
 
     document.getElementById('physicsToggle').addEventListener('change', (event) => {
       uiState.physicsEnabled = event.target.checked;
-      network.setOptions({ physics: { enabled: event.target.checked } });
-      if (event.target.checked) network.startSimulation();
+      if (event.target.checked) reheatLayout();
+      else network.setOptions({ physics: { enabled: false } });
     });
 
     document.getElementById('livingMotionToggle').addEventListener('change', (event) => {
       uiState.livingMotion = event.target.checked;
-      setLivingMotion(event.target.checked);
+      if (event.target.checked) startOrbit();
+      else stopOrbit();
     });
 
     document.getElementById('edgeLabelToggle').addEventListener('change', (event) => {
@@ -861,7 +897,7 @@ function generateOutput() {
     document.getElementById('resetGraph').addEventListener('click', resetGraph);
     updateGraphVisibility();
     updateEdgeAppearance();
-    setLivingMotion(true);
+    reheatLayout();
   </script>
 </body>
 </html>`;
