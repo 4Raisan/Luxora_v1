@@ -399,7 +399,9 @@ function parseFrontend() {
 // 5. GENERATE OUTPUT FILES
 // ==========================================
 function generateOutput() {
-  const outputDir = path.join(rootDir, 'Knowladge-Graph');
+ const outputDir = path.join(rootDir, 'Knowladge-Graph');
+  const rendererSourcePath = path.join(rootDir, 'node_modules', 'vis-network', 'standalone', 'umd', 'vis-network.min.js');
+  const rendererOutputPath = path.join(outputDir, 'vis-network.min.js');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
@@ -430,6 +432,12 @@ function generateOutput() {
   fs.writeFileSync(jsonPath, JSON.stringify(graphFacts, null, 2) + '\n', 'utf-8');
   console.log(`💾 Saved Knowledge Graph JSON: ${jsonPath}`);
 
+  if (!fs.existsSync(rendererSourcePath)) {
+    throw new Error('vis-network is missing. Run npm ci before generating the Knowledge Graph.');
+  }
+  fs.copyFileSync(rendererSourcePath, rendererOutputPath);
+  console.log(`🕸️ Saved bundled graph renderer: ${rendererOutputPath}`);
+
   // 2. Interactive HTML Viewer (Vis.js Network)
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -437,7 +445,7 @@ function generateOutput() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Luxora Codebase Knowledge Graph</title>
-  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script type="text/javascript" src="./vis-network.min.js"></script>
   <style>
     :root {
       --bg-color: #0b0f19;

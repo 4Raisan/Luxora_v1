@@ -10,6 +10,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const graphDir = path.join(rootDir, 'Knowladge-Graph');
 const graphPath = path.join(graphDir, 'knowledge-graph.json');
 const explorerPath = path.join(graphDir, 'index.html');
+const rendererPath = path.join(graphDir, 'vis-network.min.js');
 const failures = [];
 
 function fail(message) { failures.push(message); }
@@ -24,6 +25,7 @@ function checkSourcePath(value, context) {
 
 if (!fs.existsSync(graphPath)) fail('knowledge-graph.json is missing');
 if (!fs.existsSync(explorerPath)) fail('index.html is missing');
+if (!fs.existsSync(rendererPath)) fail('bundled graph renderer is missing');
 
 let graph;
 try {
@@ -66,6 +68,8 @@ if (graph) {
 if (fs.existsSync(explorerPath)) {
   const explorer = fs.readFileSync(explorerPath, 'utf8');
   if (!explorer.includes("fetch('./knowledge-graph.json'")) fail('explorer must load graph JSON via a GitHub Pages-safe relative path');
+  if (!explorer.includes('src="./vis-network.min.js"')) fail('explorer must load the bundled graph renderer via a relative path');
+  if (/unpkg\.com|cdn\./i.test(explorer)) fail('explorer must not depend on an external graph-renderer CDN');
   if (/C:\\Users\\|file:\/\//i.test(explorer)) fail('explorer contains a local filesystem path');
   if (!explorer.includes('github.com/')) fail('explorer does not provide GitHub source links');
 }
