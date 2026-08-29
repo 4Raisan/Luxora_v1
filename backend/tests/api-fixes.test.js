@@ -156,6 +156,17 @@ test('B3: pre-KYC provider token gets no operational access, but can upload KYC 
   assert.equal(approvedLogin.status, 200);
   assert.equal((await authJson(approvedLogin.body.token, '/bookings/assigned')).status, 200);
 
+  const categories = await authJson(approvedLogin.body.token, '/provider/service-categories', {
+    method: 'PUT', body: JSON.stringify({ categories: ['Auto Care', 'Garden Care', 'Pet Care'] }),
+  });
+  assert.equal(categories.status, 200);
+  assert.deepEqual(categories.body.categories, ['Auto Care', 'Garden Care', 'Pet Care']);
+  const availability = await authJson(approvedLogin.body.token, '/provider/availability');
+  assert.deepEqual(availability.body.categories, ['Auto Care', 'Garden Care', 'Pet Care']);
+  assert.equal((await authJson(approvedLogin.body.token, '/provider/service-categories', {
+    method: 'PUT', body: JSON.stringify({ categories: [] }),
+  })).status, 400);
+
   // A rejected provider stays locked out
   const rejectEmail = `rejected-${RND}@test.com`;
   const rejected = await json('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Rejected Provider', email: rejectEmail, password: 'secret123', phone: '0771234568', role: 'provider', category: 'Auto Care' }) });

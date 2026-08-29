@@ -10,6 +10,7 @@ import { detectFileSignature } from '../src/routes/uploads.js';
 import { verifyPayHereWebhook } from '../src/services/integrations.js';
 import { isPublicHttpsUrl } from '../src/routes/integrations.js';
 import { getObject, putObject, removeObject } from '../src/services/storage.js';
+import { providerOffersCategory } from '../src/services/scheduling.js';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46]);
@@ -79,6 +80,13 @@ test('B13: PayHere webhook signature verification accepts a correctly signed pay
   const copy = { ...payload, merchant_id: 'OTHER' };
   copy.md5sig = payload.md5sig;
   assert.equal(verifyPayHereWebhook({ ...copy, md5sig: md5('wrong') }), false);
+});
+
+test('Provider category matching accepts selected categories and preserves legacy single-category providers', () => {
+  assert.equal(providerOffersCategory({ category: 'Auto Care' }, 'Auto Care'), true);
+  assert.equal(providerOffersCategory({ category: 'Auto Care, Garden Care, Pet Care' }, 'Garden Care'), true);
+  assert.equal(providerOffersCategory({ category: 'Auto Care, Garden Care, Pet Care' }, 'Pet Care'), true);
+  assert.equal(providerOffersCategory({ category: 'Auto Care, Garden Care' }, 'Pet Care'), false);
 });
 
 test('PayHere checkout rejects non-HTTPS and private callback URLs', () => {
