@@ -458,7 +458,8 @@ function generateOutput() {
     body { background: var(--bg-color); color: var(--text-color); height: 100vh; display: flex; overflow: hidden; }
     #sidebar { width: 380px; min-width: 380px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; transition: width 0.22s ease, min-width 0.22s ease, opacity 0.22s ease; }
     #sidebar.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: 0; }
-    #graph-container { flex: 1; height: 100vh; position: relative; }
+    #graph-container { flex: 1; height: 100vh; position: relative; overflow: hidden; isolation: isolate; }
+    #network { position: absolute; inset: 0; z-index: 0; }
     .header { padding: 18px 20px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.25); }
     .header h1 { font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
     .header p { font-size: 0.78rem; color: #94a3b8; margin-top: 4px; }
@@ -470,10 +471,11 @@ function generateOutput() {
     .filter-btn.active { background: var(--accent); color: #0b0f19; font-weight: bold; border-color: var(--accent); }
     #details-panel { flex: 1; padding: 20px; overflow-y: auto; font-size: 0.85rem; }
     .stat-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; margin-right: 4px; }
-    .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(21, 29, 48, 0.95); padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.75rem; z-index: 5; pointer-events: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .legend-color { width: 12px; height: 12px; border-radius: 50%; }
-    .settings-dock { position: absolute; top: 20px; right: 20px; width: 238px; z-index: 6; background: rgba(21, 29, 48, 0.96); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden; }
+    .legend { position: absolute; bottom: 20px; right: 290px; width: 250px; background: #151d30; padding: 18px 20px; border-radius: 8px; border: 1px solid #334155; font-size: 0.78rem; z-index: 20; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .legend.dragging { cursor: grabbing; }
+    .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+    .legend-color { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 14px; }
+    .settings-dock { position: absolute; top: 20px; right: 20px; width: 238px; z-index: 21; background: #151d30; border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden; }
     .settings-dock summary { padding: 12px 14px; color: #fff; font-size: 0.82rem; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
     .settings-dock summary::-webkit-details-marker { display: none; }
     .settings-dock summary::after { content: '+'; color: #94a3b8; font-size: 1rem; }
@@ -485,10 +487,12 @@ function generateOutput() {
     .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #cbd5e1; font-size: 0.74rem; margin-top: 8px; }
     .settings-row input[type='range'] { width: 112px; accent-color: var(--accent); }
     .settings-row input[type='checkbox'] { accent-color: var(--accent); }
+    .settings-row input[type='color'] { width: 32px; height: 24px; padding: 1px; border: 1px solid var(--border-color); border-radius: 4px; background: transparent; cursor: pointer; }
+    .settings-row select { width: 112px; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: #0b0f19; color: #cbd5e1; font-size: 0.72rem; }
     .settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 14px; }
     .settings-action { min-height: 31px; border: 1px solid var(--border-color); border-radius: 5px; background: #0b0f19; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; }
     .settings-action:hover, .settings-action:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
-    .sidebar-toggle { position: absolute; top: 14px; left: 14px; z-index: 7; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 5px; background: rgba(21, 29, 48, 0.96); color: #cbd5e1; cursor: pointer; font-size: 0.72rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+    .sidebar-toggle { position: absolute; top: 14px; left: 14px; z-index: 22; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 5px; background: #151d30; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
     .sidebar-toggle:hover, .sidebar-toggle:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
     .graph-status { color: #64748b; font-size: 0.7rem; margin-top: 10px; }
     .code-tag { background: #0b0f19; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 0.78rem; color: #38bdf8; word-break: break-all; border: 1px solid #1e293b; }
@@ -537,33 +541,43 @@ function generateOutput() {
           <div class="settings-label">Display</div>
           <label class="settings-row"><span>Animate physics</span><input id="physicsToggle" type="checkbox" checked></label>
           <label class="settings-row"><span>Outer reverse orbit</span><input id="livingMotionToggle" type="checkbox" checked></label>
-          <label class="settings-row"><span>Show edge labels</span><input id="edgeLabelToggle" type="checkbox"></label>
+          <label class="settings-row"><span>Edge labels</span><select id="edgeLabelMode"><option value="always">Always</option><option value="selected">Selected node</option><option value="light" selected>Light</option><option value="none">Off</option></select></label>
         </div>
         <div class="settings-section">
           <div class="settings-label">Scale</div>
-          <label class="settings-row"><span>Node size</span><input id="nodeScale" type="range" min="70" max="160" value="100"></label>
-          <label class="settings-row"><span>Edge strength</span><input id="edgeOpacity" type="range" min="10" max="90" value="35"></label>
+          <label class="settings-row"><span>Node size</span><input id="nodeScale" type="range" min="70" max="160" value="110"></label>
+          <label class="settings-row"><span>Label size</span><input id="labelScale" type="range" min="70" max="160" value="88"></label>
+          <label class="settings-row"><span>Edge strength</span><input id="edgeOpacity" type="range" min="10" max="90" value="37"></label>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">Export</div>
+          <label class="settings-row"><span>Diagram background</span><input id="backgroundColor" type="color" value="#0b0f19"></label>
         </div>
         <div class="settings-section">
           <div class="settings-label">Layout spacing</div>
-          <label class="settings-row"><span>Connected spacing</span><input id="innerSpacing" type="range" min="45" max="180" value="90"></label>
-          <label class="settings-row"><span>Outer pull</span><input id="outerPull" type="range" min="1" max="50" value="5"></label>
+          <label class="settings-row"><span>Connected spacing</span><input id="innerSpacing" type="range" min="60" max="260" value="145"></label>
+          <label class="settings-row"><span>Outer pull</span><input id="outerPull" type="range" min="1" max="50" value="15"></label>
+          <label class="settings-row"><span>Horizontal vibe <output id="horizontalVibeValue">0%</output></span><input id="horizontalVibe" type="range" min="0" max="50" value="0" aria-label="Horizontal vibe control"></label>
         </div>
         <div class="settings-actions">
           <button class="settings-action" id="fitGraph" type="button">Fit graph</button>
           <button class="settings-action" id="resetGraph" type="button">Reset view</button>
         </div>
+        <div class="settings-actions" style="grid-template-columns: 1fr; margin-top: 7px;">
+          <button class="settings-action" id="exportGraph" type="button">Download full diagram PNG</button>
+        </div>
         <div class="graph-status" id="graphStatus" aria-live="polite"></div>
       </div>
     </details>
     <div class="legend">
-      <div style="font-weight: bold; margin-bottom: 8px; color: #fff;">System Legend</div>
+      <div style="font-weight: bold; margin-bottom: 12px; color: #fff;">System Legend</div>
       <div class="legend-item"><div class="legend-color" style="background:#38bdf8"></div>Frontend UI / Components</div>
       <div class="legend-item"><div class="legend-color" style="background:#818cf8"></div>Route Handlers</div>
       <div class="legend-item"><div class="legend-color" style="background:#34d399"></div>API Endpoints</div>
       <div class="legend-item"><div class="legend-color" style="background:#fb923c"></div>Services / Business Logic</div>
       <div class="legend-item"><div class="legend-color" style="background:#f472b6"></div>Middleware / RBAC Auth</div>
       <div class="legend-item"><div class="legend-color" style="background:#facc15"></div>Prisma Database Models</div>
+      <div class="legend-item"><div class="legend-color" style="background:#ef4444"></div>Unlinked Source Evidence</div>
     </div>
   </div>
 
@@ -586,27 +600,53 @@ function generateOutput() {
       middleware: '#f472b6',
       database: '#facc15'
     };
+    const unlinkedColor = '#ef4444';
 
-    const visNodes = new vis.DataSet(graphData.nodes.map(n => ({
-      id: n.id,
-      label: n.label,
-      group: n.group,
-      color: {
-        background: colorMap[n.group] || '#94a3b8',
-        border: '#ffffff',
-        highlight: { background: '#ffffff', border: colorMap[n.group] || '#38bdf8' }
-      },
-      font: { color: '#ffffff', size: 11, face: 'system-ui' },
-      shape: n.group === 'database' ? 'database' : (n.group === 'api' ? 'box' : 'dot'),
-      size: n.group === 'database' ? 20 : (n.group === 'api' ? 14 : 16),
-      baseSize: n.group === 'database' ? 20 : (n.group === 'api' ? 14 : 16)
-    })));
+    const degreeById = new Map(graphData.nodes.map(node => [node.id, 0]));
+    graphData.edges.forEach(edge => {
+      degreeById.set(edge.from, (degreeById.get(edge.from) || 0) + 1);
+      degreeById.set(edge.to, (degreeById.get(edge.to) || 0) + 1);
+    });
+
+    const visNodes = new vis.DataSet(graphData.nodes.map(n => {
+      const degree = degreeById.get(n.id) || 0;
+      const isHub = degree >= 8;
+      const isUnlinked = degree === 0;
+      const baseSize = n.group === 'database' ? 16 : (n.group === 'api' ? 13 : 15);
+      const baseFontColor = isUnlinked ? '#fecaca' : '#ffffff';
+      return {
+        id: n.id,
+        label: n.label,
+        baseLabel: n.label,
+        title: n.label + ' — ' + degree + ' connection' + (degree === 1 ? '' : 's'),
+        color: {
+          background: isUnlinked ? unlinkedColor : (colorMap[n.group] || '#94a3b8'),
+          border: isHub ? '#ffffff' : (isUnlinked ? '#fecaca' : '#ffffff'),
+          highlight: { background: '#ffffff', border: colorMap[n.group] || '#38bdf8' }
+        },
+        font: {
+          color: baseFontColor,
+          size: isHub ? 13 : (degree <= 1 ? 9 : 11),
+          face: 'system-ui',
+          strokeWidth: n.group === 'database' ? 4 : 2,
+          strokeColor: '#020617',
+          align: n.group === 'api' ? 'center' : 'horizontal'
+        },
+        widthConstraint: n.group === 'api' ? { maximum: 150 } : false,
+        shape: n.group === 'database' ? 'database' : (n.group === 'api' ? 'box' : 'dot'),
+        size: baseSize + (isHub ? 5 : 0),
+        baseSize: baseSize + (isHub ? 5 : 0),
+        baseFontSize: isHub ? 13 : (degree <= 1 ? 9 : 11),
+        baseFontColor
+      };
+    }));
 
     const visEdges = new vis.DataSet(graphData.edges.map((e, idx) => ({
       id: 'e_' + idx,
       from: e.from,
       to: e.to,
       label: e.label || '',
+      baseLabel: e.label || '',
       arrows: 'to',
       color: { color: 'rgba(148, 163, 184, 0.35)', highlight: '#38bdf8' },
       font: { color: '#94a3b8', size: 9, align: 'middle' },
@@ -619,10 +659,11 @@ function generateOutput() {
       physics: {
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
-          gravitationalConstant: -40,
-          centralGravity: 0.005,
-          springLength: 90,
-          springConstant: 0.15
+          gravitationalConstant: -60,
+          centralGravity: 0.003,
+          springLength: 150,
+          springConstant: 0.07,
+          avoidOverlap: 1
         },
         maxVelocity: 50,
         stabilization: { iterations: 150 }
@@ -647,17 +688,58 @@ function generateOutput() {
     const uiState = {
       group: 'all',
       term: '',
-      nodeScale: 1,
-      edgeOpacity: 0.35,
-      showEdgeLabels: false,
-      innerSpacing: 90,
-      outerPull: 0.005,
+      nodeScale: 1.1,
+      labelScale: 0.88,
+      selectedNodeId: null,
+      edgeOpacity: 0.37,
+      edgeLabelMode: 'light',
+      innerSpacing: 145,
+      outerPull: 0.015,
+      horizontalVibe: 0,
       physicsEnabled: true,
-      livingMotion: true
+      livingMotion: true,
+      backgroundColor: '#0b0f19'
     };
     let outerOrbitFrame;
     let outerOrbitLayout;
     let outerOrbitStartedAt = 0;
+    let horizontalVibeBasePositions;
+    let horizontalVibeFrame;
+    const legend = document.querySelector('.legend');
+    let legendDrag;
+
+    function startLegendDrag(event) {
+      if (event.button !== 0) return;
+      const legendBox = legend.getBoundingClientRect();
+      const containerBox = document.getElementById('graph-container').getBoundingClientRect();
+      legendDrag = { offsetX: event.clientX - legendBox.left, offsetY: event.clientY - legendBox.top, containerBox };
+      legend.style.left = (legendBox.left - containerBox.left) + 'px';
+      legend.style.top = (legendBox.top - containerBox.top) + 'px';
+      legend.style.right = 'auto';
+      legend.style.bottom = 'auto';
+      legend.classList.add('dragging');
+      event.preventDefault();
+    }
+
+    function moveLegendDrag(event) {
+      if (!legendDrag) return;
+      const maxLeft = Math.max(0, legendDrag.containerBox.width - legend.offsetWidth);
+      const maxTop = Math.max(0, legendDrag.containerBox.height - legend.offsetHeight);
+      const left = Math.min(maxLeft, Math.max(0, event.clientX - legendDrag.containerBox.left - legendDrag.offsetX));
+      const top = Math.min(maxTop, Math.max(0, event.clientY - legendDrag.containerBox.top - legendDrag.offsetY));
+      legend.style.left = left + 'px';
+      legend.style.top = top + 'px';
+    }
+
+    function endLegendDrag() {
+      if (!legendDrag) return;
+      legendDrag = undefined;
+      legend.classList.remove('dragging');
+    }
+
+    legend.addEventListener('mousedown', startLegendDrag);
+    window.addEventListener('mousemove', moveLegendDrag);
+    window.addEventListener('mouseup', endLegendDrag);
 
     function stopOuterOrbit() {
       if (outerOrbitFrame) window.cancelAnimationFrame(outerOrbitFrame);
@@ -671,11 +753,19 @@ function generateOutput() {
       const renderOuterOrbit = (now) => {
         if (!uiState.livingMotion || !outerOrbitLayout) return;
         const elapsed = now - outerOrbitStartedAt;
+        const innerAngle = elapsed * 0.000002;
         const outerAngle = elapsed * -0.000008;
-        for (const node of outerOrbitLayout.nodes) {
+        const horizontalStretch = 1 + (uiState.horizontalVibe / 100) * 4;
+        for (const node of outerOrbitLayout.innerNodes) {
+          const angle = node.angle + innerAngle;
+          network.moveNode(node.id,
+            outerOrbitLayout.center.x + node.radius * horizontalStretch * Math.cos(angle),
+            outerOrbitLayout.center.y + node.radius * Math.sin(angle));
+        }
+        for (const node of outerOrbitLayout.outerNodes) {
           const angle = node.angle + outerAngle;
           network.moveNode(node.id,
-            outerOrbitLayout.center.x + node.radius * Math.cos(angle),
+            outerOrbitLayout.center.x + node.radius * horizontalStretch * Math.cos(angle),
             outerOrbitLayout.center.y + node.radius * Math.sin(angle));
         }
         outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
@@ -684,7 +774,7 @@ function generateOutput() {
     }
 
     function captureOuterOrbitLayout() {
-      const positions = network.getPositions();
+      const positions = horizontalVibeBasePositions || network.getPositions();
       const entries = Object.entries(positions);
       const center = entries.reduce((sum, [, position]) => ({ x: sum.x + position.x, y: sum.y + position.y }), { x: 0, y: 0 });
       center.x /= entries.length;
@@ -692,25 +782,81 @@ function generateOutput() {
       const nodes = entries.map(([id, position]) => {
         const x = position.x - center.x;
         const y = position.y - center.y;
-        return { id, radius: Math.hypot(x, y), angle: Math.atan2(y, x) };
+        return { id, degree: degreeById.get(id) || 0, radius: Math.hypot(x, y), angle: Math.atan2(y, x) };
       });
       const radii = nodes.map(node => node.radius).sort((a, b) => a - b);
+      const coreThreshold = radii[Math.floor(radii.length * 0.45)];
       const outerThreshold = radii[Math.floor(radii.length * 0.72)];
-      outerOrbitLayout = { center, nodes: nodes.filter(node => node.radius >= outerThreshold) };
+      outerOrbitLayout = {
+        center,
+        innerNodes: nodes.filter(node => node.degree > 1 && node.degree < 8 && node.radius >= coreThreshold),
+        outerNodes: nodes.filter(node => node.degree === 1 && node.radius >= outerThreshold)
+      };
       network.stopSimulation();
       startOuterOrbit();
     }
 
+    function applyHorizontalVibe() {
+      if (!horizontalVibeBasePositions) horizontalVibeBasePositions = network.getPositions();
+      const entries = Object.entries(horizontalVibeBasePositions);
+      if (entries.length === 0) return;
+      const centerX = entries.reduce((sum, [, position]) => sum + position.x, 0) / entries.length;
+      const stretch = 1 + (uiState.horizontalVibe / 100) * 4;
+      for (const [id, position] of entries) {
+        network.moveNode(id, centerX + (position.x - centerX) * stretch, position.y);
+      }
+    }
+
+    function animateHorizontalVibe() {
+      if (!horizontalVibeBasePositions) horizontalVibeBasePositions = network.getPositions();
+      if (horizontalVibeFrame) window.cancelAnimationFrame(horizontalVibeFrame);
+      stopOuterOrbit();
+      const from = network.getPositions();
+      const baseEntries = Object.entries(horizontalVibeBasePositions);
+      const centerX = baseEntries.reduce((sum, [, position]) => sum + position.x, 0) / baseEntries.length;
+      const stretch = 1 + (uiState.horizontalVibe / 100) * 4;
+      const target = Object.fromEntries(baseEntries.map(([id, position]) => [id, {
+        x: centerX + (position.x - centerX) * stretch,
+        y: position.y
+      }]));
+      const startedAt = performance.now();
+      const render = (now) => {
+        const progress = Math.min(1, (now - startedAt) / 460);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        for (const [id, position] of Object.entries(target)) {
+          const origin = from[id] || position;
+          network.moveNode(id,
+            origin.x + (position.x - origin.x) * eased,
+            origin.y + (position.y - origin.y) * eased);
+        }
+        if (progress < 1) horizontalVibeFrame = window.requestAnimationFrame(render);
+        else {
+          horizontalVibeFrame = undefined;
+          captureOuterOrbitLayout();
+        }
+      };
+      horizontalVibeFrame = window.requestAnimationFrame(render);
+    }
+
     function reheatLayout() {
+      if (horizontalVibeFrame) window.cancelAnimationFrame(horizontalVibeFrame);
       stopOuterOrbit();
       network.setOptions({
         physics: {
           enabled: true,
-          forceAtlas2Based: { springLength: uiState.innerSpacing, centralGravity: uiState.outerPull }
+          forceAtlas2Based: {
+            gravitationalConstant: -60,
+            springLength: uiState.innerSpacing,
+            centralGravity: uiState.outerPull,
+            springConstant: 0.07,
+            avoidOverlap: 1
+          }
         }
       });
       network.once('stabilizationIterationsDone', () => {
-        captureOuterOrbitLayout();
+        horizontalVibeBasePositions = network.getPositions();
+        applyHorizontalVibe();
+        window.requestAnimationFrame(captureOuterOrbitLayout);
       });
       network.startSimulation();
     }
@@ -719,7 +865,8 @@ function generateOutput() {
       return new Set(graphData.nodes.filter(node => {
         const matchesGroup = uiState.group === 'all' || node.group === uiState.group;
         const searchableText = [node.label, node.id, node.file, node.type].filter(Boolean).join(' ').toLowerCase();
-        return matchesGroup && (!uiState.term || searchableText.includes(uiState.term));
+        const matchesSearch = !uiState.term || searchableText.includes(uiState.term);
+        return matchesGroup && matchesSearch;
       }).map(node => node.id));
     }
 
@@ -730,19 +877,130 @@ function generateOutput() {
         id: edge.id,
         hidden: !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)
       }));
-      document.getElementById('graphStatus').textContent = 'Showing ' + visibleNodeIds.size + ' of ' + graphData.nodes.length + ' nodes';
+      updateLabelVisibility();
+      const visibleLinkedNodes = [...visibleNodeIds].filter(id => (degreeById.get(id) || 0) > 0).length;
+      document.getElementById('graphStatus').textContent = 'Showing ' + visibleNodeIds.size + ' of ' + graphData.nodes.length + ' nodes • ' + visibleLinkedNodes + ' linked • ' + (visibleNodeIds.size - visibleLinkedNodes) + ' unlinked evidence';
     }
 
     function updateNodeScale() {
       visNodes.forEach(node => visNodes.update({ id: node.id, size: Math.round(node.baseSize * uiState.nodeScale) }));
     }
 
-    function updateEdgeAppearance() {
-      visEdges.forEach(edge => visEdges.update({
-        id: edge.id,
-        color: { color: 'rgba(148, 163, 184, ' + uiState.edgeOpacity + ')', highlight: '#38bdf8' },
-        font: { color: uiState.showEdgeLabels ? '#94a3b8' : 'rgba(148, 163, 184, 0)', size: 9, align: 'middle' }
+    function updateLabelScale() {
+      visNodes.forEach(node => visNodes.update({
+        id: node.id,
+        font: { ...node.font, size: Math.round(node.baseFontSize * uiState.labelScale) }
       }));
+    }
+
+    function updateLabelVisibility() {
+      visNodes.forEach(node => {
+        visNodes.update({
+          id: node.id,
+          label: node.baseLabel,
+          font: { ...node.font, color: node.baseFontColor }
+        });
+      });
+    }
+
+    function setDiagramBackground(color) {
+      uiState.backgroundColor = color;
+      document.documentElement.style.setProperty('--bg-color', color);
+      document.getElementById('graph-container').style.backgroundColor = color;
+      container.style.backgroundColor = color;
+    }
+
+    async function exportFullDiagram() {
+      const exportButton = document.getElementById('exportGraph');
+      const view = { position: network.getViewPosition(), scale: network.getScale() };
+      exportButton.disabled = true;
+      exportButton.textContent = 'Preparing PNG…';
+      let exportNetwork;
+      let exportHost;
+      try {
+        const visibleNodes = visNodes.get().filter(node => !node.hidden);
+        const visibleNodeIds = new Set(visibleNodes.map(node => node.id));
+        const visibleEdges = visEdges.get().filter(edge => !edge.hidden && visibleNodeIds.has(edge.from) && visibleNodeIds.has(edge.to));
+        const bounds = visibleNodes.map(node => network.getBoundingBox(node.id)).reduce((total, box) => ({
+          left: Math.min(total.left, box.left),
+          right: Math.max(total.right, box.right),
+          top: Math.min(total.top, box.top),
+          bottom: Math.max(total.bottom, box.bottom)
+        }), { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
+        const graphWidth = bounds.right - bounds.left;
+        const graphHeight = bounds.bottom - bounds.top;
+        const padding = 96;
+        const maximumDimension = 4096;
+        const currentZoomAtDoubleResolution = view.scale * 2;
+        const scaleCap = Math.min(
+          (maximumDimension - padding * 2) / graphWidth,
+          (maximumDimension - padding * 2) / graphHeight
+        );
+        const exportScale = Math.min(currentZoomAtDoubleResolution, scaleCap);
+        const exportWidth = Math.ceil(graphWidth * exportScale + padding * 2);
+        const exportHeight = Math.ceil(graphHeight * exportScale + padding * 2);
+        const center = { x: (bounds.left + bounds.right) / 2, y: (bounds.top + bounds.bottom) / 2 };
+        const positions = network.getPositions(visibleNodes.map(node => node.id));
+
+        exportHost = document.createElement('div');
+        exportHost.style.cssText = 'position:fixed;left:-100000px;top:0;width:' + exportWidth + 'px;height:' + exportHeight + 'px;background:' + uiState.backgroundColor + ';';
+        document.body.appendChild(exportHost);
+        const exportNodes = new window.vis.DataSet(visibleNodes.map(({ group, ...node }) => ({
+          ...node,
+          x: positions[node.id].x,
+          y: positions[node.id].y,
+          fixed: { x: true, y: true }
+        })));
+        const exportEdges = new window.vis.DataSet(visibleEdges);
+        exportNetwork = new window.vis.Network(exportHost, { nodes: exportNodes, edges: exportEdges }, {
+          physics: false,
+          interaction: { hover: false, zoomView: false, dragView: false }
+        });
+        exportNetwork.moveTo({ position: center, scale: exportScale, animation: false });
+        await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+
+        const sourceCanvas = exportHost.querySelector('canvas');
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = sourceCanvas.width;
+        exportCanvas.height = sourceCanvas.height;
+        const context = exportCanvas.getContext('2d');
+        context.fillStyle = uiState.backgroundColor;
+        context.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        context.drawImage(sourceCanvas, 0, 0);
+        const imageBlob = await new Promise(resolve => exportCanvas.toBlob(resolve, 'image/png'));
+        const download = document.createElement('a');
+        const objectUrl = URL.createObjectURL(imageBlob);
+        download.href = objectUrl;
+        download.download = 'luxora-knowledge-graph-full.png';
+        download.style.display = 'none';
+        document.body.appendChild(download);
+        download.click();
+        download.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      } finally {
+        exportNetwork?.destroy();
+        exportHost?.remove();
+        exportButton.disabled = false;
+        exportButton.textContent = 'Download full diagram PNG';
+      }
+    }
+
+    function updateEdgeAppearance() {
+      visEdges.forEach(edge => {
+        const isSelectedEdge = uiState.selectedNodeId && (edge.from === uiState.selectedNodeId || edge.to === uiState.selectedNodeId);
+        const labelColor = uiState.edgeLabelMode === 'always'
+          ? '#e2e8f0'
+          : (uiState.edgeLabelMode === 'selected' && isSelectedEdge
+            ? '#e2e8f0'
+            : (uiState.edgeLabelMode === 'light' ? 'rgba(226, 232, 240, 0.38)' : 'rgba(148, 163, 184, 0)'));
+        const labelsOff = uiState.edgeLabelMode === 'none';
+        visEdges.update({
+        id: edge.id,
+        label: labelsOff ? '' : edge.baseLabel,
+        color: { color: 'rgba(148, 163, 184, ' + uiState.edgeOpacity + ')', highlight: '#38bdf8' },
+        font: { color: labelColor, size: 8, align: 'middle', strokeWidth: labelsOff ? 0 : 2, strokeColor: labelsOff ? 'rgba(0,0,0,0)' : '#0b0f19' }
+        });
+      });
     }
 
     function fitGraph() {
@@ -756,25 +1014,35 @@ function generateOutput() {
     function resetGraph() {
       uiState.group = 'all';
       uiState.term = '';
-      uiState.nodeScale = 1;
-      uiState.edgeOpacity = 0.35;
-      uiState.showEdgeLabels = false;
-      uiState.innerSpacing = 90;
-      uiState.outerPull = 0.005;
+      uiState.nodeScale = 1.1;
+      uiState.labelScale = 0.88;
+      uiState.selectedNodeId = null;
+      uiState.edgeOpacity = 0.37;
+      uiState.edgeLabelMode = 'light';
+      uiState.innerSpacing = 145;
+      uiState.outerPull = 0.015;
+      uiState.horizontalVibe = 0;
       uiState.physicsEnabled = true;
       uiState.livingMotion = true;
+      setDiagramBackground('#0b0f19');
       document.getElementById('searchInput').value = '';
-      document.getElementById('nodeScale').value = '100';
-      document.getElementById('edgeOpacity').value = '35';
-      document.getElementById('innerSpacing').value = '90';
-      document.getElementById('outerPull').value = '5';
-      document.getElementById('edgeLabelToggle').checked = false;
+      document.getElementById('nodeScale').value = '110';
+      document.getElementById('labelScale').value = '88';
+      document.getElementById('edgeOpacity').value = '37';
+      document.getElementById('innerSpacing').value = '145';
+      document.getElementById('outerPull').value = '15';
+      document.getElementById('horizontalVibe').value = '0';
+      document.getElementById('horizontalVibeValue').textContent = '0%';
+      document.getElementById('edgeLabelMode').value = 'light';
       document.getElementById('physicsToggle').checked = true;
       document.getElementById('livingMotionToggle').checked = true;
+      document.getElementById('backgroundColor').value = '#0b0f19';
       document.querySelectorAll('.filter-btn').forEach(button => button.classList.toggle('active', button.dataset.group === 'all'));
       visNodes.forEach(node => visNodes.update({ id: node.id, fixed: false, x: null, y: null }));
       updateGraphVisibility();
       updateNodeScale();
+      updateLabelScale();
+      updateLabelVisibility();
       updateEdgeAppearance();
       reheatLayout();
       network.once('stabilizationIterationsDone', fitGraph);
@@ -786,6 +1054,9 @@ function generateOutput() {
         const nodeId = params.nodes[0];
         const node = graphData.nodes.find(n => n.id === nodeId);
         if (!node) return;
+        uiState.selectedNodeId = nodeId;
+        updateLabelVisibility();
+        updateEdgeAppearance();
 
         const inbound = graphData.edges.filter(e => e.to === nodeId);
         const outbound = graphData.edges.filter(e => e.from === nodeId);
@@ -795,6 +1066,7 @@ function generateOutput() {
           <div style="margin-bottom: 12px;">
             <span class="stat-badge" style="background: \${colorMap[node.group] || '#64748b'}; color: #000;">\${node.type}</span>
             <span class="stat-badge" style="background: #1e293b; color: #94a3b8;">\${node.group}</span>
+            <span class="stat-badge" style="background: #0f172a; color: #cbd5e1;">\${degreeById.get(node.id) || 0} connections</span>
           </div>
           
           <div style="margin-bottom: 14px;">
@@ -836,6 +1108,10 @@ function generateOutput() {
         \`;
 
         document.getElementById('details-panel').innerHTML = html;
+      } else if (uiState.selectedNodeId) {
+        uiState.selectedNodeId = null;
+        updateLabelVisibility();
+        updateEdgeAppearance();
       }
     });
 
@@ -867,14 +1143,20 @@ function generateOutput() {
       else stopOuterOrbit();
     });
 
-    document.getElementById('edgeLabelToggle').addEventListener('change', (event) => {
-      uiState.showEdgeLabels = event.target.checked;
+    document.getElementById('edgeLabelMode').addEventListener('change', (event) => {
+      uiState.edgeLabelMode = event.target.value;
+      updateLabelVisibility();
       updateEdgeAppearance();
     });
 
     document.getElementById('nodeScale').addEventListener('input', (event) => {
       uiState.nodeScale = Number(event.target.value) / 100;
       updateNodeScale();
+    });
+
+    document.getElementById('labelScale').addEventListener('input', (event) => {
+      uiState.labelScale = Number(event.target.value) / 100;
+      updateLabelScale();
     });
 
     document.getElementById('edgeOpacity').addEventListener('input', (event) => {
@@ -892,10 +1174,23 @@ function generateOutput() {
       updateLayoutSpacing();
     });
 
+    document.getElementById('horizontalVibe').addEventListener('input', (event) => {
+      uiState.horizontalVibe = Number(event.target.value);
+      document.getElementById('horizontalVibeValue').textContent = uiState.horizontalVibe + '%';
+      animateHorizontalVibe();
+    });
+
+    document.getElementById('backgroundColor').addEventListener('input', (event) => {
+      setDiagramBackground(event.target.value);
+    });
+
     document.getElementById('fitGraph').addEventListener('click', fitGraph);
     document.getElementById('resetGraph').addEventListener('click', resetGraph);
+    document.getElementById('exportGraph').addEventListener('click', exportFullDiagram);
     updateGraphVisibility();
     updateEdgeAppearance();
+    updateLabelVisibility();
+    setDiagramBackground(uiState.backgroundColor);
     reheatLayout();
   </script>
 </body>
