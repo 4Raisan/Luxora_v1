@@ -15,7 +15,25 @@ router.use(async (req, res, next) => {
 router.get('/availability', async (req, res) => {
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id }, select: { availabilityStatus: true, serviceTowns: true, category: true } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
-  res.json({ availability_status: provider.availabilityStatus, service_towns: provider.serviceTowns, category: provider.category });
+  const categories = provider.category.split(',').map((category) => category.trim()).filter(Boolean);
+  res.json({ availability_status: provider.availabilityStatus, service_towns: provider.serviceTowns, category: categories[0] || '', categories });
+});
+
+router.put('/service-categories', async (req, res) => {
+  if (!Array.isArray(req.body.categories)) return res.status(400).json({ error: 'categories must be an array' });
+  const requested = req.body.categories.map((category) => typeof category === 'string' ? category.trim().replace(/\s+/g, ' ') : '').filter(Boolean);
+  const uniqueRequested = [...new Map(requested.map((category) => [category.toLocaleLowerCase(), category])).values()];
+  if (uniqueRequested.length === 0 || uniqueRequested.length > 3) return res.status(400).json({ error: 'Select between one and three service categories' });
+
+  const knownCategories = await prisma.category.findMany({ where: { name: { in: uniqueRequested } }, select: { name: true } });
+  if (knownCategories.length !== uniqueRequested.length) return res.status(400).json({ error: 'One or more service categories are invalid' });
+
+  const canonicalByName = new Map(knownCategories.map((category) => [category.name.toLocaleLowerCase(), category.name]));
+  const categories = uniqueRequested.map((category) => canonicalByName.get(category.toLocaleLowerCase()));
+  const provider = await prisma.provider.findUnique({ where: { userId: req.user.id }, select: { id: true } });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  await prisma.provider.update({ where: { id: provider.id }, data: { category: categories.join(', ') } });
+  res.json({ category: categories[0], categories });
 });
 
 router.put('/service-towns', async (req, res) => {

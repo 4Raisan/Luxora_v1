@@ -9,7 +9,7 @@ import { sendEmail } from '../services/integrations.js';
 import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
-import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, servesTown } from '../services/scheduling.js';
+import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -44,11 +44,11 @@ function cooldownEndsAt(booking, cooldownHours) {
 // A provider's latest same-day auto assignment governs their cooldown.
 async function pickProvider(client, categoryName, town, addressDistrict, bookingDate, bookingTime, service, settings) {
   const candidates = await client.provider.findMany({
-    where: { category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' },
-    select: { id: true, userId: true, serviceTowns: true },
+    where: { kycStatus: 'APPROVED', availabilityStatus: 'available' },
+    select: { id: true, userId: true, category: true, serviceTowns: true },
   });
   const scheduledStart = bookingStart(bookingDate, bookingTime);
-  const townCandidates = candidates.filter((provider) => servesTown(provider, town, addressDistrict));
+  const townCandidates = candidates.filter((provider) => providerOffersCategory(provider, categoryName) && servesTown(provider, town, addressDistrict));
   if (townCandidates.length === 0) return null;
 
   const priorAutoAssignments = await client.booking.findMany({
@@ -75,7 +75,7 @@ async function pickProvider(client, categoryName, town, addressDistrict, booking
   const requested = { bookingDate, bookingTime, town, addressDistrict, serviceId: service.id, service };
   const conflictFree = [];
   for (const provider of eligible) {
-    const fullProvider = { ...provider, category: categoryName, kycStatus: 'APPROVED', availabilityStatus: 'available' };
+    const fullProvider = { ...provider, kycStatus: 'APPROVED', availabilityStatus: 'available' };
     if ((await providerCanTakeBooking(client, fullProvider, requested)).ok) conflictFree.push(provider);
   }
   if (conflictFree.length === 0) return null;
