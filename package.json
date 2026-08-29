@@ -27,7 +27,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "concurrently": "^9.2.4",
     "oxlint": "^1.75.0",
-    "vis-network": "10.1.2",
+    "vis-network": "9.1.9",
     "vite": "^8.2.0"
   }
 }
