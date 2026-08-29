@@ -94,8 +94,8 @@
       <div class="settings-content">
         <div class="settings-section">
           <div class="settings-label">Display</div>
-          <label class="settings-row"><span>Enable physics</span><input id="physicsToggle" type="checkbox" checked></label>
-          <label class="settings-row"><span>Orbital drift</span><input id="livingMotionToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Animate physics</span><input id="physicsToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Outer reverse orbit</span><input id="livingMotionToggle" type="checkbox" checked></label>
           <label class="settings-row"><span>Show edge labels</span><input id="edgeLabelToggle" type="checkbox"></label>
         </div>
         <div class="settings-section">
@@ -183,8 +183,8 @@
           springLength: 90,
           springConstant: 0.15
         },
-        maxVelocity: 25,
-        stabilization: { iterations: 220 }
+        maxVelocity: 50,
+        stabilization: { iterations: 150 }
       },
       interaction: { hover: true, tooltipDelay: 100, zoomView: true }
     };
@@ -214,36 +214,35 @@
       physicsEnabled: true,
       livingMotion: true
     };
-    let orbitFrame;
-    let orbitLayout;
-    let orbitStartedAt = 0;
+    let outerOrbitFrame;
+    let outerOrbitLayout;
+    let outerOrbitStartedAt = 0;
 
-    function stopOrbit() {
-      if (orbitFrame) window.cancelAnimationFrame(orbitFrame);
-      orbitFrame = undefined;
+    function stopOuterOrbit() {
+      if (outerOrbitFrame) window.cancelAnimationFrame(outerOrbitFrame);
+      outerOrbitFrame = undefined;
     }
 
-    function startOrbit() {
-      stopOrbit();
-      if (!uiState.livingMotion || !orbitLayout) return;
-      orbitStartedAt = performance.now();
-      const renderOrbit = (now) => {
-        if (!uiState.livingMotion || !orbitLayout) return;
-        const elapsed = now - orbitStartedAt;
-        const outerAngle = elapsed * 0.000014;
-        const innerAngle = elapsed * -0.000006;
-        for (const node of orbitLayout.nodes) {
-          const angle = node.angle + (node.outer ? outerAngle : innerAngle);
+    function startOuterOrbit() {
+      stopOuterOrbit();
+      if (!uiState.livingMotion || !outerOrbitLayout) return;
+      outerOrbitStartedAt = performance.now();
+      const renderOuterOrbit = (now) => {
+        if (!uiState.livingMotion || !outerOrbitLayout) return;
+        const elapsed = now - outerOrbitStartedAt;
+        const outerAngle = elapsed * -0.000008;
+        for (const node of outerOrbitLayout.nodes) {
+          const angle = node.angle + outerAngle;
           network.moveNode(node.id,
-            orbitLayout.center.x + node.radius * Math.cos(angle),
-            orbitLayout.center.y + node.radius * Math.sin(angle));
+            outerOrbitLayout.center.x + node.radius * Math.cos(angle),
+            outerOrbitLayout.center.y + node.radius * Math.sin(angle));
         }
-        orbitFrame = window.requestAnimationFrame(renderOrbit);
+        outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
       };
-      orbitFrame = window.requestAnimationFrame(renderOrbit);
+      outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
     }
 
-    function captureOrbitLayout() {
+    function captureOuterOrbitLayout() {
       const positions = network.getPositions();
       const entries = Object.entries(positions);
       const center = entries.reduce((sum, [, position]) => ({ x: sum.x + position.x, y: sum.y + position.y }), { x: 0, y: 0 });
@@ -256,12 +255,13 @@
       });
       const radii = nodes.map(node => node.radius).sort((a, b) => a - b);
       const outerThreshold = radii[Math.floor(radii.length * 0.72)];
-      orbitLayout = { center, nodes: nodes.map(node => ({ ...node, outer: node.radius >= outerThreshold })) };
-      startOrbit();
+      outerOrbitLayout = { center, nodes: nodes.filter(node => node.radius >= outerThreshold) };
+      network.stopSimulation();
+      startOuterOrbit();
     }
 
     function reheatLayout() {
-      stopOrbit();
+      stopOuterOrbit();
       network.setOptions({
         physics: {
           enabled: true,
@@ -269,8 +269,7 @@
         }
       });
       network.once('stabilizationIterationsDone', () => {
-        network.stopSimulation();
-        captureOrbitLayout();
+        captureOuterOrbitLayout();
       });
       network.startSimulation();
     }
@@ -423,8 +422,8 @@
 
     document.getElementById('livingMotionToggle').addEventListener('change', (event) => {
       uiState.livingMotion = event.target.checked;
-      if (event.target.checked) startOrbit();
-      else stopOrbit();
+      if (event.target.checked) startOuterOrbit();
+      else stopOuterOrbit();
     });
 
     document.getElementById('edgeLabelToggle').addEventListener('change', (event) => {
