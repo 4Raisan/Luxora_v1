@@ -2,14 +2,14 @@
   "name": "Luxora Living Codebase Knowledge Graph",
   "version": "1.0.0",
   "stats": {
-    "totalNodes": 178,
-    "totalEdges": 380,
+    "totalNodes": 179,
+    "totalEdges": 383,
     "nodesByGroup": {
       "database": 33,
       "middleware": 3,
       "service": 8,
       "routes": 16,
-      "api": 90,
+      "api": 91,
       "frontend": 28
     }
   },
@@ -2930,6 +2930,21 @@
       "metadata": {
         "method": "GET",
         "path": "/api/provider/availability",
+        "routeFile": "provider.js"
+      },
+      "source": {
+        "path": "backend/src/routes/provider.js"
+      }
+    },
+    {
+      "id": "endpoint:PUT_/api/provider/service-categories",
+      "label": "PUT /api/provider/service-categories",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/provider.js",
+      "metadata": {
+        "method": "PUT",
+        "path": "/api/provider/service-categories",
         "routeFile": "provider.js"
       },
       "source": {
@@ -6657,6 +6672,20 @@
       }
     },
     {
+      "id": "routefile:provider->model:Category:QUERIES_DB",
+      "from": "routefile:provider",
+      "to": "model:Category",
+      "type": "QUERIES_DB",
+      "label": "prisma.category",
+      "source": "routefile:provider",
+      "target": "model:Category",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:provider->model:Booking:QUERIES_DB",
       "from": "routefile:provider",
       "to": "model:Booking",
@@ -6706,6 +6735,20 @@
       "label": "GET",
       "source": "routefile:provider",
       "target": "endpoint:GET_/api/provider/availability",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:provider->endpoint:PUT_/api/provider/service-categories:EXPOSES_ENDPOINT",
+      "from": "routefile:provider",
+      "to": "endpoint:PUT_/api/provider/service-categories",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "PUT",
+      "source": "routefile:provider",
+      "target": "endpoint:PUT_/api/provider/service-categories",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/provider.js",
@@ -8673,6 +8716,20 @@
       }
     },
     {
+      "id": "frontend:ProviderDashboard->endpoint:PUT_/api/provider/service-categories:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:PUT_/api/provider/service-categories",
+      "type": "FETCHES_API",
+      "label": "PUT",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:PUT_/api/provider/service-categories",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:ProviderDashboard->endpoint:PUT_/api/provider/service-towns:FETCHES_API",
       "from": "frontend:ProviderDashboard",
       "to": "endpoint:PUT_/api/provider/service-towns",
@@ -9009,5 +9066,5 @@
       }
     }
   ],
-  "generatedAt": "2026-08-29T06:20:57.838Z"
+  "generatedAt": "2026-08-29T09:35:07.330Z"
 }
