@@ -535,7 +535,8 @@ function generateOutput() {
       <div class="settings-content">
         <div class="settings-section">
           <div class="settings-label">Display</div>
-          <label class="settings-row"><span>Animate physics</span><input id="physicsToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Enable physics</span><input id="physicsToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Living motion</span><input id="livingMotionToggle" type="checkbox" checked></label>
           <label class="settings-row"><span>Show edge labels</span><input id="edgeLabelToggle" type="checkbox"></label>
         </div>
         <div class="settings-section">
@@ -623,8 +624,9 @@ function generateOutput() {
           springLength: 90,
           springConstant: 0.15
         },
-        maxVelocity: 50,
-        stabilization: { iterations: 150 }
+        maxVelocity: 8,
+        minVelocity: 0.01,
+        stabilization: { enabled: false }
       },
       interaction: { hover: true, tooltipDelay: 100, zoomView: true }
     };
@@ -650,8 +652,32 @@ function generateOutput() {
       edgeOpacity: 0.35,
       showEdgeLabels: false,
       innerSpacing: 90,
-      outerPull: 0.005
+      outerPull: 0.005,
+      physicsEnabled: true,
+      livingMotion: true
     };
+    let livingMotionTimer;
+
+    function applyLivingPhysics() {
+      const phase = Date.now() / 8500 * Math.PI * 2;
+      const drift = uiState.livingMotion ? Math.sin(phase) : 0;
+      network.setOptions({
+        physics: {
+          forceAtlas2Based: {
+            springLength: uiState.innerSpacing + drift * 4,
+            centralGravity: Math.max(0.001, uiState.outerPull + drift * 0.0015)
+          }
+        }
+      });
+      if (uiState.physicsEnabled) network.startSimulation();
+    }
+
+    function setLivingMotion(enabled) {
+      window.clearInterval(livingMotionTimer);
+      if (!enabled) return;
+      applyLivingPhysics();
+      livingMotionTimer = window.setInterval(applyLivingPhysics, 900);
+    }
 
     function matchingNodeIds() {
       return new Set(graphData.nodes.filter(node => {
@@ -688,15 +714,7 @@ function generateOutput() {
     }
 
     function updateLayoutSpacing() {
-      network.setOptions({
-        physics: {
-          forceAtlas2Based: {
-            springLength: uiState.innerSpacing,
-            centralGravity: uiState.outerPull
-          }
-        }
-      });
-      network.startSimulation();
+      applyLivingPhysics();
     }
 
     function resetGraph() {
@@ -707,6 +725,8 @@ function generateOutput() {
       uiState.showEdgeLabels = false;
       uiState.innerSpacing = 90;
       uiState.outerPull = 0.005;
+      uiState.physicsEnabled = true;
+      uiState.livingMotion = true;
       document.getElementById('searchInput').value = '';
       document.getElementById('nodeScale').value = '100';
       document.getElementById('edgeOpacity').value = '35';
@@ -714,6 +734,7 @@ function generateOutput() {
       document.getElementById('outerPull').value = '5';
       document.getElementById('edgeLabelToggle').checked = false;
       document.getElementById('physicsToggle').checked = true;
+      document.getElementById('livingMotionToggle').checked = true;
       document.querySelectorAll('.filter-btn').forEach(button => button.classList.toggle('active', button.dataset.group === 'all'));
       visNodes.forEach(node => visNodes.update({ id: node.id, fixed: false, x: null, y: null }));
       updateGraphVisibility();
@@ -721,6 +742,7 @@ function generateOutput() {
       updateEdgeAppearance();
       updateLayoutSpacing();
       network.setOptions({ physics: { enabled: true } });
+      setLivingMotion(true);
       fitGraph();
     }
 
@@ -800,8 +822,14 @@ function generateOutput() {
     });
 
     document.getElementById('physicsToggle').addEventListener('change', (event) => {
+      uiState.physicsEnabled = event.target.checked;
       network.setOptions({ physics: { enabled: event.target.checked } });
       if (event.target.checked) network.startSimulation();
+    });
+
+    document.getElementById('livingMotionToggle').addEventListener('change', (event) => {
+      uiState.livingMotion = event.target.checked;
+      setLivingMotion(event.target.checked);
     });
 
     document.getElementById('edgeLabelToggle').addEventListener('change', (event) => {
@@ -833,6 +861,7 @@ function generateOutput() {
     document.getElementById('resetGraph').addEventListener('click', resetGraph);
     updateGraphVisibility();
     updateEdgeAppearance();
+    setLivingMotion(true);
   </script>
 </body>
 </html>`;
