@@ -21,6 +21,15 @@ export function servesTown(provider, town, addressDistrict = null) {
   });
 }
 
+// Providers created before multi-category support have a single category value.
+// New selections are stored as a comma-separated list, so both forms remain
+// assignable without rewriting existing provider records.
+export function providerOffersCategory(provider, categoryName) {
+  const wanted = String(categoryName || '').trim().toLocaleLowerCase();
+  if (!wanted) return false;
+  return String(provider?.category || '').split(',').some((category) => category.trim().toLocaleLowerCase() === wanted);
+}
+
 export async function getPlatformSettings(client) {
   return client.platformSetting.upsert({ where: { id: 1 }, create: { id: 1 }, update: {} });
 }
@@ -52,7 +61,7 @@ export async function providerCanTakeBooking(client, provider, booking, { ignore
     return { ok: false, error: 'Provider must be KYC approved and available' };
   }
   const service = booking.service || await client.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } });
-  if (!service || service.category?.name !== provider.category) return { ok: false, error: 'Provider does not offer this service category' };
+  if (!service || !providerOffersCategory(provider, service.category?.name)) return { ok: false, error: 'Provider does not offer this service category' };
   if (!servesTown(provider, booking.town, booking.addressDistrict)) return { ok: false, error: 'Provider does not serve this booking town' };
   const requestedStart = bookingStart(booking.bookingDate, booking.bookingTime);
   const requestedEnd = bookingEndsAt({ ...booking, service });
