@@ -82,9 +82,9 @@ after(async () => {
 });
 
 const demoPasswordFor = (email) => {
-  if (email === 'customer@luxora.lk') return process.env.CUSTOMER_PASSWORD || 'customer123';
-  if (email === 'provider@luxora.lk') return process.env.PROVIDER_PASSWORD || 'provider123';
-  if (email === 'admin@luxora.lk') return process.env.ADMIN_PASSWORD || 'admin123';
+  if (email === 'customer@luxora.lk') return process.env.CUSTOMER_PASSWORD || 'luxora123';
+  if (email === 'provider@luxora.lk') return process.env.PROVIDER_PASSWORD || 'luxora123';
+  if (email === 'admin@luxora.lk') return process.env.ADMIN_PASSWORD || 'luxora123';
   return 'luxora123';
 };
 async function login(email, password = demoPasswordFor(email)) {
