@@ -61,6 +61,8 @@ const SESSION_PAYOUTS = [
   { category: 'Pet Care', amount: 3300 },
 ]
 
+const SERVICE_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care']
+
 /* Sri Lankan service areas: 9 provinces and their major towns */
 const SRI_LANKA_AREAS = {
   'Western': ['Colombo', 'Nugegoda', 'Dehiwala', 'Moratuwa', 'Negombo', 'Gampaha', 'Kadawatha', 'Kelaniya', 'Horana', 'Panadura', 'Kalutara'],
@@ -95,6 +97,7 @@ const ProviderDashboard = () => {
   /* Availability / earnings / notifications */
   const [availability, setAvailability] = useState('available')
   const [providerCategory, setProviderCategory] = useState('')
+  const [providerCategories, setProviderCategories] = useState([])
   const [serviceTowns, setServiceTowns] = useState('')
   const [earnings, setEarnings] = useState(null)
   const [notificationsList, setNotificationsList] = useState([])
@@ -112,7 +115,7 @@ const ProviderDashboard = () => {
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
   /* Settings form */
-  const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', services: [], towns: [], provinces: [] })
+  const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', categories: [], towns: [], provinces: [] })
   const [townSearch, setTownSearch] = useState('')
   const [areaMode, setAreaMode] = useState('towns')
   const switchToProvinceMode = () => {
@@ -160,7 +163,11 @@ const ProviderDashboard = () => {
         apiRequest('/provider/earnings', 'GET', null, token),
       ])
       setAvailability(avail.availability_status)
-      setProviderCategory(avail.category || '')
+      const categories = Array.isArray(avail.categories)
+        ? avail.categories
+        : String(avail.category || '').split(',').map((category) => category.trim()).filter(Boolean)
+      setProviderCategories(categories)
+      setProviderCategory(categories[0] || '')
       setServiceTowns(avail.service_towns || '')
       setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
       setEarnings(earningsRow)
@@ -267,6 +274,12 @@ const ProviderDashboard = () => {
       : { ...prev, towns: [...prev.towns, town], provinces: [] })
   }
 
+  const toggleSettingsCategory = (category) => {
+    setSettingsForm((prev) => prev.categories.includes(category)
+      ? { ...prev, categories: prev.categories.filter((selectedCategory) => selectedCategory !== category) }
+      : { ...prev, categories: [...prev.categories, category] })
+  }
+
   const toggleSettingsProvince = (prov) => {
     setSettingsForm((prev) => prev.provinces.includes(prov)
       ? { ...prev, provinces: prev.provinces.filter((p) => p !== prov) }
@@ -281,6 +294,7 @@ const ProviderDashboard = () => {
     setSettingsForm({
       name: currentProvider.name || providerFullName,
       phone: currentProvider.phone || currentProvider.mobile || '',
+      categories: providerCategories,
       towns: tokens.filter((t) => !t.toLowerCase().startsWith('province:')),
       provinces,
     })
@@ -291,6 +305,9 @@ const ProviderDashboard = () => {
     e.preventDefault()
     if (!settingsForm.towns.length && !settingsForm.provinces.length) {
       return alert('Select your service area: individual towns or whole provinces.')
+    }
+    if (!settingsForm.categories.length) {
+      return alert('Select at least one service category.')
     }
     if (settingsForm.towns.length > 10) {
       return alert('A provider may serve at most 10 towns. To cover a wider area, switch to province selection.')
@@ -311,6 +328,9 @@ const ProviderDashboard = () => {
         setCurrentProvider(updated)
         sessionStorage.setItem('user', JSON.stringify(updated))
       }
+      const savedCategories = await apiRequest('/provider/service-categories', 'PUT', { categories: settingsForm.categories }, token)
+      setProviderCategories(savedCategories.categories || settingsForm.categories)
+      setProviderCategory(savedCategories.category || settingsForm.categories[0])
       const area = settingsForm.towns.length
         ? settingsForm.towns.join(', ')
         : settingsForm.provinces.map((p) => `province:${p}`).join(', ')
@@ -775,7 +795,7 @@ const ProviderDashboard = () => {
                   <div className="pd-section-header" style={{ marginBottom: '0.75rem' }}>
                     <h2 className="pd-section-title" style={{ fontSize: '1rem' }}>Service Profile</h2>
                   </div>
-                  <div className="pd-kv"><span className="pd-kv__key">CATEGORY</span><span className="pd-kv__val">{providerCategory || '—'}</span></div>
+                  <div className="pd-kv"><span className="pd-kv__key">CATEGORIES</span><span className="pd-kv__val">{providerCategories.join(', ') || '—'}</span></div>
                   <div className="pd-kv"><span className="pd-kv__key">TOWNS SERVED</span><span className="pd-kv__val">{serviceTowns || '—'}</span></div>
                   <div className="pd-kv"><span className="pd-kv__key">COMPLETED JOBS</span><span className="pd-kv__val pd-kv__val--gold">{earnings?.completedJobs ?? '—'}</span></div>
                 </div>
@@ -788,14 +808,14 @@ const ProviderDashboard = () => {
                   {SESSION_PAYOUTS.map((p) => (
                     <div className="pd-kv" key={p.category}>
                       <span className="pd-kv__key">
-                        {p.category.toUpperCase()}{p.category === providerCategory ? ' ★' : ''}
+                        {p.category.toUpperCase()}{providerCategories.includes(p.category) ? ' ★' : ''}
                       </span>
-                      <span className={`pd-kv__val${p.category === providerCategory ? ' pd-kv__val--gold' : ''}`}>
+                      <span className={`pd-kv__val${providerCategories.includes(p.category) ? ' pd-kv__val--gold' : ''}`}>
                         Rs. {p.amount.toLocaleString('en-US')}
                       </span>
                     </div>
                   ))}
-                  <p className="pd-avail__hint">Provider pay per completed service session. ★ marks your category.</p>
+                  <p className="pd-avail__hint">Provider pay per completed service session. ★ marks each active category.</p>
                 </div>
               </div>
             </>
@@ -984,13 +1004,13 @@ const ProviderDashboard = () => {
 
               <div className="pd-profile-field">
                 <label>MOBILE NUMBER</label>
-                <p>{formatMobileNumber(savedProviderPhone() ?? (currentProvider.phone || currentProvider.mobile))}</p>
+                <p>{formatMobileNumber(currentProvider.phone || currentProvider.mobile)}</p>
               </div>
 
               <div className="pd-profile-field">
                 <label>SERVICES OFFERED</label>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
-                  {(savedProviderServices() || (providerCategory ? [providerCategory] : [])).map((srv) => (
+                  {(providerCategories.length ? providerCategories : (providerCategory ? [providerCategory] : [])).map((srv) => (
                     <span key={srv} className="pd-service-chip">✓ {srv}</span>
                   ))}
                 </div>
@@ -1016,9 +1036,9 @@ const ProviderDashboard = () => {
               </div>
 
               <div className="pd-profile-field">
-                <label>SERVICE CATEGORY</label>
+                <label>SERVICE CATEGORIES</label>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
-                  <span className="pd-service-chip">{providerCategory || '—'}</span>
+                  {(providerCategories.length ? providerCategories : (providerCategory ? [providerCategory] : ['—'])).map((category) => <span key={category} className="pd-service-chip">{category}</span>)}
                 </div>
               </div>
 
@@ -1138,24 +1158,31 @@ const ProviderDashboard = () => {
 
               </div>
 
-              {/* Service category — fixed at registration on the server */}
+              {/* Service categories — providers choose the work they offer. */}
               <div className="pd-edit-field">
-                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>SERVICE CATEGORY</label>
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>SERVICE CATEGORIES *</label>
                 <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{
-                    background: 'rgba(201, 168, 76, 0.2)',
-                    border: '1px solid var(--gold, #c9a84c)',
-                    color: 'var(--gold, #c9a84c)',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '20px',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                  }}>
-                    ✓ {providerCategory || 'Not assigned'}
-                  </span>
+                  {SERVICE_CATEGORIES.map((category) => {
+                    const selected = settingsForm.categories.includes(category)
+                    return <button
+                      key={category}
+                      type="button"
+                      onClick={() => toggleSettingsCategory(category)}
+                      aria-pressed={selected}
+                      style={{
+                        background: selected ? 'rgba(201, 168, 76, 0.2)' : 'transparent',
+                        border: `1px solid ${selected ? 'var(--gold, #c9a84c)' : '#444'}`,
+                        color: selected ? 'var(--gold, #c9a84c)' : '#aaa',
+                        padding: '0.5rem 1rem', borderRadius: '20px', cursor: 'pointer',
+                        fontSize: '0.82rem', fontWeight: 700,
+                      }}
+                    >
+                      {selected ? '✓ ' : ''}{category}
+                    </button>
+                  })}
                 </div>
                 <small style={{ color: '#888', fontSize: '0.68rem', display: 'block', marginTop: '0.3rem' }}>
-                  Your category is set at registration. Contact Luxora support to change it.
+                  Activate every category you are qualified to serve. You will only receive bookings for active categories.
                 </small>
               </div>
 
