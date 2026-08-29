@@ -261,6 +261,12 @@ const ProviderDashboard = () => {
 
   /* ── Settings: name, mobile number, and service area. */
 
+  const toggleSettingsTown = (town) => {
+    setSettingsForm((prev) => prev.towns.includes(town)
+      ? { ...prev, towns: prev.towns.filter((selectedTown) => selectedTown !== town) }
+      : { ...prev, towns: [...prev.towns, town], provinces: [] })
+  }
+
   const toggleSettingsProvince = (prov) => {
     setSettingsForm((prev) => prev.provinces.includes(prov)
       ? { ...prev, provinces: prev.provinces.filter((p) => p !== prov) }
