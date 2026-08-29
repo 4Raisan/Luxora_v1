@@ -48,7 +48,7 @@ npm run graph
 
 ## Live Knowledge Graph
 
-The source-derived Knowledge Graph maps Luxora frontend pages/components, API routes, middleware, services, Prisma models/enums, and their evidenced relationships. Its explorer is published at [https://4raisan.github.io/Luxora_v1/](https://4raisan.github.io/Luxora_v1/) after GitHub Pages has been enabled for this repository.
+The source-derived Knowledge Graph maps Luxora frontend pages/components, API routes, middleware, services, Prisma models/enums, and their evidenced relationships. Once GitHub Pages is enabled and the deployment succeeds, its project-site URL will be `https://4raisan.github.io/Luxora_v1/`.
 
 Every push to `main` and a manual **Knowledge Graph Pages** workflow dispatch regenerate, validate, and deploy only `Knowladge-Graph/` as a GitHub Pages artifact. It does not deploy the Luxora application. The graph generator is deterministic and the workflow reruns it to verify identical JSON and explorer output.
 
