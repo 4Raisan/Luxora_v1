@@ -63,7 +63,7 @@ Purchasing, booking, assignment, status changes, payment events, and other custo
 The confirmed rules are implemented in the current contract surface:
 
 - Admin owns scheduling and plan management without an additional administrator tier.
-- PayHere and demo payment are the only supported payment flows.
+- Demo, PayHere, and NOWPayments are the supported payment flows.
 - Provider earnings are fixed per configured service and captured on the booking when it is created.
 - Providers select a bank account, monthly payout records are queued idempotently on the 31st when `PAYOUT_SCHEDULER_ENABLED=true`, and Admin can review/settle the payout ledger.
 - **KG navigation:** use `AGENT_NAVIGATION_MAP.md` for request paths and trace every feature through route, service, schema, and UI before editing.

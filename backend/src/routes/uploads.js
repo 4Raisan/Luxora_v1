@@ -1,16 +1,13 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { toPositiveInt } from '../middleware/validators.js';
+import { getObject, putObject, removeObject } from '../services/storage.js';
 
 const router = Router();
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../private-uploads');
-fs.mkdirSync(root, { recursive: true });
 
 // Content-based file validation: the client-declared MIME type and the original
 // filename extension are both attacker-controlled, so every upload is identified
@@ -33,24 +30,27 @@ const ALLOWED_KYC_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 3 } });
 const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 5 } });
 
-// Buffers are held in memory only until validation; accepted files are written to
-// private-uploads (outside any web root) under a random name, so nothing a client
-// sends ever influences a filesystem path and uploads are never executed.
-function persistValidatedFile(file, allowedTypes) {
+// Buffers are held in memory only until validation; accepted files are stored
+// under a random key in configured object storage (or the development-only local
+// fallback), so client input never influences a path and uploads are never executed.
+async function persistValidatedFile(file, allowedTypes) {
   const signature = detectFileSignature(file.buffer);
   if (!signature || !allowedTypes.has(signature.type) || signature.type !== file.mimetype) return null;
   const filename = `${crypto.randomUUID()}${signature.ext}`;
-  fs.writeFileSync(path.resolve(root, filename), file.buffer);
+  await putObject(filename, file.buffer, signature.type);
   return { filename, mimeType: signature.type, sizeBytes: file.buffer.length };
 }
 
-function removeFiles(files = []) { for (const persisted of files) fs.unlink(path.resolve(root, persisted), () => {}); }
-function fileResponse(res, record) {
+async function removeFiles(files = []) { await Promise.all(files.map((persisted) => removeObject(persisted).catch(() => {}))); }
+async function fileResponse(res, record) {
+  const buffer = await getObject(record.filePath);
+  if (!buffer) return res.status(404).json({ error: 'Stored file is unavailable' });
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Type', record.mimeType);
   res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
   res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(path.basename(record.originalName || 'file'))}"`);
-  return res.sendFile(path.resolve(root, record.filePath));
+  res.setHeader('Content-Length', String(buffer.length));
+  return res.send(buffer);
 }
 
 router.post('/provider/kyc-documents', authenticateToken, requireRole('PROVIDER'), upload.array('documents', 3), async (req, res) => {
@@ -63,14 +63,20 @@ router.post('/provider/kyc-documents', authenticateToken, requireRole('PROVIDER'
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   const persisted = [];
   for (const file of files) {
-    const stored = persistValidatedFile(file, ALLOWED_KYC_TYPES);
+    const stored = await persistValidatedFile(file, ALLOWED_KYC_TYPES);
     if (!stored) {
-      removeFiles(persisted);
+      await removeFiles(persisted.map((item) => item.filename));
       return res.status(415).json({ error: 'Files must be genuine JPEG, PNG, or PDF content matching the declared type' });
     }
     persisted.push(stored);
   }
-  const documents = await prisma.kycDocument.createManyAndReturn({ data: persisted.map((stored, index) => ({ providerId: provider.id, documentType, filePath: stored.filename, originalName: path.basename(String(files[index].originalname || 'document')), mimeType: stored.mimeType, sizeBytes: stored.sizeBytes })) });
+  let documents;
+  try {
+    documents = await prisma.kycDocument.createManyAndReturn({ data: persisted.map((stored, index) => ({ providerId: provider.id, documentType, filePath: stored.filename, originalName: path.basename(String(files[index].originalname || 'document')), mimeType: stored.mimeType, sizeBytes: stored.sizeBytes })) });
+  } catch (error) {
+    await removeFiles(persisted.map((item) => item.filename));
+    throw error;
+  }
   res.status(201).json({ documents: documents.map((d) => ({ id: d.id, document_type: d.documentType, original_name: d.originalName, mime_type: d.mimeType, size_bytes: d.sizeBytes, created_at: d.createdAt })) });
 });
 
@@ -85,14 +91,20 @@ router.post('/bookings/:id/photos', authenticateToken, requireRole('PROVIDER'), 
   if ((kind === 'BEFORE' && booking.status !== 'ASSIGNED') || (kind === 'AFTER' && booking.status !== 'IN_PROGRESS')) { return res.status(400).json({ error: `${kind} photos can only be uploaded at the appropriate service stage` }); }
   const persisted = [];
   for (const file of files) {
-    const stored = persistValidatedFile(file, new Set(['image/jpeg', 'image/png']));
+    const stored = await persistValidatedFile(file, new Set(['image/jpeg', 'image/png']));
     if (!stored) {
-      removeFiles(persisted);
+      await removeFiles(persisted.map((item) => item.filename));
       return res.status(415).json({ error: 'Photos must be genuine JPEG or PNG content matching the declared type' });
     }
     persisted.push(stored);
   }
-  const photos = await prisma.servicePhoto.createManyAndReturn({ data: persisted.map((stored, index) => ({ bookingId, kind, filePath: stored.filename, originalName: path.basename(String(files[index].originalname || 'photo')), mimeType: stored.mimeType, sizeBytes: stored.sizeBytes })) });
+  let photos;
+  try {
+    photos = await prisma.servicePhoto.createManyAndReturn({ data: persisted.map((stored, index) => ({ bookingId, kind, filePath: stored.filename, originalName: path.basename(String(files[index].originalname || 'photo')), mimeType: stored.mimeType, sizeBytes: stored.sizeBytes })) });
+  } catch (error) {
+    await removeFiles(persisted.map((item) => item.filename));
+    throw error;
+  }
   res.status(201).json({ photos: photos.map((p) => ({ id: p.id, kind: p.kind, original_name: p.originalName, url: `/api/uploads/photos/${p.id}` })) });
 });
 

@@ -1,12 +1,14 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { prisma } from '../src/config/prisma.js';
 import { sortObject } from '../src/services/paymentContracts.js';
+import './assert-test-database.js';
 
 dotenv.config();
 
@@ -16,6 +18,8 @@ const backendDir = path.resolve(__dirname, '..');
 const PORT = 5019;
 const BASE = `http://127.0.0.1:${PORT}/api`;
 const TEST_IPN_SECRET = 'luxora_nowpayments_test_secret_2026';
+const MOCK_PORT = 5020;
+const livePayments = new Map();
 
 const SERVER_ENV = {
   ...process.env,
@@ -23,9 +27,13 @@ const SERVER_ENV = {
   PAYMENT_MODE: 'payhere',
   NOWPAYMENTS_IPN_SECRET: TEST_IPN_SECRET,
   NOWPAYMENTS_API_KEY: 'test_nowpayments_api_key_sample',
+  NOWPAYMENTS_BASE_URL: `http://127.0.0.1:${MOCK_PORT}/v1`,
+  RESEND_API_KEY: '',
+  NODE_ENV: 'test',
 };
 
 let server;
+let mockNowPayments;
 
 function computeIpnSig(payload, secret = TEST_IPN_SECRET) {
   const sorted = sortObject(payload);
@@ -37,6 +45,15 @@ before(async () => {
   try {
     await prisma.$executeRawUnsafe('ALTER TYPE "PaymentGateway" ADD VALUE IF NOT EXISTS \'NOWPAYMENTS\';');
   } catch { /* ignore */ }
+
+  mockNowPayments = createServer((req, res) => {
+    const match = req.url?.match(/^\/v1\/payment\/(\d+)$/);
+    const record = match && livePayments.get(match[1]);
+    res.setHeader('Content-Type', 'application/json');
+    if (!record) { res.statusCode = 404; res.end(JSON.stringify({ error: 'not found' })); return; }
+    res.end(JSON.stringify(record));
+  });
+  await new Promise((resolve) => mockNowPayments.listen(MOCK_PORT, '127.0.0.1', resolve));
 
   server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`));
@@ -60,6 +77,7 @@ after(async () => {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
+  if (mockNowPayments) await new Promise((resolve) => mockNowPayments.close(resolve));
   await prisma.$disconnect();
 });
 
@@ -206,6 +224,15 @@ test('NOWPayments E2E: Valid IPN settles payment, activates subscription, and is
   };
 
   const sig = computeIpnSig(ipnPayload);
+  const unverified = await fetch(`${BASE}/payments/nowpayments/ipn`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-nowpayments-sig': sig },
+    body: JSON.stringify(ipnPayload),
+  });
+  assert.equal(unverified.status, 503, 'A finished IPN must not settle while the authoritative status query is unavailable');
+  assert.equal((await prisma.payment.findUnique({ where: { id: payment.id } })).status, 'PENDING');
+
+  livePayments.set(String(ipnPayload.payment_id), { ...ipnPayload });
 
   const res1 = await fetch(`${BASE}/payments/nowpayments/ipn`, {
     method: 'POST',

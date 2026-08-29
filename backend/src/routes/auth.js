@@ -67,7 +67,7 @@ router.post('/register', authLimiter, async (req, res) => {
       await Promise.all(admins.map((admin) => notify(admin.id, `New provider awaiting KYC approval: ${user.name}.`, '/admin-dashboard')));
     }
 
-    const token = jwt.sign({ id: user.id, email: normalizedEmail, role: userRole, name }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, email: normalizedEmail, role: userRole, name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
     sendEmail({
       to: normalizedEmail,
       subject: 'Welcome to Luxora',
@@ -128,10 +128,28 @@ router.post('/password-reset/confirm', resetLimiter, async (req, res) => {
   });
   if (!record || !isPassword(req.body.password)) return res.status(400).json({ error: 'Invalid or expired reset token' });
   const passwordHash = await bcrypt.hash(req.body.password, 10);
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
-    prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
-  ]);
+  try {
+    await prisma.$transaction(async (tx) => {
+      const usedAt = new Date();
+      const claimed = await tx.passwordResetToken.updateMany({
+        where: { id: record.id, usedAt: null, expiresAt: { gt: new Date() } },
+        data: { usedAt },
+      });
+      if (claimed.count !== 1) {
+        const error = new Error('Invalid or expired reset token');
+        error.statusCode = 400;
+        throw error;
+      }
+      await tx.passwordResetToken.updateMany({
+        where: { userId: record.userId, usedAt: null },
+        data: { usedAt },
+      });
+      await tx.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } });
+    }, { isolationLevel: 'Serializable' });
+  } catch (error) {
+    if (error.statusCode || error.code === 'P2034') return res.status(400).json({ error: 'Invalid or expired reset token' });
+    throw error;
+  }
   res.json({ message: 'Password updated successfully' });
 });
 
@@ -175,7 +193,7 @@ router.post('/google', authLimiter, async (req, res) => {
     sendEmail({ to: email, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${user.name}.</p><p>Your concierge account is ready.</p>` }).catch(() => {});
   }
   if (!user.active) return res.status(403).json({ error: 'This account has been deactivated. Contact Luxora support.' });
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, town: user.town }, provider: null });
 });
 
@@ -200,7 +218,7 @@ router.post('/login', authLimiter, async (req, res) => {
     }
   }
 
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
   res.json({
     token,
     user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, town: user.town },

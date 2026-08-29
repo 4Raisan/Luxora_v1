@@ -11,8 +11,8 @@ const spec = {
   openapi: '3.0.0',
   info: {
     title: 'Luxora Home Concierge REST API',
-    version: '1.0.0',
-    description: 'REST API for the Luxora subscription-based luxury home concierge platform (Auto, Garden & Pet Care).',
+    version: '1.1.0',
+    description: 'Curated REST API reference for Luxora. backend/src/routes remains authoritative for the complete contract.',
   },
   servers: [{ url: `/api`, description: 'Current host' }, { url: `http://localhost:${PORT}/api`, description: 'Local development' }],
   components: {
@@ -49,9 +49,9 @@ const spec = {
     '/services': { get: { tags: ['Catalogue'], summary: 'List services (includes category_id, category_name)', responses: { '200': { description: 'Services' } } } },
     '/subscriptions': { get: { tags: ['Catalogue'], summary: 'List subscription plans', responses: { '200': { description: 'Plans' } } } },
     '/subscriptions/subscribe': {
-      post: { tags: ['Catalogue'], summary: 'Subscribe to a plan', security: bearer,
+      post: { tags: ['Catalogue'], summary: 'Deprecated direct activation endpoint (always returns 410)', security: bearer,
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { plan_id: { type: 'integer' } } } } } },
-        responses: { '201': { description: 'Subscribed' }, '400': { description: 'Already active / invalid' }, '404': { description: 'Plan not found' } } },
+        responses: { '410': { description: 'Use a verified demo, PayHere, or NOWPayments checkout' } } },
     },
     '/bookings': {
       post: { tags: ['Bookings'], summary: 'Create a booking (auto-assigns least-loaded approved provider; returns PIN)', security: bearer,
@@ -61,7 +61,7 @@ const spec = {
         responses: { '201': { description: 'Booking created (booking_id, pin_code, status, total_price)' }, '400': { description: 'Validation error' } } },
     },
     '/bookings/my': { get: { tags: ['Bookings'], summary: "Customer's own bookings (status lowercase; PIN hidden)", security: bearer, responses: { '200': { description: 'Bookings' } } } },
-    '/bookings/assigned': { get: { tags: ['Bookings'], summary: "Provider's assigned bookings + claimable PENDING pool in own category", security: bearer, responses: { '200': { description: 'Bookings' } } } },
+    '/bookings/assigned': { get: { tags: ['Bookings'], summary: "Provider's own server-assigned bookings", security: bearer, responses: { '200': { description: 'Bookings' } } } },
     '/bookings/{id}/status': {
       put: { tags: ['Bookings'], summary: 'Provider updates status (PIN required for in_progress/completed)', security: bearer,
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],

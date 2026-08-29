@@ -1,18 +1,23 @@
 # Luxora roadmap
+
 ## Current baseline
-React/Vite customer/provider/admin portals; Express/Prisma/PostgreSQL auth and roles; catalogue/packages/entitlements; bookings/KYC/availability/PIN/photos; support/notifications; demo/PayHere boundary; refunds; migrations; responsive shared shell.
-## Priority 1: reliability
-- Automated API smoke tests for health, auth, ownership, role guards, packages, booking lifecycle, and refunds.
-- Request IDs, safe structured logs, latency/pool metrics, migration/backup procedures.
-- Durable password-reset tokens in PostgreSQL/Redis before multi-instance deployment.
-- Abuse monitoring for login, reset, OTP, uploads, and callbacks.
-## Priority 2: hardening
-- PayHere reconciliation/idempotency tests for delayed/duplicate callbacks.
-- Audit records for admin KYC, booking, package, scheduling, and refund decisions.
-- Town matching/date boundary tests and accessibility/responsive visual regression.
-## Priority 3: scale
-- Background jobs for email/SMS/notifications/retryable gateway work.
-- Pagination/filtering for high-volume admin/history queries.
-- Durable object storage and expiring signed URLs for uploads.
-- Aggregate/read models for analytics instead of request-time query fan-out.
-Every item must record affected contracts, schema/migration and rollback plan, authorization impact, tests, and deployment environment.
+
+Implemented: role-scoped portals; Prisma/PostgreSQL migrations; demo, PayHere, and NOWPayments settlement; Resend receipt retry state; entitlements; server auto-assignment; serialized PIN/photo lifecycle; private local/S3-compatible upload storage; refunds; provider earnings/bank accounts/monthly payout ledger; admin audit log; isolated migration-built API tests; CI, lint, build, and generated knowledge graph.
+
+## Priority 1
+
+- Add deployment-owned durable S3 credentials and verify real upload/download persistence across redeploys.
+- Add a durable queue/outbox for email, notifications, payment reconciliation, and scheduler jobs.
+- Add request IDs, structured redacted logs, metrics, and production log access procedures.
+- Add automated browser accessibility/responsive tests for customer, provider, and admin authenticated flows.
+
+## Priority 2
+
+- Implement an explicit NOWPayments refund initiation/reconciliation workflow; current admin approval records intent and waits for gateway confirmation.
+- Add retry/requeue UI and history for failed provider bank transfers.
+- Add pagination and indexed filters for high-volume admin/history endpoints.
+- Add verified-email state and confirmation flow if product requirements require more than password ownership/reset email.
+
+## External validation still required
+
+Run genuine PayHere sandbox, NOWPayments sandbox, Resend verified-domain, S3-compatible storage, Google OAuth, managed PostgreSQL, and hosted runtime-log tests with authorized test accounts. Mocked and local tests do not replace these checks.

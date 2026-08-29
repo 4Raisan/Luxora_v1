@@ -1,73 +1,71 @@
 # Luxora
 
-Premium home-concierge platform for customers, providers, and admins.
+Luxora is a React/Vite, Express, Prisma, and PostgreSQL home-concierge platform for customers, KYC-approved providers, and admins.
 
-## Stack
+## Architecture
 
 ```text
-React/Vite -> Express/Prisma -> PostgreSQL
-     :3000        :5000
+React SPA -> frontend/src/services/api.js -> Express /api -> middleware/routes/services -> Prisma -> PostgreSQL
+                                                            -> Resend / PayHere / NOWPayments
+                                                            -> private S3-compatible storage
 ```
 
-## Start locally
+The backend is authoritative for roles, ownership, entitlements, booking state, Service PINs, payment settlement, refunds, earnings, and payouts. There is no Super Admin role.
+
+## Local setup
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
 Copy-Item frontend/.env.example frontend/.env.local
-npm install
-npm --prefix backend install
-npm --prefix frontend install
+docker compose up -d postgres
+npm ci
+npm --prefix backend ci
+npm --prefix frontend ci
 npm --prefix backend run prisma:generate
-npm --prefix backend run db:push
+npm --prefix backend run db:migrate
 npm --prefix backend run seed
 npm run dev:all
 ```
+
+Set a non-placeholder `JWT_SECRET` in the host environment before starting the full Docker Compose stack. `db:push` is reserved for disposable local experiments; normal development and deployment use committed migrations.
 
 | Service | URL |
 | --- | --- |
 | Frontend | `http://localhost:3000` |
 | API health | `http://localhost:5000/api/health` |
-| API docs | `http://localhost:5000/api/docs` |
+| Swagger UI | `http://localhost:5000/api/docs` |
 
-## Main commands
+## Quality gates
 
 ```powershell
-npm run build
+npm test
 npm run lint
+npm run build
 npm run graph
-node --test # Run inside backend/
 ```
 
-## Roles
+`npm test` resets only the dedicated `luxora_test` PostgreSQL schema, applies the complete migration chain, seeds it, disables outbound Resend delivery, and runs the API/unit suites serially. It refuses non-local database hosts.
 
-| Role | Main work |
+## Roles and core flows
+
+| Role | Main capabilities |
 | --- | --- |
-| Customer | Packages, coins, bookings, reviews, support |
-| Provider | KYC, WhatsApp verification, assigned work, evidence, earnings |
-| Admin | Plans, users, KYC, bookings, support, refunds, payouts |
+| Customer | Packages, entitlements, bookings, Service PIN retrieval, reviews, complaints, support, refunds |
+| Provider | KYC upload, assigned work, before/after evidence, PIN-gated fulfilment, earnings, bank accounts |
+| Admin | Users, KYC, plans, bookings, scheduling, support, refunds, promotions, reports, payout ledger, audit log |
 
-## Payment modes
+Payments use demo mode for local/test work and PayHere or NOWPayments for hosted checkout. Only verified backend callbacks can activate subscriptions. NOWPayments grants benefits only for `finished` after a matching authoritative status query. Receipt delivery failure does not roll back a completed payment and can be retried.
 
-| Mode | Use |
-| --- | --- |
-| `demo` | Local/test checkout. No real charge. |
-| `payhere` | Sandbox or live checkout. Requires valid public HTTPS callback URLs. |
-
-## Before production
-
-- Set real `DATABASE_URL`, `JWT_SECRET`, and `CORS_ORIGIN`.
-- Configure Meta WhatsApp Cloud API credentials and an approved verification template.
-- Configure Resend and `no-reply@luxora.bond`.
-- Set PayHere return, cancel, and webhook URLs to public HTTPS endpoints.
-- Run `prisma migrate deploy`; do not use `db:push`.
+Uploads are authenticated and ownership-checked, validated by magic bytes, and stored privately. Configure the `S3_*` variables on ephemeral or multi-instance hosts; local disk is a development fallback only.
 
 ## Project map
 
 | Path | Purpose |
 | --- | --- |
-| `frontend/` | React UI |
-| `backend/` | API, rules, integrations, Prisma |
-| `backend/prisma/` | Schema, migrations, local seed data |
-| `Knowladge-Graph/` | Route/data-flow map and debugging guides |
+| `frontend/` | React UI and server-state handling |
+| `backend/src/` | API, authorization, domain rules, and integrations |
+| `backend/prisma/` | Canonical schema, migrations, seed data |
+| `docs/` | API, database, integration, requirements, and roadmap documentation |
+| `Knowladge-Graph/` | Generated dependency graph and agent navigation guides |
 
-See `Knowladge-Graph/CONFIRMED_PRODUCT_RULES.md` before changing product behavior.
+Read `Knowladge-Graph/CONFIRMED_PRODUCT_RULES.md` before changing behavior. Regenerate the graph after route, schema, service, or frontend API-call changes.

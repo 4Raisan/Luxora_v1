@@ -7,6 +7,7 @@ import {
   classifyNowPaymentsIpn,
 } from '../src/services/paymentContracts.js';
 import { prisma } from '../src/config/prisma.js';
+import './assert-test-database.js';
 
 before(async () => {
   try {

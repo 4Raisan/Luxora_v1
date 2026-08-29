@@ -27,7 +27,7 @@ npm run lint
 | --- | --- |
 | `VITE_API_URL` | `http://localhost:5000/api` |
 
-Only `VITE_` variables reach the browser. Never put database, JWT, payment, email, or WhatsApp secrets in this file.
+Only `VITE_` variables reach the browser. Never put database, JWT, payment, email, or object-storage secrets in this file.
 
 ## Important paths
 

@@ -16,7 +16,7 @@ Provider requirements:
 
 - JWT role must be `PROVIDER`.
 - Operational routes require approved KYC.
-- A provider can only progress owned bookings, except an eligible claimable pending booking.
+- A provider can only progress bookings assigned to that provider by the server/admin scheduling flow.
 - PIN verification and photo validation happen on the server.
 - Earnings derive from completed work, not frontend counters.
 

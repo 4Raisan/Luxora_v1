@@ -9,6 +9,12 @@ import { fileURLToPath } from 'node:url';
 
 const localRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../private-uploads');
 
+function safeKey(value) {
+  const key = String(value || '');
+  if (!key || key !== path.basename(key) || key.includes('\0')) throw new Error('Invalid storage key');
+  return key;
+}
+
 function s3Config() {
   if (!process.env.S3_BUCKET || !process.env.S3_ACCESS_KEY_ID || !process.env.S3_SECRET_ACCESS_KEY) return null;
   return {
@@ -25,6 +31,11 @@ async function s3Client() {
       region: process.env.S3_REGION || 'auto',
       endpoint: process.env.S3_ENDPOINT || undefined,
       forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+        ...(process.env.S3_SESSION_TOKEN ? { sessionToken: process.env.S3_SESSION_TOKEN } : {}),
+      },
     }));
   }
   return s3ClientPromise;
@@ -39,38 +50,43 @@ if (!objectStorageEnabled && process.env.NODE_ENV === 'production') {
 }
 
 export async function putObject(key, buffer, contentType) {
+  const objectKey = safeKey(key);
   if (activeConfig) {
     const { PutObjectCommand } = await import('@aws-sdk/client-s3');
     const client = await s3Client();
-    await client.send(new PutObjectCommand({ Bucket: activeConfig.bucket, Key: activeConfig.prefix + key, Body: buffer, ContentType: contentType }));
+    await client.send(new PutObjectCommand({ Bucket: activeConfig.bucket, Key: activeConfig.prefix + objectKey, Body: buffer, ContentType: contentType }));
     return;
   }
-  fs.writeFileSync(path.resolve(localRoot, key), buffer);
+  fs.writeFileSync(path.resolve(localRoot, objectKey), buffer);
 }
 
 // Returns the file buffer, or null when the object no longer exists (for
 // example a database row whose local file died with a container redeploy).
 export async function getObject(key) {
+  const objectKey = safeKey(key);
   if (activeConfig) {
     const { GetObjectCommand } = await import('@aws-sdk/client-s3');
     const client = await s3Client();
-    const response = await client.send(new GetObjectCommand({ Bucket: activeConfig.bucket, Key: activeConfig.prefix + key }));
+    const response = await client.send(new GetObjectCommand({ Bucket: activeConfig.bucket, Key: activeConfig.prefix + objectKey }));
     const bytes = await response.Body.transformToByteArray();
     return Buffer.from(bytes);
   }
   try {
-    return fs.readFileSync(path.resolve(localRoot, key));
+    return fs.readFileSync(path.resolve(localRoot, objectKey));
   } catch {
     return null;
   }
 }
 
 export async function removeObject(key) {
+  const objectKey = safeKey(key);
   if (activeConfig) {
     const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
     const client = await s3Client();
-    await client.send(new DeleteObjectCommand({ Bucket: activeConfig.bucket, Key: activeConfig.prefix + key }));
+    await client.send(new DeleteObjectCommand({ Bucket: activeConfig.bucket, Key: activeConfig.prefix + objectKey }));
     return;
   }
-  fs.unlink(path.resolve(localRoot, key), () => {});
+  await fs.promises.unlink(path.resolve(localRoot, objectKey)).catch((error) => {
+    if (error.code !== 'ENOENT') throw error;
+  });
 }

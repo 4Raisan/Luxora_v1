@@ -1,20 +1,23 @@
-# Luxora integrations, payments, email, and phone verification
-All third-party credentials belong in the backend environment. Never put them in frontend env files, browser code, screenshots, logs, or Git.
-## Configuration
-Core: DATABASE_URL, JWT_SECRET, PORT, FRONTEND_URL, CORS_ORIGIN.
-PayHere: merchant ID/secret, base/return/cancel/notify URLs.
-PayPal: client ID/secret/base URL.
-Resend: API key and verified sender.
-Twilio Verify: account SID, auth token, Verify service SID.
-See backend/.env.example. Use sandbox credentials first and restart backend after changes.
-## Payment modes
-PAYMENT_MODE=demo keeps the customer inside Luxora and uses /api/payments/demo/order then /api/payments/demo/:id/complete. Backend creates payment, subscription, entitlements, expiry, and notifications through normal rules. Failure/cancel does not activate.
-PAYMENT_MODE=payhere uses /api/payments/payhere/order and gateway checkout. PayHere calls /api/payments/payhere/webhook; signature is validated and state reconciled. Do not mark PayHere refunded without gateway confirmation. Do not add a frontend demo shortcut or insert subscriptions from browser.
-## Email
-POST /api/email is available for controlled sends. Core workflows send welcome/reset/booking/subscription/completion messages when Resend is configured. Email failure must not silently change domain state.
-## Phone
-POST /api/profile/phone/send and /verify accept E.164 numbers. Generic /api/otp/send and /verify are equivalent. Registration has /api/auth/register/phone/send and /verify. Never log codes/tokens; trial Twilio needs verified destinations.
-## Password reset
-POST /api/auth/password-reset/request does not reveal account existence. Confirm accepts a short-lived token. Current token storage is memory-backed; multi-instance production requires PostgreSQL/Redis.
-## Deployment checklist
-Use HTTPS callback URLs; add exact browser origins to CORS_ORIGIN; test duplicate/delayed callbacks and idempotency; verify payment -> subscription -> entitlements -> notifications in PostgreSQL; inspect safe status/error fields only; test demo separately from sandbox PayHere.
+# Luxora integrations, payments, email, and contact data
+
+All third-party credentials are backend-only. The active integrations are PayHere, NOWPayments, Resend, Google sign-in, PostgreSQL, and optional S3-compatible private storage. PayPal, Twilio, SMS OTP, Telegram, and WhatsApp verification are not implemented.
+
+## Payment settlement
+
+- `PAYMENT_MODE=demo` enables the local/test checkout and makes no financial transaction.
+- PayHere order creation requires public HTTPS return/cancel/notify URLs. The webhook verifies merchant/checksum, order, exact LKR amount/currency, and state before activating a package.
+- NOWPayments order creation records the LKR price plus the fixed invoice conversion. HMAC-SHA512 is mandatory. `waiting`, `confirming`, `confirmed`, and `sending` remain pending; `failed`/`expired` fail; `refunded` refunds; only `finished` can settle.
+- A `finished` NOWPayments IPN additionally requires exact price/currency and a matching authoritative `/payment/:id` response with the same order ID, payment ID, price contract, and `finished` state.
+- Browser return URLs never grant benefits. Payment activation, subscription creation, entitlements, notification, and receipt state are backend-owned and idempotent.
+
+## Receipts and email
+
+Resend sends welcome, password-reset, booking, completion, renewal, and payment-receipt messages when configured. A completed payment stays completed if email fails. Receipt delivery state is recorded in the payment payload and owners/admins may retry `/payments/:id/receipt/resend`. Production sending requires a verified `RESEND_FROM_EMAIL` domain.
+
+## Contact and reset behavior
+
+Phone numbers are ordinary profile contact fields with E.164 normalization where possible; there is no phone-verification endpoint. Password reset requests do not reveal account existence. Tokens are hashed in PostgreSQL, expire after 15 minutes, are consumed once under concurrency, and increment `User.tokenVersion` to revoke existing sessions.
+
+## Upload storage
+
+Set `S3_BUCKET`, credentials, region/endpoint, and optional prefix on ephemeral or multi-instance hosts. Without S3 configuration the backend uses `private-uploads/` only as a local development fallback.

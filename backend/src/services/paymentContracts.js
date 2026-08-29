@@ -81,6 +81,11 @@ export function classifyNowPaymentsIpn(payment, payload = {}) {
   }
 
   const rawStatus = String(payload.payment_status || '').toLowerCase().trim();
+  // A final settlement must carry the immutable invoice price contract. Do
+  // not allow a signed-but-incomplete payload to bypass amount validation.
+  if (rawStatus === 'finished' && (payload.price_amount === undefined || payload.price_amount === null || !payload.price_currency)) {
+    return 'amount_mismatch';
+  }
   // ONLY 'finished' is final payment settlement
   if (rawStatus === 'finished') return 'success';
   // 'waiting', 'confirming', 'confirmed', and 'sending' remain processing/in-progress states

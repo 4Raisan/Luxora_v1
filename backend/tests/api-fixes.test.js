@@ -15,6 +15,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
+import './assert-test-database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(__dirname, '..');
@@ -22,18 +23,11 @@ const backendDir = path.resolve(__dirname, '..');
 const PORT = 5017;
 const BASE = `http://127.0.0.1:${PORT}/api`;
 const RND = crypto.randomUUID().slice(0, 8);
-// Empty Meta/Resend credentials select local WhatsApp demo mode and avoid
-// external message or email cost during abuse tests. ALLOW_DEMO_OTP keeps the
-// demo OTP path available to the test server even when the host machine sets
-// NODE_ENV=production.
+// Empty Resend credentials prevent external email cost during abuse tests.
 const SERVER_ENV = {
   ...process.env,
   PORT: String(PORT),
   PAYMENT_MODE: 'demo',
-  WHATSAPP_PHONE_NUMBER_ID: '',
-  WHATSAPP_ACCESS_TOKEN: '',
-  WHATSAPP_VERIFY_TEMPLATE: '',
-  ALLOW_DEMO_OTP: 'true',
   RESEND_API_KEY: '',
   GOOGLE_CLIENT_ID: '',
 };
@@ -338,4 +332,9 @@ test('B11: spoofed uploads with mismatched content are rejected server-side', as
   genuine.append('document_type', 'NIC');
   genuine.append('documents', new Blob([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46])], { type: 'image/jpeg' }), 'id.jpg');
   assert.equal((await authJson(provider, '/provider/kyc-documents', { method: 'POST', body: genuine })).status, 201);
+
+  const oversized = new FormData();
+  oversized.append('document_type', 'NIC');
+  oversized.append('documents', new Blob([Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(5 * 1024 * 1024)])], { type: 'image/jpeg' }), 'oversized.jpg');
+  assert.equal((await authJson(provider, '/provider/kyc-documents', { method: 'POST', body: oversized })).status, 413);
 });

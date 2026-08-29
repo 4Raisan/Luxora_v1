@@ -1,15 +1,17 @@
 # Luxora requirements and acceptance rules
+
 ## Roles
-Customers register/login, maintain profile/town/phone, buy packages, view balances, book included services, reschedule/cancel eligible bookings, read notifications, create complaints/reviews, and request eligible refunds.
-Providers register, submit KYC, manage towns/availability, receive assigned work, complete PIN/photo lifecycle, and view earnings. KYC approval gates fulfilment.
-Admins manage users, providers/KYC, bookings, plans, complaints, support, promotions, refunds, reports, and catalogue. Only Super Admins may change scheduling or plans.
-## Packages/payments
-Plans are individual or combo, active/inactive, priced in LKR, duration-bound, and composed of category units. Successful purchase grants balances and expiry. Booking consumes one matching unit. Demo mode runs the real purchase pipeline without charging. PayHere mode is enabled only when the backend reports payhere.
-## Refunds
-Refunds require an unused eligible exact purchase. Any used unit makes an individual/combo purchase ineligible; no partial combo refund. Duplicate requests reject. Rejection leaves package/payment active. Demo completion disables the package and updates payment/refund/notification records. PayHere is not refunded without gateway confirmation.
+
+Customers maintain contact/address data, buy packages, view entitlements, book services, retrieve their Service PINs, manage eligible bookings/subscriptions, and use reviews, complaints, support, notifications, receipts, and refunds. Providers submit KYC, configure service towns/availability/bank details, fulfil only assigned work with required evidence and PINs, and view earnings/payouts. Admin performs all administrative operations; there is no Super Admin.
+
+## Payments and entitlements
+
+Plans are 30-day individual-category or combo packages priced in LKR. Only server-verified demo, PayHere, or NOWPayments settlement creates a subscription. Booking consumes one matching unit. Refund/cancellation state immediately changes server-authoritative eligibility. Cross-currency captured values are never combined as one revenue amount.
+
 ## Booking
-Bookings reference customer, service, optional subscription, and optional provider. Assignment requires approved provider, matching category/town, availability, and scheduling. PINs/photos protect lifecycle. Invalid transitions, wrong-owner access, repeated payout, and locked PIN attempts reject server-side.
-## Non-functional
-JWT+bcrypt, explicit CORS, PostgreSQL/Prisma migrations, bounded pool, responsive UI, accessible errors/loading, backend-only secrets, real data only, no mobile horizontal overflow.
-## Acceptance
-Health/auth/catalogue/authorization work; individual/combo purchase and booking consumption work; KYC/availability/PIN/photo lifecycle works; admin queues work without pool exhaustion; refunds persist with notifications; demo/PayHere obey mode; build/lint/Prisma/browser checks pass.
+
+Creation validates future date/time, customer address/town, active category entitlement, duplicate submission, provider category/town/KYC/availability, cooldown, and time conflicts. A booking is persisted as `ASSIGNED` when a provider is safely selected or `PENDING` when none is available. Start requires assigned provider, BEFORE evidence, and the start PIN; completion requires AFTER evidence and the completion PIN. Lockout, replay, ownership, state transition, and exactly-once earnings are enforced server-side.
+
+## Security and reliability
+
+JWT identity/role/active state come from PostgreSQL on every request. Password reset revokes old sessions. Uploads are private, ownership checked, magic-byte validated, and size limited. Webhooks verify signature, identity, amount, currency, state, and idempotency. Secrets remain backend-only. Migrations, isolated automated tests, lint, build, graph generation, and live non-mutating checks are release gates.

@@ -1,81 +1,48 @@
 # Luxora API
 
-Express + Prisma + PostgreSQL. The API owns authorization, payments, coins, booking state, provider operations, and integrations.
-
-## Run locally
-
-```powershell
-Copy-Item .env.example .env
-npm install
-npm run prisma:generate
-npm run db:push
-npm run seed
-npm run dev
-```
-
-| Check | URL |
-| --- | --- |
-| Health | `http://localhost:5000/api/health` |
-| Docs | `http://localhost:5000/api/docs` |
-| OpenAPI | `http://localhost:5000/api/openapi.json` |
+The Express/Prisma API owns authorization, payments, entitlements, booking state, provider operations, private uploads, notifications, and external integrations.
 
 ## Commands
 
 ```powershell
 npm run prisma:generate
-npm run db:push             # Local disposable database only
-npm run seed                # Local demo accounts/data
-npm start                   # Production: generate + migrate deploy + server
-node --test                 # Run from backend/
+npm run db:migrate
+npm run db:migrate:dev -- --name describe_change
+npm run seed
+npm run dev
+npm run test
 ```
 
-## Required environment
+`npm run test` uses the isolated local `luxora_test` schema. `npm start` generates Prisma Client, applies committed migrations, and starts the server. Do not seed production or use `db:push` as a deployment mechanism.
 
-| Variable | Purpose |
+## Environment
+
+| Area | Variables |
 | --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | JWT signing secret |
-| `PORT` | API port, normally `5000` |
-| `FRONTEND_URL` | Public frontend origin |
-| `CORS_ORIGIN` | Comma-separated allowed origins |
-
-## Optional integrations
-
-| Feature | Variables |
-| --- | --- |
+| Core | `DATABASE_URL`, `JWT_SECRET`, `PORT`, `FRONTEND_URL`, `BACKEND_PUBLIC_URL`, `CORS_ORIGIN` |
+| Mode | `PAYMENT_MODE=demo` or `payhere` |
+| PayHere | `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET`, base/return/cancel/notify URLs |
+| NOWPayments | `NOWPAYMENTS_API_KEY`, `NOWPAYMENTS_IPN_SECRET`, `NOWPAYMENTS_BASE_URL` |
 | Resend | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
-| Meta WhatsApp | Phone Number ID, access token, template, template language |
-| PayHere | Merchant ID, secret, base URL, return URL, cancel URL, notify URL |
-| Google sign-in | `GOOGLE_CLIENT_ID` |
+| Google | `GOOGLE_CLIENT_ID` |
+| Storage | `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PREFIX` |
+| Payouts | `PAYOUT_SCHEDULER_ENABLED` |
 
-## PayHere readiness
+PayHere callback URLs must be public HTTPS URLs. NOWPayments IPNs require a valid HMAC-SHA512 signature, exact invoice price/currency, matching order/payment identity, and an authoritative live status of `finished`. Phone numbers are profile contact data; SMS, WhatsApp, and phone OTP verification are not implemented.
 
-`PAYMENT_MODE=demo` is safe for local work.
+## Uploads and secrets
 
-For `PAYMENT_MODE=payhere`, all callback URLs must be public HTTPS URLs:
+KYC and service-evidence uploads are private, authenticated, magic-byte validated, limited to 5 MB per file, and served with `nosniff` plus sandboxing headers. S3-compatible storage is required for durable hosted uploads; local `private-uploads/` is a development fallback.
 
-```text
-PAYHERE_RETURN_URL=https://app.example.com/customer-dashboard?payment=payhere
-PAYHERE_CANCEL_URL=https://app.example.com/customer-dashboard?payment=cancelled
-PAYHERE_NOTIFY_URL=https://api.example.com/api/payments/payhere/webhook
-```
-
-The API refuses PayHere checkout when these values are missing or placeholders.
+Never expose database, JWT, payment, Resend, Google, or storage credentials to the frontend. Production refuses to start without `JWT_SECRET`.
 
 ## Source map
 
 | Path | Purpose |
 | --- | --- |
-| `src/index.js` | App setup, mounts, health, errors |
-| `src/routes/` | HTTP validation and orchestration |
-| `src/services/` | Payments, coins, scheduling, notifications |
-| `src/middleware/` | JWT, roles, KYC, phone verification, validation |
+| `src/index.js` | App setup, route mounts, health, centralized errors |
+| `src/middleware/` | JWT/database role authority, validation, rate limits |
+| `src/routes/` | HTTP contracts and orchestration |
+| `src/services/` | Scheduling, entitlements, integrations, storage, payouts |
 | `prisma/schema.prisma` | Database source of truth |
-
-## Production rules
-
-- Run `prisma migrate deploy`.
-- Do not seed production.
-- Do not commit `.env` files or log credentials/PINs.
-- Use an explicit CORS allow-list.
-- Use `db:push` only for disposable local databases.
+| `prisma/migrations/` | Deployable schema history |

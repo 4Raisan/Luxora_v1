@@ -117,6 +117,11 @@ app.use((err, _req, res, _next) => {
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
+  if (err?.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Uploaded files must be 5 MB or smaller' });
+    if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ error: 'Unexpected upload field or too many files' });
+    return res.status(400).json({ error: 'Invalid file upload' });
+  }
   switch (err?.code) {
     case 'P2002':
       return res.status(409).json({ error: 'A record with this value already exists' });
@@ -129,12 +134,6 @@ app.use((err, _req, res, _next) => {
       return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// Ensure PostgreSQL schema columns and enums exist (idempotent migrations)
-prisma.$executeRawUnsafe('ALTER TYPE "PaymentGateway" ADD VALUE IF NOT EXISTS \'NOWPAYMENTS\';').catch(() => {});
-prisma.$executeRawUnsafe('ALTER TABLE providers ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;').catch(() => {});
-prisma.$executeRawUnsafe('ALTER TABLE providers ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;').catch(() => {});
-prisma.$executeRawUnsafe('ALTER TABLE promotions ALTER COLUMN "discountPct" TYPE DECIMAL(5,2);').catch(() => {});
 
 // Seed a welcome promotion on first run (idempotent)
 prisma.promotion.count().then((c) => {

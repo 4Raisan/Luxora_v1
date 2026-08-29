@@ -1,29 +1,35 @@
 # Luxora database design
-PostgreSQL is managed through Prisma. backend/prisma/schema.prisma is canonical; generated client code is not hand-edited.
-## Relationship map
-User -> optional Provider, UserSubscription, Payment, Booking, Complaint, Review, SupportTicket, Notification, RefundRequest.
-SubscriptionPlan -> SubscriptionEntitlement -> Category. UserSubscription -> plan, user, bookings, payments, and one RefundRequest. Booking -> Service -> Category, optional Provider/Subscription, Photos and Review. PlatformSetting is a singleton.
-## Important models
-| Model | Meaning | Invariant |
-|---|---|---|
-| User | Account/profile/role | email unique; role plus isSuperAdmin |
-| Provider | KYC/towns/availability/earnings | one-to-one with User |
-| Category/Service | Catalogue | service belongs to category |
-| SubscriptionPlan | Individual/combo package | price/duration/active/entitlements |
-| SubscriptionEntitlement | Units per category | unique plan/category |
-| UserSubscription | Purchased package | dates/status/renewal |
-| Payment | Gateway attempt/state | unique gateway order/idempotency |
-| Booking | Service request | owner/service/provider/subscription |
-| RefundRequest | Refund decision | unique subscription |
-| Notification | User event | recipient-scoped |
-## Invariants
-Booking consumes only the matching purchase entitlement. Expired/cancelled/disabled/refunded purchases cannot be used. Refund eligibility is evaluated for the exact purchase: any used unit makes individual or combo ineligible; partial combo refunds are not invented. Demo success/failure/cancel and PayHere callback behavior are backend-controlled.
+
+`backend/prisma/schema.prisma` is canonical. PostgreSQL schema changes ship only through `backend/prisma/migrations/`; runtime startup does not perform DDL.
+
+## Model groups
+
+| Group | Models and invariants |
+| --- | --- |
+| Identity | `User` has unique email, role, active state, and `tokenVersion`; optional one-to-one `Provider`; reset tokens are hashed, expiring, and single-use |
+| KYC/storage | `KycDocument` belongs to Provider; `ServicePhoto` belongs to Booking; database rows hold private object keys, not public URLs |
+| Catalogue | `Category`; `Service` with Decimal price/provider earning; `SubscriptionPlan`; unique plan/category `SubscriptionEntitlement` |
+| Purchase | `Payment` has unique gateway order/idempotency keys and Decimal expected/captured amounts with currency; `UserSubscription` is linked only after verified settlement |
+| Fulfilment | `Booking` links customer/service/subscription/optional provider; enum state, hashed/encrypted PIN material, evidence, Decimal price/earning |
+| Operations | Notifications, support, complaints, reviews, refunds, bank accounts, monthly payout ledger, and admin audit log |
+
+Money columns use `Decimal`, not Float. Admin revenue uses each completed payment's verified `expectedAmount` in LKR; `capturedAmount` remains in its recorded `capturedCurrency` and must never be summed across currencies.
+
+## Integrity and concurrency
+
+- Booking creation and provider selection run together at Serializable isolation with retry.
+- Booking lifecycle/PIN updates use a per-booking PostgreSQL advisory transaction lock.
+- Completion credits provider earnings once.
+- Payment activation is Serializable and idempotent.
+- Failed queued payouts restore provider earnings exactly once.
+- Foreign keys use explicit Cascade, Restrict, or SetNull behavior from the Prisma schema.
+
 ## Migration workflow
-    npx prisma format
-    npx prisma validate
-    npx prisma generate
-    npx prisma migrate dev --name describe_change
-    npx prisma migrate deploy
-Use db:push only for disposable local synchronization. Never rewrite applied migrations. Review foreign keys, delete behavior, uniqueness, indexes, and rollback/backup plans.
-## Performance and safety
-Use the singleton Prisma client; never instantiate per request. Hosted DATABASE_URL should include connection_limit=5 and pool_timeout=10. Never commit env files, dumps, uploads, or real personal/payment data.
+
+```powershell
+npm --prefix backend run prisma:generate
+npm --prefix backend run db:migrate:dev -- --name describe_change
+npm --prefix backend run db:migrate
+```
+
+`npm test` proves the complete migration chain against an isolated `luxora_test` schema. `db:push` is not a deployment workflow. Never rewrite applied migrations or run tests against managed/production databases.

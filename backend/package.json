@@ -7,19 +7,23 @@
     "dev": "node src/index.js",
     "start": "npx prisma generate && npx prisma migrate deploy && node src/index.js",
     "prisma:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
     "db:push": "prisma db push",
+    "test": "node tests/run-tests.js",
     "seed": "node prisma/seed.js",
     "demo:seed": "node prisma/demo-bookings.js seed",
     "demo:clean": "node prisma/demo-bookings.js clean"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1121.0",
     "@prisma/client": "6.19.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^2.0.2"
+    "multer": "^2.3.0"
   },
   "devDependencies": {
     "prisma": "6.19.3"

@@ -110,20 +110,20 @@ router.get('/stats', async (_req, res) => {
   const totalUsers = await prisma.user.count({ where: { role: 'CUSTOMER' } });
   const totalProviders = await prisma.provider.count({ where: { kycStatus: 'APPROVED' } });
   const totalBookings = await prisma.booking.count();
-  const agg = await prisma.booking.aggregate({ where: { status: 'COMPLETED' }, _sum: { totalPrice: true } });
   const openComplaints = await prisma.complaint.count({ where: { status: { not: 'RESOLVED' } } });
   const [pendingProviders, activeSubscriptions, completedBookings, completedPayments, rating] = await Promise.all([
     prisma.provider.count({ where: { kycStatus: 'PENDING' } }),
     prisma.userSubscription.count({ where: { status: 'active', endDate: { gt: new Date() } } }),
     prisma.booking.count({ where: { status: 'COMPLETED' } }),
-    prisma.payment.aggregate({ where: { status: 'COMPLETED' }, _sum: { capturedAmount: true } }),
+    prisma.payment.aggregate({ where: { status: 'COMPLETED' }, _sum: { expectedAmount: true } }),
     prisma.review.aggregate({ _avg: { rating: true }, _count: { rating: true } }),
   ]);
   // Aggregates over DECIMAL columns return Decimal objects (always truthy),
   // so the fallback chain must run on plain numbers.
-  const capturedRevenue = Number(completedPayments._sum.capturedAmount ?? 0) || 0;
-  const bookingRevenue = Number(agg._sum.totalPrice ?? 0) || 0;
-  res.json({ totalUsers, totalProviders, pendingProviders, activeSubscriptions, totalBookings, completedBookings, totalRevenue: capturedRevenue || bookingRevenue, openComplaints, averageRating: rating._avg.rating || 0, ratingCount: rating._count.rating });
+  // expectedAmount is the verified LKR plan price for every gateway. Summing
+  // capturedAmount would mix LKR PayHere rows with USD NOWPayments rows.
+  const settledRevenueLkr = Number(completedPayments._sum.expectedAmount ?? 0) || 0;
+  res.json({ totalUsers, totalProviders, pendingProviders, activeSubscriptions, totalBookings, completedBookings, totalRevenue: settledRevenueLkr, revenueCurrency: 'LKR', openComplaints, averageRating: rating._avg.rating || 0, ratingCount: rating._count.rating });
 });
 
 router.get('/users', async (req, res) => {
@@ -250,7 +250,7 @@ router.get('/reports', async (req, res) => {
     prisma.provider.count({ where: { user: { is: dateRange } } }),
     prisma.booking.count({ where: dateRange }),
     prisma.booking.count({ where: { ...dateRange, status: 'COMPLETED' } }),
-    prisma.payment.aggregate({ where: { ...dateRange, status: 'COMPLETED' }, _sum: { capturedAmount: true }, _count: { id: true } }),
+    prisma.payment.aggregate({ where: { ...dateRange, status: 'COMPLETED' }, _sum: { expectedAmount: true }, _count: { id: true } }),
     prisma.userSubscription.count({ where: { ...subscriptionDateRange, status: 'active' } }),
     prisma.complaint.count({ where: dateRange }),
     prisma.review.aggregate({ where: dateRange, _avg: { rating: true }, _count: { rating: true } }),
@@ -260,7 +260,7 @@ router.get('/reports', async (req, res) => {
   const serviceIds = popularServices.map((item) => item.serviceId);
   const providerIds = providerPerformance.map((item) => item.providerId).filter(Boolean);
   const [services, providerRows] = await Promise.all([prisma.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, title: true } }), prisma.provider.findMany({ where: { id: { in: providerIds } }, include: { user: { select: { name: true } } } })]);
-  res.json({ from, to, summary: { customers, providers, bookings, completedBookings, revenue: Number(payments._sum.capturedAmount ?? 0) || 0, completedPayments: payments._count.id, activeSubscriptions: subscriptions, complaints, averageRating: ratings._avg.rating || 0, ratingCount: ratings._count.rating }, servicePopularity: popularServices.map((item) => ({ serviceId: item.serviceId, service: services.find((service) => service.id === item.serviceId)?.title || 'Unknown', bookings: item._count.id })), providerPerformance: providerPerformance.map((item) => ({ providerId: item.providerId, provider: providerRows.find((provider) => provider.id === item.providerId)?.user.name || 'Unknown', completedBookings: item._count.id, serviceValue: Number(item._sum.totalPrice ?? 0) || 0 })) });
+  res.json({ from, to, summary: { customers, providers, bookings, completedBookings, revenue: Number(payments._sum.expectedAmount ?? 0) || 0, revenueCurrency: 'LKR', completedPayments: payments._count.id, activeSubscriptions: subscriptions, complaints, averageRating: ratings._avg.rating || 0, ratingCount: ratings._count.rating }, servicePopularity: popularServices.map((item) => ({ serviceId: item.serviceId, service: services.find((service) => service.id === item.serviceId)?.title || 'Unknown', bookings: item._count.id })), providerPerformance: providerPerformance.map((item) => ({ providerId: item.providerId, provider: providerRows.find((provider) => provider.id === item.providerId)?.user.name || 'Unknown', completedBookings: item._count.id, serviceValue: Number(item._sum.totalPrice ?? 0) || 0 })) });
 });
 
 router.get('/bookings', async (_req, res) => {
@@ -324,6 +324,7 @@ router.put('/bookings/:id', async (req, res) => {
   // concurrent admin clicks cannot double-pay provider earnings.
   if (nextStatus === 'COMPLETED' && booking.status !== 'COMPLETED') {
     await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(booking.id)})`;
       const fresh = await tx.booking.findUnique({ where: { id: booking.id } });
       if (!fresh || fresh.status === 'COMPLETED') return; // already completed
       await tx.booking.update({
@@ -420,10 +421,31 @@ router.post('/payouts/run', async (req, res) => {
 router.put('/payouts/:id', async (req, res) => {
   const status = String(req.body.status || '').toUpperCase();
   if (!['PAID', 'FAILED'].includes(status)) return res.status(400).json({ error: 'status must be paid or failed' });
-  const payout = await prisma.providerPayout.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 } });
-  if (!payout || payout.status !== 'PENDING') return res.status(404).json({ error: 'Pending payout not found' });
-  const updated = await prisma.providerPayout.update({ where: { id: payout.id }, data: { status, paidAt: status === 'PAID' ? new Date() : null } });
-  logAdminAction({ adminId: req.user.id, action: `PAYOUT_${status}`, targetType: 'ProviderPayout', targetId: String(payout.id), details: { status }, ipAddress: req.ip }).catch(() => {});
+  const payoutId = toPositiveInt(req.params.id);
+  if (!payoutId) return res.status(400).json({ error: 'Valid payout id is required' });
+  let updated;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      const payout = await tx.providerPayout.findUnique({ where: { id: payoutId } });
+      if (!payout) return null;
+      const changed = await tx.providerPayout.updateMany({
+        where: { id: payout.id, status: 'PENDING' },
+        data: { status, paidAt: status === 'PAID' ? new Date() : null },
+      });
+      if (changed.count !== 1) return null;
+      // A queued payout already deducted provider.earnings. If the transfer
+      // fails, restore the exact Decimal amount once so it can be queued later.
+      if (status === 'FAILED') {
+        await tx.provider.update({ where: { id: payout.providerId }, data: { earnings: { increment: payout.amount } } });
+      }
+      return tx.providerPayout.findUnique({ where: { id: payout.id } });
+    }, { isolationLevel: 'Serializable' });
+  } catch (error) {
+    if (error.code === 'P2034') return res.status(409).json({ error: 'Payout decision is already being processed' });
+    throw error;
+  }
+  if (!updated) return res.status(404).json({ error: 'Pending payout not found' });
+  logAdminAction({ adminId: req.user.id, action: `PAYOUT_${status}`, targetType: 'ProviderPayout', targetId: String(updated.id), details: { status }, ipAddress: req.ip }).catch(() => {});
   res.json({ id: updated.id, status: updated.status.toLowerCase(), paid_at: updated.paidAt });
 });
 

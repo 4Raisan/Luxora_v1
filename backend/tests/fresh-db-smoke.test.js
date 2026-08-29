@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';
+import './assert-test-database.js';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ const SERVER_ENV = {
   PAYMENT_MODE: 'demo',
   NODE_ENV: 'test',
   JWT_SECRET: 'test_secret_for_fresh_smoke_2026',
+  RESEND_API_KEY: '',
 };
 
 let server;

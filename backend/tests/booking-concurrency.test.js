@@ -6,10 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
+import './assert-test-database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(__dirname, '..');
@@ -258,6 +260,154 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
   assert.ok(refreshedEntitlements.body.entitlements.length > 0, 'Entitlements should be present');
 });
 
+test('Concurrent customers cannot be assigned to the same provider time slot', async () => {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const category = await prisma.category.create({ data: { name: `SlotCat_${suffix}` } });
+  const service = await prisma.service.create({
+    data: {
+      categoryId: category.id,
+      title: `Slot Service ${suffix}`,
+      price: 5000,
+      providerEarning: 2500,
+      durationMins: 60,
+    },
+  });
+  const providerUser = await prisma.user.create({
+    data: { email: `slot_provider_${suffix}@example.com`, passwordHash: 'fakehash', role: 'PROVIDER', name: 'Slot Provider', town: 'Colombo' },
+  });
+  const provider = await prisma.provider.create({
+    data: { userId: providerUser.id, category: category.name, serviceTowns: 'Colombo', kycStatus: 'APPROVED', availabilityStatus: 'available' },
+  });
+  const plan = await prisma.subscriptionPlan.create({
+    data: {
+      title: `Slot Plan ${suffix}`,
+      type: 'Auto Care',
+      priceMonthly: 10000,
+      features: '[]',
+      entitlements: { create: [{ categoryId: category.id, units: 1 }] },
+    },
+  });
+
+  const customers = await Promise.all([1, 2].map(async (index) => {
+    const user = await prisma.user.create({
+      data: { email: `slot_customer_${suffix}_${index}@example.com`, passwordHash: 'fakehash', role: 'CUSTOMER', name: `Slot Customer ${index}`, town: 'Colombo' },
+    });
+    await prisma.userSubscription.create({ data: { userId: user.id, planId: plan.id, status: 'active', endDate: new Date(Date.now() + 30 * 86400000) } });
+    return { user, token: jwt.sign({ id: user.id, email: user.email, role: 'CUSTOMER' }, JWT_SECRET, { expiresIn: '1h' }) };
+  }));
+
+  const bookingDate = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+  const responses = await Promise.all(customers.map(({ token }) => authJson(token, '/bookings', {
+    method: 'POST',
+    body: JSON.stringify({ service_id: service.id, booking_date: bookingDate, booking_time: '10:00' }),
+  })));
+  assert.ok(responses.every((response) => [200, 201].includes(response.status)), JSON.stringify(responses.map((response) => response.body)));
+
+  const bookings = await prisma.booking.findMany({ where: { userId: { in: customers.map(({ user }) => user.id) } } });
+  const assignedAtSlot = bookings.filter((booking) => booking.providerId === provider.id && booking.status === 'ASSIGNED');
+  assert.equal(assignedAtSlot.length, 1, 'Only one simultaneous booking may be assigned to a provider at a given time');
+  assert.equal(bookings.filter((booking) => booking.status === 'PENDING').length, 1, 'The conflicting booking must remain pending for later assignment');
+});
+
+test('Concurrent wrong Service PIN attempts atomically trigger lockout', async () => {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const category = await prisma.category.create({ data: { name: `PinCat_${suffix}` } });
+  const service = await prisma.service.create({ data: { categoryId: category.id, title: `Pin Service ${suffix}`, price: 1000, providerEarning: 500 } });
+  const customer = await prisma.user.create({ data: { email: `pin_customer_${suffix}@example.com`, passwordHash: 'fakehash', role: 'CUSTOMER', name: 'PIN Customer' } });
+  const providerUser = await prisma.user.create({ data: { email: `pin_provider_${suffix}@example.com`, passwordHash: 'fakehash', role: 'PROVIDER', name: 'PIN Provider' } });
+  const provider = await prisma.provider.create({ data: { userId: providerUser.id, category: category.name, kycStatus: 'APPROVED' } });
+  const providerToken = jwt.sign({ id: providerUser.id, email: providerUser.email, role: 'PROVIDER' }, JWT_SECRET, { expiresIn: '1h' });
+  const booking = await prisma.booking.create({
+    data: {
+      userId: customer.id,
+      providerId: provider.id,
+      serviceId: service.id,
+      bookingDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+      bookingTime: '10:00',
+      status: 'ASSIGNED',
+      totalPrice: service.price,
+      providerEarning: service.providerEarning,
+      startPinHash: await bcrypt.hash('123456', 4),
+      completionPinHash: await bcrypt.hash('654321', 4),
+      pinExpiresAt: new Date(Date.now() + 2 * 86400000),
+    },
+  });
+  await prisma.servicePhoto.create({ data: { bookingId: booking.id, kind: 'BEFORE', filePath: `pin-${suffix}.jpg`, originalName: 'before.jpg', mimeType: 'image/jpeg', sizeBytes: 10 } });
+
+  const attempts = await Promise.all(Array.from({ length: 5 }, () => authJson(providerToken, `/bookings/${booking.id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'in_progress', pin_code: '000000' }),
+  })));
+  assert.ok(attempts.every((response) => [400, 429].includes(response.status)), JSON.stringify(attempts.map((response) => response.body)));
+
+  const locked = await prisma.booking.findUnique({ where: { id: booking.id } });
+  assert.ok(locked.pinAttempts >= 5, `Expected at least 5 recorded attempts, got ${locked.pinAttempts}`);
+  assert.ok(locked.pinLockedUntil && locked.pinLockedUntil > new Date(), 'Fifth concurrent failure must lock PIN verification');
+
+  const correctWhileLocked = await authJson(providerToken, `/bookings/${booking.id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'in_progress', pin_code: '123456' }),
+  });
+  assert.equal(correctWhileLocked.status, 429, 'Correct PIN must not bypass an active lockout');
+});
+
+test('Password reset token is single-use and revokes existing JWT sessions', async () => {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const user = await prisma.user.create({
+    data: { email: `reset_${suffix}@example.com`, passwordHash: await bcrypt.hash('OldPassword123!', 4), role: 'CUSTOMER', name: 'Reset Customer' },
+  });
+  const oldToken = jwt.sign({ id: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '1h' });
+  const resetToken = `${crypto.randomUUID()}-${crypto.randomUUID()}`;
+  await prisma.passwordResetToken.create({
+    data: { userId: user.id, tokenHash: crypto.createHash('sha256').update(resetToken).digest('hex'), expiresAt: new Date(Date.now() + 15 * 60 * 1000) },
+  });
+
+  const attempts = await Promise.all([1, 2].map(() => json('/auth/password-reset/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: resetToken, password: 'NewPassword123!' }),
+  })));
+  assert.equal(attempts.filter((response) => response.status === 200).length, 1, 'Exactly one reset confirmation may consume the token');
+  assert.equal(attempts.filter((response) => response.status === 400).length, 1, 'Concurrent replay must be rejected');
+
+  const oldSession = await authJson(oldToken, '/auth/me');
+  assert.equal(oldSession.status, 403, 'Password reset must revoke JWTs issued under the previous token version');
+});
+
+test('Admin revenue reports use the common verified LKR contract across gateways', async () => {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', active: true } });
+  const adminToken = jwt.sign({ id: admin.id, email: admin.email, role: admin.role, tokenVersion: admin.tokenVersion }, JWT_SECRET, { expiresIn: '1h' });
+  const customer = await prisma.user.create({ data: { email: `revenue_${suffix}@example.com`, passwordHash: 'fakehash', role: 'CUSTOMER', name: 'Revenue Customer' } });
+  const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
+  const createdAt = new Date('2035-04-15T12:00:00.000Z');
+  await prisma.payment.createMany({ data: [
+    { userId: customer.id, planId: plan.id, gateway: 'PAYHERE', gatewayOrderId: `REV-PH-${suffix}`, idempotencyKey: `REV-PH-${suffix}`, status: 'COMPLETED', expectedAmount: 10000, expectedCurrency: 'LKR', capturedAmount: 10000, capturedCurrency: 'LKR', createdAt },
+    { userId: customer.id, planId: plan.id, gateway: 'NOWPAYMENTS', gatewayOrderId: `REV-NP-${suffix}`, idempotencyKey: `REV-NP-${suffix}`, status: 'COMPLETED', expectedAmount: 20000, expectedCurrency: 'LKR', capturedAmount: 60.5, capturedCurrency: 'USD', createdAt },
+  ] });
+
+  const report = await authJson(adminToken, '/admin/reports?from=2035-04-15&to=2035-04-15');
+  assert.equal(report.status, 200);
+  assert.equal(report.body.summary.revenue, 30000, 'Revenue must sum verified LKR prices, not mixed captured currencies');
+  assert.equal(report.body.summary.revenueCurrency, 'LKR');
+});
+
+test('Failed provider payout restores earnings exactly once under concurrent admin decisions', async () => {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', active: true } });
+  const adminToken = jwt.sign({ id: admin.id, email: admin.email, role: admin.role, tokenVersion: admin.tokenVersion }, JWT_SECRET, { expiresIn: '1h' });
+  const providerUser = await prisma.user.create({ data: { email: `payout_${suffix}@example.com`, passwordHash: 'fakehash', role: 'PROVIDER', name: 'Payout Provider' } });
+  const provider = await prisma.provider.create({ data: { userId: providerUser.id, category: 'Auto Care', kycStatus: 'APPROVED', earnings: 0 } });
+  const bank = await prisma.providerBankAccount.create({ data: { providerId: provider.id, bankName: 'Test Bank', accountHolder: 'Payout Provider', accountNumber: `acct-${suffix}`, selected: true } });
+  const payout = await prisma.providerPayout.create({ data: { providerId: provider.id, bankAccountId: bank.id, period: `2036-${suffix.slice(0, 2)}`, amount: 123.45, idempotencyKey: `payout-test-${suffix}` } });
+
+  const responses = await Promise.all([1, 2].map(() => authJson(adminToken, `/admin/payouts/${payout.id}`, { method: 'PUT', body: JSON.stringify({ status: 'FAILED' }) })));
+  assert.equal(responses.filter((response) => response.status === 200).length, 1);
+  assert.ok(responses.every((response) => [200, 404, 409].includes(response.status)));
+  const refreshedProvider = await prisma.provider.findUnique({ where: { id: provider.id } });
+  assert.equal(Number(refreshedProvider.earnings), 123.45, 'Failed payout amount must be restored exactly once');
+});
+
 test('Audit Verification: Concurrent Payment Settlement Idempotency', async () => {
   const customer = await prisma.user.create({
     data: {
@@ -392,6 +542,9 @@ test('Audit Verification: IDOR and Role Access Boundary Enforcement', async () =
   // Customer attempting provider operational endpoints must get 403
   assert.equal((await authJson(customerToken, '/provider/availability')).status, 403);
   assert.equal((await authJson(customerToken, '/provider/earnings')).status, 403);
+
+  const providerUser = await prisma.user.create({ data: { email: `payment_role_${Date.now()}@example.com`, passwordHash: 'fakehash', role: 'PROVIDER', name: 'Payment Role Provider' } });
+  const providerToken = jwt.sign({ id: providerUser.id, email: providerUser.email, role: 'PROVIDER', tokenVersion: providerUser.tokenVersion }, JWT_SECRET, { expiresIn: '1h' });
+  const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
+  assert.equal((await authJson(providerToken, '/payments/demo/order', { method: 'POST', body: JSON.stringify({ plan_id: plan.id }) })).status, 403, 'Only customers may create package-payment orders');
 });
-
-

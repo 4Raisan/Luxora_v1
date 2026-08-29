@@ -26,13 +26,13 @@ Open `index.html` to explore the graph. The sidebar inspector is collapsible and
 
 | Group | Mount | Main responsibility |
 | --- | --- | --- |
-| Auth | `/api/auth` | Login, registration, Google sign-in, password reset/email verification |
+| Auth | `/api/auth` | Login, registration, Google sign-in, password reset |
 | Services | `/api` | Categories, services, subscriptions, entitlements |
 | Bookings | `/api/bookings` | Booking, cancellation, provider status, PIN/photo lifecycle |
 | Customer | `/api/customer` | Dashboard data |
 | Provider | `/api/provider` | Availability, towns, earnings, bank accounts |
 | Admin | `/api/admin` | Operations, plans, KYC, payouts, reports |
-| Integrations | `/api` | PayHere, NOWPayments, demo payments, email verification |
+| Integrations | `/api` | PayHere, NOWPayments, demo payments, transactional email |
 
 ## Gates
 

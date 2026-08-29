@@ -8,6 +8,8 @@ import { Prisma } from '@prisma/client';
 import '../src/config/prisma.js'; // applies the Decimal -> number JSON serialization
 import { detectFileSignature } from '../src/routes/uploads.js';
 import { verifyPayHereWebhook } from '../src/services/integrations.js';
+import { isPublicHttpsUrl } from '../src/routes/integrations.js';
+import { getObject, putObject, removeObject } from '../src/services/storage.js';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46]);
@@ -33,6 +35,15 @@ test('B11: stored extensions come from sniffed content, not the client filename'
   for (const [buffer, ext] of [[PNG, '.png'], [JPEG, '.jpg'], [PDF, '.pdf']]) {
     assert.equal(detectFileSignature(buffer)?.ext, ext);
   }
+});
+
+test('Upload storage round-trips private bytes and rejects traversal keys', async () => {
+  const key = `storage-test-${crypto.randomUUID()}.png`;
+  await putObject(key, PNG, 'image/png');
+  assert.deepEqual(await getObject(key), PNG);
+  await removeObject(key);
+  assert.equal(await getObject(key), null);
+  await assert.rejects(() => putObject('../escape.png', PNG, 'image/png'), /Invalid storage key/);
 });
 
 test('B12: configured provider earnings use exact Decimal values', () => {
@@ -70,6 +81,14 @@ test('B13: PayHere webhook signature verification accepts a correctly signed pay
   assert.equal(verifyPayHereWebhook({ ...copy, md5sig: md5('wrong') }), false);
 });
 
+test('PayHere checkout rejects non-HTTPS and private callback URLs', () => {
+  assert.equal(isPublicHttpsUrl('https://luxora.bond/customer-dashboard'), true);
+  assert.equal(isPublicHttpsUrl('http://luxora.bond/customer-dashboard'), false);
+  assert.equal(isPublicHttpsUrl('https://localhost:3000/return'), false);
+  assert.equal(isPublicHttpsUrl('https://127.0.0.1/return'), false);
+  assert.equal(isPublicHttpsUrl('not-a-url'), false);
+});
+
 test('Audit Fix C2: Payout scheduler last-day of month calculation logic', () => {
   function isLastDayOfMonth(date) {
     const tomorrow = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
@@ -88,4 +107,3 @@ test('Audit Fix C3: Promotion discount percentage Decimal precision', () => {
   assert.equal(discount.toFixed(2), '15.50');
   assert.equal(JSON.parse(JSON.stringify(discount)), 15.5);
 });
-

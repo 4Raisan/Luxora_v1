@@ -154,60 +154,65 @@ router.post('/', async (req, res) => {
   const town = normalizeTown(customer?.town);
   const settings = await getPlatformSettings(prisma);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time, settings);
-  const provider = shouldAutoAssign ? await pickProvider(prisma, service.category.name, town, customer?.addressDistrict, booking_date, booking_time, service, settings) : null;
   const scheduled = bookingStart(booking_date, booking_time);
   const pinExpiresAt = scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null;
 
   let booking;
-  try {
-    booking = await prisma.$transaction(async (tx) => {
-      const lockedEntitlement = await findBookableEntitlement(tx, userId, service.categoryId);
-      if (!lockedEntitlement) {
-        const error = new Error('No remaining entitlement units');
-        error.statusCode = 409;
-        throw error;
-      }
-      entitlement.subscriptionId = lockedEntitlement.subscriptionId;
-      entitlement.remainingUnits = lockedEntitlement.remainingUnits;
+  for (let attempt = 1; attempt <= 3 && !booking; attempt += 1) {
+    try {
+      booking = await prisma.$transaction(async (tx) => {
+        const lockedEntitlement = await findBookableEntitlement(tx, userId, service.categoryId);
+        if (!lockedEntitlement) {
+          const error = new Error('No remaining entitlement units');
+          error.statusCode = 409;
+          throw error;
+        }
+        entitlement.subscriptionId = lockedEntitlement.subscriptionId;
+        entitlement.remainingUnits = lockedEntitlement.remainingUnits;
 
-      const duplicate = await tx.booking.findFirst({
-        where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } },
-        select: { id: true },
-      });
-      if (duplicate) {
-        const error = new Error('You already have this service booked for the selected date and time');
-        error.statusCode = 409;
-        throw error;
-      }
+        const duplicate = await tx.booking.findFirst({
+          where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } },
+          select: { id: true },
+        });
+        if (duplicate) {
+          const error = new Error('You already have this service booked for the selected date and time');
+          error.statusCode = 409;
+          throw error;
+        }
 
-      return tx.booking.create({
-        data: {
-          userId,
-          providerId: provider?.id || null,
-          serviceId,
-          subscriptionId: lockedEntitlement.subscriptionId,
-          bookingDate: booking_date,
-          bookingTime: normalizedTime,
-          town,
-          addressStreet: customer?.addressStreet || null,
-          addressDistrict: customer?.addressDistrict || null,
-          status: provider ? 'ASSIGNED' : 'PENDING',
-          autoAssigned: Boolean(provider),
-          startPinHash,
-          completionPinHash,
-          customerStartPinCipher,
-          customerCompletionPinCipher,
-          pinExpiresAt,
-          totalPrice: service.price,
-          providerEarning: service.providerEarning,
-        },
-      });
-    }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
-  } catch (err) {
-    if (err.statusCode) {
-      return res.status(err.statusCode).json({ error: err.message });
-    }
-    if (err.code === 'P2034' || err.message?.includes('could not serialize access')) {
+        // Provider selection must share the Serializable transaction with the
+        // booking insert. Otherwise two customers can both select the same
+        // apparently-free provider before either booking becomes visible.
+        const provider = shouldAutoAssign
+          ? await pickProvider(tx, service.category.name, town, customer?.addressDistrict, booking_date, normalizedTime, service, settings)
+          : null;
+        return tx.booking.create({
+          data: {
+            userId,
+            providerId: provider?.id || null,
+            serviceId,
+            subscriptionId: lockedEntitlement.subscriptionId,
+            bookingDate: booking_date,
+            bookingTime: normalizedTime,
+            town,
+            addressStreet: customer?.addressStreet || null,
+            addressDistrict: customer?.addressDistrict || null,
+            status: provider ? 'ASSIGNED' : 'PENDING',
+            autoAssigned: Boolean(provider),
+            startPinHash,
+            completionPinHash,
+            customerStartPinCipher,
+            customerCompletionPinCipher,
+            pinExpiresAt,
+            totalPrice: service.price,
+            providerEarning: service.providerEarning,
+          },
+        });
+      }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+      const serializationConflict = err.code === 'P2034' || err.message?.includes('could not serialize access') || err.message?.includes('write conflict');
+      if (!serializationConflict) throw err;
       const existing = await prisma.booking.findFirst({
         where: { userId, serviceId, bookingDate: booking_date, bookingTime: normalizedTime, status: { not: 'CANCELLED' } },
       });
@@ -221,9 +226,9 @@ router.post('/', async (req, res) => {
           entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits },
         });
       }
-      return res.status(409).json({ error: 'A conflicting booking request is being processed. Please try again.' });
+      if (attempt === 3) return res.status(409).json({ error: 'A conflicting booking request is being processed. Please try again.' });
+      await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
     }
-    throw err;
   }
 
   if (booking.providerId) {
@@ -332,9 +337,10 @@ router.get('/:id/pins', async (req, res) => {
 
 // Update status (provider, with PIN for start/complete)
 router.put('/:id/status', async (req, res) => {
-  const { id } = req.params;
+  const bookingId = toPositiveInt(req.params.id);
   const { status, pin_code, before_photo, after_photo } = req.body;
 
+  if (!bookingId) return res.status(400).json({ error: 'Valid booking ID is required' });
   const nextStatus = toEnum(status, BOOKING_STATUSES);
   if (!nextStatus) return res.status(400).json({ error: `Invalid status. Allowed: ${BOOKING_STATUSES.map((s) => s.toLowerCase()).join(', ')}` });
 
@@ -344,124 +350,92 @@ router.put('/:id/status', async (req, res) => {
     return res.status(403).json({ error: 'Your KYC must be approved before you can manage bookings' });
   }
 
-  const booking = await prisma.booking.findUnique({ where: { id: Number(id) } });
-  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  let outcome;
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      // Serialize all lifecycle and PIN mutations for this booking. Without a
+      // per-booking lock, five simultaneous failures all read pinAttempts=0
+      // and overwrite it with 1, defeating the lockout policy.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(bookingId)})`;
+      const booking = await tx.booking.findUnique({ where: { id: bookingId } });
+      const fail = (statusCode, message, details = {}) => {
+        const error = new Error(message);
+        error.statusCode = statusCode;
+        error.details = details;
+        throw error;
+      };
+      if (!booking) fail(404, 'Booking not found');
+      if (booking.providerId !== provider.id) fail(403, 'This booking is not assigned to you');
+      const allowedNext = PROVIDER_TRANSITIONS[booking.status] || [];
+      if (!allowedNext.includes(nextStatus)) fail(409, `Cannot move booking from ${booking.status.toLowerCase()} to ${nextStatus.toLowerCase()}`);
 
-  // Ownership: assignment is server-owned, so providers can only update their
-  // own jobs after scheduling has selected them.
-  const isMine = booking.providerId === provider.id;
-  if (!isMine) {
-    return res.status(403).json({ error: 'This booking is not assigned to you' });
-  }
+      let attempts = booking.pinAttempts;
+      if (nextStatus === 'COMPLETED' || nextStatus === 'IN_PROGRESS') {
+        const requiredPhotoKind = nextStatus === 'IN_PROGRESS' ? 'BEFORE' : 'AFTER';
+        const requiredPhotos = await tx.servicePhoto.count({ where: { bookingId: booking.id, kind: requiredPhotoKind } });
+        if (!requiredPhotos) fail(400, `${requiredPhotoKind.toLowerCase()} photo upload is required before this status change`);
+        const now = new Date();
+        if (booking.pinLockedUntil && booking.pinLockedUntil > now) {
+          const remainingMin = Math.ceil((booking.pinLockedUntil - now) / 60000);
+          fail(429, `PIN verification is temporarily locked. Try again in ${remainingMin} minute${remainingMin !== 1 ? 's' : ''}.`, { locked_until: booking.pinLockedUntil, attempts });
+        }
+        if (booking.pinLockedUntil && booking.pinLockedUntil <= now) attempts = 0;
+        if (booking.pinExpiresAt && booking.pinExpiresAt < now) fail(400, 'The verification PIN has expired. Contact Luxora support.');
 
-  const allowedNext = PROVIDER_TRANSITIONS[booking.status] || [];
-  if (!allowedNext.includes(nextStatus)) {
-    return res.status(400).json({ error: `Cannot move booking from ${booking.status.toLowerCase()} to ${nextStatus.toLowerCase()}` });
-  }
-
-  if (nextStatus === 'COMPLETED' || nextStatus === 'IN_PROGRESS') {
-    const requiredPhotoKind = nextStatus === 'IN_PROGRESS' ? 'BEFORE' : 'AFTER';
-    const requiredPhotos = await prisma.servicePhoto.count({ where: { bookingId: booking.id, kind: requiredPhotoKind } });
-    if (!requiredPhotos) return res.status(400).json({ error: `${requiredPhotoKind.toLowerCase()} photo upload is required before this status change` });
-    // PIN lockout check
-    if (booking.pinLockedUntil && new Date(booking.pinLockedUntil) > new Date()) {
-      const remainingMin = Math.ceil((new Date(booking.pinLockedUntil) - new Date()) / 60000);
-      return res.status(429).json({
-        error: `PIN verification is temporarily locked. Try again in ${remainingMin} minute${remainingMin !== 1 ? 's' : ''}.`,
-        locked_until: booking.pinLockedUntil,
-        attempts: booking.pinAttempts,
-      });
-    }
-
-    // Clear expired lockout so the attempt counter resets naturally
-    if (booking.pinLockedUntil && new Date(booking.pinLockedUntil) <= new Date()) {
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { pinAttempts: 0, pinLockedUntil: null },
-      });
-      booking.pinAttempts = 0;
-    }
-
-    if (booking.pinExpiresAt && booking.pinExpiresAt < new Date()) {
-      return res.status(400).json({ error: 'The verification PIN has expired. Contact Luxora support.' });
-    }
-    const expectedHash = nextStatus === 'IN_PROGRESS' ? booking.startPinHash : booking.completionPinHash;
-    const legacyPinMatches = !expectedHash && booking.pinCode === String(pin_code);
-    const pinMatches = expectedHash ? await bcrypt.compare(String(pin_code || ''), expectedHash) : legacyPinMatches;
-    if (!pinMatches) {
-      const newAttempts = booking.pinAttempts + 1;
-      const isLocked = newAttempts >= MAX_PIN_ATTEMPTS;
-      const lockUntil = isLocked ? new Date(Date.now() + PIN_LOCKOUT_MS) : null;
-
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: {
-          pinAttempts: newAttempts,
-          pinLockedUntil: lockUntil,
-        },
-      });
-
-      if (isLocked) {
-        return res.status(429).json({
-          error: `Too many failed PIN attempts (${MAX_PIN_ATTEMPTS}). Verification locked for 15 minutes.`,
-          locked_until: lockUntil,
-          attempts: newAttempts,
-        });
+        const expectedHash = nextStatus === 'IN_PROGRESS' ? booking.startPinHash : booking.completionPinHash;
+        const legacyPinMatches = !expectedHash && booking.pinCode === String(pin_code);
+        const pinMatches = expectedHash ? await bcrypt.compare(String(pin_code || ''), expectedHash) : legacyPinMatches;
+        if (!pinMatches) {
+          const newAttempts = attempts + 1;
+          const isLocked = newAttempts >= MAX_PIN_ATTEMPTS;
+          const lockUntil = isLocked ? new Date(Date.now() + PIN_LOCKOUT_MS) : null;
+          await tx.booking.update({ where: { id: booking.id }, data: { pinAttempts: newAttempts, pinLockedUntil: lockUntil } });
+          return {
+            booking,
+            pinFailure: {
+              statusCode: isLocked ? 429 : 400,
+              body: isLocked
+                ? { error: `Too many failed PIN attempts (${MAX_PIN_ATTEMPTS}). Verification locked for 15 minutes.`, locked_until: lockUntil, attempts: newAttempts }
+                : { error: `Invalid PIN Code! ${MAX_PIN_ATTEMPTS - newAttempts} attempt${MAX_PIN_ATTEMPTS - newAttempts !== 1 ? 's' : ''} remaining before lockout.`, attempts_remaining: MAX_PIN_ATTEMPTS - newAttempts },
+            },
+          };
+        }
       }
 
-      return res.status(400).json({
-        error: `Invalid PIN Code! ${MAX_PIN_ATTEMPTS - newAttempts} attempt${MAX_PIN_ATTEMPTS - newAttempts !== 1 ? 's' : ''} remaining before lockout.`,
-        attempts_remaining: MAX_PIN_ATTEMPTS - newAttempts,
-      });
-    }
+      if (nextStatus === 'COMPLETED') {
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: { status: 'COMPLETED', providerId: provider.id, afterPhoto: after_photo || undefined, completionPinUsedAt: new Date(), pinAttempts: 0, pinLockedUntil: null },
+        });
+        const payout = new Prisma.Decimal(booking.providerEarning || 0).toDecimalPlaces(2);
+        await tx.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
+        return { booking, completedFreshly: true };
+      }
 
-    // Correct PIN — reset counter
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: { pinAttempts: 0, pinLockedUntil: null },
-    });
-  }
-
-  let completedFreshly = false;
-  if (nextStatus === 'COMPLETED') {
-    await prisma.$transaction(async (tx) => {
-      const fresh = await tx.booking.findUnique({ where: { id: booking.id } });
-      if (!fresh || fresh.status === 'COMPLETED') return; // already completed idempotently
-      completedFreshly = true;
       await tx.booking.update({
         where: { id: booking.id },
-        data: {
-          status: 'COMPLETED',
-          providerId: provider.id,
-          afterPhoto: after_photo || undefined,
-          completionPinUsedAt: new Date(),
-        },
+        data: { status: nextStatus, providerId: provider.id, beforePhoto: before_photo || undefined, startPinUsedAt: nextStatus === 'IN_PROGRESS' ? new Date() : undefined, pinAttempts: 0, pinLockedUntil: null },
       });
-      const payout = new Prisma.Decimal(fresh.providerEarning || 0).toDecimalPlaces(2);
-      await tx.provider.update({ where: { id: provider.id }, data: { earnings: { increment: payout } } });
-    }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
-  } else {
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: nextStatus,
-        providerId: provider.id,
-        beforePhoto: before_photo || undefined,
-        startPinUsedAt: nextStatus === 'IN_PROGRESS' ? new Date() : undefined,
-      },
-    });
+      return { booking, completedFreshly: false };
+    }, { maxWait: 5000, timeout: 15000 });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message, ...error.details });
+    throw error;
   }
+
+  if (outcome.pinFailure) return res.status(outcome.pinFailure.statusCode).json(outcome.pinFailure.body);
+  const { booking, completedFreshly } = outcome;
 
   if (nextStatus === 'COMPLETED') {
     if (completedFreshly) {
-      await notify(booking.userId, `Your service #${id} has been completed. Leave a review!`, '/reviews');
+      await notify(booking.userId, `Your service #${bookingId} has been completed. Leave a review!`, '/reviews');
       const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
-      sendEmail({ to: customer?.email, subject: `Luxora service completed #${id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${id} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
+      sendEmail({ to: customer?.email, subject: `Luxora service completed #${bookingId}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${bookingId} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
     }
   } else if (nextStatus === 'IN_PROGRESS') {
-    await notify(booking.userId, `Your provider has started service on booking #${id}.`);
+    await notify(booking.userId, `Your provider has started service on booking #${bookingId}.`);
   } else if (nextStatus === 'ASSIGNED') {
-    await notify(booking.userId, `A provider has been assigned to your booking #${id}.`);
+    await notify(booking.userId, `A provider has been assigned to your booking #${bookingId}.`);
   }
 
   res.json({ message: `Booking status updated to ${nextStatus.toLowerCase()}`, status: nextStatus.toLowerCase() });

@@ -10,6 +10,7 @@ import {
   verifyNowPaymentsSignature,
   classifyNowPaymentsIpn,
 } from '../src/services/paymentContracts.js';
+import './assert-test-database.js';
 
 test('Security Audit: File upload content sniffing & malicious payload rejection', async () => {
   // Test 1: Fake JPEG with bash script content
@@ -108,6 +109,11 @@ test('Security Audit: NOWPayments state machine strictly reserves completion for
     'success',
     'finished must be classified as success'
   );
+  assert.equal(
+    classifyNowPaymentsIpn(paymentRecord, { order_id: 'ORDER-1', payment_status: 'finished' }),
+    'amount_mismatch',
+    'finished payload without the invoice amount/currency contract must not settle'
+  );
 });
 
 test('Security Audit: Token role claim tampering protection', async () => {
@@ -182,4 +188,3 @@ test('Security Audit: Reschedule recalculates pinExpiresAt from new booking date
   assert.ok(rescheduledExpiry instanceof Date, 'Must return a Date');
   assert.equal(rescheduledExpiry.toISOString().slice(0, 10), '2026-09-16', 'PIN must expire 24 hours after new scheduled time');
 });
-

@@ -28,20 +28,39 @@ const edges = [];
 const nodeMap = new Map();
 
 function addNode(node) {
+  const normalized = {
+    ...node,
+    ...(node.file && !node.source ? { source: { path: node.file } } : {}),
+  };
   if (!nodeMap.has(node.id)) {
-    nodeMap.set(node.id, node);
-    nodes.push(node);
+    nodeMap.set(node.id, normalized);
+    nodes.push(normalized);
   } else {
     const existing = nodeMap.get(node.id);
-    Object.assign(existing, { ...node, metadata: { ...existing.metadata, ...node.metadata } });
+    Object.assign(existing, { ...normalized, metadata: { ...existing.metadata, ...normalized.metadata } });
   }
 }
 
-function addEdge(from, to, type, label = '') {
+function addEdge(from, to, type, label = '', evidence = {}) {
   if (!from || !to) return;
   const edgeKey = `${from}->${to}:${type}`;
   if (!edges.some(e => `${e.from}->${e.to}:${e.type}` === edgeKey)) {
-    edges.push({ from, to, type, label });
+    const sourcePath = nodeMap.get(from)?.file;
+    edges.push({
+      id: edgeKey,
+      from,
+      to,
+      type,
+      label,
+      source: from,
+      target: to,
+      kind: type,
+      evidence: {
+        ...(sourcePath ? { path: sourcePath } : {}),
+        extractor: 'generate-graph.js:static-analysis',
+        ...evidence,
+      },
+    });
   }
 }
 
@@ -301,13 +320,18 @@ function parseFrontend() {
     metadata: { description: 'Axios/Fetch wrapper for /api calls with JWT auto-attach' }
   });
 
-  function scanDirectory(dir, groupName, typeName) {
+  function scanDirectory(dir, groupName, typeName, relativeDir = '') {
     if (!fs.existsSync(dir)) return;
-    for (const file of fs.readdirSync(dir)) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        scanDirectory(path.join(dir, entry.name), groupName, typeName, path.join(relativeDir, entry.name));
+        continue;
+      }
+      const file = entry.name;
       if (!file.endsWith('.jsx') && !file.endsWith('.js')) continue;
       const filePath = path.join(dir, file);
       const content = fs.readFileSync(filePath, 'utf-8');
-      const relPath = `frontend/src/${groupName}/${file}`;
+      const relPath = path.posix.join('frontend', 'src', groupName, relativeDir.split(path.sep).join('/'), file);
       const componentId = `frontend:${file.replace(/\.(jsx|js)$/, '')}`;
 
       addNode({
@@ -369,11 +393,12 @@ function generateOutput() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // 1. JSON Graph
-  const graphData = {
+  // 1. JSON Graph. Preserve generatedAt when the graph facts are unchanged so
+  // CI can regenerate and diff the committed artifacts deterministically.
+  const jsonPath = path.join(outputDir, 'knowledge-graph.json');
+  const graphFacts = {
     name: 'Luxora Living Codebase Knowledge Graph',
     version: '1.0.0',
-    generatedAt: new Date().toISOString(),
     stats: {
       totalNodes: nodes.length,
       totalEdges: edges.length,
@@ -385,8 +410,18 @@ function generateOutput() {
     nodes,
     edges
   };
+  let generatedAt = new Date().toISOString();
+  if (fs.existsSync(jsonPath)) {
+    try {
+      const previous = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+      const { generatedAt: previousGeneratedAt, ...previousFacts } = previous;
+      if (JSON.stringify(previousFacts) === JSON.stringify(graphFacts)) generatedAt = previousGeneratedAt;
+    } catch {
+      // Invalid or legacy output is replaced with a fresh graph below.
+    }
+  }
+  const graphData = { ...graphFacts, generatedAt };
 
-  const jsonPath = path.join(outputDir, 'knowledge-graph.json');
   fs.writeFileSync(jsonPath, JSON.stringify(graphData, null, 2), 'utf-8');
   console.log(`💾 Saved Knowledge Graph JSON: ${jsonPath}`);
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { prisma } from '../config/prisma.js';
 import { notify } from '../services/notify.js';
 import {
@@ -39,7 +39,22 @@ const payHereUrls = () => {
     notifyUrl: String(process.env.PAYHERE_NOTIFY_URL || `${backend}/api/payments/payhere/webhook`).trim(),
   };
 };
-const isPublicHttpsUrl = (value) => /^https?:\/\/[^/]+/i.test(value) && !value.includes('YOUR_');
+export function isPublicHttpsUrl(value) {
+  try {
+    const url = new URL(String(value));
+    const hostname = url.hostname.toLowerCase();
+    const privateHost = hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '::1'
+      || hostname === '[::1]'
+      || hostname.startsWith('10.')
+      || hostname.startsWith('192.168.')
+      || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+    return url.protocol === 'https:' && !privateHost && !String(value).includes('YOUR_');
+  } catch {
+    return false;
+  }
+}
 const payHereIsReady = () => {
   const urls = payHereUrls();
   return Boolean(process.env.PAYHERE_MERCHANT_ID && process.env.PAYHERE_MERCHANT_SECRET)
@@ -274,7 +289,7 @@ router.post('/payments/payhere/webhook', async (req, res) => {
   res.status(200).send('OK');
 });
 
-router.post('/payments/payhere/order', authenticateToken, async (req, res) => {
+router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
   try {
     if (paymentMode() === 'demo') return res.status(409).json({ error: 'Demo payment mode is enabled; use the demo checkout.' });
     if (!payHereIsReady()) return res.status(503).json({ error: 'PayHere is not ready. Configure public HTTPS return, cancel, and webhook URLs before enabling checkout.' });
@@ -310,7 +325,7 @@ router.post('/payments/payhere/order', authenticateToken, async (req, res) => {
   } catch (error) { console.error('[payhere] order creation failed:', error.message); res.status(502).json({ error: 'Could not create payment order' }); }
 });
 
-router.post('/payments/nowpayments/order', authenticateToken, async (req, res) => {
+router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
   try {
     if (paymentMode() === 'demo') return res.status(409).json({ error: 'Demo payment mode is enabled; use the demo checkout.' });
     if (!nowPaymentsConfigured()) {
@@ -438,27 +453,35 @@ async function handleNowPaymentsIpn(req, res) {
   }
 
   if (classification === 'success') {
-    // Perform server-side NOWPayments payment-status verification where practical before final settlement
-    if (payload.payment_id && process.env.NOWPAYMENTS_API_KEY) {
-      try {
-        const livePayment = await fetchNowPaymentsPaymentStatus(payload.payment_id);
-        if (livePayment && String(livePayment.payment_status || '').toLowerCase() !== 'finished') {
-          console.warn(`[nowpayments] IPN reported finished, but live API verification returned '${livePayment.payment_status}' for payment ${payload.payment_id}`);
-          await prisma.payment.update({
-            where: { id: payment.id },
-            data: {
-              webhookPayload: {
-                ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
-                ...payload,
-                liveApiStatus: livePayment.payment_status,
-              },
-            },
-          });
-          return res.status(200).json({ status: 'pending', message: 'Payment status pending blockchain completion' });
-        }
-      } catch (error) {
-        console.warn('[nowpayments] Live status verification warning:', error.message);
-      }
+    // A browser redirect is never sufficient, and even a valid IPN must be
+    // bound to the authoritative payment object before benefits are granted.
+    if (!payload.payment_id || !process.env.NOWPAYMENTS_API_KEY) {
+      return res.status(503).json({ error: 'Authoritative payment verification is temporarily unavailable' });
+    }
+    let livePayment;
+    try {
+      livePayment = await fetchNowPaymentsPaymentStatus(payload.payment_id);
+    } catch (error) {
+      console.warn('[nowpayments] live status verification failed:', error.message);
+    }
+    if (!livePayment) return res.status(503).json({ error: 'Authoritative payment verification is temporarily unavailable' });
+    if (String(livePayment.order_id || '') !== orderId || String(livePayment.payment_id || '') !== String(payload.payment_id)) {
+      return res.status(400).json({ error: 'NOWPayments payment identity mismatch' });
+    }
+    const liveClassification = classifyNowPaymentsIpn(payment, livePayment);
+    if (liveClassification === 'amount_mismatch') return res.status(400).json({ error: 'Authoritative amount or currency mismatch' });
+    if (liveClassification !== 'success') {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          webhookPayload: {
+            ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+            ...payload,
+            liveApiStatus: livePayment.payment_status,
+          },
+        },
+      });
+      return res.status(200).json({ status: 'pending', message: 'Payment status pending blockchain completion' });
     }
 
     const capturedAmount = payload.price_amount !== undefined ? payload.price_amount : (payload.actually_paid || payload.pay_amount || payment.expectedAmount);
@@ -530,7 +553,7 @@ router.post('/payments/nowpayments/webhook', handleNowPaymentsIpn);
 
 router.get('/payments/mode', authenticateToken, (_req, res) => res.json({ mode: paymentMode(), label: paymentMode() === 'demo' ? 'DEMO / TEST — no real charge' : `PayHere ${environment()}` }));
 
-router.post('/payments/demo/order', authenticateToken, async (req, res) => {
+router.post('/payments/demo/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
   if (paymentMode() !== 'demo') return res.status(403).json({ error: 'Demo payments are disabled for this deployment' });
   const planId = toPositiveInt(req.body.plan_id);
   const plan = planId && await prisma.subscriptionPlan.findFirst({ where: { id: planId, active: true } });
@@ -540,7 +563,7 @@ router.post('/payments/demo/order', authenticateToken, async (req, res) => {
   res.status(201).json({ payment_id: payment.id, order_id: orderId, plan: { id: plan.id, title: plan.title, amount: payment.expectedAmount, currency: payment.expectedCurrency }, message: 'Demo checkout created. This is not a financial transaction.' });
 });
 
-router.post('/payments/demo/:id/complete', authenticateToken, async (req, res) => {
+router.post('/payments/demo/:id/complete', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
   if (paymentMode() !== 'demo') return res.status(403).json({ error: 'Demo payments are disabled for this deployment' });
   const payment = await prisma.payment.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id, gateway: 'DEMO' } });
   if (!payment) return res.status(404).json({ error: 'Demo payment not found' });

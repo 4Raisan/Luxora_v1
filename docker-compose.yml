@@ -6,12 +6,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - DATABASE_URL=postgresql://luxora_user:luxora_pass@postgres:5432/luxoradb?schema=public
-      - JWT_SECRET=${JWT_SECRET:-luxora_super_secret_jwt_2026}
-      # Demo seed passwords — override via host env / .env, never hardcode real secrets
-      - CUSTOMER_PASSWORD=${CUSTOMER_PASSWORD:-customer123}
-      - PROVIDER_PASSWORD=${PROVIDER_PASSWORD:-provider123}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-luxora_user}:${POSTGRES_PASSWORD:-luxora_pass}@postgres:5432/${POSTGRES_DB:-luxoradb}?schema=public
+      # Production-mode containers must never start with a public fallback key.
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in the host environment or Compose .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,16 +23,16 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: luxora_user
-      POSTGRES_PASSWORD: luxora_pass
-      POSTGRES_DB: luxoradb
+      POSTGRES_USER: ${POSTGRES_USER:-luxora_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-luxora_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-luxoradb}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U luxora_user -d luxoradb"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10

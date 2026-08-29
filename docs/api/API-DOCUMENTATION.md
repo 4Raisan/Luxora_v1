@@ -1,49 +1,53 @@
 # Luxora API reference
-Local base URL: http://localhost:5000/api. Protected requests use Authorization: Bearer JWT. JSON uses application/json; uploads use multipart FormData. Generated contract: /api/openapi.json; Swagger UI: /api/docs.
+
+Local base: `http://localhost:5000/api`. Protected calls use `Authorization: Bearer <JWT>`. Route files in `backend/src/routes/` are authoritative; `/api/openapi.json` and `/api/docs` are curated public documentation.
+
 ## Public
+
 | Method | Path | Purpose |
-|---|---|---|
-| GET | /health | Database-backed health |
-| POST | /auth/register | Customer/provider registration |
-| POST | /auth/login | JWT login |
-| POST | /auth/password-reset/request | Reset request |
-| POST | /auth/password-reset/confirm | Confirm reset |
-| GET | /categories, /services, /subscriptions | Catalogue |
-| GET | /promotions | Active promotions |
-| POST | /payments/payhere/webhook | Signature-validated callback |
-## Customer/common
+| --- | --- | --- |
+| GET | `/health` | Database-backed health |
+| POST | `/auth/register`, `/auth/login`, `/auth/google` | Authentication |
+| POST | `/auth/password-reset/request`, `/auth/password-reset/confirm` | Persisted single-use reset flow; confirmation revokes old JWTs |
+| GET | `/categories`, `/services`, `/subscriptions`, `/promotions` | Public catalogue |
+| POST | `/payments/payhere/webhook` | PayHere checksum callback |
+| POST | `/payments/nowpayments/ipn`, `/payments/nowpayments/webhook` | NOWPayments HMAC callback |
+
+## Authenticated customer/common
+
 | Method | Path | Purpose |
-|---|---|---|
-| GET | /auth/me, /profile, /customer/dashboard | Current user/profile/dashboard |
-| PUT | /profile, /customer/town | Profile/town mutations |
-| POST | /bookings, /reviews, /complaints, /support | Create domain records |
-| GET | /bookings/my, /complaints/my, /support/my, /notifications | Own data |
-| PUT | /bookings/:id/cancel, /bookings/:id/reschedule | Own booking changes |
-| GET | /payments/mode, /payments/my, /subscriptions/entitlements | Payment/balance reads |
-| POST | /payments/demo/order, /payments/demo/:id/complete | Demo purchase pipeline |
-| POST | /payments/payhere/order | PayHere checkout |
-| GET/POST | /refunds/my, /refunds | Refund list/request |
-| PUT | /subscriptions/:id/auto-renew, /subscriptions/:id/cancel | Subscription changes |
+| --- | --- | --- |
+| GET/PUT | `/profile` | Own profile |
+| GET | `/customer/dashboard`, `/bookings/my`, `/payments/my`, `/subscriptions/entitlements` | Own server state |
+| POST | `/bookings`, `/reviews`, `/complaints`, `/support`, `/refunds` | Customer mutations |
+| GET | `/bookings/:id/pins` | Active Service PINs for the booking customer only |
+| PUT | `/bookings/:id/cancel`, `/bookings/:id/reschedule` | Eligible own booking changes |
+| POST | `/payments/demo/order`, `/payments/demo/:id/complete` | Customer-only demo pipeline |
+| POST | `/payments/payhere/order`, `/payments/nowpayments/order` | Customer-only hosted checkout |
+| POST | `/payments/:id/receipt/resend` | Owner/admin resend for completed payment |
+| GET/PUT/DELETE | `/notifications...` | Recipient-scoped notifications |
+
 ## Provider
+
+All operational provider routes require provider role plus approved KYC. `/provider/kyc-documents` requires provider role but intentionally allows pending KYC.
+
 | Method | Path | Purpose |
-|---|---|---|
-| GET/PUT | /provider/availability | Availability |
-| PUT | /provider/service-towns | Service towns |
-| GET | /provider/earnings, /bookings/assigned | Work/earnings |
-| PUT | /bookings/:id/status, /bookings/:id/schedule | Lifecycle/schedule |
-| POST | /provider/kyc-documents, /bookings/:id/photos | Multipart uploads |
-| GET | /uploads/photos/:id | Authorized photo |
-## Admin/Super Admin
-All admin routes require Admin JWT; plan and scheduling mutations require Super Admin.
-| Method | Path | Purpose |
-|---|---|---|
-| GET | /admin/stats, /admin/reports | KPI/report data |
-| GET/PUT | /admin/users[/:id], /admin/providers[/:id/kyc] | Users and KYC |
-| GET/PUT | /admin/bookings[/:id], /admin/complaints[/:id] | Management queues |
-| GET | /admin/subscriptions, /admin/refunds, /support, /promotions/all | Lists |
-| POST/PUT/DELETE | /admin/subscriptions[/:id] | Create, update, or remove an unused package |
-| PUT | /admin/refunds/:id, /support/:id, /promotions[/:id] | Mutations |
-| GET/PUT | /admin/settings/scheduling | Super Admin scheduling |
-| POST | /admin/settings/scheduling/restore-defaults | Super Admin reset |
+| --- | --- | --- |
+| POST | `/provider/kyc-documents` | Private KYC upload |
+| GET/PUT | `/provider/availability`, `/provider/service-towns` | Availability and service towns |
+| GET | `/provider/earnings`, `/bookings/assigned` | Own work and payout data |
+| POST | `/provider/bank-accounts` | Create/select masked bank account |
+| PUT | `/bookings/:id/status`, `/bookings/:id/schedule` | Assigned booking lifecycle |
+| POST | `/bookings/:id/photos` | Required before/after evidence |
+
+## Admin
+
+There is no Super Admin. Every `/admin/*` route requires an Admin JWT. Admin covers users, providers/KYC, bookings, plans, complaints, reports, refunds, scheduling, payouts, and audit logs. Promotion and support mutation routes also require Admin.
+
+## Private downloads
+
+`GET /uploads/photos/:id` permits the booking customer, assigned provider, or admin. `GET /uploads/kyc/:id` permits the provider owner or admin. Files are not exposed through static paths.
+
 ## Errors
-401 missing/invalid token; 403 wrong role/owner; 404 missing route/resource; 409 state/idempotency conflict; 5xx server/integration failure. Never turn errors into fake empty data. Update OpenAPI, authorization tests, and this file with every new endpoint.
+
+`401` means missing credentials; `403` means invalid/revoked token, wrong role, KYC gate, or ownership denial; `404` means absent/hidden resource; `409` means state/concurrency conflict; `413` means upload too large; `5xx` indicates dependency/server failure. Frontends must not replace failures with invented success state.
