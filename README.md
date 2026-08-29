@@ -46,6 +46,20 @@ npm run graph
 
 `npm test` resets only the dedicated `luxora_test` PostgreSQL schema, applies the complete migration chain, seeds it, disables outbound Resend delivery, and runs the API/unit suites serially. It refuses non-local database hosts.
 
+## Live Knowledge Graph
+
+The source-derived Knowledge Graph maps Luxora frontend pages/components, API routes, middleware, services, Prisma models/enums, and their evidenced relationships. Its explorer is published at [https://4raisan.github.io/Luxora_v1/](https://4raisan.github.io/Luxora_v1/) after GitHub Pages has been enabled for this repository.
+
+Every push to `main` and a manual **Knowledge Graph Pages** workflow dispatch regenerate, validate, and deploy only `Knowladge-Graph/` as a GitHub Pages artifact. It does not deploy the Luxora application. The graph generator is deterministic and the workflow reruns it to verify identical JSON and explorer output.
+
+To regenerate and validate locally:
+
+```powershell
+npm run graph:verify
+```
+
+The validator checks JSON integrity, stable unique node/edge IDs, source paths, referenced nodes, deterministic metadata, Pages-safe explorer loading, removed OTP/messaging nodes, and accidental secret-like values. Generated graph data contains repository-relative evidence paths only; it never reads or publishes environment values, credentials, customer records, or private-storage URLs.
+
 ## Roles and core flows
 
 | Role | Main capabilities |

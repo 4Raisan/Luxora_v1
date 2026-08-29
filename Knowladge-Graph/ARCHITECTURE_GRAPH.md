@@ -22,6 +22,8 @@ flowchart LR
 
 Open `index.html` to explore the graph. The sidebar inspector is collapsible and its recovery button remains visible. The settings dock keeps the default animated force layout and adds controls for physics motion, edge labels, node scale, edge strength, connected spacing, outer pull, fit, and reset. Search and the layer filters work together, so both can narrow the visible graph.
 
+The live explorer is deployed separately at [https://4raisan.github.io/Luxora_v1/](https://4raisan.github.io/Luxora_v1/) by `.github/workflows/knowledge-graph.yml`. Pushes to `main` and manual workflow dispatches regenerate the source-derived JSON, validate it, verify deterministic output, and publish only this directory. The explorer fetches `./knowledge-graph.json`, so it works under the repository path used by GitHub Pages.
+
 ## Route groups
 
 | Group | Mount | Main responsibility |

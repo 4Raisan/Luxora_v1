@@ -1,0 +1,57 @@
+name: Knowledge Graph Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: knowledge-graph-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install graph build dependencies
+        run: npm ci
+      - name: Generate Knowledge Graph
+        run: npm run graph
+      - name: Validate generated graph
+        run: node Knowladge-Graph/validate-graph.js
+      - name: Verify deterministic generation
+        run: |
+          cp Knowladge-Graph/knowledge-graph.json /tmp/knowledge-graph.json
+          cp Knowladge-Graph/index.html /tmp/knowledge-graph.html
+          npm run graph
+          cmp --silent /tmp/knowledge-graph.json Knowladge-Graph/knowledge-graph.json
+          cmp --silent /tmp/knowledge-graph.html Knowladge-Graph/index.html
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Knowledge Graph artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: Knowladge-Graph
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy Knowledge Graph to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

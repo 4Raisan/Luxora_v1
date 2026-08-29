@@ -64,6 +64,15 @@ function addEdge(from, to, type, label = '', evidence = {}) {
   }
 }
 
+function sortGraphFacts() {
+  nodes.sort((left, right) => left.id.localeCompare(right.id));
+  edges.sort((left, right) => left.id.localeCompare(right.id));
+  for (const node of nodes) {
+    if (Array.isArray(node.metadata?.fields)) node.metadata.fields.sort((left, right) => left.name.localeCompare(right.name));
+    if (Array.isArray(node.metadata?.values)) node.metadata.values.sort((left, right) => left.localeCompare(right));
+  }
+}
+
 // ==========================================
 // 1. PARSE PRISMA SCHEMA (Database Layer)
 // ==========================================
@@ -75,6 +84,7 @@ function parsePrismaSchema() {
 
   const schemaContent = fs.readFileSync(prismaSchemaPath, 'utf-8');
   const lines = schemaContent.split('\n');
+  const enumNames = new Set([...schemaContent.matchAll(/^enum\s+([A-Za-z0-9_]+)\s*\{/gm)].map((match) => match[1]));
 
   let currentModel = null;
   let currentEnum = null;
@@ -137,8 +147,9 @@ function parsePrismaSchema() {
           if (['Int', 'String', 'Boolean', 'DateTime', 'Decimal', 'Float', 'Json'].includes(fieldType)) {
             // Primitive
           } else {
-            // References another Model or Enum
-            addEdge(`model:${currentModel}`, `model:${fieldType}`, 'DB_RELATION', fieldName);
+            // References another model or a Prisma enum.
+            const targetId = enumNames.has(fieldType) ? `enum:${fieldType}` : `model:${fieldType}`;
+            addEdge(`model:${currentModel}`, targetId, 'DB_RELATION', fieldName);
           }
         }
       }
@@ -393,12 +404,17 @@ function generateOutput() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // 1. JSON Graph. Preserve generatedAt when the graph facts are unchanged so
-  // CI can regenerate and diff the committed artifacts deterministically.
+  sortGraphFacts();
+
+  // 1. JSON Graph. This output intentionally has no timestamp or random data,
+  // so an identical repository state always produces identical graph files.
   const jsonPath = path.join(outputDir, 'knowledge-graph.json');
+  const repository = process.env.GITHUB_REPOSITORY || '4Raisan/Luxora_v1';
+  const branch = process.env.GITHUB_REF_NAME || 'main';
   const graphFacts = {
     name: 'Luxora Living Codebase Knowledge Graph',
-    version: '1.0.0',
+    version: '1.1.0',
+    sourceRepository: { repository, branch },
     stats: {
       totalNodes: nodes.length,
       totalEdges: edges.length,
@@ -410,19 +426,8 @@ function generateOutput() {
     nodes,
     edges
   };
-  let generatedAt = new Date().toISOString();
-  if (fs.existsSync(jsonPath)) {
-    try {
-      const previous = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-      const { generatedAt: previousGeneratedAt, ...previousFacts } = previous;
-      if (JSON.stringify(previousFacts) === JSON.stringify(graphFacts)) generatedAt = previousGeneratedAt;
-    } catch {
-      // Invalid or legacy output is replaced with a fresh graph below.
-    }
-  }
-  const graphData = { ...graphFacts, generatedAt };
 
-  fs.writeFileSync(jsonPath, JSON.stringify(graphData, null, 2), 'utf-8');
+  fs.writeFileSync(jsonPath, JSON.stringify(graphFacts, null, 2) + '\n', 'utf-8');
   console.log(`💾 Saved Knowledge Graph JSON: ${jsonPath}`);
 
   // 2. Interactive HTML Viewer (Vis.js Network)
@@ -553,8 +558,16 @@ function generateOutput() {
     </div>
   </div>
 
-  <script>
-    const graphData = ${JSON.stringify(graphData)};
+  <script type="module">
+    let graphData;
+    try {
+      const response = await fetch('./knowledge-graph.json', { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      graphData = await response.json();
+    } catch (error) {
+      document.body.innerHTML = '<main style="padding:2rem;color:#fff;background:#0b0f19;font-family:system-ui"><h1>Knowledge Graph unavailable</h1><p>The generated graph JSON could not be loaded.</p></main>';
+      throw error;
+    }
 
     const colorMap = {
       frontend: '#38bdf8',
@@ -608,7 +621,7 @@ function generateOutput() {
       interaction: { hover: true, tooltipDelay: 100, zoomView: true }
     };
 
-    const network = new vis.Network(container, data, options);
+    const network = new window.vis.Network(container, data, options);
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
 
@@ -722,7 +735,7 @@ function generateOutput() {
           
           <div style="margin-bottom: 14px;">
             <div style="color: #64748b; font-size: 0.72rem; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">File Location</div>
-            <div class="code-tag">\${node.file || 'Dynamic / In-Memory'}</div>
+            \${node.file ? '<a class="code-tag" target="_blank" rel="noopener noreferrer" href="https://github.com/' + graphData.sourceRepository.repository + '/blob/' + graphData.sourceRepository.branch + '/' + encodeURIComponent(node.file).replace(/%2F/g, '/') + '">' + node.file + '</a>' : '<div class="code-tag">Dynamic / In-Memory</div>'}
           </div>
 
           <div style="margin-bottom: 14px;">
