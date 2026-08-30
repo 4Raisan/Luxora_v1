@@ -244,14 +244,14 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   const order = await authJson(token, '/payments/demo/order', { method: 'POST', body: JSON.stringify({ plan_id: 1 }) });
   assert.equal(order.status, 201);
   assert.equal(typeof order.body.plan.amount, 'number');
-  assert.equal(order.body.plan.amount, 12000);
+  assert.equal(order.body.plan.amount, 5000);
   const complete = await authJson(token, `/payments/demo/${order.body.payment_id}/complete`, { method: 'POST', body: JSON.stringify({ outcome: 'success' }) });
   assert.equal(complete.status, 200);
   assert.equal(complete.body.receipt.plan_id, 1);
-  assert.equal(complete.body.receipt.coins_granted, 2);
+  assert.equal(complete.body.receipt.coins_granted, 1);
   assert.ok(complete.body.subscription.id);
   assert.ok(Array.isArray(complete.body.entitlement_snapshot));
-  assert.ok(complete.body.entitlement_snapshot.some((item) => item.remaining_units >= 2));
+  assert.ok(complete.body.entitlement_snapshot.some((item) => item.remaining_units >= 1));
 
   // Full booking lifecycle: book (server auto-assigns) -> photo -> PIN start -> photo -> PIN complete -> review
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);

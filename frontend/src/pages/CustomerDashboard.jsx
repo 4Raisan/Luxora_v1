@@ -430,9 +430,12 @@ const CustomerDashboard = () => {
             tokens: units,
             price: Number(p.priceMonthly) || 0,
             duration: Number(p.durationDays) || 30,
-            inclusives: ents.length
-              ? ents.map((e) => e.category_name + ': ' + e.units + ' service coin' + (Number(e.units) === 1 ? '' : 's') + ' / month')
-              : (p.description || 'Luxora care package'),
+            features: Array.isArray(p.features) ? p.features : [],
+            inclusives: (Array.isArray(p.features) && p.features.length)
+              ? p.features
+              : (ents.length
+                ? ents.map((e) => e.category_name + ': ' + e.units + ' service coin' + (Number(e.units) === 1 ? '' : 's') + ' / month')
+                : (p.description || 'Luxora care package')),
           }
         }))
       }

@@ -113,9 +113,6 @@ router.post('/', async (req, res) => {
   });
   if (!service) return res.status(404).json({ error: 'Service not found' });
 
-  const entitlement = await findBookableEntitlement(prisma, userId, service.categoryId);
-  if (!entitlement) return res.status(403).json({ error: `An active ${service.category.name} entitlement with remaining service units is required to book this service` });
-
   const normalizedTime = booking_time.trim().toUpperCase();
 
   // Rapid double-click / retry idempotency check within 15 seconds
@@ -137,9 +134,11 @@ router.post('/', async (req, res) => {
       total_price: recentDuplicate.totalPrice,
       duplicate: true,
       message: 'A booking for this service and time slot was already submitted and is confirmed',
-      entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits },
     });
   }
+
+  const entitlement = await findBookableEntitlement(prisma, userId, service.categoryId);
+  if (!entitlement) return res.status(403).json({ error: `An active ${service.category.name} entitlement with remaining service units is required to book this service` });
 
   const startPin = crypto.randomInt(100000, 1000000).toString();
   const completionPin = crypto.randomInt(100000, 1000000).toString();

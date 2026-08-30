@@ -53,28 +53,70 @@ async function main() {
     WHERE booking."serviceId" = service.id AND booking."providerEarning" = 0
   `;
 
+  // Update any existing Single Care - Auto Elite plan to Basic Package
+  await prisma.subscriptionPlan.updateMany({
+    where: { title: 'Single Care - Auto Elite' },
+    data: {
+      title: 'Basic Package',
+      type: 'Auto Care',
+      priceMonthly: 5000,
+      description: '1 vehicle service per month with exterior wash, interior vacuum, basic tire shine, and window cleaning.',
+      recommended: true,
+      features: JSON.stringify([
+        '1 token',
+        '1 vehicle service / month',
+        'Exterior wash',
+        'Interior vacuum',
+        'Basic tire shine',
+        'Window cleaning',
+      ]),
+    },
+  });
+
   const planCount = await prisma.subscriptionPlan.count();
   if (planCount === 0) {
     await prisma.subscriptionPlan.createMany({
       data: [
-        { title: 'Single Care - Auto Elite', type: 'Auto Care', priceMonthly: 12000, description: 'Bi-weekly exterior wash + interior vacuum for 1 luxury vehicle.', recommended: true, features: JSON.stringify(['2x Wash + Vacuum per month', 'Dedicated KYC provider', 'Priority booking window', '10% off add-on detailing']) },
+        {
+          title: 'Basic Package',
+          type: 'Auto Care',
+          priceMonthly: 5000,
+          description: '1 vehicle service per month with exterior wash, interior vacuum, basic tire shine, and window cleaning.',
+          recommended: true,
+          features: JSON.stringify([
+            '1 token',
+            '1 vehicle service / month',
+            'Exterior wash',
+            'Interior vacuum',
+            'Basic tire shine',
+            'Window cleaning',
+          ]),
+        },
         { title: 'Single Care - Garden Oasis', type: 'Garden Care', priceMonthly: 15000, description: 'Weekly garden upkeep, lawn mowing, and soil nourishment.', features: JSON.stringify(['4x Lawn Mowing & Plant Watering', 'Monthly organic fertilizer treatment', 'Landscape consultation']) },
         { title: 'Luxora Tri-Combo Luxury Suite', type: 'Combo Package', priceMonthly: 32000, description: 'Complete home concierge covering Auto, Garden, and Pet Care under one subscription.', features: JSON.stringify(['2x Auto Wash + Vacuum', '4x Garden Care & Lawn Mowing', '2x Pet Spa Bathing or Aquarium Service', 'Zero cancellation fees', 'VIP concierge hotline support']) },
       ],
     });
   }
-  await prisma.subscriptionPlan.updateMany({ where: { title: 'Single Care - Auto Elite' }, data: { recommended: true } });
+  await prisma.subscriptionPlan.updateMany({ where: { title: 'Basic Package' }, data: { recommended: true } });
+
+  const existingBasicPlan = await prisma.subscriptionPlan.findFirst({ where: { title: 'Basic Package' } });
+  if (existingBasicPlan) {
+    const existingEnt = await prisma.subscriptionEntitlement.findFirst({ where: { planId: existingBasicPlan.id, categoryId: auto.id } });
+    if (existingEnt) {
+      await prisma.subscriptionEntitlement.update({ where: { id: existingEnt.id }, data: { units: 1 } });
+    }
+  }
 
   // Per-category service units each plan grants (mirrors the marketed features).
   // Without these rows a purchased plan has no bookable entitlements.
   if (await prisma.subscriptionEntitlement.count() === 0) {
     const byTitle = async (title) => prisma.subscriptionPlan.findUniqueOrThrow({ where: { title } });
-    const [autoElite, gardenOasis, triCombo] = await Promise.all([
-      byTitle('Single Care - Auto Elite'), byTitle('Single Care - Garden Oasis'), byTitle('Luxora Tri-Combo Luxury Suite'),
+    const [basicPkg, gardenOasis, triCombo] = await Promise.all([
+      byTitle('Basic Package'), byTitle('Single Care - Garden Oasis'), byTitle('Luxora Tri-Combo Luxury Suite'),
     ]);
     await prisma.subscriptionEntitlement.createMany({
       data: [
-        { planId: autoElite.id, categoryId: auto.id, units: 2 },
+        { planId: basicPkg.id, categoryId: auto.id, units: 1 },
         { planId: gardenOasis.id, categoryId: garden.id, units: 4 },
         { planId: triCombo.id, categoryId: auto.id, units: 2 },
         { planId: triCombo.id, categoryId: garden.id, units: 4 },
