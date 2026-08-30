@@ -37,8 +37,25 @@ router.get('/services', async (_req, res) => {
 });
 
 router.get('/subscriptions', async (_req, res) => {
-  const plans = await prisma.subscriptionPlan.findMany({ where: { active: true }, include: { entitlements: { include: { category: true } } } });
-  res.json(plans.map((p) => ({ ...p, type: displayPackageType(p.type, p.entitlements), features: JSON.parse(p.features || '[]'), entitlements: p.entitlements.map((item) => ({ category_id: item.categoryId, category_name: item.category.name, units: item.units })) })));
+  const plans = await prisma.subscriptionPlan.findMany({
+    where: { active: true },
+    include: { entitlements: { include: { category: true } } },
+    orderBy: [
+      { displayOrder: 'asc' },
+      { id: 'asc' },
+    ],
+  });
+  res.json(plans.map((p) => ({
+    ...p,
+    displayOrder: p.displayOrder,
+    type: displayPackageType(p.type, p.entitlements),
+    features: JSON.parse(p.features || '[]'),
+    entitlements: p.entitlements.map((item) => ({
+      category_id: item.categoryId,
+      category_name: item.category.name,
+      units: item.units,
+    })),
+  })));
 });
 
 export async function renewDueDemoSubscriptions() {

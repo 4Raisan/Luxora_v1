@@ -287,9 +287,11 @@ const AdminDashboard = () => {
         return
       }
     }
+    const displayOrderVal = parseInt(ed.displayOrder, 10)
     const body = {
       title: ed.title.trim(), type: ed.type || 'Auto Care', price_monthly: price, duration_days: 30,
       description: (ed.description || '').trim(), recommended: Boolean(ed.recommended), features: [], entitlements,
+      display_order: Number.isInteger(displayOrderVal) && displayOrderVal >= 0 ? displayOrderVal : 0,
     }
     runAction(async () => {
       if (ed.id) await apiRequest(`/admin/subscriptions/${ed.id}`, 'PUT', body, token)
@@ -307,6 +309,7 @@ const AdminDashboard = () => {
     setConfirmPlanRemoval(false)
     setPlanEditor({
       id: plan.id, title: plan.title, type: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Package'].includes(plan.type) ? plan.type : 'Auto Care', price: String(Number(plan.priceMonthly)), duration: plan.durationDays || 30, description: plan.description || '', recommended: Boolean(plan.recommended), active: plan.active,
+      displayOrder: plan.displayOrder !== undefined && plan.displayOrder !== null ? plan.displayOrder : plan.id,
       entitlements: Object.fromEntries((plan.entitlements || []).map((entitlement) => [entitlement.categoryId, entitlement.units])),
     })
   }
@@ -573,14 +576,28 @@ const AdminDashboard = () => {
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
-                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
+                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, displayOrder: '', description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
               </div>
               <table className="ad-data-table">
-                <thead><tr><th>ID</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <thead><tr><th># (ORDER)</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
                 <tbody>
-                  {plans.map((p) => (
+                  {plans
+                    .slice()
+                    .sort((a, b) => {
+                      const typeComp = String(a.type || '').localeCompare(String(b.type || ''))
+                      if (typeComp !== 0) return typeComp
+                      const orderA = a.displayOrder !== undefined && a.displayOrder !== null && a.displayOrder > 0 ? Number(a.displayOrder) : Number(a.id)
+                      const orderB = b.displayOrder !== undefined && b.displayOrder !== null && b.displayOrder > 0 ? Number(b.displayOrder) : Number(b.id)
+                      return (orderA - orderB) || (Number(a.id) - Number(b.id))
+                    })
+                    .map((p) => (
                     <tr key={p.id} onClick={() => { setPlanDetails(p); setConfirmPlanRemoval(false) }} style={{ cursor: 'pointer' }} title="View package details">
-                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span>#{p.displayOrder || p.id}</span>
+                          <small style={{ color: '#666', fontSize: '0.68rem' }}>(ID:{p.id})</small>
+                        </div>
+                      </td>
                       <td>{p.title}</td>
                       <td>{p.type || '—'}</td>
                       <td>{fmtMoney(p.priceMonthly)} <small style={{ color: '#777' }}>/ {p.durationDays || 30}d</small></td>
@@ -969,7 +986,8 @@ const AdminDashboard = () => {
             <>
               <p style={{ color: '#fff', fontWeight: 700, fontSize: '1rem', margin: '0 0 0.35rem' }}>{planDetails.title}</p>
               {planDetails.description && <p style={{ color: '#bbb', fontSize: '0.84rem', lineHeight: 1.5 }}>{planDetails.description}</p>}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.65rem', marginTop: '1rem' }}>
+                <div><span style={{ color: '#777', fontSize: '0.7rem' }}>ORDER / #</span><strong style={{ display: 'block', color: 'var(--gold, #c9a84c)', marginTop: '0.15rem' }}>#{planDetails.displayOrder || planDetails.id}</strong></div>
                 <div><span style={{ color: '#777', fontSize: '0.7rem' }}>PRICE</span><strong style={{ display: 'block', color: '#fff', marginTop: '0.15rem' }}>{fmtMoney(planDetails.priceMonthly)} / {planDetails.durationDays || 30}d</strong></div>
                 <div><span style={{ color: '#777', fontSize: '0.7rem' }}>STATUS</span><div style={{ marginTop: '0.25rem' }}><StatBadge value={planDetails.active ? 'active' : 'closed'} /></div></div>
                 <div><span style={{ color: '#777', fontSize: '0.7rem' }}>SUBSCRIBERS</span><strong style={{ display: 'block', color: '#fff', marginTop: '0.15rem' }}>{planDetails._count?.userSubscriptions ?? 0}</strong></div>
@@ -991,8 +1009,12 @@ const AdminDashboard = () => {
       {planEditor && (
         <Modal title={planEditor.id ? `EDIT PACKAGE #${planEditor.id}` : 'NEW PACKAGE'} onClose={() => setPlanEditor(null)}>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <label style={{ color: '#888', fontSize: '0.75rem' }}>Title
-              <input style={fieldStyle} value={planEditor.title} onChange={(e) => setPlanEditor({ ...planEditor, title: e.target.value })} /></label>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
+              <label style={{ color: '#888', fontSize: '0.75rem' }}>Title
+                <input style={fieldStyle} value={planEditor.title} onChange={(e) => setPlanEditor({ ...planEditor, title: e.target.value })} /></label>
+              <label style={{ color: '#888', fontSize: '0.75rem' }}>Order / #
+                <input type="number" min="1" style={fieldStyle} placeholder="1" value={planEditor.displayOrder ?? ''} onChange={(e) => setPlanEditor({ ...planEditor, displayOrder: e.target.value })} /></label>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <label style={{ color: '#888', fontSize: '0.75rem' }}>Price (LKR)
                 <input type="number" min="0" style={fieldStyle} value={planEditor.price} onChange={(e) => setPlanEditor({ ...planEditor, price: e.target.value })} /></label>

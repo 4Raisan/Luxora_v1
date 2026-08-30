@@ -117,6 +117,7 @@ model SubscriptionPlan {
   recommended Boolean @default(false)
   description String?
   features String
+  displayOrder Int @default(0)
   userSubscriptions UserSubscription[]
   entitlements SubscriptionEntitlement[]
   payments Payment[]

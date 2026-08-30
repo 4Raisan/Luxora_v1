@@ -420,6 +420,7 @@ const CustomerDashboard = () => {
           return {
             id: 'SUB-' + p.id,
             serverId: p.id,
+            displayOrder: (p.displayOrder !== undefined && p.displayOrder !== null && Number(p.displayOrder) > 0) ? Number(p.displayOrder) : Number(p.id),
             title: p.title,
             type: p.type || 'Auto Care',
             recommended: Boolean(p.recommended),
@@ -1878,6 +1879,8 @@ const CustomerDashboard = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
               {adminSubscriptions
                 .filter(s => s.type === ({ auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }[bookingType]))
+                .slice()
+                .sort((a, b) => (Number(a.displayOrder || a.serverId || 0) - Number(b.displayOrder || b.serverId || 0)) || (Number(a.serverId || 0) - Number(b.serverId || 0)))
                 .map((s) => (
                   <div
                     key={s.id}
@@ -1963,6 +1966,8 @@ const CustomerDashboard = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
               {adminSubscriptions
                 .filter(s => s.type === 'Combo Package')
+                .slice()
+                .sort((a, b) => (Number(a.displayOrder || a.serverId || 0) - Number(b.displayOrder || b.serverId || 0)) || (Number(a.serverId || 0) - Number(b.serverId || 0)))
                 .map((s) => (
                   <div
                     key={s.id}

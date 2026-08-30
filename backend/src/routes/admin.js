@@ -154,12 +154,26 @@ router.get('/providers/:id', async (req, res) => {
 });
 
 router.get('/subscriptions', async (_req, res) => {
-  const plans = await prisma.subscriptionPlan.findMany({ include: { entitlements: { include: { category: true } }, _count: { select: { userSubscriptions: true } } }, orderBy: { id: 'desc' } });
-  res.json(plans.map((plan) => ({ ...plan, type: normalizePackageType(plan.type, plan.entitlements) || plan.type })));
+  const plans = await prisma.subscriptionPlan.findMany({
+    include: {
+      entitlements: { include: { category: true } },
+      _count: { select: { userSubscriptions: true } },
+    },
+    orderBy: [
+      { type: 'asc' },
+      { displayOrder: 'asc' },
+      { id: 'asc' },
+    ],
+  });
+  res.json(plans.map((plan) => ({
+    ...plan,
+    displayOrder: plan.displayOrder,
+    type: normalizePackageType(plan.type, plan.entitlements) || plan.type,
+  })));
 });
 
 router.post('/subscriptions', async (req, res) => {
-  const { title, type, price_monthly, description = '', recommended = false, features = [], duration_days = 30, entitlements = [] } = req.body;
+  const { title, type, price_monthly, description = '', recommended = false, features = [], duration_days = 30, entitlements = [], display_order, displayOrder } = req.body;
   const normalizedType = normalizePackageType(type);
   if (typeof title !== 'string' || !title.trim() || !normalizedType || !Number.isFinite(Number(price_monthly)) || Number(price_monthly) <= 0 || Number(duration_days) !== 30) return res.status(400).json({ error: 'title, type, a positive price_monthly, and a 30-day duration are required' });
   if (!Array.isArray(features) || !Array.isArray(entitlements)) return res.status(400).json({ error: 'features and entitlements must be arrays' });
@@ -167,8 +181,23 @@ router.post('/subscriptions', async (req, res) => {
   if (entitlementError) return res.status(400).json({ error: entitlementError });
   const normalized = entitlements.map((item) => ({ categoryId: toPositiveInt(item.category_id), units: Number(item.units) }));
   if (typeof recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' });
-  const plan = await prisma.subscriptionPlan.create({ data: { title: title.trim(), type: normalizedType, priceMonthly: Number(price_monthly), durationDays: 30, description: String(description).slice(0, 1000), recommended, features: JSON.stringify(features), entitlements: { create: normalized } }, include: { entitlements: true } });
-  logAdminAction({ adminId: req.user.id, action: 'CREATE_PLAN', targetType: 'SubscriptionPlan', targetId: String(plan.id), details: { title: plan.title, type: plan.type, priceMonthly: plan.priceMonthly }, ipAddress: req.ip }).catch(() => {});
+  const orderVal = Number(display_order ?? displayOrder);
+  const normalizedOrder = Number.isInteger(orderVal) && orderVal >= 0 ? orderVal : 0;
+  const plan = await prisma.subscriptionPlan.create({
+    data: {
+      title: title.trim(),
+      type: normalizedType,
+      priceMonthly: Number(price_monthly),
+      durationDays: 30,
+      description: String(description).slice(0, 1000),
+      recommended,
+      features: JSON.stringify(features),
+      displayOrder: normalizedOrder,
+      entitlements: { create: normalized },
+    },
+    include: { entitlements: true },
+  });
+  logAdminAction({ adminId: req.user.id, action: 'CREATE_PLAN', targetType: 'SubscriptionPlan', targetId: String(plan.id), details: { title: plan.title, type: plan.type, priceMonthly: plan.priceMonthly, displayOrder: plan.displayOrder }, ipAddress: req.ip }).catch(() => {});
   res.status(201).json(plan);
 });
 
@@ -184,6 +213,11 @@ router.put('/subscriptions/:id', async (req, res) => {
   if (typeof req.body.active === 'boolean') data.active = req.body.active;
   if (req.body.recommended !== undefined) { if (typeof req.body.recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' }); data.recommended = req.body.recommended; }
   if (req.body.features !== undefined) { if (!Array.isArray(req.body.features)) return res.status(400).json({ error: 'features must be an array' }); data.features = JSON.stringify(req.body.features); }
+  if (req.body.display_order !== undefined || req.body.displayOrder !== undefined) {
+    const orderVal = Number(req.body.display_order ?? req.body.displayOrder);
+    if (!Number.isInteger(orderVal) || orderVal < 0) return res.status(400).json({ error: 'display_order must be a non-negative integer' });
+    data.displayOrder = orderVal;
+  }
   const current = await prisma.subscriptionPlan.findUnique({ where: { id }, include: { entitlements: { include: { category: true } } } });
   if (!current) return res.status(404).json({ error: 'Package not found' });
   const nextType = data.type || normalizePackageType(current.type, current.entitlements);

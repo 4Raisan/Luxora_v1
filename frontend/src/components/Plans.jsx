@@ -63,12 +63,19 @@ const Plans = () => {
       // services can be booked after purchase, but must not cause a Combo
       // package to be displayed inside each individual care category.
       .filter((plan) => plan.type === packageType)
+      .slice()
+      .sort((a, b) => {
+        const orderA = a.displayOrder !== undefined && a.displayOrder !== null && a.displayOrder > 0 ? Number(a.displayOrder) : Number(a.id)
+        const orderB = b.displayOrder !== undefined && b.displayOrder !== null && b.displayOrder > 0 ? Number(b.displayOrder) : Number(b.id)
+        return (orderA - orderB) || (Number(a.id) - Number(b.id))
+      })
       .map((plan) => {
           const ents = plan.entitlements || []
           const coins = ents.reduce((total, entitlement) => total + (Number(entitlement.units) || 0), 0)
           return {
             id: `srv-${plan.id}`,
             serverId: plan.id,
+            displayOrder: plan.displayOrder ?? plan.id,
             tier: plan.title,
             price: Number(plan.priceMonthly) || 0,
             coins,

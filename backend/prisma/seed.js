@@ -91,9 +91,10 @@ async function main() {
             'Basic tire shine',
             'Window cleaning',
           ]),
+          displayOrder: 1,
         },
-        { title: 'Single Care - Garden Oasis', type: 'Garden Care', priceMonthly: 15000, description: 'Weekly garden upkeep, lawn mowing, and soil nourishment.', features: JSON.stringify(['4x Lawn Mowing & Plant Watering', 'Monthly organic fertilizer treatment', 'Landscape consultation']) },
-        { title: 'Luxora Tri-Combo Luxury Suite', type: 'Combo Package', priceMonthly: 32000, description: 'Complete home concierge covering Auto, Garden, and Pet Care under one subscription.', features: JSON.stringify(['2x Auto Wash + Vacuum', '4x Garden Care & Lawn Mowing', '2x Pet Spa Bathing or Aquarium Service', 'Zero cancellation fees', 'VIP concierge hotline support']) },
+        { title: 'Single Care - Garden Oasis', type: 'Garden Care', priceMonthly: 15000, description: 'Weekly garden upkeep, lawn mowing, and soil nourishment.', displayOrder: 1, features: JSON.stringify(['4x Lawn Mowing & Plant Watering', 'Monthly organic fertilizer treatment', 'Landscape consultation']) },
+        { title: 'Luxora Tri-Combo Luxury Suite', type: 'Combo Package', priceMonthly: 32000, description: 'Complete home concierge covering Auto, Garden, and Pet Care under one subscription.', displayOrder: 1, features: JSON.stringify(['2x Auto Wash + Vacuum', '4x Garden Care & Lawn Mowing', '2x Pet Spa Bathing or Aquarium Service', 'Zero cancellation fees', 'VIP concierge hotline support']) },
       ],
     });
   }

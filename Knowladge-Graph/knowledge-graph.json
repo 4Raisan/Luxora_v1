@@ -3095,6 +3095,10 @@
             "type": "String?"
           },
           {
+            "name": "displayOrder",
+            "type": "Int"
+          },
+          {
             "name": "durationDays",
             "type": "Int"
           },
