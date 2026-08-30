@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
+import LuxoraBackground from '../components/LuxoraBackground'
 import './AdminDashboard.css'
 
 /* Admin control center — backup visual language (ad- design system),
@@ -394,6 +395,9 @@ const AdminDashboard = () => {
 
   return (
     <div className="ad-wrapper">
+      {/* Animated Gold Squares Background Effect */}
+      <LuxoraBackground />
+
       {/* 2-Second Polished Logout Overlay */}
       <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeSignOut} />
 

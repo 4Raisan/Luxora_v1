@@ -7,7 +7,7 @@
   },
   "stats": {
     "totalNodes": 183,
-    "totalEdges": 389,
+    "totalEdges": 390,
     "nodesByGroup": {
       "api": 91,
       "database": 33,
@@ -4239,6 +4239,20 @@
       "label": "",
       "source": "frontend:AdminDashboard",
       "target": "frontend:LogoutOverlay",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->frontend:LuxoraBackground:RENDERS_COMPONENT",
+      "from": "frontend:AdminDashboard",
+      "to": "frontend:LuxoraBackground",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:AdminDashboard",
+      "target": "frontend:LuxoraBackground",
       "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
