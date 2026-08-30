@@ -726,8 +726,32 @@
 }
 
 .cd-tier-card--popular {
-  border-color: rgba(201, 168, 76, 0.4);
-  background: #14120a;
+  border-color: rgba(201, 168, 76, 0.55);
+  background: linear-gradient(160deg, #18140b 0%, #14120a 100%);
+  box-shadow: 0 0 20px rgba(201, 168, 76, 0.18), 0 0 6px rgba(234, 179, 8, 0.25), 0 10px 30px rgba(0, 0, 0, 0.4);
+  animation: subtle-gold-pulse-card 4s ease-in-out infinite;
+}
+
+.cd-combo-card--popular {
+  background: linear-gradient(160deg, #18140b 0%, #141414 100%) !important;
+  border-color: rgba(201, 168, 76, 0.55) !important;
+  box-shadow: 0 0 20px rgba(201, 168, 76, 0.18), 0 0 6px rgba(234, 179, 8, 0.25), 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+  animation: subtle-gold-pulse-card 4s ease-in-out infinite;
+}
+
+@keyframes subtle-gold-pulse-card {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(201, 168, 76, 0.16), 0 0 4px rgba(234, 179, 8, 0.2), 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+    border-color: rgba(201, 168, 76, 0.45) !important;
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(201, 168, 76, 0.28), 0 0 8px rgba(234, 179, 8, 0.35), 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+    border-color: rgba(201, 168, 76, 0.7) !important;
+  }
+}
+
+.cd-combo-card--popular:hover {
+  box-shadow: 0 0 28px rgba(201, 168, 76, 0.32), 0 0 10px rgba(234, 179, 8, 0.4), 0 15px 40px rgba(0, 0, 0, 0.5) !important;
 }
 
 .cd-popular-badge {
@@ -741,6 +765,11 @@
   letter-spacing: 0.1em;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
+}
+
+.cd-popular-badge--glowing,
+.cd-combo-badge--glowing {
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.45), 0 0 4px rgba(234, 179, 8, 0.35);
 }
 
 .cd-tier-name {

@@ -1881,12 +1881,30 @@ const CustomerDashboard = () => {
                 .map((s) => (
                   <div
                     key={s.id}
-                    className="cd-combo-card animate-fade-in"
-                    style={{ background: '#141414', border: '1px solid #282828', borderRadius: '14px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem' }}
+                    className={`cd-combo-card animate-fade-in ${s.recommended ? 'cd-combo-card--popular' : ''}`}
+                    style={{
+                      background: s.recommended ? 'linear-gradient(160deg, #18140b 0%, #141414 100%)' : '#141414',
+                      border: s.recommended ? '1px solid rgba(201, 168, 76, 0.55)' : '1px solid #282828',
+                      borderRadius: '14px',
+                      padding: '1.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '1rem',
+                    }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <span className="cd-popular-badge" style={{ position: 'static', background: 'rgba(201, 168, 76, 0.15)', color: 'var(--gold, #c9a84c)', border: '1px solid rgba(201, 168, 76, 0.3)' }}>
+                        <span
+                          className={`cd-popular-badge ${s.recommended ? 'cd-popular-badge--glowing' : ''}`}
+                          style={{
+                            position: 'static',
+                            background: s.recommended ? 'var(--gold, #c9a84c)' : 'rgba(201, 168, 76, 0.15)',
+                            color: s.recommended ? '#000' : 'var(--gold, #c9a84c)',
+                            border: s.recommended ? 'none' : '1px solid rgba(201, 168, 76, 0.3)',
+                            fontWeight: s.recommended ? 800 : 600,
+                          }}
+                        >
                           {s.recommended ? 'MOST POPULAR' : (s.type || 'CARE').toUpperCase()}
                         </span>
                         <span style={{ color: '#888', fontSize: '0.75rem', fontWeight: 600 }}>{s.id}</span>
@@ -1948,12 +1966,25 @@ const CustomerDashboard = () => {
                 .map((s) => (
                   <div
                     key={s.id}
-                    className="cd-combo-card animate-fade-in"
-                    style={{ background: '#161616', border: '1px solid var(--gold, #c9a84c)', borderRadius: '16px', padding: '1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1.25rem', boxShadow: '0 0 25px rgba(201, 168, 76, 0.1)' }}
+                    className={`cd-combo-card animate-fade-in ${s.recommended ? 'cd-combo-card--popular' : ''}`}
+                    style={{
+                      background: '#161616',
+                      border: '1px solid var(--gold, #c9a84c)',
+                      borderRadius: '16px',
+                      padding: '1.75rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '1.25rem',
+                      boxShadow: '0 0 25px rgba(201, 168, 76, 0.1)',
+                    }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <span className="cd-combo-badge" style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800 }}>
+                        <span
+                          className={`cd-combo-badge ${s.recommended ? 'cd-combo-badge--glowing' : ''}`}
+                          style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800 }}
+                        >
                           {s.recommended ? 'MOST POPULAR' : 'COMBO PACKAGE'}
                         </span>
                         <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 700 }}>{s.id}</span>
