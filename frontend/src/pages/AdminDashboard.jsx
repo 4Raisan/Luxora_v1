@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
+import LogoutOverlay from '../components/LogoutOverlay'
 import './AdminDashboard.css'
 
 /* Admin control center — backup visual language (ad- design system),
@@ -367,10 +368,17 @@ const AdminDashboard = () => {
     } catch {}
   }
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
   const handleSignOut = () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+  }
+
+  const finalizeSignOut = () => {
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('user')
-    navigate('/login')
+    navigate('/')
   }
 
   /* Derived views */
@@ -386,6 +394,9 @@ const AdminDashboard = () => {
 
   return (
     <div className="ad-wrapper">
+      {/* 2-Second Polished Logout Overlay */}
+      <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeSignOut} />
+
       {/* Sidebar */}
       <aside className="ad-sidebar">
         <div className="ad-sidebar__logo">
@@ -417,7 +428,7 @@ const AdminDashboard = () => {
                 <span className="ad-user-role">Admin <span className="ad-user-dot">●</span></span>
               </div>
             </div>
-            <button className="ad-logout-btn" onClick={handleSignOut} title="Sign Out">Sign Out</button>
+            <button className="ad-logout-btn" onClick={handleSignOut} disabled={isLoggingOut} title="Sign Out">Sign Out</button>
           </div>
         </header>
 

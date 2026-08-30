@@ -6,12 +6,12 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 180,
-    "totalEdges": 384,
+    "totalNodes": 183,
+    "totalEdges": 389,
     "nodesByGroup": {
       "api": 91,
       "database": 33,
-      "frontend": 29,
+      "frontend": 32,
       "middleware": 3,
       "routes": 16,
       "service": 8
@@ -1721,6 +1721,17 @@
       }
     },
     {
+      "id": "frontend:LogoutOverlay",
+      "label": "LogoutOverlay.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/LogoutOverlay.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/LogoutOverlay.jsx"
+      }
+    },
+    {
       "id": "frontend:LuxoraBackground",
       "label": "LuxoraBackground.jsx",
       "type": "FrontendComponent",
@@ -1751,6 +1762,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/Navbar.jsx"
+      }
+    },
+    {
+      "id": "frontend:PeekingEyes",
+      "label": "PeekingEyes.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/PeekingEyes.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/PeekingEyes.jsx"
       }
     },
     {
@@ -1861,6 +1883,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/Services.jsx"
+      }
+    },
+    {
+      "id": "frontend:SessionConfirmationAnimation",
+      "label": "SessionConfirmationAnimation.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/SessionConfirmationAnimation.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/SessionConfirmationAnimation.jsx"
       }
     },
     {
@@ -4199,13 +4232,13 @@
       }
     },
     {
-      "id": "frontend:AdminDashboard->frontend:LuxoraBackground:RENDERS_COMPONENT",
+      "id": "frontend:AdminDashboard->frontend:LogoutOverlay:RENDERS_COMPONENT",
       "from": "frontend:AdminDashboard",
-      "to": "frontend:LuxoraBackground",
+      "to": "frontend:LogoutOverlay",
       "type": "RENDERS_COMPONENT",
       "label": "",
       "source": "frontend:AdminDashboard",
-      "target": "frontend:LuxoraBackground",
+      "target": "frontend:LogoutOverlay",
       "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -4277,6 +4310,20 @@
       "source": "frontend:BookService",
       "target": "frontend:api_client",
       "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/pages/BookService.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:BookService->frontend:SessionConfirmationAnimation:RENDERS_COMPONENT",
+      "from": "frontend:BookService",
+      "to": "frontend:SessionConfirmationAnimation",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:BookService",
+      "target": "frontend:SessionConfirmationAnimation",
+      "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/BookService.jsx",
         "extractor": "generate-graph.js:static-analysis"
@@ -4627,6 +4674,20 @@
       "source": "frontend:CustomerDashboard",
       "target": "frontend:api_client",
       "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:CustomerDashboard->frontend:LogoutOverlay:RENDERS_COMPONENT",
+      "from": "frontend:CustomerDashboard",
+      "to": "frontend:LogoutOverlay",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:CustomerDashboard",
+      "target": "frontend:LogoutOverlay",
+      "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
         "extractor": "generate-graph.js:static-analysis"
@@ -4997,6 +5058,20 @@
       }
     },
     {
+      "id": "frontend:ProviderDashboard->frontend:LogoutOverlay:RENDERS_COMPONENT",
+      "from": "frontend:ProviderDashboard",
+      "to": "frontend:LogoutOverlay",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:ProviderDashboard",
+      "target": "frontend:LogoutOverlay",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:ProviderDashboard->frontend:ui:RENDERS_COMPONENT",
       "from": "frontend:ProviderDashboard",
       "to": "frontend:ui",
@@ -5095,6 +5170,20 @@
       }
     },
     {
+      "id": "frontend:ResetPassword->frontend:PeekingEyes:RENDERS_COMPONENT",
+      "from": "frontend:ResetPassword",
+      "to": "frontend:PeekingEyes",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:ResetPassword",
+      "target": "frontend:PeekingEyes",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/ResetPassword.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:ResetPassword->frontend:ui:RENDERS_COMPONENT",
       "from": "frontend:ResetPassword",
       "to": "frontend:ui",
@@ -5186,6 +5275,20 @@
       "label": "",
       "source": "frontend:Signup",
       "target": "frontend:GoogleSignIn",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/Signup.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:Signup->frontend:PeekingEyes:RENDERS_COMPONENT",
+      "from": "frontend:Signup",
+      "to": "frontend:PeekingEyes",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:Signup",
+      "target": "frontend:PeekingEyes",
       "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/Signup.jsx",

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Calendar from '../components/Calendar'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
+import LogoutOverlay from '../components/LogoutOverlay'
 import './ProviderDashboard.css'
 
 /* ── SVG Icons ─────────────────────────────────────── */
@@ -345,10 +346,17 @@ const ProviderDashboard = () => {
   }
 
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
   const handleLogout = () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+  }
+
+  const finalizeLogout = () => {
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('user')
-    navigate('/login')
+    navigate('/')
   }
 
   const handleBookingClick = (dayStr) => {
@@ -413,6 +421,9 @@ const ProviderDashboard = () => {
 
   return (
     <div className="pd">
+      {/* 2-Second Polished Logout Overlay */}
+      <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeLogout} />
+
       {/* ── Sidebar ── */}
       <aside className="pd-sidebar">
         <div className="pd-sidebar__logo">
@@ -493,7 +504,7 @@ const ProviderDashboard = () => {
               <GearIcon />
             </button>
 
-            <button className="pd-topbar__icon-btn" id="pd-logout-btn" aria-label="Log out" title="Log out" onClick={handleLogout}>
+            <button className="pd-topbar__icon-btn" id="pd-logout-btn" aria-label="Log out" title="Log out" disabled={isLoggingOut} onClick={handleLogout}>
               <LogOutIcon />
             </button>
           </div>

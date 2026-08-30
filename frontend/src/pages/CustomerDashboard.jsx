@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import AccountVerificationPanel from '../components/AccountVerificationPanel'
 import { ActionButton } from '../components/ui'
+import LogoutOverlay from '../components/LogoutOverlay'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -1097,15 +1098,25 @@ const CustomerDashboard = () => {
   const formattedTotalSpent = `LKR ${totalHistorySpent.toLocaleString()}`
   const avgPerMonth = `LKR ${Math.round(totalHistorySpent / Math.max(1, historyData.length)).toLocaleString()}`
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
   const handleLogout = () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+  }
+
+  const finalizeLogout = () => {
     sessionStorage.removeItem('isCustomerLoggedIn')
     sessionStorage.removeItem('user')
     sessionStorage.removeItem('token')
-    navigate('/login')
+    navigate('/')
   }
 
   return (
     <div className="cd-page">
+      {/* 2-Second Polished Logout Overlay */}
+      <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeLogout} />
+
       {paymentSuccess && (
         <div className="cd-support-overlay" style={{ zIndex: 1000 }}>
           <div className="cd-support-modal animate-fade-in" style={{ maxWidth: '440px', textAlign: 'center' }} role="dialog" aria-modal="true" aria-label="Payment successful">
@@ -1276,7 +1287,7 @@ const CustomerDashboard = () => {
               <div className={`cd-avatar ${isGoldMember ? 'gold-avatar' : ''}`}>{initials}</div>
             </div>
 
-            <button className="cd-btn-logout" title="Log out" onClick={handleLogout}>
+            <button className="cd-btn-logout" title="Log out" disabled={isLoggingOut} onClick={handleLogout}>
               <LogOutIcon />
             </button>
           </div>
@@ -2717,6 +2728,7 @@ const CustomerDashboard = () => {
             <button
               type="button"
               className="cd-drawer-logout"
+              disabled={isLoggingOut}
               onClick={handleLogout}
             >
               <LogOutIcon /> Log out

@@ -1,0 +1,177 @@
+/* ─── Logout Preview Animation Overlay ──────────────────── */
+.luxora-logout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(10, 10, 12, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: luxoraLogoutFadeIn 0.3s ease forwards;
+  pointer-events: all;
+  user-select: none;
+}
+
+@keyframes luxoraLogoutFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.luxora-logout-card {
+  position: relative;
+  background: #141417;
+  border: 1px solid rgba(201, 168, 76, 0.28);
+  border-radius: 20px;
+  padding: 3rem 2.5rem 2.5rem;
+  width: 90%;
+  max-width: 420px;
+  text-align: center;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.85),
+    0 0 40px rgba(201, 168, 76, 0.12),
+    0 0 0 1px rgba(201, 168, 76, 0.15) inset;
+  overflow: hidden;
+  animation: luxoraLogoutCardPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes luxoraLogoutCardPop {
+  from {
+    transform: scale(0.92) translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Golden laser scan line across card top */
+.luxora-logout-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, transparent 0%, #c9a84c 45%, #fff6d6 55%, transparent 100%);
+  background-size: 200% 100%;
+  animation: luxoraLogoutBeamScan 1s linear infinite;
+}
+
+@keyframes luxoraLogoutBeamScan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Crest & Spinner Container */
+.luxora-logout-emblem {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.luxora-logout-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed rgba(201, 168, 76, 0.35);
+  border-radius: 50%;
+  animation: spin 6s linear infinite;
+}
+
+.luxora-logout-spinner {
+  position: absolute;
+  inset: -6px;
+  border: 2.5px solid transparent;
+  border-top-color: #c9a84c;
+  border-right-color: #e5c977;
+  border-radius: 50%;
+  animation: spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+  box-shadow: 0 0 15px rgba(201, 168, 76, 0.4);
+}
+
+.luxora-logout-logo {
+  width: 52px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+  animation: luxoraLogoPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes luxoraLogoPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.25) drop-shadow(0 0 12px rgba(201, 168, 76, 0.5)); }
+}
+
+.luxora-logout-title {
+  font-family: var(--font-primary, system-ui, -apple-system, sans-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0 0 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.luxora-logout-subtitle {
+  font-family: var(--font-primary, system-ui, -apple-system, sans-serif);
+  font-size: 0.8rem;
+  color: #9c9c9c;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 1.75rem;
+  transition: all 0.3s ease;
+}
+
+/* Progress bar container */
+.luxora-logout-progress-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.luxora-logout-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #947528 0%, #c9a84c 50%, #f7e2a0 100%);
+  box-shadow: 0 0 10px rgba(201, 168, 76, 0.6);
+  border-radius: 999px;
+  transition: width 0.15s ease-out;
+}
+
+/* Success state */
+.luxora-logout-card--success {
+  border-color: rgba(74, 222, 128, 0.4);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.85),
+    0 0 45px rgba(34, 197, 94, 0.18),
+    0 0 0 1px rgba(74, 222, 128, 0.2) inset;
+}
+
+.luxora-logout-card--success .luxora-logout-title {
+  color: #4ade80;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .luxora-logout-overlay,
+  .luxora-logout-card,
+  .luxora-logout-beam,
+  .luxora-logout-ring,
+  .luxora-logout-spinner,
+  .luxora-logout-logo {
+    animation: none !important;
+    transition: none !important;
+  }
+}
