@@ -1,17 +1,16 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import GoogleSignIn from '../components/GoogleSignIn'
-import PeekingEyes from '../components/PeekingEyes'
 import './Auth.css'
 
 const Login = () => {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [keepSigned, setKeepSigned] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loginStage, setLoginStage] = useState('idle') // 'idle' | 'authenticating' | 'verifying' | 'success'
   const [form, setForm] = useState({ email: '', password: '' })
 
   // Forgot Password State
@@ -40,88 +39,11 @@ const Login = () => {
     }
   }
 
-  const [errorMsg, setErrorMsg] = useState('')
-  const [runawayOffset, setRunawayOffset] = useState({ x: 0, y: 0 })
-  const [runawayCount, setRunawayCount] = useState(0)
-  const submitWrapRef = useRef(null)
-  const [wrapDims, setWrapDims] = useState({ width: 380, height: 54 })
-
-  useEffect(() => {
-    const updateDims = () => {
-      if (submitWrapRef.current) {
-        setWrapDims({
-          width: submitWrapRef.current.offsetWidth || 380,
-          height: submitWrapRef.current.offsetHeight || 54,
-        })
-      }
-    }
-    updateDims()
-    window.addEventListener('resize', updateDims)
-    return () => window.removeEventListener('resize', updateDims)
-  }, [])
-
-  const isFormIncomplete = !form.email.trim() || !form.password.trim()
-  const isDisplaced = runawayOffset.x !== 0 || runawayOffset.y !== 0
-
-  const handleButtonRunaway = (e) => {
-    if (!isFormIncomplete || !submitWrapRef.current) {
-      if (isDisplaced) setRunawayOffset({ x: 0, y: 0 })
-      return
-    }
-
-    const rect = submitWrapRef.current.getBoundingClientRect()
-    const anchorCenterX = rect.left + rect.width / 2
-    const anchorCenterY = rect.top + rect.height / 2
-
-    const clientX = e?.clientX ?? e?.touches?.[0]?.clientX
-    const clientY = e?.clientY ?? e?.touches?.[0]?.clientY
-
-    if (clientX === undefined || clientY === undefined) {
-      const fallback = [{ x: -110, y: -20 }, { x: 110, y: -20 }, { x: -90, y: 20 }, { x: 90, y: 20 }]
-      setRunawayOffset(fallback[runawayCount % fallback.length])
-      setRunawayCount((prev) => prev + 1)
-      return
-    }
-
-    // Compute inverse vector from mouse cursor towards opposite direction
-    const currentBtnX = anchorCenterX + runawayOffset.x
-    const currentBtnY = anchorCenterY + runawayOffset.y
-
-    const dx = currentBtnX - clientX
-    const dy = currentBtnY - clientY
-    const dist = Math.hypot(dx, dy) || 1
-
-    // Inverse repulsion force
-    const pushForce = 125
-    const normX = dx / dist
-    const normY = dy / dist
-
-    const maxX = 125
-    const maxY = 28
-
-    const targetX = Math.max(-maxX, Math.min(maxX, normX * pushForce))
-    const targetY = Math.max(-maxY, Math.min(maxY, normY * pushForce))
-
-    setRunawayOffset({
-      x: Math.round(targetX),
-      y: Math.round(targetY),
-    })
-    setRunawayCount((prev) => prev + 1)
-  }
-
-  const handleResetPosition = () => {
-    if (isDisplaced) {
-      setRunawayOffset({ x: 0, y: 0 })
-    }
-  }
-
   const handleChange = (e) => {
-    const nextForm = { ...form, [e.target.name]: e.target.value }
-    setForm(nextForm)
-    if (nextForm.email.trim() && nextForm.password.trim()) {
-      setRunawayOffset({ x: 0, y: 0 })
-    }
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
+
+  const [errorMsg, setErrorMsg] = useState('')
 
   // Shared session handling for password and Google sign-in: the backend owns
   // the role, so both paths route identically after authentication.
@@ -136,21 +58,60 @@ const Login = () => {
     else navigate('/customer-dashboard')
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  // 1-second polished login transition before navigating to destination dashboard
+  const executeLoginTransition = async (authPromise) => {
     setLoading(true)
     setErrorMsg('')
+    setLoginStage('authenticating')
+    const startTime = Date.now()
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+
     try {
-      completeLogin(await apiRequest('/auth/login', 'POST', { email: form.email, password: form.password }))
+      // 1. Perform actual real backend authentication
+      const data = await authPromise
+
+      if (prefersReducedMotion) {
+        completeLogin(data)
+        return
+      }
+
+      // 2. Stage 2 (Verifying credentials): at ~350ms
+      const elapsed1 = Date.now() - startTime
+      if (elapsed1 < 350) {
+        await new Promise((r) => setTimeout(r, 350 - elapsed1))
+      }
+      setLoginStage('verifying')
+
+      // 3. Stage 3 (Access Granted / Success): at ~700ms
+      const elapsed2 = Date.now() - startTime
+      if (elapsed2 < 700) {
+        await new Promise((r) => setTimeout(r, 700 - elapsed2))
+      }
+      setLoginStage('success')
+
+      // 4. Stage 4 (Smooth redirect): at exactly 1000ms minimum
+      const elapsed3 = Date.now() - startTime
+      if (elapsed3 < 1000) {
+        await new Promise((r) => setTimeout(r, 1000 - elapsed3))
+      }
+
+      completeLogin(data)
     } catch (err) {
-      setErrorMsg(err.message || 'Unable to sign in.')
-    } finally {
       setLoading(false)
+      setLoginStage('idle')
+      setErrorMsg(err.message || 'Unable to sign in.')
     }
   }
 
-  const handleGoogle = (data) => {
-    try { completeLogin(data) } catch (err) { setErrorMsg(err.message) }
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (loading) return
+    await executeLoginTransition(apiRequest('/auth/login', 'POST', { email: form.email, password: form.password }))
+  }
+
+  const handleGoogle = async (data) => {
+    if (loading) return
+    await executeLoginTransition(Promise.resolve(data))
   }
 
   return (
@@ -164,11 +125,17 @@ const Login = () => {
       </Link>
 
       {/* Card */}
-      <div className="auth-card">
+      <div className={`auth-card ${loading ? 'auth-card--loading' : ''} ${loginStage === 'success' ? 'auth-card--success' : ''}`}>
+        {/* Visual Progress Laser Beam */}
+        {loading && <div className="auth-card__beam" />}
+        {/* Subtle Shimmer Light Sweep */}
+        {loading && <div className="auth-card__shimmer" />}
+
         {/* Upper Right Close Button */}
         <button
           className="auth-card-close-btn"
-          onClick={() => navigate('/')}
+          onClick={() => !loading && navigate('/')}
+          disabled={loading}
           aria-label="Close & Return to Home"
           title="Close & Return to Home"
           type="button"
@@ -187,7 +154,7 @@ const Login = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             transition: 'all 0.2s ease',
             zIndex: 10
           }}
@@ -216,6 +183,7 @@ const Login = () => {
               placeholder="Email or username"
               value={form.email}
               onChange={handleChange}
+              disabled={loading}
               required
               autoComplete="username"
             />
@@ -223,11 +191,6 @@ const Login = () => {
 
           <div className="auth-field">
             <div className="auth-input-wrap">
-              <PeekingEyes
-                isActive={isPasswordFocused}
-                textLength={form.password.length}
-                isPasswordVisible={showPassword}
-              />
               <input
                 id="login-password"
                 name="password"
@@ -236,8 +199,7 @@ const Login = () => {
                 placeholder="Password"
                 value={form.password}
                 onChange={handleChange}
-                onFocus={() => setIsPasswordFocused(true)}
-                onBlur={() => setIsPasswordFocused(false)}
+                disabled={loading}
                 required
                 autoComplete="current-password"
               />
@@ -245,6 +207,7 @@ const Login = () => {
                 type="button"
                 className="auth-eye"
                 id="login-toggle-password"
+                disabled={loading}
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label="Toggle password visibility"
               >
@@ -270,6 +233,7 @@ const Login = () => {
                 id="keep-signed"
                 type="checkbox"
                 checked={keepSigned}
+                disabled={loading}
                 onChange={() => setKeepSigned(!keepSigned)}
               />
               <span className="auth-checkbox__box" />
@@ -277,6 +241,7 @@ const Login = () => {
             </label>
             <button
               type="button"
+              disabled={loading}
               onClick={() => {
                 setShowForgotModal(true)
                 setForgotErrorMsg('')
@@ -285,215 +250,45 @@ const Login = () => {
               }}
               className="auth-forgot"
               id="login-forgot-link"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              style={{ background: 'none', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', padding: 0 }}
             >
               Forgot Password?
             </button>
           </div>
 
-          {/* Submit Container with Dynamic Golden Wire & Range Auto-Reset */}
-          {(() => {
-            const startX = wrapDims.width / 2
-            const startY = wrapDims.height / 2
-            const endX = startX + runawayOffset.x
-            const endY = startY + runawayOffset.y
-            const dist = Math.hypot(runawayOffset.x, runawayOffset.y)
-            const midX = (startX + endX) / 2
-            const midY = (startY + endY) / 2
-            const cpX = midX - runawayOffset.y * 0.3
-            const cpY = midY + dist * 0.35 + 8
-
-            return (
-              <div
-                className="auth-submit-zone"
-                onMouseMove={handleButtonRunaway}
-                onMouseEnter={handleButtonRunaway}
-                onMouseLeave={handleResetPosition}
-              >
-                <div
-                  ref={submitWrapRef}
-                  className={`auth-submit-wrap ${isDisplaced ? 'is-displaced' : ''}`}
-                  onMouseMove={handleButtonRunaway}
-                  onMouseEnter={handleButtonRunaway}
-                >
-                  {/* Dock Slot Placeholder where button normally rests */}
-                  {isDisplaced && (
-                    <div className="auth-submit-dock" aria-hidden="true">
-                      <div className="auth-submit-dock-glow" />
-                      <span className="auth-submit-dock-text">
-                        <span className="auth-submit-dock-spark">✦</span> LUXORA SECURITY ANCHOR <span className="auth-submit-dock-spark">✦</span>
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Dynamic Connecting Twisted Rope SVG */}
-                  {isDisplaced && (
-                    <svg
-                      className="auth-tether-wire"
-                      aria-hidden="true"
-                      style={{
-                        position: 'absolute',
-                        top: '-60px',
-                        left: '-80px',
-                        width: `${wrapDims.width + 160}px`,
-                        height: `${wrapDims.height + 120}px`,
-                        pointerEvents: 'none',
-                        overflow: 'visible',
-                        zIndex: 1,
-                      }}
-                    >
-                      <defs>
-                        {/* 24k Luxury Gold Gradients */}
-                        <linearGradient id="ropeGoldCore" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#7a5518" />
-                          <stop offset="20%" stopColor="#cda54b" />
-                          <stop offset="45%" stopColor="#fae7a5" />
-                          <stop offset="70%" stopColor="#c59838" />
-                          <stop offset="100%" stopColor="#6e4912" />
-                        </linearGradient>
-
-                        <linearGradient id="ropeBraidHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#fff8db" stopOpacity="0.95" />
-                          <stop offset="50%" stopColor="#f7e199" stopOpacity="1" />
-                          <stop offset="100%" stopColor="#d8ab46" stopOpacity="0.9" />
-                        </linearGradient>
-
-                        <linearGradient id="brassBezelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#eed285" />
-                          <stop offset="50%" stopColor="#9e7323" />
-                          <stop offset="100%" stopColor="#fae29c" />
-                        </linearGradient>
-
-                        {/* Ambient Gold Aura */}
-                        <filter id="goldAura" x="-40%" y="-40%" width="180%" height="180%">
-                          <feGaussianBlur stdDeviation="4" result="blur" />
-                          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-
-                        {/* Deep Physics Drop Shadow */}
-                        <filter id="ropeDeepShadow" x="-30%" y="-30%" width="160%" height="160%">
-                          <feDropShadow dx="0" dy="6" stdDeviation="4" floodColor="#000000" floodOpacity="0.85" />
-                        </filter>
-                      </defs>
-
-                      {/* 1. Deep realistic ground shadow */}
-                      <path
-                        d={`M ${startX + 80} ${startY + 60} Q ${cpX + 80} ${cpY + 60} ${endX + 80} ${endY + 60}`}
-                        fill="none"
-                        stroke="#050505"
-                        strokeWidth="9"
-                        strokeLinecap="round"
-                        filter="url(#ropeDeepShadow)"
-                      />
-
-                      {/* 2. Ambient golden aura glow */}
-                      <path
-                        d={`M ${startX + 80} ${startY + 60} Q ${cpX + 80} ${cpY + 60} ${endX + 80} ${endY + 60}`}
-                        fill="none"
-                        stroke="rgba(201, 168, 76, 0.3)"
-                        strokeWidth="10"
-                        strokeLinecap="round"
-                        filter="url(#goldAura)"
-                      />
-
-                      {/* 3. Main thick braided rope body */}
-                      <path
-                        d={`M ${startX + 80} ${startY + 60} Q ${cpX + 80} ${cpY + 60} ${endX + 80} ${endY + 60}`}
-                        fill="none"
-                        stroke="url(#ropeGoldCore)"
-                        strokeWidth="6.5"
-                        strokeLinecap="round"
-                      />
-
-                      {/* 4. Deep intertwined helical rope grooves */}
-                      <path
-                        d={`M ${startX + 80} ${startY + 60} Q ${cpX + 80} ${cpY + 60} ${endX + 80} ${endY + 60}`}
-                        fill="none"
-                        stroke="#3d2605"
-                        strokeWidth="3.8"
-                        strokeDasharray="9 7"
-                        strokeDashoffset="0"
-                        strokeLinecap="round"
-                      />
-
-                      {/* 5. Bright braided gold filament strand */}
-                      <path
-                        d={`M ${startX + 80} ${startY + 60} Q ${cpX + 80} ${cpY + 60} ${endX + 80} ${endY + 60}`}
-                        fill="none"
-                        stroke="url(#ropeBraidHighlight)"
-                        strokeWidth="3.2"
-                        strokeDasharray="8 8"
-                        strokeDashoffset="8"
-                        strokeLinecap="round"
-                      />
-
-                      {/* 6. Pure silk/metallic specular threads */}
-                      <path
-                        d={`M ${startX + 80} ${startY + 60} Q ${cpX + 80} ${cpY + 60} ${endX + 80} ${endY + 60}`}
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="1.2"
-                        strokeDasharray="2 14"
-                        strokeDashoffset="11"
-                        strokeLinecap="round"
-                        strokeOpacity="0.9"
-                      />
-
-                      {/* ── Dock Anchor: Beveled Brass Grommet & Luxury Shackle ── */}
-                      <g transform={`translate(${startX + 80}, ${startY + 60})`}>
-                        {/* Outer Glow Halo */}
-                        <circle cx="0" cy="0" r="14" fill="rgba(201, 168, 76, 0.15)" />
-                        {/* Polished Brass Bezel */}
-                        <circle cx="0" cy="0" r="11" fill="#141414" stroke="url(#brassBezelGrad)" strokeWidth="3" />
-                        <circle cx="0" cy="0" r="6" fill="#38260b" stroke="#f6d365" strokeWidth="1.2" />
-                        {/* Center Diamond Pin */}
-                        <polygon points="0,-3 3,0 0,3 -3,0" fill="#fff" />
-                        {/* Shackle Crimp Collar */}
-                        <rect x="-5" y="-6" width="10" height="12" rx="3.5" fill="#8f6520" stroke="#f6d365" strokeWidth="1" />
-                      </g>
-
-                      {/* ── Button Terminal: Gold Carabiner Clasp & Rivet ── */}
-                      <g transform={`translate(${endX + 80}, ${endY + 60})`}>
-                        {/* Outer Pulse Halo */}
-                        <circle cx="0" cy="0" r="13" fill="rgba(201, 168, 76, 0.2)" />
-                        {/* Gold Clasp Terminal */}
-                        <circle cx="0" cy="0" r="9.5" fill="url(#brassBezelGrad)" stroke="#fff" strokeWidth="1.5" />
-                        <circle cx="0" cy="0" r="5" fill="#2b1a05" />
-                        <circle cx="0" cy="0" r="2.5" fill="#fff" />
-                        {/* Shackle Hook Bar */}
-                        <path d="M-6 0h12" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
-                      </g>
-                    </svg>
-                  )}
-
-                  <ActionButton
-                    type="submit"
-                    id="login-submit-btn"
-                    className={`auth-submit ${isFormIncomplete ? 'auth-submit--runaway' : ''}`}
-                    loading={loading}
-                    loadingText="Signing in..."
-                    style={{
-                      transform: `translate(${runawayOffset.x}px, ${runawayOffset.y}px)`,
-                      zIndex: 2,
-                    }}
-                    onMouseMove={handleButtonRunaway}
-                    onMouseEnter={handleButtonRunaway}
-                    onTouchStart={handleButtonRunaway}
-                    onTouchMove={handleButtonRunaway}
-                  >
-                    SIGN IN
-                  </ActionButton>
-                </div>
-              </div>
-            )
-          })()}
+          {/* Submit Button with 1-Second Visual State Sequence */}
+          <button
+            type="submit"
+            id="login-submit-btn"
+            className={`auth-submit ${loading ? 'auth-submit--loading' : ''} ${loginStage === 'verifying' ? 'auth-submit--verifying' : ''} ${loginStage === 'success' ? 'auth-submit--success' : ''}`}
+            disabled={loading}
+            aria-busy={loading}
+          >
+            {loginStage === 'authenticating' && (
+              <>
+                <span className="auth-submit__spinner" />
+                <span>AUTHENTICATING...</span>
+              </>
+            )}
+            {loginStage === 'verifying' && (
+              <>
+                <span className="auth-submit__spinner" />
+                <span>VERIFYING CONCIERGE ACCESS...</span>
+              </>
+            )}
+            {loginStage === 'success' && (
+              <>
+                <span className="auth-submit__check">✓</span>
+                <span>ACCESS GRANTED</span>
+              </>
+            )}
+            {loginStage === 'idle' && <span>SIGN IN</span>}
+          </button>
         </form>
 
         {/* Google sign-in for customer accounts */}
         <div className="auth-or"><span>or</span></div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', alignItems: 'center' }}>
-          <GoogleSignIn onSuccess={handleGoogle} onError={() => {}} />
-        </div>
+        <GoogleSignIn onSuccess={handleGoogle} onError={() => {}} />
 
         {/* Divider */}
         <div className="auth-divider">
