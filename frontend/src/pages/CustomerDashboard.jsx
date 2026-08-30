@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import AccountVerificationPanel from '../components/AccountVerificationPanel'
 import { ActionButton } from '../components/ui'
-import SessionConfirmationAnimation from '../components/SessionConfirmationAnimation'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -618,7 +617,6 @@ const CustomerDashboard = () => {
     minute: '30',
     ampm: 'AM'
   })
-  const [selectedPetType, setSelectedPetType] = useState('dog') // 'dog' | 'cat' | 'bird' | 'fish'
   const [showInsufficientTokensModal, setShowInsufficientTokensModal] = useState(false)
   const [insufficientTokenCategory, setInsufficientTokenCategory] = useState('')
   const [showSessionConfirmedModal, setShowSessionConfirmedModal] = useState(false)
@@ -717,9 +715,7 @@ const CustomerDashboard = () => {
     setServiceBookingConfirmation(newB)
     setConfirmedModalDetails({
       ...newB,
-      cat,
       categoryName,
-      petType: selectedPetType,
       remainingTokens: Math.max(0, Number(created.entitlement?.remaining_units) || 0)
     })
     setShowSessionConfirmedModal(true)
@@ -1514,52 +1510,6 @@ const CustomerDashboard = () => {
                       )
                     })}
                   </div>
-
-                  {/* Optional Pet-Type Selector when Pet Care is selected */}
-                  {serviceBookingForm.packageId === 'pet' && (
-                    <div style={{ marginTop: '0.85rem', padding: '0.75rem', background: '#121215', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--gold, #c9a84c)', fontWeight: 800, letterSpacing: '0.04em' }}>
-                          SELECT YOUR PET SPECIALTY:
-                        </span>
-                        <span style={{ fontSize: '0.68rem', color: '#888' }}>
-                          Customizes your confirmation animation
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
-                        {[
-                          { id: 'dog', label: '🐕 Dog', name: 'Canine' },
-                          { id: 'cat', label: '🐈 Cat', name: 'Feline' },
-                          { id: 'bird', label: '🐦 Bird', name: 'Avian' },
-                          { id: 'fish', label: '🐠 Fish', name: 'Aquatic' }
-                        ].map(pet => (
-                          <button
-                            key={pet.id}
-                            type="button"
-                            onClick={() => setSelectedPetType(pet.id)}
-                            style={{
-                              background: selectedPetType === pet.id ? 'var(--gold, #c9a84c)' : '#18181c',
-                              color: selectedPetType === pet.id ? '#000' : '#ddd',
-                              border: selectedPetType === pet.id ? '1px solid var(--gold, #c9a84c)' : '1px solid #333',
-                              borderRadius: '8px',
-                              padding: '0.5rem 0.3rem',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              gap: '0.15rem'
-                            }}
-                          >
-                            <span>{pet.label}</span>
-                            <span style={{ fontSize: '0.62rem', opacity: 0.85 }}>{pet.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* ── STEP 2 & 3: DATE & TIME SELECTION ── */}
@@ -1640,26 +1590,6 @@ const CustomerDashboard = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* ── LIVE DISPATCH ANIMATION PREVIEW ── */}
-                {serviceBookingForm.packageId && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                      <span style={{ fontSize: '0.68rem', color: '#888', fontWeight: 700, letterSpacing: '0.05em' }}>
-                        DISPATCH MOTION PREVIEW
-                      </span>
-                      <span style={{ fontSize: '0.68rem', color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>
-                        {serviceBookingForm.packageId === 'auto' ? '🚗 Auto Care Cruise' : serviceBookingForm.packageId === 'garden' ? '🍃 Wind Stream Leaves' : `🐾 ${selectedPetType.toUpperCase()} Dispatch`}
-                      </span>
-                    </div>
-                    <SessionConfirmationAnimation
-                      category={serviceBookingForm.packageId}
-                      petType={selectedPetType}
-                      compact={true}
-                      replayable={true}
-                    />
-                  </div>
-                )}
 
                 {/* Action Button */}
                 <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end' }}>
@@ -3223,19 +3153,22 @@ const CustomerDashboard = () => {
               ✕
             </button>
 
-            {/* ── Category Specific Animated Celebration Stage ── */}
-            <div style={{ margin: '0.5rem 0 1.25rem 0' }}>
-              <SessionConfirmationAnimation
-                category={
-                  confirmedModalDetails.cat ||
-                  (confirmedModalDetails.service?.toLowerCase().includes('auto') ? 'auto' :
-                   confirmedModalDetails.service?.toLowerCase().includes('garden') ? 'garden' :
-                   confirmedModalDetails.service?.toLowerCase().includes('pet') ? 'pet' : 'auto')
-                }
-                petType={confirmedModalDetails.petType || selectedPetType || 'dog'}
-                compact={false}
-                replayable={true}
-              />
+            <div
+              style={{
+                width: '68px',
+                height: '68px',
+                borderRadius: '50%',
+                background: 'rgba(34, 197, 94, 0.15)',
+                border: '1px solid rgba(34, 197, 94, 0.4)',
+                color: '#4ade80',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem',
+                margin: '0 auto 1.25rem auto'
+              }}
+            >
+              🎉
             </div>
 
             <h3 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800, margin: '0 0 0.35rem 0', letterSpacing: '-0.01em' }}>
