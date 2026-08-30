@@ -6,12 +6,12 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 179,
-    "totalEdges": 383,
+    "totalNodes": 180,
+    "totalEdges": 384,
     "nodesByGroup": {
       "api": 91,
       "database": 33,
-      "frontend": 28,
+      "frontend": 29,
       "middleware": 3,
       "routes": 16,
       "service": 8
@@ -1718,6 +1718,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/pages/Login.jsx"
+      }
+    },
+    {
+      "id": "frontend:LuxoraBackground",
+      "label": "LuxoraBackground.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/LuxoraBackground.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/LuxoraBackground.jsx"
       }
     },
     {
@@ -4182,6 +4193,20 @@
       "source": "frontend:AdminDashboard",
       "target": "frontend:api_client",
       "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->frontend:LuxoraBackground:RENDERS_COMPONENT",
+      "from": "frontend:AdminDashboard",
+      "to": "frontend:LuxoraBackground",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:AdminDashboard",
+      "target": "frontend:LuxoraBackground",
+      "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
         "extractor": "generate-graph.js:static-analysis"

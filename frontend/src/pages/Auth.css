@@ -9,6 +9,7 @@
   position: relative;
   background: #0a0a0a;
   gap: 1.5rem;
+  overflow: hidden;
 }
 
 /* Background blur blobs */
