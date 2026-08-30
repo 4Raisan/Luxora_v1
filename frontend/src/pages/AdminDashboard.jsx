@@ -60,6 +60,35 @@ const CARE_SETS = [
   { label: 'Pet Care', names: ['Pet Care'], icon: '🐾', accent: '#f472b6', bg: 'rgba(244,114,182,0.06)', border: 'rgba(244,114,182,0.18)', hint: '— grooming, walking, aquarium' },
 ]
 
+const goldBtn = { background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
+const ghostBtn = { background: 'transparent', color: '#ccc', border: '1px solid #333', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
+const redBtn = { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
+const fieldStyle = { width: '100%', background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit', boxSizing: 'border-box' }
+
+const Modal = ({ title, eyebrow = 'LUXORA ADMIN', onClose, children, footer }) => (
+  <div className="ad-notif-overlay" onClick={onClose}>
+    <div className="ad-notif-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="ad-notif-modal__header">
+        <span className="ad-notif-modal__eyebrow">{eyebrow}</span>
+        <h3 className="ad-notif-modal__title">{title}</h3>
+        <button className="ad-notif-modal__close" onClick={onClose} aria-label="Close">✕</button>
+      </div>
+      {children}
+      {footer && <div className="ad-notif-modal__footer">{footer}</div>}
+    </div>
+  </div>
+)
+
+const MetricCard = ({ label, value, icon }) => (
+  <div className="ad-metric-card">
+    <div className="ad-metric-top">
+      <span className="ad-metric-label">{label}</span>
+      <span className="ad-metric-icon">{icon}</span>
+    </div>
+    <div className="ad-metric-val">{value}</div>
+  </div>
+)
+
 const CATEGORY_NAMES_BY_PACKAGE_TYPE = Object.fromEntries(
   CARE_SETS.map((set) => [set.label, set.names])
 )
@@ -351,35 +380,6 @@ const AdminDashboard = () => {
     const searchOk = !q || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
     return roleOk && searchOk
   })
-
-  const Modal = ({ title, eyebrow = 'LUXORA ADMIN', onClose, children, footer }) => (
-    <div className="ad-notif-overlay" onClick={onClose}>
-      <div className="ad-notif-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="ad-notif-modal__header">
-          <span className="ad-notif-modal__eyebrow">{eyebrow}</span>
-          <h3 className="ad-notif-modal__title">{title}</h3>
-          <button className="ad-notif-modal__close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        {children}
-        {footer && <div className="ad-notif-modal__footer">{footer}</div>}
-      </div>
-    </div>
-  )
-
-  const goldBtn = { background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
-  const ghostBtn = { background: 'transparent', color: '#ccc', border: '1px solid #333', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
-  const redBtn = { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)', padding: '0.6rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit' }
-  const fieldStyle = { width: '100%', background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit', boxSizing: 'border-box' }
-
-  const MetricCard = ({ label, value, icon }) => (
-    <div className="ad-metric-card">
-      <div className="ad-metric-top">
-        <span className="ad-metric-label">{label}</span>
-        <span className="ad-metric-icon">{icon}</span>
-      </div>
-      <div className="ad-metric-val">{value}</div>
-    </div>
-  )
 
   return (
     <div className="ad-wrapper">

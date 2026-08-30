@@ -312,8 +312,8 @@
       const renderOuterOrbit = (now) => {
         if (!uiState.livingMotion || !outerOrbitLayout) return;
         const elapsed = now - outerOrbitStartedAt;
-        const innerAngle = elapsed * 0.000012;
-        const outerAngle = elapsed * -0.00003;
+        const innerAngle = elapsed * 0.000002;
+        const outerAngle = elapsed * -0.000008;
         const horizontalStretch = 1 + (uiState.horizontalVibe / 100) * 4;
         for (const node of outerOrbitLayout.innerNodes) {
           const angle = node.angle + innerAngle;

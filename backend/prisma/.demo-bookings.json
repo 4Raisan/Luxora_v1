@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-08-30T03:36:12.888Z",
+  "booking_ids": [
+    1,
+    2,
+    3
+  ],
+  "provider_id": 1,
+  "provider_user_id": 2,
+  "subscription_id": 1,
+  "subscription_created": true,
+  "earnings_credited": "3825"
+}
