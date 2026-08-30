@@ -3,11 +3,53 @@ import { useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import './Plans.css'
 
+const AutoIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 10.7 2 10.8 2 11v5c0 .6.4 1 1 1h2" />
+    <circle cx="7" cy="17" r="2" />
+    <path d="M9 17h6" />
+    <circle cx="17" cy="17" r="2" />
+  </svg>
+)
+
+const GardenIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22v-9" />
+    <path d="M12 13C12 7.5 7.5 3 2 4c0 5.5 4.5 9 10 9z" />
+    <path d="M12 9c2.8-3.3 6.7-4 10-4 0 5-3.3 9-10 9" />
+  </svg>
+)
+
+const PetIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 13c-1.8 0-3.5-.8-3.5-2.5s1.7-2.5 3.5-2.5 3.5.8 3.5 2.5-1.7 2.5-3.5 2.5z" />
+    <ellipse cx="6.5" cy="11.5" rx="1.5" ry="2" />
+    <ellipse cx="17.5" cy="11.5" rx="1.5" ry="2" />
+    <ellipse cx="9" cy="5.5" rx="1.5" ry="2" />
+    <ellipse cx="15" cy="5.5" rx="1.5" ry="2" />
+    <path d="M12 15c-3 0-5.5 1.5-5.5 4.5h11c0-3-2.5-4.5-5.5-4.5z" />
+  </svg>
+)
+
+const ComboIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 3h12l4 6-10 12L2 9l4-6z" />
+    <path d="M2 9h20" />
+    <path d="M10 3l-2 6 4 12 4-12-2-6" />
+  </svg>
+)
+
+const CrownIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M2 20h20v2H2v-2zm1-4l3.5-8.5L12 13l5.5-5.5L21 16H3z" />
+  </svg>
+)
+
 const CATEGORIES = [
-  { id: 'auto', label: 'Auto Care', icon: '🚗' },
-  { id: 'garden', label: 'Garden Care', icon: '🌿' },
-  { id: 'pet', label: 'Pet Care', icon: '🐾' },
-  { id: 'combo', label: 'Combo Packages', icon: '✨' },
+  { id: 'auto', label: 'Auto Care', icon: <AutoIcon /> },
+  { id: 'garden', label: 'Garden Care', icon: <GardenIcon /> },
+  { id: 'pet', label: 'Pet Care', icon: <PetIcon /> },
+  { id: 'combo', label: 'Combo Packages', icon: <ComboIcon /> },
 ]
 
 const PACKAGE_TYPE_BY_CATEGORY = {
@@ -63,19 +105,12 @@ const Plans = () => {
       // services can be booked after purchase, but must not cause a Combo
       // package to be displayed inside each individual care category.
       .filter((plan) => plan.type === packageType)
-      .slice()
-      .sort((a, b) => {
-        const orderA = a.displayOrder !== undefined && a.displayOrder !== null && a.displayOrder > 0 ? Number(a.displayOrder) : Number(a.id)
-        const orderB = b.displayOrder !== undefined && b.displayOrder !== null && b.displayOrder > 0 ? Number(b.displayOrder) : Number(b.id)
-        return (orderA - orderB) || (Number(a.id) - Number(b.id))
-      })
       .map((plan) => {
           const ents = plan.entitlements || []
           const coins = ents.reduce((total, entitlement) => total + (Number(entitlement.units) || 0), 0)
           return {
             id: `srv-${plan.id}`,
             serverId: plan.id,
-            displayOrder: plan.displayOrder ?? plan.id,
             tier: plan.title,
             price: Number(plan.priceMonthly) || 0,
             coins,
@@ -162,7 +197,10 @@ const Plans = () => {
                 className={`plan-card ${plan.highlight ? 'plan-card--featured' : ''}`}
               >
                 {plan.highlight && (
-                  <div className="plan-card__badge">MOST POPULAR</div>
+                  <div className="plan-card__badge">
+                    <CrownIcon />
+                    <span>MOST POPULAR</span>
+                  </div>
                 )}
 
                 <div className="plan-card__header">

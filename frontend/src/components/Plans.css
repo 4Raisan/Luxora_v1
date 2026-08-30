@@ -82,8 +82,17 @@
 }
 
 .plans__tab-icon {
-  font-size: 1rem;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.plans__tab:hover .plans__tab-icon {
+  transform: scale(1.1);
 }
 
 /* ─── Cards Grid ─────────────────────────────────── */
@@ -155,6 +164,9 @@
   border-radius: 50px;
   white-space: nowrap;
   box-shadow: 0 0 12px rgba(201, 168, 76, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 /* Card Header */
