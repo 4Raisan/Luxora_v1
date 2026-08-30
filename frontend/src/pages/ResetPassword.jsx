@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
+import PeekingEyes from '../components/PeekingEyes'
 import './Auth.css'
 
 export default function ResetPassword() {
@@ -9,6 +10,8 @@ export default function ResetPassword() {
   const [params] = useSearchParams()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false)
+  const [isConfirmFocused, setIsConfirmFocused] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -41,8 +44,46 @@ export default function ResetPassword() {
         {error && <p style={{ color: '#ef4444', fontSize: '0.85rem' }}>{error}</p>}
         {message && <p style={{ color: '#22c55e', fontSize: '0.85rem' }}>{message}</p>}
         <form className="auth-form" onSubmit={submit}>
-          <input className="auth-input" type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-          <input className="auth-input" type="password" placeholder="Confirm password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={6} />
+          <div className="auth-field">
+            <div className="auth-input-wrap">
+              <PeekingEyes
+                isActive={isPasswordFocused}
+                textLength={password.length}
+              />
+              <input
+                className="auth-input"
+                type="password"
+                placeholder="New password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
+                required
+                minLength={6}
+              />
+            </div>
+          </div>
+
+          <div className="auth-field">
+            <div className="auth-input-wrap">
+              <PeekingEyes
+                isActive={isConfirmFocused}
+                textLength={confirm.length}
+              />
+              <input
+                className="auth-input"
+                type="password"
+                placeholder="Confirm password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                onFocus={() => setIsConfirmFocused(true)}
+                onBlur={() => setIsConfirmFocused(false)}
+                required
+                minLength={6}
+              />
+            </div>
+          </div>
+
           <ActionButton className="auth-submit" type="submit" loading={loading} loadingText="Updating password...">
             Update Password
           </ActionButton>

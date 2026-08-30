@@ -1,0 +1,683 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LUXORA SESSION CONFIRMATION ANIMATION STYLES
+   Custom luxury animations for Auto Care, Garden Care, and Pet Care
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sca-stage {
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at 50% 60%, #16161b 0%, #0c0c0e 100%);
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.sca-stage--hero {
+  min-height: 140px;
+  height: 150px;
+  margin-bottom: 1.25rem;
+}
+
+.sca-stage--compact {
+  min-height: 80px;
+  height: 90px;
+  margin: 0.75rem 0;
+  border-radius: 12px;
+}
+
+/* Ambient glow & backdrop grid */
+.sca-ambient-glow {
+  position: absolute;
+  top: -40%;
+  left: 30%;
+  width: 50%;
+  height: 180%;
+  background: radial-gradient(circle, rgba(201, 168, 76, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+  filter: blur(20px);
+}
+
+.sca-grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+/* Replay Button */
+.sca-replay-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(18, 18, 22, 0.75);
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  color: var(--gold, #c9a84c);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.sca-replay-btn:hover {
+  background: var(--gold, #c9a84c);
+  color: #000;
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.4);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   1. AUTO CARE ANIMATION (Car Driving Left to Right)
+   ───────────────────────────────────────────────────────────────── */
+.sca-auto-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Road surface */
+.sca-road {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 8px rgba(201, 168, 76, 0.2);
+}
+
+.sca-road-dashes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--gold, #c9a84c) 0px, var(--gold, #c9a84c) 16px, transparent 16px, transparent 32px);
+  animation: sca-road-scroll 1.2s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes sca-road-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-32px); }
+}
+
+/* Car Drive Trajectory (Left to Right) */
+.sca-car-wrapper {
+  position: absolute;
+  bottom: 20px;
+  left: -220px;
+  width: 180px;
+  animation: sca-car-drive 3.2s cubic-bezier(0.25, 1, 0.4, 1) forwards;
+  will-change: transform;
+}
+
+.sca-stage--compact .sca-car-wrapper {
+  width: 130px;
+  bottom: 12px;
+  animation-duration: 2.4s;
+}
+
+@keyframes sca-car-drive {
+  0% {
+    transform: translateX(0);
+    opacity: 0.2;
+  }
+  15% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(calc(100vw + 350px));
+    opacity: 0.9;
+  }
+}
+
+.sca-car-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,0.7));
+  animation: sca-car-suspension 0.2s ease-in-out infinite alternate;
+}
+
+@keyframes sca-car-suspension {
+  0% { transform: translateY(0px) rotate(0deg); }
+  100% { transform: translateY(-1.5px) rotate(0.4deg); }
+}
+
+/* Spinning Wheels */
+.sca-wheel {
+  transform-origin: center;
+  animation: sca-wheel-spin 0.45s linear infinite;
+}
+
+@keyframes sca-wheel-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Exhaust dust / speed trails */
+.sca-car-exhaust {
+  position: absolute;
+  bottom: 12px;
+  left: 2px;
+  width: 40px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.sca-dust {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201, 168, 76, 0.6) 0%, rgba(201, 168, 76, 0) 70%);
+  animation: sca-dust-puff 0.6s ease-out infinite;
+}
+
+.sca-dust-1 { width: 14px; height: 14px; left: -10px; top: 2px; animation-delay: 0s; }
+.sca-dust-2 { width: 18px; height: 18px; left: -22px; top: -4px; animation-delay: 0.15s; }
+.sca-dust-3 { width: 10px; height: 10px; left: -14px; top: 8px; animation-delay: 0.3s; }
+.sca-dust-4 { width: 16px; height: 16px; left: -28px; top: 0px; animation-delay: 0.45s; }
+
+@keyframes sca-dust-puff {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-30px, -8px) scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   2. GARDEN CARE ANIMATION (3 Leaves Swirling & Crawling by Wind)
+   ───────────────────────────────────────────────────────────────── */
+.sca-garden-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.sca-wind-stream {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.sca-wind-line {
+  fill: none;
+  stroke: rgba(201, 168, 76, 0.28);
+  stroke-width: 1.5;
+  stroke-dasharray: 40 180;
+  stroke-linecap: round;
+  animation: sca-wind-flow 2.2s linear infinite;
+}
+
+.sca-wind-1 { stroke-dashoffset: 0; animation-duration: 2s; stroke: rgba(201, 168, 76, 0.35); }
+.sca-wind-2 { stroke-dashoffset: 60; animation-duration: 2.6s; stroke: rgba(34, 197, 94, 0.3); }
+.sca-wind-3 { stroke-dashoffset: 120; animation-duration: 1.8s; stroke: rgba(201, 168, 76, 0.25); }
+
+@keyframes sca-wind-flow {
+  from { stroke-dashoffset: 220; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Leaf Tracks (Left to Right Flight) */
+.sca-leaf-track {
+  position: absolute;
+  top: 50%;
+  left: -60px;
+  will-change: transform;
+}
+
+.sca-leaf-track-1 {
+  animation: sca-leaf-fly-1 3.4s cubic-bezier(0.35, 0.1, 0.25, 1) forwards infinite;
+}
+
+.sca-leaf-track-2 {
+  animation: sca-leaf-fly-2 3.6s cubic-bezier(0.3, 0.1, 0.2, 1) 0.35s forwards infinite;
+}
+
+.sca-leaf-track-3 {
+  animation: sca-leaf-fly-3 3.8s cubic-bezier(0.4, 0.15, 0.3, 1) 0.7s forwards infinite;
+}
+
+@keyframes sca-leaf-fly-1 {
+  0% {
+    transform: translate(0px, 15px);
+    opacity: 0;
+  }
+  15% { opacity: 1; }
+  35% { transform: translate(35vw, -30px); }
+  65% { transform: translate(65vw, 20px); }
+  85% { opacity: 1; }
+  100% {
+    transform: translate(calc(100vw + 80px), -10px);
+    opacity: 0;
+  }
+}
+
+@keyframes sca-leaf-fly-2 {
+  0% {
+    transform: translate(0px, -25px);
+    opacity: 0;
+  }
+  15% { opacity: 1; }
+  40% { transform: translate(40vw, 35px); }
+  70% { transform: translate(70vw, -20px); }
+  85% { opacity: 1; }
+  100% {
+    transform: translate(calc(100vw + 80px), 15px);
+    opacity: 0;
+  }
+}
+
+@keyframes sca-leaf-fly-3 {
+  0% {
+    transform: translate(0px, 30px);
+    opacity: 0;
+  }
+  15% { opacity: 1; }
+  30% { transform: translate(30vw, -15px); }
+  60% { transform: translate(60vw, 30px); }
+  85% { opacity: 1; }
+  100% {
+    transform: translate(calc(100vw + 80px), -25px);
+    opacity: 0;
+  }
+}
+
+/* 3D Leaf Tumbling & Crawling in Wind */
+.sca-leaf-rot-1 {
+  animation: sca-leaf-spin-1 1.8s ease-in-out infinite alternate;
+}
+
+.sca-leaf-rot-2 {
+  animation: sca-leaf-spin-2 2.2s ease-in-out infinite alternate;
+}
+
+.sca-leaf-rot-3 {
+  animation: sca-leaf-spin-3 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes sca-leaf-spin-1 {
+  0% { transform: rotate(-35deg) scaleX(1) rotateX(0deg); }
+  50% { transform: rotate(45deg) scaleX(0.4) rotateX(60deg); }
+  100% { transform: rotate(120deg) scaleX(1) rotateX(0deg); }
+}
+
+@keyframes sca-leaf-spin-2 {
+  0% { transform: rotate(40deg) scaleY(1) rotateY(0deg); }
+  50% { transform: rotate(-25deg) scaleY(0.5) rotateY(70deg); }
+  100% { transform: rotate(-95deg) scaleY(1) rotateY(0deg); }
+}
+
+@keyframes sca-leaf-spin-3 {
+  0% { transform: rotate(10deg) rotateZ(0deg); }
+  50% { transform: rotate(-60deg) rotateZ(45deg) scale(0.85); }
+  100% { transform: rotate(80deg) rotateZ(-30deg) scale(1.1); }
+}
+
+.sca-leaf-svg {
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+}
+
+/* Floating pollen sparkles */
+.sca-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sca-sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gold, #c9a84c);
+  box-shadow: 0 0 6px var(--gold, #c9a84c);
+  animation: sca-sparkle-drift 2.5s linear infinite;
+  opacity: 0;
+}
+
+.sca-sparkle-1 { top: 25%; left: 10%; animation-delay: 0.1s; }
+.sca-sparkle-2 { top: 60%; left: 25%; animation-delay: 0.4s; background: #86efac; box-shadow: 0 0 6px #86efac; }
+.sca-sparkle-3 { top: 35%; left: 45%; animation-delay: 0.8s; }
+.sca-sparkle-4 { top: 70%; left: 60%; animation-delay: 1.1s; }
+.sca-sparkle-5 { top: 20%; left: 75%; animation-delay: 0.3s; background: #86efac; box-shadow: 0 0 6px #86efac; }
+.sca-sparkle-6 { top: 50%; left: 85%; animation-delay: 0.7s; }
+.sca-sparkle-7 { top: 80%; left: 40%; animation-delay: 1.3s; }
+.sca-sparkle-8 { top: 15%; left: 55%; animation-delay: 1.6s; }
+
+@keyframes sca-sparkle-drift {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  30% { opacity: 0.9; }
+  80% { opacity: 0.7; }
+  100% { transform: translate(80px, -20px) scale(1.2); opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   3. PET CARE ANIMATION (Dog, Cat, Bird, Fish)
+   ───────────────────────────────────────────────────────────────── */
+.sca-pet-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+/* Paw prints trajectory */
+.sca-paw-track {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  display: flex;
+  justify-content: space-around;
+  pointer-events: none;
+}
+
+.sca-paw {
+  opacity: 0;
+  transform: scale(0.6) rotate(15deg);
+  animation: sca-paw-appear 3s ease-out forwards;
+}
+
+.sca-paw-1 { animation-delay: 0.3s; }
+.sca-paw-2 { animation-delay: 0.7s; transform: scale(0.6) rotate(-15deg); }
+.sca-paw-3 { animation-delay: 1.1s; }
+.sca-paw-4 { animation-delay: 1.5s; transform: scale(0.6) rotate(-15deg); }
+.sca-paw-5 { animation-delay: 1.9s; }
+.sca-paw-6 { animation-delay: 2.3s; transform: scale(0.6) rotate(-15deg); }
+
+@keyframes sca-paw-appear {
+  0% { opacity: 0; transform: scale(0.4); }
+  25% { opacity: 0.9; transform: scale(1); filter: drop-shadow(0 0 6px rgba(201, 168, 76, 0.7)); }
+  75% { opacity: 0.6; }
+  100% { opacity: 0.15; }
+}
+
+/* Pet Runner Container (Left to Right Movement) */
+.sca-pet-runner {
+  position: absolute;
+  bottom: 24px;
+  left: -100px;
+  animation: sca-pet-run-across 3.2s cubic-bezier(0.25, 1, 0.35, 1) forwards;
+  will-change: transform;
+}
+
+.sca-pet-runner--bird {
+  bottom: 45px;
+  animation: sca-bird-fly-across 3.4s ease-in-out forwards;
+}
+
+.sca-pet-runner--fish {
+  bottom: 35px;
+  animation: sca-fish-swim-across 3.5s ease-in-out forwards;
+}
+
+@keyframes sca-pet-run-across {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  10% { opacity: 1; }
+  85% { opacity: 1; }
+  100% {
+    transform: translateX(calc(100vw + 160px));
+    opacity: 0.8;
+  }
+}
+
+@keyframes sca-bird-fly-across {
+  0% {
+    transform: translate(0, 15px);
+    opacity: 0;
+  }
+  12% { opacity: 1; }
+  35% { transform: translate(35vw, -25px); }
+  65% { transform: translate(65vw, 10px); }
+  85% { opacity: 1; }
+  100% {
+    transform: translate(calc(100vw + 140px), -15px);
+    opacity: 0.8;
+  }
+}
+
+@keyframes sca-fish-swim-across {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  12% { opacity: 1; }
+  35% { transform: translate(35vw, 14px); }
+  65% { transform: translate(65vw, -12px); }
+  85% { opacity: 1; }
+  100% {
+    transform: translate(calc(100vw + 140px), 6px);
+    opacity: 0.8;
+  }
+}
+
+/* 🐶 Dog Animation Details */
+.sca-dog-char {
+  animation: sca-dog-bounce 0.3s ease-in-out infinite alternate;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6));
+}
+
+@keyframes sca-dog-bounce {
+  0% { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(-4px) rotate(2deg); }
+}
+
+.sca-dog-tail {
+  transform-origin: 20px 30px;
+  animation: sca-dog-tail-wag 0.2s ease-in-out infinite alternate;
+}
+
+@keyframes sca-dog-tail-wag {
+  0% { transform: rotate(-18deg); }
+  100% { transform: rotate(24deg); }
+}
+
+.sca-dog-leg-front-l,
+.sca-dog-leg-back-r {
+  transform-origin: center top;
+  animation: sca-leg-run-a 0.25s linear infinite alternate;
+}
+
+.sca-dog-leg-front-r,
+.sca-dog-leg-back-l {
+  transform-origin: center top;
+  animation: sca-leg-run-b 0.25s linear infinite alternate;
+}
+
+@keyframes sca-leg-run-a {
+  0% { transform: rotate(-25deg); }
+  100% { transform: rotate(25deg); }
+}
+
+@keyframes sca-leg-run-b {
+  0% { transform: rotate(25deg); }
+  100% { transform: rotate(-25deg); }
+}
+
+.sca-dog-ear {
+  transform-origin: 66px 14px;
+  animation: sca-ear-flop 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes sca-ear-flop {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-20deg); }
+}
+
+/* 🐈 Cat Animation Details */
+.sca-cat-char {
+  animation: sca-cat-leap 0.35s ease-in-out infinite alternate;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6));
+}
+
+@keyframes sca-cat-leap {
+  0% { transform: translateY(0) rotate(-2deg); }
+  100% { transform: translateY(-6px) rotate(4deg); }
+}
+
+.sca-cat-tail {
+  transform-origin: 20px 30px;
+  animation: sca-cat-tail-sway 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes sca-cat-tail-sway {
+  0% { transform: rotate(-15deg); }
+  100% { transform: rotate(18deg); }
+}
+
+/* 🐦 Bird Animation Details */
+.sca-bird-char {
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));
+}
+
+.sca-bird-wing {
+  transform-origin: 40px 24px;
+  animation: sca-bird-flap 0.18s ease-in-out infinite alternate;
+}
+
+@keyframes sca-bird-flap {
+  0% { transform: scaleY(1) rotate(0deg); }
+  100% { transform: scaleY(-0.75) rotate(-15deg); }
+}
+
+/* 🐠 Fish Animation Details */
+.sca-fish-char {
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));
+}
+
+.sca-fish-tail {
+  transform-origin: 22px 30px;
+  animation: sca-fish-tail-wave 0.22s ease-in-out infinite alternate;
+}
+
+@keyframes sca-fish-tail-wave {
+  0% { transform: rotate(-22deg) scaleX(0.85); }
+  100% { transform: rotate(22deg) scaleX(1.1); }
+}
+
+.sca-fish-fin {
+  transform-origin: 48px 36px;
+  animation: sca-fish-fin-flutter 0.2s ease-in-out infinite alternate;
+}
+
+@keyframes sca-fish-fin-flutter {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-25deg); }
+}
+
+.sca-fish-water {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sca-bubbles {
+  position: absolute;
+  inset: 0;
+}
+
+.sca-bubble {
+  position: absolute;
+  bottom: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.7), rgba(56, 189, 248, 0.2) 60%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  animation: sca-bubble-rise 2.2s ease-in infinite;
+  opacity: 0;
+}
+
+.sca-bubble-1 { left: 15%; width: 6px; height: 6px; animation-delay: 0.1s; }
+.sca-bubble-2 { left: 30%; width: 10px; height: 10px; animation-delay: 0.5s; }
+.sca-bubble-3 { left: 45%; width: 7px; height: 7px; animation-delay: 0.9s; }
+.sca-bubble-4 { left: 60%; width: 12px; height: 12px; animation-delay: 0.3s; }
+.sca-bubble-5 { left: 75%; width: 8px; height: 8px; animation-delay: 1.2s; }
+.sca-bubble-6 { left: 88%; width: 11px; height: 11px; animation-delay: 0.7s; }
+.sca-bubble-7 { left: 22%; width: 9px; height: 9px; animation-delay: 1.5s; }
+.sca-bubble-8 { left: 52%; width: 6px; height: 6px; animation-delay: 1.8s; }
+
+@keyframes sca-bubble-rise {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  20% { opacity: 0.8; }
+  80% { opacity: 0.7; }
+  100% { transform: translateY(-110px) scale(1.2); opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   4. COMBO PACKAGES ANIMATION
+   ───────────────────────────────────────────────────────────────── */
+.sca-combo-scene {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sca-combo-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+.sca-combo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  animation: sca-combo-float 1.8s ease-in-out infinite alternate;
+}
+
+.sca-combo-car { animation-delay: 0s; }
+.sca-combo-leaf { animation-delay: 0.3s; }
+.sca-combo-pet { animation-delay: 0.6s; }
+
+@keyframes sca-combo-float {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-6px); }
+}
+
+.sca-combo-icon {
+  font-size: 1.6rem;
+}
+
+.sca-combo-label {
+  color: var(--gold, #c9a84c);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}

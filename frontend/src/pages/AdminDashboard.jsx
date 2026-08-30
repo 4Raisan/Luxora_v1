@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
-import LuxoraBackground from '../components/LuxoraBackground'
 import './AdminDashboard.css'
 
 /* Admin control center — backup visual language (ad- design system),
@@ -387,7 +386,6 @@ const AdminDashboard = () => {
 
   return (
     <div className="ad-wrapper">
-      <LuxoraBackground />
       {/* Sidebar */}
       <aside className="ad-sidebar">
         <div className="ad-sidebar__logo">

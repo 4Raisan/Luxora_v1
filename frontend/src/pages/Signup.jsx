@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import GoogleSignIn from '../components/GoogleSignIn'
+import PeekingEyes from '../components/PeekingEyes'
 import './Auth.css'
 import '../components/Footer.css'
 
@@ -10,6 +11,8 @@ const Signup = () => {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false)
+  const [isConfirmFocused, setIsConfirmFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
@@ -188,6 +191,11 @@ const Signup = () => {
           {/* Password */}
           <div className="auth-field">
             <div className="auth-input-wrap">
+              <PeekingEyes
+                isActive={isPasswordFocused}
+                textLength={form.password.length}
+                isPasswordVisible={showPassword}
+              />
               <input
                 id="signup-password"
                 name="password"
@@ -196,6 +204,8 @@ const Signup = () => {
                 placeholder="Password"
                 value={form.password}
                 onChange={handleChange}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
                 required
                 autoComplete="new-password"
               />
@@ -224,6 +234,11 @@ const Signup = () => {
           {/* Confirm Password */}
           <div className="auth-field">
             <div className="auth-input-wrap">
+              <PeekingEyes
+                isActive={isConfirmFocused}
+                textLength={form.confirm.length}
+                isPasswordVisible={showConfirm}
+              />
               <input
                 id="signup-confirm"
                 name="confirm"
@@ -232,6 +247,8 @@ const Signup = () => {
                 placeholder="Confirm Password"
                 value={form.confirm}
                 onChange={handleChange}
+                onFocus={() => setIsConfirmFocused(true)}
+                onBlur={() => setIsConfirmFocused(false)}
                 required
                 autoComplete="new-password"
               />

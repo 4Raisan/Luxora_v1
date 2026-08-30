@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
+import SessionConfirmationAnimation from '../components/SessionConfirmationAnimation'
 import './BookService.css'
 
 export default function BookService() {
@@ -49,6 +50,10 @@ export default function BookService() {
     items: services.filter((s) => s.category_id === c.id),
   }))
 
+  const selectedService = services.find(s => s.id === Number(serviceId))
+  const selectedCatName = (selectedService?.category_name || '').toLowerCase()
+  const detectedCategory = selectedCatName.includes('auto') ? 'auto' : selectedCatName.includes('garden') ? 'garden' : selectedCatName.includes('pet') ? 'pet' : 'auto'
+
   return (
     <motion.div className="bs" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <div className="bs-card">
@@ -58,6 +63,14 @@ export default function BookService() {
 
         {result ? (
           <motion.div className="bs-success" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <SessionConfirmationAnimation
+                category={detectedCategory}
+                petType="dog"
+                compact={false}
+                replayable={true}
+              />
+            </div>
             <div className="bs-success__icon">✓</div>
             <h2>Booking Confirmed</h2>
             <p>Booking #{result.booking_id} · <strong>{result.status.toUpperCase()}</strong></p>
