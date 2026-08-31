@@ -68,7 +68,7 @@ The validator checks JSON integrity, stable unique node/edge IDs, source paths, 
 | Provider | KYC upload, assigned work, before/after evidence, PIN-gated fulfilment, earnings, bank accounts |
 | Admin | Users, KYC, plans, bookings, scheduling, support, refunds, promotions, reports, payout ledger, audit log |
 
-Payments use demo mode for local/test work and PayHere or NOWPayments for hosted checkout. Only verified backend callbacks can activate subscriptions. NOWPayments grants benefits only for `finished` after a matching authoritative status query. Receipt delivery failure does not roll back a completed payment and can be retried.
+Payments use demo mode for local/test work and PayHere or NOWPayments for hosted checkout. Only verified backend callbacks can activate subscriptions. NOWPayments grants benefits only for `finished` after a matching authoritative status query. Receipt delivery failure does not roll back a completed payment and can be retried. Official PayHere Sandbox testing cards (for test environments only): Visa (`4916217501611292`), MasterCard (`5307732125531191`), AMEX (`346781005510225`).
 
 Uploads are authenticated and ownership-checked, validated by magic bytes, and stored privately. Configure the `S3_*` variables on ephemeral or multi-instance hosts; local disk is a development fallback only.
 

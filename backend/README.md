@@ -30,6 +30,14 @@ npm run test
 
 PayHere callback URLs must be public HTTPS URLs. NOWPayments IPNs require a valid HMAC-SHA512 signature, exact invoice price/currency, matching order/payment identity, and an authoritative live status of `finished`. Phone numbers are profile contact data; SMS, WhatsApp, and phone OTP verification are not implemented.
 
+### PayHere Sandbox Testing Cards (Non-production testing reference only)
+- **Visa**: `4916217501611292`
+- **MasterCard**: `5307732125531191`
+- **AMEX**: `346781005510225`
+- **Expiry**: Any future date (e.g. `12/28`)
+- **CVV**: Any 3 digits (e.g. `123`)
+*Note: These are official PayHere sandbox testing instruments and must never be treated as production credentials.*
+
 ## Uploads and secrets
 
 KYC and service-evidence uploads are private, authenticated, magic-byte validated, limited to 5 MB per file, and served with `nosniff` plus sandboxing headers. S3-compatible storage is required for durable hosted uploads; local `private-uploads/` is a development fallback.
