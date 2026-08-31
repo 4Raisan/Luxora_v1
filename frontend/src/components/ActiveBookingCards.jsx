@@ -35,8 +35,7 @@ const ActiveBookingCards = ({
         const status = String(booking.status || 'PENDING').toUpperCase()
         const statusClass = statusKey(status)
         const selected = selectedBookingId === booking.id
-        const pinUnlocked = isPinUnlocked(booking.date, booking.time)
-        const canCancel = status === 'PENDING' || status === 'ASSIGNED'
+        const canCancel = status === 'PENDING' || status === 'ASSIGNED' || status === 'IN_PROGRESS'
         const { month, day } = bookingDateParts(booking.date)
 
         return (
@@ -87,13 +86,13 @@ const ActiveBookingCards = ({
                 </div>
                 <div className="cd-active-booking-detail cd-active-booking-detail--pin">
                   <span>Start security PIN</span>
-                  <strong>{pinUnlocked ? (booking.pin || '······') : 'LOCKED'}</strong>
-                  <small>{pinUnlocked ? 'Share only when the provider arrives' : 'Unlocks 30 minutes before service'}</small>
+                  <strong>{status === 'ASSIGNED' || status === 'IN_PROGRESS' ? (booking.startPin || booking.pin || '••••••') : 'AWAITING PROVIDER'}</strong>
+                  <small>{status === 'ASSIGNED' || status === 'IN_PROGRESS' ? 'Share when provider arrives' : 'Available once provider is assigned'}</small>
                 </div>
                 <div className="cd-active-booking-detail cd-active-booking-detail--pin">
                   <span>Completion PIN</span>
-                  <strong>{booking.endPin || '······'}</strong>
-                  <small>Use after the service is complete</small>
+                  <strong>{status === 'IN_PROGRESS' ? (booking.completionPin || booking.endPin || '••••••') : 'HIDDEN'}</strong>
+                  <small>{status === 'IN_PROGRESS' ? 'Share once service is completed' : 'Unlocks after provider starts service'}</small>
                 </div>
               </div>
             )}

@@ -128,6 +128,12 @@ const ProviderDashboard = () => {
     setSettingsForm((prev) => ({ ...prev, provinces: [] }))
   }
 
+  const [providerKyc, setProviderKyc] = useState({ status: 'APPROVED', rejectionReason: null })
+  const [kycDocType, setKycDocType] = useState('NIC_FRONT')
+  const [kycDocFile, setKycDocFile] = useState(null)
+  const [kycDocBusy, setKycDocBusy] = useState(false)
+  const [kycDocMsg, setKycDocMsg] = useState('')
+
   const mapBookingRow = useCallback((booking) => {
     const date = new Date(`${booking.bookingDate}T00:00:00`)
     const status = String(booking.status).toUpperCase()
@@ -158,6 +164,18 @@ const ProviderDashboard = () => {
     if (!token) return navigate('/login', { replace: true })
     setLoading(true)
     try {
+      const me = await apiRequest('/auth/me', 'GET', null, token).catch(() => null)
+      if (me?.provider) {
+        setProviderKyc({
+          status: me.provider.kycStatus || 'APPROVED',
+          rejectionReason: me.provider.kycRejectionReason || null,
+        })
+      }
+      if (me?.provider?.kycStatus && me.provider.kycStatus !== 'APPROVED') {
+        setLoading(false)
+        return
+      }
+
       const [avail, bookingRows, earningsRow] = await Promise.all([
         apiRequest('/provider/availability', 'GET', null, token),
         apiRequest('/bookings/assigned', 'GET', null, token),
@@ -179,6 +197,25 @@ const ProviderDashboard = () => {
       setLoading(false)
     }
   }, [token, navigate, mapBookingRow])
+
+  const handleKycDocUpload = async (e) => {
+    e.preventDefault()
+    if (!kycDocFile) return setKycDocMsg('Please select a file to upload.')
+    setKycDocBusy(true)
+    setKycDocMsg('')
+    try {
+      const formData = new FormData()
+      formData.append('document_type', kycDocType)
+      formData.append('document', kycDocFile)
+      await apiRequest('/provider/kyc-documents', 'POST', formData, token)
+      setKycDocMsg('Document uploaded successfully! Our team will review your submission.')
+      setKycDocFile(null)
+    } catch (err) {
+      setKycDocMsg(err.message || 'Upload failed')
+    } finally {
+      setKycDocBusy(false)
+    }
+  }
 
   const loadNotifications = useCallback(async () => {
     if (!token) return
@@ -629,6 +666,44 @@ const ProviderDashboard = () => {
             </div>
           ) : (
             <>
+              {providerKyc.status !== 'APPROVED' && (
+                <div style={{ background: 'rgba(20,20,25,0.95)', border: providerKyc.status === 'REJECTED' ? '1px solid #ef4444' : '1px solid var(--gold)', borderRadius: '14px', padding: '1.75rem', marginBottom: '2rem', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>{providerKyc.status === 'REJECTED' ? '⚠️' : '⏳'}</span>
+                    <div>
+                      <h2 style={{ fontSize: '1.2rem', color: providerKyc.status === 'REJECTED' ? '#ef4444' : 'var(--gold)', margin: 0, fontWeight: 800 }}>
+                        {providerKyc.status === 'REJECTED' ? 'KYC Verification Rejected' : 'KYC Verification Pending'}
+                      </h2>
+                      <p style={{ margin: '0.25rem 0 0', color: '#aaa', fontSize: '0.88rem' }}>
+                        {providerKyc.status === 'REJECTED'
+                          ? 'Your verification documents require revision before your account can receive job assignments.'
+                          : 'Your account is under review by the Luxora operations team. Operational features will unlock upon approval.'}
+                      </p>
+                    </div>
+                  </div>
+                  {providerKyc.status === 'REJECTED' && providerKyc.rejectionReason && (
+                    <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.85rem 1rem', margin: '1rem 0' }}>
+                      <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.8rem', display: 'block' }}>REJECTION REASON</span>
+                      <p style={{ margin: '0.25rem 0 0', color: '#fca5a5', fontSize: '0.9rem' }}>{providerKyc.rejectionReason}</p>
+                    </div>
+                  )}
+                  <form onSubmit={handleKycDocUpload} style={{ marginTop: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+                    <select value={kycDocType} onChange={(e) => setKycDocType(e.target.value)} style={{ background: '#111', border: '1px solid #333', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.88rem' }}>
+                      <option value="NIC_FRONT">National ID (Front)</option>
+                      <option value="NIC_BACK">National ID (Back)</option>
+                      <option value="PASSPORT">Passport</option>
+                      <option value="BUSINESS_REG">Business Registration</option>
+                      <option value="SELFIE">Selfie Verification</option>
+                      <option value="UTILITY_BILL">Proof of Address</option>
+                    </select>
+                    <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => setKycDocFile(e.target.files?.[0] || null)} style={{ color: '#ccc', fontSize: '0.85rem' }} />
+                    <button type="submit" disabled={kycDocBusy || !kycDocFile} style={{ background: 'var(--gold)', color: '#000', fontWeight: 800, border: 'none', borderRadius: '8px', padding: '0.6rem 1.25rem', cursor: kycDocBusy || !kycDocFile ? 'not-allowed' : 'pointer' }}>
+                      {kycDocBusy ? 'Uploading...' : 'Upload Document'}
+                    </button>
+                    {kycDocMsg && <span style={{ fontSize: '0.85rem', color: kycDocMsg.includes('successfully') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{kycDocMsg}</span>}
+                  </form>
+                </div>
+              )}
               {/* ══ LEFT PANEL ══ */}
               <div className="pd-panel-left">
                 {/* Greeting */}

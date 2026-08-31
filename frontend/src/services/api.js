@@ -41,6 +41,17 @@ export async function apiRequest(endpoint, method = 'GET', data = null, token = 
       : typeof result === 'string' && result.trim()
         ? result.trim()
         : `API request failed (${response.status})`;
+
+    if (response.status === 401 || (response.status === 403 && /revoked|deactivated|invalid session|token/i.test(message))) {
+      try {
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+      } catch {}
+      if (typeof window !== 'undefined' && window.location && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+    }
+
     throw new Error(message);
   }
 

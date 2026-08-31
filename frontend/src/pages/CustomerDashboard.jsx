@@ -568,28 +568,7 @@ const CustomerDashboard = () => {
     }
   }
 
-  const checkIsPinUnlocked = (bookingDate, bookingTime) => {
-    try {
-      if (!bookingDate || !bookingTime) return true
-      const now = new Date()
-      const [hoursStr, minutesStrAmPm] = bookingTime.split(':')
-      if (!minutesStrAmPm) return true
-      const [minutesStr, ampm] = minutesStrAmPm.trim().split(' ')
-      let hours = parseInt(hoursStr, 10)
-      const minutes = parseInt(minutesStr, 10)
-      if (ampm === 'PM' && hours < 12) hours += 12
-      if (ampm === 'AM' && hours === 12) hours = 0
-
-      const bookingDt = new Date(`${bookingDate}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-      const diffMs = bookingDt.getTime() - now.getTime()
-      const diffMinutes = diffMs / (1000 * 60)
-
-      // PIN unlocks if session is within 30 minutes of booking (or if booking is today/due/past)
-      return diffMinutes <= 30
-    } catch {
-      return true
-    }
-  }
+  const checkIsPinUnlocked = () => true
 
   const handleCancelBooking = (bookingId) => {
     const target = customerActiveBookings.find(b => b.id === bookingId)
@@ -2280,7 +2259,7 @@ const CustomerDashboard = () => {
             isPinUnlocked={checkIsPinUnlocked}
           />
 
-          {/* Legacy table retained temporarily for contract parity; replaced visually by the cards above. */}
+          {/* Legacy table retained for contract parity; replaced visually by cards */}
           <div className="cd-table-wrap" hidden aria-hidden="true" style={{ display: 'none', background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
             <table className="cd-table" style={{ margin: 0 }}>
               <thead>
@@ -2353,13 +2332,17 @@ const CustomerDashboard = () => {
                           <td>
                             {b.status === 'CANCELLED' ? (
                               <span style={{ color: '#666', fontSize: '0.78rem', fontStyle: 'italic', fontWeight: 600 }}>— Cancelled —</span>
-                            ) : pinUnlocked ? (
-                              <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.92rem', fontWeight: 900, padding: '0.35rem 0.75rem', borderRadius: '6px', letterSpacing: '0.1em' }}>
-                                🔑 {b.pin || '····'}
+                            ) : b.status === 'IN_PROGRESS' ? (
+                              <span style={{ background: 'rgba(201, 168, 76, 0.15)', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', fontSize: '0.88rem', fontWeight: 900, padding: '0.35rem 0.75rem', borderRadius: '6px', letterSpacing: '0.1em' }} title="Give this completion PIN to provider once service is finished">
+                                🏁 End PIN: {b.completionPin || b.pin || '••••••'}
+                              </span>
+                            ) : b.status === 'ASSIGNED' ? (
+                              <span style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#22c55e', fontSize: '0.88rem', fontWeight: 900, padding: '0.35rem 0.75rem', borderRadius: '6px', letterSpacing: '0.1em' }} title="Give this start PIN to provider when they arrive">
+                                🔑 Start PIN: {b.pin || b.startPin || '••••••'}
                               </span>
                             ) : (
-                              <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.78rem', fontWeight: 600, padding: '0.35rem 0.65rem', borderRadius: '6px' }} title="PIN auto-unlocks 30 minutes before your scheduled booking slot">
-                                🔒 Unlocks 30m before
+                              <span style={{ background: '#1c1c1c', border: '1px solid #333', color: '#888', fontSize: '0.78rem', fontWeight: 600, padding: '0.35rem 0.65rem', borderRadius: '6px' }} title="Start PIN will be visible once a provider is assigned">
+                                ⏳ Awaiting Provider
                               </span>
                             )}
                           </td>
