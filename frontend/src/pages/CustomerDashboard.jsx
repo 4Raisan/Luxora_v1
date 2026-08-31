@@ -1646,7 +1646,24 @@ const CustomerDashboard = () => {
                   </button>
                 </div>
 
-                <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <ActiveBookingCards
+                  compact
+                  bookings={customerActiveBookings
+                    .filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
+                    .slice(0, 3)}
+                  selectedBookingId={selectedBookingId}
+                  onToggleDetails={(bookingId) => setSelectedBookingId(prev => prev === bookingId ? null : bookingId)}
+                  onCancel={handleCancelBooking}
+                  onReview={openReview}
+                  isPinUnlocked={checkIsPinUnlocked}
+                  onViewAll={(bookingId) => {
+                    setSelectedBookingId(bookingId)
+                    setShowAllActiveBookings(true)
+                    setActiveTab('active_bookings')
+                  }}
+                />
+
+                <div className="cd-table-wrap" hidden aria-hidden="true" style={{ display: 'none', background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, flexDirection: 'column', justifyContent: 'space-between' }}>
                   <table className="cd-table cd-bookings-table" style={{ margin: 0, height: '100%' }}>
                     <thead>
                       <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>

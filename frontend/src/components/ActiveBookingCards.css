@@ -95,6 +95,10 @@
   letter-spacing: 0.03em;
 }
 
+.cd-active-booking-card__meta span:first-child {
+  color: var(--gold, #c9a84c);
+}
+
 .cd-active-booking-status {
   flex-shrink: 0;
   padding: 0.34rem 0.65rem;
@@ -127,7 +131,7 @@
 
 .cd-active-booking-details {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
   margin: 1rem 0 0 3rem;
   padding: 0.9rem;
