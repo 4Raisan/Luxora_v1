@@ -2293,7 +2293,6 @@ const CustomerDashboard = () => {
                   }
 
                   return filteredActive.map((b) => {
-                    const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
                     const isSelectedRow = selectedBookingId === b.id
                     return (
                       <React.Fragment key={b.id}>

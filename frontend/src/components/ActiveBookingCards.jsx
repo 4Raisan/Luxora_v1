@@ -17,7 +17,7 @@ const ActiveBookingCards = ({
   onToggleDetails,
   onCancel,
   onReview,
-  isPinUnlocked,
+  _isPinUnlocked,
 }) => {
   if (!bookings.length) {
     return (
