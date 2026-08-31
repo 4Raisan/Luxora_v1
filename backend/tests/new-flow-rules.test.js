@@ -139,14 +139,14 @@ test('Rule 2: Customer deactivation cancels active bookings, restores entitlemen
   const provUser = await prisma.user.create({
     data: { name: `Prov R2 ${RND}`, email: `prov.r2.${RND}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Kandy', addressDistrict: 'Central', active: true },
   });
-  const prov = await prisma.provider.create({
+  await prisma.provider.create({
     data: { userId: provUser.id, category: 'Garden Care', serviceTowns: 'Kandy', kycStatus: 'APPROVED', availabilityStatus: 'available' },
   });
   const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
   const adminToken = jwt.sign({ id: adminUser.id, role: 'ADMIN', tokenVersion: adminUser.tokenVersion }, JWT_SECRET);
 
   const plan = await prisma.subscriptionPlan.findFirst({ where: { type: 'Garden Care' }, include: { entitlements: true } });
-  const sub = await prisma.userSubscription.create({
+  await prisma.userSubscription.create({
     data: {
       userId: cust.id,
       planId: plan.id,
@@ -249,7 +249,7 @@ test('Rule 5: PIN visibility (Start PIN visible when ASSIGNED, End PIN hidden un
   const provUser = await prisma.user.create({
     data: { name: `Prov R5 ${RND}`, email: `prov.r5.${RND}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Negombo', addressDistrict: 'Western', active: true },
   });
-  const prov = await prisma.provider.create({
+  await prisma.provider.create({
     data: { userId: provUser.id, category: 'Auto Care', serviceTowns: 'Negombo', kycStatus: 'APPROVED', availabilityStatus: 'available' },
   });
 
@@ -310,7 +310,7 @@ test('Rule 6 & 10: Admin cancellation notifies customer + provider, and CANCELLE
   const provUser = await prisma.user.create({
     data: { name: `Prov R6 ${RND}`, email: `prov.r6.${RND}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Matara', addressDistrict: 'Southern', active: true },
   });
-  const prov = await prisma.provider.create({
+  await prisma.provider.create({
     data: { userId: provUser.id, category: 'Garden Care', serviceTowns: 'Matara', kycStatus: 'APPROVED', availabilityStatus: 'available' },
   });
   const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
