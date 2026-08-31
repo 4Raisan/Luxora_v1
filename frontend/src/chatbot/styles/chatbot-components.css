@@ -1,0 +1,1107 @@
+/**
+ * Luxora AI Chatbot UI Components Stylesheet
+ */
+
+/* ==========================================================================
+   1. Floating Trigger Button
+   ========================================================================== */
+.lx-chat-trigger {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px 12px 14px;
+  border-radius: var(--lx-chat-radius-pill);
+  background: linear-gradient(135deg, #1C1C1C 0%, #121212 100%);
+  border: 1px solid var(--lx-chat-gold-border);
+  box-shadow: var(--lx-chat-shadow-trigger);
+  color: var(--lx-chat-white);
+  cursor: pointer;
+  font-family: var(--lx-chat-font-primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  user-select: none;
+}
+
+.lx-chat-trigger:hover {
+  transform: translateY(-3px) scale(1.02);
+  border-color: var(--lx-chat-gold);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 28px rgba(201, 168, 76, 0.45);
+}
+
+.lx-chat-trigger__icon-wrap {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--lx-chat-gold-bg);
+  border: 1px solid var(--lx-chat-gold-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lx-chat-trigger__badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--lx-chat-gold-light);
+  border: 2px solid var(--lx-chat-dark);
+}
+
+.lx-chat-trigger__text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.lx-chat-trigger__brand {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--lx-chat-gold);
+  text-transform: uppercase;
+}
+
+.lx-chat-trigger__label {
+  font-size: 0.84rem;
+  color: var(--lx-chat-white);
+}
+
+/* ==========================================================================
+   2. Chatbot Window
+   ========================================================================== */
+.lx-chat-window {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  height: 640px;
+  max-height: calc(100vh - 48px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #181818 0%, #111111 100%);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: var(--lx-chat-radius-window);
+  box-shadow: var(--lx-chat-shadow-window);
+  overflow: hidden;
+  font-family: var(--lx-chat-font-primary);
+  color: var(--lx-chat-white);
+  backdrop-filter: blur(20px);
+}
+
+@media (max-width: 640px) {
+  .lx-chat-trigger {
+    bottom: max(16px, env(safe-area-inset-bottom));
+    right: 16px;
+    padding: 10px 16px 10px 12px;
+    font-size: 0.82rem;
+  }
+
+  .lx-chat-trigger__icon-wrap {
+    width: 32px;
+    height: 32px;
+  }
+
+  .lx-chat-window {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100vw;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+    z-index: 999999;
+  }
+
+  .lx-chat-header {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .lx-chat-header__btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .lx-chat-messages {
+    padding: 14px 12px;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lx-message {
+    max-width: 94%;
+  }
+
+  .lx-chat-input-bar {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .lx-chat-input {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS */
+    min-height: 42px;
+  }
+
+  .lx-chat-send-btn {
+    min-width: 42px;
+    min-height: 42px;
+  }
+
+  /* Single-column vertical stacking for mobile friendliness */
+  .category-action-pills,
+  .action-buttons-list,
+  .quick-actions-grid,
+  .escalation-channels-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .action-btn,
+  .channel-btn,
+  .quick-action-card,
+  .chip-option {
+    width: 100% !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding: 12px 14px !important;
+    font-size: 0.88rem !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Stepper mobile touch targets */
+  .stepper-control {
+    gap: 14px !important;
+    justify-content: center !important;
+  }
+
+  .stepper-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    font-size: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    touch-action: manipulation;
+  }
+
+  .stepper-count {
+    font-size: 1.25rem !important;
+    min-width: 40px !important;
+  }
+
+  /* Special Ask Form inputs on mobile */
+  .special-ask-form input,
+  .special-ask-form textarea,
+  .special-ask-form select {
+    font-size: 16px !important; /* Prevents iOS focus zoom */
+    min-height: 42px !important;
+  }
+}
+
+/* ==========================================================================
+   3. Chat Header
+   ========================================================================== */
+.lx-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, rgba(28, 28, 28, 0.98) 0%, rgba(20, 20, 20, 0.98) 100%);
+  border-bottom: 1px solid var(--lx-chat-line);
+}
+
+.lx-chat-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lx-chat-header__avatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(201, 168, 76, 0.1);
+  border: 1px solid var(--lx-chat-gold-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lx-chat-header__status-dot {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--lx-chat-success);
+  border: 2px solid var(--lx-chat-dark);
+}
+
+.lx-chat-header__title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.lx-chat-header__title {
+  font-family: var(--lx-chat-font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--lx-chat-white);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lx-chat-header__kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lx-chat-gold);
+}
+
+.lx-chat-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lx-chat-header__btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lx-chat-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lx-chat-header__btn:hover {
+  background: rgba(201, 168, 76, 0.15);
+  border-color: var(--lx-chat-gold-border);
+  color: var(--lx-chat-gold-light);
+}
+
+/* ==========================================================================
+   4. Message Thread Container
+   ========================================================================== */
+.lx-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+
+.lx-chat-messages::-webkit-scrollbar {
+  width: 5px;
+}
+.lx-chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, 0.3);
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   5. Message Bubbles
+   ========================================================================== */
+.lx-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 88%;
+  gap: 4px;
+}
+
+.lx-message--user {
+  align-self: flex-end;
+}
+
+.lx-message--bot {
+  align-self: flex-start;
+}
+
+.lx-message__bubble {
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.lx-message--user .lx-message__bubble {
+  background: linear-gradient(135deg, #2A2A2A 0%, #1F1F1F 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--lx-chat-radius-bubble-user);
+  color: var(--lx-chat-white);
+}
+
+.lx-message--bot .lx-message__bubble {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  border: 1px solid var(--lx-chat-line);
+  border-radius: var(--lx-chat-radius-bubble-bot);
+  color: var(--lx-chat-text-light);
+}
+
+.lx-message__meta {
+  font-size: 0.68rem;
+  color: var(--lx-chat-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.lx-message--user .lx-message__meta {
+  justify-content: flex-end;
+}
+
+/* ==========================================================================
+   6. Typing Indicator
+   ========================================================================== */
+.lx-typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--lx-chat-line);
+  border-radius: var(--lx-chat-radius-bubble-bot);
+  width: fit-content;
+}
+
+.lx-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lx-chat-gold);
+  animation: lxWaveDots 1.4s infinite ease-in-out both;
+}
+
+.lx-typing-dot:nth-child(1) { animation-delay: 0s; }
+.lx-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.lx-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ==========================================================================
+   7. Quick Action Pills & Suggested Questions
+   ========================================================================== */
+.lx-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.lx-quick-pill {
+  background: rgba(201, 168, 76, 0.08);
+  border: 1px solid var(--lx-chat-gold-border);
+  border-radius: var(--lx-chat-radius-pill);
+  padding: 6px 12px;
+  color: var(--lx-chat-gold-light);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lx-quick-pill:hover {
+  background: rgba(201, 168, 76, 0.2);
+  border-color: var(--lx-chat-gold);
+  transform: translateY(-1px);
+  color: var(--lx-chat-white);
+}
+
+/* ==========================================================================
+   8. Service List & Cards (Stacked one below one)
+   ========================================================================== */
+.lx-service-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.lx-service-card {
+  width: 100%;
+  background: linear-gradient(145deg, #1C1C1C 0%, #151515 100%);
+  border: 1px solid var(--lx-chat-gold-border);
+  border-radius: var(--lx-chat-radius-card);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.lx-service-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--lx-chat-gold);
+}
+
+.lx-service-card__icon {
+  width: 32px;
+  height: 32px;
+  color: var(--lx-chat-gold);
+}
+
+.lx-service-card__title {
+  font-family: var(--lx-chat-font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--lx-chat-white);
+}
+
+.lx-service-card__desc {
+  font-size: 0.78rem;
+  color: var(--lx-chat-text-muted);
+  line-height: 1.4;
+}
+
+.lx-service-card__btn {
+  margin-top: auto;
+  background: transparent;
+  border: 1px solid var(--lx-chat-gold-border);
+  border-radius: var(--lx-chat-radius-button);
+  padding: 6px 12px;
+  color: var(--lx-chat-gold-light);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.lx-service-card__btn:hover {
+  background: var(--lx-chat-gold);
+  color: var(--lx-chat-dark);
+}
+
+/* ==========================================================================
+   9. Package Cards (LKR, Coins, Features)
+   ========================================================================== */
+.lx-package-card {
+  background: linear-gradient(145deg, #1E1E1E 0%, #141414 100%);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: var(--lx-chat-radius-card);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.lx-package-card--highlight {
+  border-color: var(--lx-chat-gold);
+  box-shadow: 0 0 24px rgba(201, 168, 76, 0.15);
+}
+
+.lx-package-card__badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 3px 8px;
+  border-radius: var(--lx-chat-radius-pill);
+  background: rgba(201, 168, 76, 0.18);
+  color: var(--lx-chat-gold-light);
+  border: 1px solid var(--lx-chat-gold);
+}
+
+.lx-package-card__tier {
+  font-family: var(--lx-chat-font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--lx-chat-white);
+}
+
+.lx-package-card__price-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.lx-package-card__currency {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--lx-chat-gold);
+}
+
+.lx-package-card__amount {
+  font-family: var(--lx-chat-font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--lx-chat-white);
+}
+
+.lx-package-card__period {
+  font-size: 0.74rem;
+  color: var(--lx-chat-text-muted);
+}
+
+.lx-package-card__coins {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--lx-chat-gold-light);
+  background: rgba(201, 168, 76, 0.1);
+  padding: 4px 10px;
+  border-radius: var(--lx-chat-radius-pill);
+  width: fit-content;
+}
+
+.lx-package-card__features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--lx-chat-text-light);
+}
+
+.lx-package-card__feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.lx-package-card__check {
+  color: var(--lx-chat-success);
+  flex-shrink: 0;
+}
+
+.lx-package-card__cta {
+  background: linear-gradient(135deg, #E8C96B 0%, #D4A843 100%);
+  border: none;
+  border-radius: var(--lx-chat-radius-button);
+  padding: 10px 16px;
+  color: #121212;
+  font-weight: 800;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  text-align: center;
+}
+
+.lx-package-card__cta:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+/* ==========================================================================
+   10. Special Ask Card & Disclaimer
+   ========================================================================== */
+.lx-special-ask-card {
+  background: linear-gradient(145deg, rgba(201, 168, 76, 0.08) 0%, rgba(20, 20, 20, 0.9) 100%);
+  border: 1px solid var(--lx-chat-gold-border);
+  border-radius: var(--lx-chat-radius-card);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lx-special-ask-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lx-special-ask-card__badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding: 2px 8px;
+  border-radius: var(--lx-chat-radius-pill);
+  background: rgba(201, 168, 76, 0.2);
+  color: var(--lx-chat-gold-light);
+  border: 1px solid var(--lx-chat-gold);
+}
+
+.lx-special-ask-card__text {
+  font-size: 0.82rem;
+  color: var(--lx-chat-text-light);
+  line-height: 1.5;
+}
+
+.lx-special-ask-card__notice {
+  font-size: 0.72rem;
+  color: var(--lx-chat-text-muted);
+  border-left: 2px solid var(--lx-chat-gold);
+  padding-left: 8px;
+}
+
+.lx-special-ask-card__btn {
+  background: transparent;
+  border: 1px solid var(--lx-chat-gold);
+  border-radius: var(--lx-chat-radius-button);
+  padding: 8px 14px;
+  color: var(--lx-chat-gold-light);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lx-special-ask-card__btn:hover {
+  background: rgba(201, 168, 76, 0.15);
+}
+
+/* ==========================================================================
+   11. Input Area
+   ========================================================================== */
+.lx-chat-input-area {
+  padding: 12px 16px 16px;
+  background: rgba(18, 18, 18, 0.95);
+  border-top: 1px solid var(--lx-chat-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lx-chat-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px 8px 6px 14px;
+  transition: border-color 0.2s ease;
+}
+
+.lx-chat-form:focus-within {
+  border-color: var(--lx-chat-gold-border);
+  box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.2);
+}
+
+.lx-chat-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--lx-chat-font-primary);
+  font-size: 0.86rem;
+  color: var(--lx-chat-white);
+}
+
+.lx-chat-input::placeholder {
+  color: var(--lx-chat-text-muted);
+}
+
+.lx-chat-send-btn {
+  background: var(--lx-chat-gold);
+  border: none;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lx-chat-dark);
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.lx-chat-send-btn:hover {
+  transform: translateY(-1px);
+  background: var(--lx-chat-gold-light);
+}
+
+.lx-chat-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==========================================================================
+   12. In-Chat Interactive Widgets & Engine Protocols
+   ========================================================================== */
+.in-chat-widget {
+  margin-top: 10px;
+  background: rgba(11, 15, 25, 0.95);
+  border: 1px solid var(--lx-chat-gold-border);
+  border-radius: var(--lx-chat-radius-card);
+  padding: 14px;
+}
+
+.in-chat-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #d4af37 0%, #aa820a 100%);
+  color: #0b0f19;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--lx-chat-text-muted);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(201, 168, 76, 0.15);
+  border-color: var(--lx-chat-gold);
+  color: var(--lx-chat-white);
+}
+
+/* Stepper Box */
+.stepper-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stepper-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.stepper-btn-large {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.stepper-btn-large:hover {
+  background: var(--lx-chat-gold);
+  color: #0b0f19;
+  border-color: var(--lx-chat-gold);
+}
+
+.stepper-display-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--lx-chat-gold-light);
+  min-width: 36px;
+  text-align: center;
+}
+
+/* Option Chips */
+.option-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.option-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--lx-chat-text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.option-chip:hover {
+  border-color: var(--lx-chat-gold);
+  color: var(--lx-chat-gold-light);
+}
+
+.option-chip.selected {
+  background: var(--lx-chat-gold);
+  border-color: var(--lx-chat-gold);
+  color: #0b0f19;
+  font-weight: 700;
+}
+
+/* Form Inputs in In-Chat Widgets */
+.form-input {
+  width: 100%;
+  background: #161e31;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 0.8rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.form-input:focus {
+  border-color: var(--lx-chat-gold);
+}
+
+.inline-text-area {
+  width: 100%;
+  background: #161e31;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 0.8rem;
+  outline: none;
+  resize: vertical;
+  min-height: 60px;
+  margin: 8px 0;
+  font-family: inherit;
+}
+
+.inline-text-area:focus {
+  border-color: var(--lx-chat-gold);
+}
+
+.image-uploader-dropzone {
+  border: 1px dashed var(--lx-chat-gold-border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  background: rgba(201, 168, 76, 0.03);
+  cursor: pointer;
+  margin: 8px 0;
+  transition: all 0.2s;
+}
+
+.image-uploader-dropzone:hover {
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.upload-thumbnails {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+.thumb-preview {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--lx-chat-gold-border);
+}
+
+.thumb-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Recommendation Cards */
+.rec-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.rec-card-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--lx-chat-radius-card);
+  padding: 14px;
+  transition: all 0.2s;
+}
+
+.rec-card-item.best-match {
+  border-color: var(--lx-chat-gold);
+  background: rgba(201, 168, 76, 0.06);
+}
+
+.rec-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--lx-chat-gold-light);
+  margin-bottom: 4px;
+  display: inline-block;
+  letter-spacing: 0.06em;
+}
+
+.rec-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.rec-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rec-price {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--lx-chat-gold);
+}
+
+.rec-features-list {
+  font-size: 0.76rem;
+  color: var(--lx-chat-text-muted);
+  margin: 6px 0 6px 14px;
+}
+
+.rec-why-box {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  color: var(--lx-chat-white);
+  margin-top: 6px;
+}
+
+/* Summary Review Card */
+.summary-review-card {
+  border: 1px solid var(--lx-chat-gold);
+  background: rgba(201, 168, 76, 0.05);
+  border-radius: var(--lx-chat-radius-card);
+  padding: 14px;
+  margin: 10px 0;
+}
+
+.summary-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  background: rgba(0,0,0,0.35);
+  padding: 10px;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.summary-label {
+  color: var(--lx-chat-text-muted);
+}
+
+.summary-val {
+  color: #fff;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Escalation Channels */
+.escalation-channels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.channel-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--lx-chat-gold-border);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.channel-btn:hover {
+  background: rgba(201, 168, 76, 0.12);
+  border-color: var(--lx-chat-gold);
+}
+
+.channel-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--lx-chat-gold-light);
+  margin-bottom: 2px;
+}
+
+.channel-desc {
+  font-size: 0.72rem;
+  color: var(--lx-chat-text-muted);
+}

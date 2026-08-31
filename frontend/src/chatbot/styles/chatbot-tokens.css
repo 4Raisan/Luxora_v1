@@ -1,0 +1,45 @@
+/**
+ * Luxora AI Chatbot Design Tokens (CSS)
+ */
+
+:root {
+  --lx-chat-gold: #C9A84C;
+  --lx-chat-gold-light: #E8C96B;
+  --lx-chat-gold-btn: #D4A843;
+  --lx-chat-gold-dark: #8C6D23;
+  --lx-chat-gold-glow: rgba(201, 168, 76, 0.25);
+  --lx-chat-gold-bg: rgba(201, 168, 76, 0.12);
+  --lx-chat-gold-border: rgba(201, 168, 76, 0.28);
+
+  --lx-chat-dark: #0F0F0F;
+  --lx-chat-dark-secondary: #161616;
+  --lx-chat-dark-card: #1A1A1A;
+  --lx-chat-dark-surface: #121212;
+  --lx-chat-dark-surface-raised: #1D1D1D;
+  --lx-chat-dark-border: #2A2A2A;
+  --lx-chat-line: rgba(255, 255, 255, 0.08);
+
+  --lx-chat-white: #FFFFFF;
+  --lx-chat-offwhite: #F5F5F0;
+  --lx-chat-text-light: #CCCCCC;
+  --lx-chat-text-muted: #888888;
+
+  --lx-chat-success: #5FBD8B;
+  --lx-chat-danger: #DF7A78;
+  --lx-chat-warning: #E8C96B;
+
+  --lx-chat-font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --lx-chat-font-display: 'Playfair Display', Georgia, serif;
+
+  --lx-chat-radius-card: 18px;
+  --lx-chat-radius-window: 20px;
+  --lx-chat-radius-button: 9px;
+  --lx-chat-radius-pill: 999px;
+  --lx-chat-radius-bubble-user: 18px 18px 4px 18px;
+  --lx-chat-radius-bubble-bot: 18px 18px 18px 4px;
+
+  --lx-chat-shadow-window: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(201, 168, 76, 0.25);
+  --lx-chat-shadow-card: 0 14px 30px rgba(0, 0, 0, 0.35);
+  --lx-chat-shadow-trigger: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 24px rgba(201, 168, 76, 0.35);
+  --lx-chat-transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}

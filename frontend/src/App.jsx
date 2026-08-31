@@ -18,6 +18,7 @@ import ResetPassword from './pages/ResetPassword'
 import ErrorBoundary from './components/ErrorBoundary'
 import RequireAuth from './components/RequireAuth'
 import CursorGlow from './components/CursorGlow'
+import { LuxoraChatbot } from './chatbot/components/LuxoraChatbot'
 import './App.css'
 
 // Main landing page layout
@@ -52,6 +53,7 @@ function App() {
           <Route path="/reviews" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><Reviews /></ErrorBoundary></RequireAuth>} />
           <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
+        <LuxoraChatbot />
       </div>
     </BrowserRouter>
   )

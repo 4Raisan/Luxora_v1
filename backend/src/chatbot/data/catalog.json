@@ -1,0 +1,272 @@
+{
+  "currency": "LKR",
+  "providerCompensation": {
+    "auto_care": { "payoutPerToken": 2000, "currency": "LKR" },
+    "garden_care": { "payoutPerToken": 3500, "currency": "LKR" },
+    "pet_care": { "payoutPerToken": 3000, "currency": "LKR" }
+  },
+  "services": {
+    "auto_care": {
+      "id": "auto_care",
+      "name": "Auto Care",
+      "icon": "🚗",
+      "tokenUsageRule": "1 Auto Care Token = 1 Vehicle Service",
+      "providerPayoutPerToken": 2000,
+      "features": [
+        "Exterior wash",
+        "Interior vacuum",
+        "Basic tire shine",
+        "Window cleaning"
+      ],
+      "tiers": {
+        "basic": {
+          "name": "Auto Care Basic",
+          "price": 5000,
+          "billing": "monthly",
+          "tokens": 1,
+          "servicesPerMonth": 1,
+          "tagline": "1 Token • 1 Vehicle Service/Month",
+          "capacity": "1 vehicle / 1 wash monthly",
+          "features": [
+            "Exterior wash",
+            "Interior vacuum",
+            "Basic tire shine",
+            "Window cleaning"
+          ]
+        },
+        "standard": {
+          "name": "Auto Care Standard",
+          "price": 9000,
+          "billing": "monthly",
+          "tokens": 2,
+          "servicesPerMonth": 2,
+          "tagline": "2 Tokens • 2 Vehicle Services/Month",
+          "capacity": "2 vehicles or bi-weekly wash",
+          "features": [
+            "Exterior wash",
+            "Interior vacuum",
+            "Basic tire shine",
+            "Window cleaning"
+          ]
+        },
+        "premium": {
+          "name": "Auto Care Premium",
+          "price": 15000,
+          "billing": "monthly",
+          "tokens": 4,
+          "servicesPerMonth": 4,
+          "tagline": "4 Tokens • 4 Vehicle Services/Month",
+          "capacity": "Multi-car / weekly service",
+          "features": [
+            "Exterior wash",
+            "Interior vacuum",
+            "Basic tire shine",
+            "Window cleaning"
+          ]
+        }
+      }
+    },
+    "garden_care": {
+      "id": "garden_care",
+      "name": "Garden Care",
+      "icon": "🌿",
+      "tokenUsageRule": "1 Garden Care Token = 1 Garden Visit",
+      "providerPayoutPerToken": 3500,
+      "features": [
+        "Lawn mowing",
+        "Lawn edging",
+        "Basic weeding",
+        "Fertilizer application",
+        "Basic plant health inspection",
+        "Basic pruning"
+      ],
+      "tiers": {
+        "basic": {
+          "name": "Garden Care Basic",
+          "price": 7500,
+          "billing": "monthly",
+          "tokens": 1,
+          "servicesPerMonth": 1,
+          "tagline": "1 Token • 1 Visit/Month",
+          "suitableFor": "Gardens under 10 perches",
+          "features": [
+            "Lawn mowing",
+            "Lawn edging",
+            "Basic weeding",
+            "Fertilizer application",
+            "Basic plant health inspection",
+            "Basic pruning"
+          ]
+        },
+        "standard": {
+          "name": "Garden Care Standard",
+          "price": 14000,
+          "billing": "monthly",
+          "tokens": 2,
+          "servicesPerMonth": 2,
+          "tagline": "2 Tokens • 2 Visits/Month",
+          "suitableFor": "Gardens between 10–20 perches",
+          "features": [
+            "Lawn mowing",
+            "Lawn edging",
+            "Basic weeding",
+            "Fertilizer application",
+            "Basic plant health inspection",
+            "Basic pruning"
+          ]
+        },
+        "premium": {
+          "name": "Garden Care Premium",
+          "price": 24000,
+          "billing": "monthly",
+          "tokens": 4,
+          "servicesPerMonth": 4,
+          "tagline": "4 Tokens • 4 Visits/Month",
+          "suitableFor": "Gardens over 20 and up to 30 perches",
+          "features": [
+            "Lawn mowing",
+            "Lawn edging",
+            "Basic weeding",
+            "Fertilizer application",
+            "Basic plant health inspection",
+            "Basic pruning"
+          ]
+        }
+      }
+    },
+    "pet_care": {
+      "id": "pet_care",
+      "name": "Pet Care",
+      "icon": "🐾",
+      "tokenUsageRule": "1 Pet Care Token = 1 Pet Service Session",
+      "providerPayoutPerToken": 3000,
+      "features": [
+        "Basic spa wash",
+        "Blow-dry",
+        "Nail trimming",
+        "Ear cleaning",
+        "Brushing",
+        "Coat fluff",
+        "Basic flea & tick check"
+      ],
+      "tiers": {
+        "basic": {
+          "name": "Pet Care Basic",
+          "price": 6000,
+          "billing": "monthly",
+          "tokens": 1,
+          "servicesPerMonth": 1,
+          "tagline": "1 Token • 1 Session/Month",
+          "coverage": "1 Pet",
+          "features": [
+            "Basic spa wash",
+            "Blow-dry",
+            "Nail trimming",
+            "Ear cleaning",
+            "Brushing",
+            "Coat fluff",
+            "Basic flea & tick check"
+          ]
+        },
+        "standard": {
+          "name": "Pet Care Standard",
+          "price": 11000,
+          "billing": "monthly",
+          "tokens": 2,
+          "servicesPerMonth": 2,
+          "tagline": "2 Tokens • 2 Sessions/Month",
+          "coverage": "Up to 2 Pets",
+          "features": [
+            "Basic spa wash",
+            "Blow-dry",
+            "Nail trimming",
+            "Ear cleaning",
+            "Brushing",
+            "Coat fluff",
+            "Basic flea & tick check"
+          ]
+        },
+        "premium": {
+          "name": "Pet Care Premium",
+          "price": 18000,
+          "billing": "monthly",
+          "tokens": 4,
+          "servicesPerMonth": 4,
+          "tagline": "4 Tokens • 4 Sessions/Month",
+          "coverage": "Up to 4 Pets",
+          "features": [
+            "Basic spa wash",
+            "Blow-dry",
+            "Nail trimming",
+            "Ear cleaning",
+            "Brushing",
+            "Coat fluff",
+            "Basic flea & tick check"
+          ]
+        }
+      }
+    }
+  },
+  "combos": {
+    "luxora_home": {
+      "id": "luxora_home",
+      "name": "Luxora Home",
+      "badge": "Entry Luxury Combo",
+      "price": 18000,
+      "billing": "monthly",
+      "totalTokens": 4,
+      "tokenBreakdown": {
+        "auto": 2,
+        "garden": 1,
+        "pet": 1
+      },
+      "tokenList": [
+        "2 Auto Care Tokens",
+        "1 Garden Care Token",
+        "1 Pet Care Token"
+      ],
+      "tagline": "4 Total Service Tokens • LKR 18,000/month",
+      "description": "Perfect for households needing routine vehicle maintenance, garden upkeep, and pet care."
+    },
+    "luxora_family": {
+      "id": "luxora_family",
+      "name": "Luxora Family",
+      "badge": "Most Popular",
+      "price": 28000,
+      "billing": "monthly",
+      "totalTokens": 8,
+      "tokenBreakdown": {
+        "auto": 4,
+        "garden": 2,
+        "pet": 2
+      },
+      "tokenList": [
+        "4 Auto Care Tokens",
+        "2 Garden Care Tokens",
+        "2 Pet Care Tokens"
+      ],
+      "tagline": "8 Total Service Tokens • LKR 28,000/month",
+      "description": "Designed for active families with multiple service needs throughout the month."
+    },
+    "luxora_prestige": {
+      "id": "luxora_prestige",
+      "name": "Luxora Prestige",
+      "badge": "All-Inclusive Estate Care",
+      "price": 40000,
+      "billing": "monthly",
+      "totalTokens": 12,
+      "tokenBreakdown": {
+        "auto": 4,
+        "garden": 4,
+        "pet": 4
+      },
+      "tokenList": [
+        "4 Auto Care Tokens",
+        "4 Garden Care Tokens",
+        "4 Pet Care Tokens"
+      ],
+      "tagline": "12 Total Service Tokens • LKR 40,000/month",
+      "description": "A premium all-inclusive membership offering maximum convenience and service coverage."
+    }
+  }
+}

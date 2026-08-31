@@ -1,0 +1,6 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="11" fill="#C9A84C"/>
+  <circle cx="12" cy="12" r="8.4" fill="none" stroke="rgba(23,20,13,0.55)" stroke-width="1.1"/>
+  <circle cx="9.4" cy="8.6" r="3.1" fill="rgba(255,244,214,0.5)"/>
+  <text x="12" y="16.1" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10.5" font-weight="800" fill="#17140D">L</text>
+</svg>
