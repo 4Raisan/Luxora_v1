@@ -22,38 +22,99 @@ import supportRoutes from './routes/support.js';
 import refundRoutes from './routes/refunds.js';
 import chatRoutes from './routes/chat.js';
 import { prisma } from './config/prisma.js';
+import { assertStorageConfigured } from './services/storage.js';
+import { assertBankingKeyConfigured } from './services/bankingCrypto.js';
 import { startMonthlyPayoutScheduler } from './services/payouts.js';
 import { renewDueDemoSubscriptions } from './routes/services.js';
 import { startBookingTimeoutScheduler } from './services/bookingTimeouts.js';
 
+// Enforce durable storage & banking key in production on startup
+assertStorageConfigured();
+assertBankingKeyConfigured();
+
 const app = express();
 app.disable('x-powered-by');
-const defaultOrigins = [
-  `http://localhost:${PORT}`,
-  `http://127.0.0.1:${PORT}`,
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:5000',
-  'http://127.0.0.1:5000',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-];
-const envOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+
+// Configure reverse proxy trust explicitly (do not auto-trust in production without explicit configuration)
+if (process.env.TRUST_PROXY) {
+  const tp = process.env.TRUST_PROXY.trim();
+  if (tp === 'true' || tp === '1') {
+    app.set('trust proxy', 1);
+  } else if (!isNaN(Number(tp))) {
+    app.set('trust proxy', Number(tp));
+  } else {
+    app.set('trust proxy', tp);
+  }
+} else {
+  app.set('trust proxy', false);
+}
+
+// Baseline HTTP Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+  if (isHttps) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://accounts.google.com https://sandbox.payhere.lk https://www.payhere.lk",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: https: blob:",
+    "connect-src 'self' https: wss:",
+    "frame-src 'self' https://accounts.google.com https://sandbox.payhere.lk https://www.payhere.lk",
+  ].join('; ');
+  res.setHeader('Content-Security-Policy', csp);
+
+  next();
+});
+
+export function getAllowedOrigins(isProduction = process.env.NODE_ENV === 'production') {
+  const envOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  if (isProduction) {
+    // In production, allow ONLY explicitly configured public origins. Never allow wildcard with credentials.
+    return envOrigins.filter((origin) => origin !== '*');
+  }
+
+  const devDefaults = [
+    `http://localhost:${PORT}`,
+    `http://127.0.0.1:${PORT}`,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ];
+  return Array.from(new Set([...devDefaults, ...envOrigins]));
+}
+
 const isLocalhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+export function isOriginAllowed(origin, isProduction = process.env.NODE_ENV === 'production') {
+  if (!origin) return true;
+  const allowed = getAllowedOrigins(isProduction);
+  if (allowed.includes(origin)) return true;
+  if (!isProduction) {
+    if (isLocalhostRegex.test(origin)) return true;
+  }
+  return false;
+}
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        allowedOrigins.includes('*') ||
-        (process.env.NODE_ENV !== 'production' && isLocalhostRegex.test(origin))
-      ) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
       return callback(null, false);

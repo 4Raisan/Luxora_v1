@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { toPositiveInt } from '../middleware/validators.js';
-import { sendEmail } from '../services/integrations.js';
+import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { notify } from '../services/notify.js';
 import { activePromotionWhere, calculatePromotionPrice, serializePromotion } from '../services/promotions.js';
@@ -84,22 +84,53 @@ export async function renewDueDemoSubscriptions() {
     const renewedSubscription = await prisma.$transaction(async (tx) => {
       const fresh = await tx.userSubscription.findUnique({
         where: { id: subscription.id },
-        include: { plan: true, user: { select: { email: true, name: true } } },
+        include: {
+          plan: { include: { entitlements: true } },
+          entitlements: true,
+          user: { select: { email: true, name: true } },
+        },
       });
       if (!fresh || fresh.status !== 'active' || !fresh.autoRenew || !fresh.nextRenewalDate || fresh.nextRenewalDate > new Date()) return null;
       const startDate = fresh.nextRenewalDate;
       const endDate = new Date(startDate.getTime() + fresh.renewalIntervalDays * 86400000);
       const orderId = `LUX-DEMO-RENEW-${fresh.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const renewed = await tx.userSubscription.create({ data: { userId: fresh.userId, planId: fresh.planId, startDate, endDate, status: 'active', autoRenew: true, renewalIntervalDays: fresh.renewalIntervalDays, nextRenewalDate: endDate } });
+      const planTitle = fresh.planTitle || fresh.plan.title;
+      const planType = fresh.planType || fresh.plan.type;
+      const pricePaid = fresh.pricePaid || fresh.plan.priceMonthly;
+      const effectiveEntitlements = fresh.entitlements.length > 0 ? fresh.entitlements : (fresh.plan.entitlements || []);
+
+      const renewed = await tx.userSubscription.create({
+        data: {
+          userId: fresh.userId,
+          planId: fresh.planId,
+          planTitle,
+          planType,
+          pricePaid,
+          currency: fresh.currency || 'LKR',
+          durationDays: fresh.durationDays,
+          startDate,
+          endDate,
+          status: 'active',
+          autoRenew: true,
+          renewalIntervalDays: fresh.renewalIntervalDays,
+          nextRenewalDate: endDate,
+          entitlements: {
+            create: effectiveEntitlements.map((e) => ({
+              categoryId: e.categoryId,
+              units: e.units,
+            })),
+          },
+        },
+      });
       await tx.userSubscription.update({ where: { id: fresh.id }, data: { status: 'expired', autoRenew: false } });
-      await tx.payment.create({ data: { userId: fresh.userId, planId: fresh.planId, subscriptionId: renewed.id, gateway: 'DEMO', gatewayOrderId: orderId, idempotencyKey: orderId, status: 'COMPLETED', expectedAmount: fresh.plan.priceMonthly, expectedCurrency: 'LKR', capturedAmount: fresh.plan.priceMonthly, capturedCurrency: 'LKR', webhookPayload: { mode: 'demo', renewal: true } } });
-      return { userId: fresh.userId, email: fresh.user.email, name: fresh.user.name, planTitle: fresh.plan.title };
+      await tx.payment.create({ data: { userId: fresh.userId, planId: fresh.planId, subscriptionId: renewed.id, gateway: 'DEMO', gatewayOrderId: orderId, idempotencyKey: orderId, status: 'COMPLETED', expectedAmount: pricePaid, expectedCurrency: fresh.currency || 'LKR', capturedAmount: pricePaid, capturedCurrency: fresh.currency || 'LKR', webhookPayload: { mode: 'demo', renewal: true } } });
+      return { userId: fresh.userId, email: fresh.user.email, name: fresh.user.name, planTitle: planTitle };
     });
     if (renewedSubscription) renewedSubscriptions.push(renewedSubscription);
   }
   await Promise.all(renewedSubscriptions.map(async (renewed) => {
     await notify(renewed.userId, `Demo renewal successful. Your ${renewed.planTitle} package is active for another 30 days.`, '/customer-dashboard');
-    await sendEmail({ to: renewed.email, subject: `Luxora demo renewal: ${renewed.planTitle}`, html: `<p>Hi ${renewed.name || 'Customer'},</p><p>Your ${renewed.planTitle} package has renewed for another 30 days. No real money was charged.</p>` }).catch(() => {});
+    await sendEmail({ to: renewed.email, subject: `Luxora demo renewal: ${renewed.planTitle}`, html: `<p>Hi ${escapeHtml(renewed.name || 'Customer')},</p><p>Your ${escapeHtml(renewed.planTitle)} package has renewed for another 30 days. No real money was charged.</p>` }).catch(() => {});
   }));
   return renewedSubscriptions;
 }

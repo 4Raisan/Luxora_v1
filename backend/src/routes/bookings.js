@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
-import { sendEmail } from '../services/integrations.js';
+import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
@@ -235,7 +235,7 @@ router.post('/', async (req, res) => {
     const assignedProvider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
     if (assignedProvider) await notify(assignedProvider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
   }
-  sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your ${service.title} booking is scheduled for ${booking_date} at ${booking_time}.</p><p>Booking status: ${booking.status.toLowerCase()}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
+  sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${escapeHtml(customer?.name || 'Customer')},</p><p>Your ${escapeHtml(service.title)} booking is scheduled for ${escapeHtml(booking_date)} at ${escapeHtml(booking_time)}.</p><p>Booking status: ${escapeHtml(booking.status.toLowerCase())}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
   const isAssigned = booking.status === 'ASSIGNED';
   res.status(201).json({
@@ -476,7 +476,7 @@ router.put('/:id/status', async (req, res) => {
     if (completedFreshly) {
       await notify(booking.userId, `Your service #${bookingId} has been completed. Leave a review!`, '/customer-dashboard');
       const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
-      sendEmail({ to: customer?.email, subject: `Luxora service completed #${bookingId}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${bookingId} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
+      sendEmail({ to: customer?.email, subject: `Luxora service completed #${bookingId}`, html: `<p>Hi ${escapeHtml(customer?.name || 'Customer')},</p><p>Your Luxora service booking #${bookingId} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
     }
   } else if (nextStatus === 'IN_PROGRESS') {
     await notify(booking.userId, `Your provider has started service on booking #${bookingId}.`);
@@ -677,7 +677,7 @@ router.put('/:id/reschedule', async (req, res) => {
   sendEmail({
     to: customer?.email,
     subject: `Luxora booking rescheduled #${newBooking.id}`,
-    html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your booking #${oldBooking.id} was rescheduled. Your new booking #${newBooking.id} for <strong>${oldBooking.service.title}</strong> is confirmed for <strong>${booking_date} at ${normalizedTime}</strong>.</p><p>Status: ${newBooking.status.toLowerCase()}.</p>`,
+    html: `<p>Hi ${escapeHtml(customer?.name || 'Customer')},</p><p>Your booking #${oldBooking.id} was rescheduled. Your new booking #${newBooking.id} for <strong>${escapeHtml(oldBooking.service.title)}</strong> is confirmed for <strong>${escapeHtml(booking_date)} at ${escapeHtml(normalizedTime)}</strong>.</p><p>Status: ${escapeHtml(newBooking.status.toLowerCase())}.</p>`,
   }).catch((error) => console.warn('[email] reschedule confirmation failed:', error.message));
 
   const isAssigned = newBooking.status === 'ASSIGNED';
