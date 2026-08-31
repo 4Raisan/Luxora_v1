@@ -8,6 +8,7 @@ import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
 import { sendEmail, normalizePhoneNumber } from '../services/integrations.js';
 import { notify } from '../services/notify.js';
+import { getSriLankaLocation } from '../services/sriLankaLocations.js';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
 
 // Register (customer or provider — admin accounts are seeded, never self-registered)
 router.post('/register', authLimiter, async (req, res) => {
-  const { name, email, password, phone, town, service_towns, role, nic, category } = req.body;
+  const { name, email, password, phone, town, address_street, service_towns, role, nic, category } = req.body;
 
   if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Name is required' });
   if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
@@ -36,6 +37,10 @@ router.post('/register', authLimiter, async (req, res) => {
       providerCategory = category;
     }
 
+    const providerLocation = userRole === 'PROVIDER' ? getSriLankaLocation(town) : null;
+    if (userRole === 'PROVIDER' && !providerLocation) {
+      return res.status(400).json({ error: 'Select a town from the Sri Lanka provider registration list' });
+    }
     const providerTowns = normalizeServiceTowns(service_towns);
     if (userRole === 'PROVIDER' && providerTowns === null) {
       return res.status(400).json({ error: 'service_towns must contain at most 10 towns' });
@@ -48,7 +53,9 @@ router.post('/register', authLimiter, async (req, res) => {
         email: normalizedEmail,
         passwordHash,
         phone: normalizedPhone || '',
-        town: normalizeTown(town),
+        town: providerLocation?.name || normalizeTown(town),
+        addressStreet: normalizeTown(address_street),
+        addressDistrict: providerLocation?.province || null,
         role: userRole,
       },
     });
@@ -90,7 +97,8 @@ router.post('/register', authLimiter, async (req, res) => {
         email: normalizedEmail,
         role: userRole,
         phone: user.phone || '',
-        town: normalizeTown(town),
+        town: providerLocation?.name || normalizeTown(town),
+        province: providerLocation?.province || null,
       },
     });
   } catch (err) {
@@ -221,9 +229,6 @@ router.post('/login', authLimiter, async (req, res) => {
   let provider = null;
   if (user.role === 'PROVIDER') {
     provider = await prisma.provider.findUnique({ where: { userId: user.id } });
-    if (!provider || provider.kycStatus !== 'APPROVED') {
-      return res.status(403).json({ error: provider?.kycStatus === 'REJECTED' ? 'Your provider verification was rejected. Contact Luxora support.' : 'Your provider verification is still pending.' });
-    }
   }
 
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });

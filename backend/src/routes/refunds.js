@@ -14,7 +14,7 @@ const details = { plan: { include: { entitlements: { include: { category: true }
 
 router.get('/refunds/my', authenticateToken, async (req, res) => {
   const subscriptions = await prisma.userSubscription.findMany({ where: { userId: req.user.id }, include: details, orderBy: { startDate: 'desc' } });
-  const rows = await Promise.all(subscriptions.map(async (subscription) => ({ ...subscription, used_units: await subscriptionUsage(subscription.id), eligible: subscription.status === 'active' && !subscription.refundRequest && await subscriptionUsage(subscription.id) === 0, payment: subscription.payments.find((payment) => payment.status === 'COMPLETED') || null })));
+  const rows = await Promise.all(subscriptions.map(async (subscription) => ({ ...subscription, used_units: await subscriptionUsage(subscription.id), eligible: subscription.status === 'active' && !subscription.refundRequest, payment: subscription.payments.find((payment) => payment.status === 'COMPLETED') || null })));
   res.json(rows);
 });
 
@@ -24,7 +24,7 @@ router.post('/refunds', authenticateToken, async (req, res) => {
   if (!subscriptionId || reason.length > 1000) return res.status(400).json({ error: 'A valid subscription_id and optional reason up to 1000 characters are required' });
   const subscription = await prisma.userSubscription.findFirst({ where: { id: subscriptionId, userId: req.user.id }, include: details });
   if (!subscription) return res.status(404).json({ error: 'Package purchase not found' });
-  if (subscription.status !== 'active' || subscription.refundRequest || await subscriptionUsage(subscription.id) !== 0) return res.status(409).json({ error: 'Only a completely unused active package purchase is eligible for refund' });
+  if (subscription.status !== 'active' || subscription.refundRequest) return res.status(409).json({ error: 'Only an active package purchase without an existing request is eligible for refund' });
   const payment = subscription.payments.find((item) => item.status === 'COMPLETED');
   const refund = await prisma.refundRequest.create({ data: { userId: req.user.id, subscriptionId: subscription.id, paymentId: payment?.id || null, reason: reason || null } });
   await notify(req.user.id, `Refund request #${refund.id} was received.`, '/customer-dashboard');

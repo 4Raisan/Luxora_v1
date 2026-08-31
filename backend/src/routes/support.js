@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
 
   const ticket = await prisma.supportTicket.create({ data: { userId: req.user.id, subject: cleanSubject, message: cleanMessage, priority } });
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
-  await Promise.all(admins.map((admin) => notify(admin.id, `New support ticket #${ticket.id}: ${ticket.subject}`, '/admin/support')));
+  await Promise.all(admins.map((admin) => notify(admin.id, `New support ticket #${ticket.id}: ${ticket.subject}`, '/admin-dashboard')));
   res.status(201).json(ticket);
 });
 

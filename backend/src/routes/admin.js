@@ -4,7 +4,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify, logAdminAction } from '../services/notify.js';
 import { sendEmail } from '../services/integrations.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
-import { getPlatformSettings, providerCanTakeBooking } from '../services/scheduling.js';
+import { getPlatformSettings, providerCanTakeBooking, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { maskAccountNumber, queueMonthlyPayouts } from '../services/payouts.js';
 import { processExpiredBookings } from '../services/bookingTimeouts.js';
 
@@ -53,8 +53,8 @@ async function validatePackageEntitlements(client, packageType, entitlements) {
   return category?.name === singleCategoryName ? null : `${packageType} packages must include that category only`;
 }
 // Admins can assign, unassign, or cancel operational work, but cannot bypass
-// the provider's photo + PIN verification stages.
-const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'CANCELLED'], IN_PROGRESS: ['CANCELLED'], CANCELLED: ['PENDING'], COMPLETED: [] };
+// the provider's photo + PIN verification stages. Cancelled bookings are terminal.
+const ADMIN_TRANSITIONS = { PENDING: ['ASSIGNED', 'CANCELLED'], ASSIGNED: ['PENDING', 'CANCELLED'], IN_PROGRESS: ['CANCELLED'], CANCELLED: [], COMPLETED: [] };
 
 router.get('/settings/scheduling', async (_req, res) => res.json(await getPlatformSettings(prisma)));
 router.put('/settings/scheduling', async (req, res) => {
@@ -113,6 +113,7 @@ router.put('/providers/:id/kyc', async (req, res) => {
         }).catch((err) => console.warn('[email] KYC approval email failed:', err.message));
       }
     } else if (status === 'REJECTED') {
+      await reassignOrUnassignProviderBookings(prisma, provider.id, notify);
       await notify(provider.userId, 'Your KYC has been rejected. Please contact support.', '/provider-dashboard');
       if (provider.user?.email) {
         sendEmail({
@@ -164,7 +165,39 @@ router.put('/users/:id', async (req, res) => {
   const id = toPositiveInt(req.params.id);
   if (!id || typeof req.body.active !== 'boolean') return res.status(400).json({ error: 'A valid user id and boolean active value are required' });
   if (id === req.user.id && !req.body.active) return res.status(400).json({ error: 'You cannot deactivate your own account' });
-  const user = await prisma.user.update({ where: { id }, data: { active: req.body.active }, select: { id: true, active: true } });
+  const existingUser = await prisma.user.findUnique({ where: { id } });
+  if (!existingUser) return res.status(404).json({ error: 'User not found' });
+
+  const user = await prisma.user.update({ where: { id }, data: { active: req.body.active }, select: { id: true, role: true, active: true } });
+
+  if (user.role === 'CUSTOMER' && req.body.active === false) {
+    const activeBookings = await prisma.booking.findMany({
+      where: {
+        userId: user.id,
+        status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] },
+      },
+      include: { service: true },
+    });
+    for (const b of activeBookings) {
+      await prisma.booking.update({
+        where: { id: b.id },
+        data: { status: 'CANCELLED', cancellationReason: 'Customer account was deactivated' },
+      });
+      await notify(user.id, `Your active booking #${b.id} was cancelled because your account was deactivated.`, '/customer-dashboard').catch(() => {});
+      if (b.providerId) {
+        const prov = await prisma.provider.findUnique({ where: { id: b.providerId } });
+        if (prov) {
+          await notify(prov.userId, `Booking #${b.id} was cancelled because customer account was deactivated.`, '/provider-dashboard').catch(() => {});
+        }
+      }
+    }
+  } else if (user.role === 'PROVIDER' && req.body.active === false) {
+    const prov = await prisma.provider.findUnique({ where: { userId: user.id } });
+    if (prov) {
+      await reassignOrUnassignProviderBookings(prisma, prov.id, notify);
+    }
+  }
+
   logAdminAction({ adminId: req.user.id, action: req.body.active ? 'ACTIVATE_USER' : 'DEACTIVATE_USER', targetType: 'User', targetId: String(id), ipAddress: req.ip }).catch(() => {});
   res.json(user);
 });
@@ -354,6 +387,7 @@ router.put('/bookings/:id', async (req, res) => {
 
   const booking = await prisma.booking.findUnique({ where: { id: Number(id) } });
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.status === 'CANCELLED') return res.status(400).json({ error: 'Cannot modify a cancelled booking' });
 
   let nextStatus = undefined;
   if (status !== undefined && status !== null && status !== '') {
@@ -407,6 +441,12 @@ router.put('/bookings/:id', async (req, res) => {
 
   if (nextStatus && nextStatus !== booking.status) {
     await notify(booking.userId, `Your booking #${id} status is now ${nextStatus.toLowerCase()}.`);
+    if (nextStatus === 'CANCELLED' && booking.providerId) {
+      const assignedProvider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
+      if (assignedProvider) {
+        await notify(assignedProvider.userId, `Booking #${id} was cancelled by administrator.`, '/provider-dashboard');
+      }
+    }
   }
   if (nextProviderId && nextProviderId !== booking.providerId) {
     const provider = await prisma.provider.findUnique({ where: { id: nextProviderId } });

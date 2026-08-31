@@ -237,11 +237,12 @@ router.post('/', async (req, res) => {
   }
   sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your ${service.title} booking is scheduled for ${booking_date} at ${booking_time}.</p><p>Booking status: ${booking.status.toLowerCase()}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
+  const isAssigned = booking.status === 'ASSIGNED';
   res.status(201).json({
     booking_id: booking.id,
-    pin_code: startPin,
-    start_pin: startPin,
-    completion_pin: completionPin,
+    pin_code: isAssigned ? startPin : null,
+    start_pin: isAssigned ? startPin : null,
+    completion_pin: null,
     pin_expires_at: booking.pinExpiresAt,
     status: booking.status.toLowerCase(),
     total_price: service.price,
@@ -327,9 +328,16 @@ router.get('/:id/pins', async (req, res) => {
     return res.status(409).json({ error: 'PIN recovery is unavailable for this legacy booking' });
   }
   try {
+    let start_pin = null;
+    let completion_pin = null;
+    if (booking.status === 'ASSIGNED') {
+      start_pin = decryptPin(booking.customerStartPinCipher);
+    } else if (booking.status === 'IN_PROGRESS') {
+      completion_pin = decryptPin(booking.customerCompletionPinCipher);
+    }
     res.json({
-      start_pin: decryptPin(booking.customerStartPinCipher),
-      completion_pin: decryptPin(booking.customerCompletionPinCipher),
+      start_pin,
+      completion_pin,
       expires_at: booking.pinExpiresAt,
     });
   } catch {
@@ -506,20 +514,35 @@ router.put('/:id/schedule', async (req, res) => {
   res.json({ message: 'Expected end time saved', expected_end_time: expectedEndTime });
 });
 
-// Cancel own pending/assigned booking (customer)
+// Cancel own booking (customer: PENDING, ASSIGNED, or IN_PROGRESS)
 router.put('/:id/cancel', async (req, res) => {
-  const booking = await prisma.booking.findFirst({ where: { id: Number(req.params.id), userId: req.user.id } });
-  if (!booking) return res.status(404).json({ error: 'Booking not found' });
-  if (booking.status !== 'PENDING' && booking.status !== 'ASSIGNED') {
-    return res.status(400).json({ error: 'Only pending or assigned bookings can be cancelled' });
+  const bookingId = toPositiveInt(req.params.id);
+  if (!bookingId) return res.status(400).json({ error: 'Valid booking ID is required' });
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(bookingId)})`;
+    const booking = await tx.booking.findFirst({
+      where: { id: bookingId, userId: req.user.id },
+      include: { provider: true },
+    });
+    if (!booking) return { status: 404, body: { error: 'Booking not found' } };
+    if (!['PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(booking.status)) {
+      return { status: 400, body: { error: 'This booking cannot be cancelled' } };
+    }
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: { status: 'CANCELLED', cancellationReason: 'Cancelled by customer' },
+    });
+    return { status: 200, body: { message: 'Booking cancelled' }, booking };
+  });
+
+  if (outcome.status !== 200) return res.status(outcome.status).json(outcome.body);
+
+  await notify(outcome.booking.userId, `Booking #${bookingId} has been cancelled.`);
+  if (outcome.booking.providerId && outcome.booking.provider?.userId) {
+    await notify(outcome.booking.provider.userId, `Booking #${bookingId} has been cancelled by the customer.`);
   }
-  await prisma.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED' } });
-  await notify(booking.userId, `Booking #${booking.id} has been cancelled.`);
-  if (booking.providerId) {
-    const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
-    if (provider) await notify(provider.userId, `Booking #${booking.id} has been cancelled by the customer.`);
-  }
-  res.json({ message: 'Booking cancelled' });
+  res.json(outcome.body);
 });
 
 router.put('/:id/reschedule', async (req, res) => {
