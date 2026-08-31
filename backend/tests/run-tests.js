@@ -48,4 +48,5 @@ run(process.execPath, [
   'tests/unit-fixes.test.js',
   'tests/api-fixes.test.js',
   'tests/booking-concurrency.test.js',
+  'tests/booking-lifecycle-timeouts.test.js',
 ]);
