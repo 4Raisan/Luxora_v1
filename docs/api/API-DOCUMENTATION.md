@@ -48,6 +48,8 @@ There is no Super Admin. Every `/admin/*` route requires an Admin JWT. Admin cov
 
 `POST /promotions` accepts `title`, `discount_pct`, optional `code`, optional `starts_at` / `ends_at`, and optional `plan_ids`. Select one or more package IDs to target only those packages; submit an empty `plan_ids` array for a catalogue-wide promotion. At checkout, the backend selects the highest eligible active promotion and stores the original price, discount amount, and applied promotion with the payment record.
 
+`DELETE /promotions/:id` removes an unused campaign after admin confirmation. A campaign with payment history cannot be deleted and must be deactivated instead.
+
 ## Private downloads
 
 `GET /uploads/photos/:id` permits the booking customer, assigned provider, or admin. `GET /uploads/kyc/:id` permits the provider owner or admin. Files are not exposed through static paths.

@@ -136,8 +136,10 @@ const AdminDashboard = () => {
   const [planEditor, setPlanEditor] = useState(null)
   const [planDetails, setPlanDetails] = useState(null)
   const [confirmPlanRemoval, setConfirmPlanRemoval] = useState(false)
+  const [promotionRemoval, setPromotionRemoval] = useState(null)
   const [promoForm, setPromoForm] = useState({ title: '', description: '', code: '', discount_pct: '', starts_at: '', ends_at: '', plan_ids: [] })
   const [reportRange, setReportRange] = useState({ from: '', to: '' })
+  const activePromotionPlans = plans.filter((plan) => plan.active)
 
   const token = sessionStorage.getItem('token')
 
@@ -336,6 +338,11 @@ const AdminDashboard = () => {
   const togglePromotion = (promo) => runAction(async () => {
     await apiRequest(`/promotions/${promo.id}`, 'PUT', { active: !promo.active }, token)
   }, 'Promotion updated.')
+
+  const removePromotion = (promo) => runAction(async () => {
+    await apiRequest(`/promotions/${promo.id}`, 'DELETE', null, token)
+    setPromotionRemoval(null)
+  }, 'Promotion removed.')
 
   const togglePromotionPackage = (planId) => setPromoForm((current) => ({
     ...current,
@@ -751,15 +758,31 @@ const AdminDashboard = () => {
                   <label style={{ color: '#aaa', fontSize: '0.78rem' }}>Ends <input style={{ ...fieldStyle, marginTop: '0.35rem' }} type="datetime-local" value={promoForm.ends_at} onChange={(e) => setPromoForm({ ...promoForm, ends_at: e.target.value })} /></label>
                   <button style={goldBtn} disabled={busy} onClick={createPromotion}>Deploy Promotion</button>
                 </div>
-                <div style={{ marginTop: '1rem', borderTop: '1px solid #282828', paddingTop: '0.9rem' }}>
-                  <strong style={{ display: 'block', color: '#ddd', fontSize: '0.78rem', marginBottom: '0.35rem' }}>DISCOUNTED PACKAGES</strong>
-                  <small style={{ display: 'block', color: '#888', marginBottom: '0.65rem' }}>Select one or more packages. Leave all unchecked to make this a catalogue-wide promotion.</small>
-                  <div style={{ display: 'flex', gap: '0.55rem 1rem', flexWrap: 'wrap' }}>
-                    {plans.filter((plan) => plan.active).map((plan) => <label key={plan.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#ccc', fontSize: '0.78rem', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={promoForm.plan_ids.includes(plan.id)} onChange={() => togglePromotionPackage(plan.id)} />
-                      {plan.title} ({fmtMoney(plan.priceMonthly)})
-                    </label>)}
-                    {plans.filter((plan) => plan.active).length === 0 && <small style={{ color: '#888' }}>Create an active package before assigning a package-specific promotion.</small>}
+                <div style={{ marginTop: '1rem', borderTop: '1px solid #282828', paddingTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                    <div>
+                      <strong style={{ display: 'block', color: '#eee', fontSize: '0.86rem' }}>Choose discounted packages</strong>
+                      <small style={{ display: 'block', color: '#999', marginTop: '0.25rem' }}>
+                        {promoForm.plan_ids.length ? `${promoForm.plan_ids.length} package${promoForm.plan_ids.length === 1 ? '' : 's'} selected for this promotion.` : 'No package selected — this discount will apply to all active packages.'}
+                      </small>
+                    </div>
+                    {activePromotionPlans.length > 0 && <div style={{ display: 'flex', gap: '0.45rem' }}>
+                      <button type="button" style={{ ...ghostBtn, padding: '0.38rem 0.65rem', fontSize: '0.7rem' }} onClick={() => setPromoForm({ ...promoForm, plan_ids: activePromotionPlans.map((plan) => plan.id) })}>Select all</button>
+                      <button type="button" style={{ ...ghostBtn, padding: '0.38rem 0.65rem', fontSize: '0.7rem' }} onClick={() => setPromoForm({ ...promoForm, plan_ids: [] })}>All packages</button>
+                    </div>}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.65rem' }}>
+                    {activePromotionPlans.map((plan) => {
+                      const selected = promoForm.plan_ids.includes(plan.id)
+                      return <label key={plan.id} style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.8rem', border: `1px solid ${selected ? 'rgba(201,168,76,0.7)' : '#30302f'}`, background: selected ? 'rgba(201,168,76,0.10)' : '#121212', borderRadius: '9px', color: '#ddd', cursor: 'pointer', transition: 'border-color .2s ease, background .2s ease' }}>
+                        <input type="checkbox" checked={selected} onChange={() => togglePromotionPackage(plan.id)} style={{ width: '16px', height: '16px', accentColor: 'var(--gold, #c9a84c)', flexShrink: 0 }} />
+                        <span style={{ minWidth: 0 }}>
+                          <strong style={{ display: 'block', color: selected ? '#f3d87e' : '#eee', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plan.title}</strong>
+                          <small style={{ display: 'block', color: '#888', marginTop: '0.2rem', fontSize: '0.7rem' }}>{plan.type || 'Care package'} · {fmtMoney(plan.priceMonthly)} / month</small>
+                        </span>
+                      </label>
+                    })}
+                    {activePromotionPlans.length === 0 && <div style={{ padding: '1rem', border: '1px dashed #3a3a38', borderRadius: '9px', color: '#999', fontSize: '0.8rem' }}>There are no active packages yet. Create or activate a package before making a package-specific promotion.</div>}
                   </div>
                 </div>
               </div>
@@ -777,7 +800,12 @@ const AdminDashboard = () => {
                         <td>{p.discountPct}%</td>
                         <td>{fmtDate(p.startsAt)} → {fmtDate(p.endsAt)}</td>
                         <td><StatBadge value={p.active ? 'active' : 'closed'} /></td>
-                        <td><button style={ghostBtn} disabled={busy} onClick={() => togglePromotion(p)}>{p.active ? 'Deactivate' : 'Activate'}</button></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                            <button style={ghostBtn} disabled={busy} onClick={() => togglePromotion(p)}>{p.active ? 'Deactivate' : 'Activate'}</button>
+                            <button style={redBtn} disabled={busy} onClick={() => setPromotionRemoval(p)}>Remove</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                     {promotions.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No campaigns.</td></tr>}
@@ -998,6 +1026,19 @@ const AdminDashboard = () => {
           <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
             <ActionButton style={redBtn} loading={busy} loadingText="Rejecting..." onClick={() => decideRefund('REJECTED')}>Reject</ActionButton>
             <ActionButton style={goldBtn} loading={busy} loadingText="Approving..." onClick={() => decideRefund('APPROVED')}>Approve Refund</ActionButton>
+          </div>
+        </Modal>
+      )}
+
+      {promotionRemoval && (
+        <Modal title="REMOVE PROMOTION" eyebrow="CONFIRMATION REQUIRED" onClose={() => setPromotionRemoval(null)}>
+          <p style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.92rem' }}>Remove this promotion permanently?</p>
+          <p style={{ color: '#bbb', fontSize: '0.84rem', lineHeight: 1.55 }}>
+            <strong style={{ color: '#fff' }}>{promotionRemoval.title}</strong>{promotionRemoval.code ? ` (${promotionRemoval.code})` : ''} will no longer be available to customers. Promotions with payment history cannot be removed; deactivate them instead.
+          </p>
+          <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button style={ghostBtn} disabled={busy} onClick={() => setPromotionRemoval(null)}>Keep Promotion</button>
+            <button style={redBtn} disabled={busy} onClick={() => removePromotion(promotionRemoval)}>{busy ? 'Removing…' : 'Yes, Remove Promotion'}</button>
           </div>
         </Modal>
       )}

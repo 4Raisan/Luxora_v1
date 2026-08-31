@@ -104,4 +104,23 @@ router.put('/:id', async (req, res) => {
   res.json({ message: `Promotion ${requested ? 'activated' : 'deactivated'}`, is_active: requested });
 });
 
+// Promotions that already affected a payment stay available for financial
+// history; admins can deactivate those campaigns instead of deleting them.
+router.delete('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid promotion id' });
+
+  const promotion = await prisma.promotion.findUnique({
+    where: { id },
+    select: { id: true, title: true, _count: { select: { payments: true } } },
+  });
+  if (!promotion) return res.status(404).json({ error: 'Promotion not found' });
+  if (promotion._count.payments > 0) {
+    return res.status(409).json({ error: 'This promotion has payment history and cannot be removed. Deactivate it instead.' });
+  }
+
+  await prisma.promotion.delete({ where: { id: promotion.id } });
+  res.json({ message: 'Promotion removed' });
+});
+
 export default router;
