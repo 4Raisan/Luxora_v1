@@ -4,6 +4,7 @@ import { apiRequest } from '../services/api'
 import AccountVerificationPanel from '../components/AccountVerificationPanel'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
+import ActiveBookingCards from '../components/ActiveBookingCards'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -2264,8 +2265,23 @@ const CustomerDashboard = () => {
             </div>
           </div>
 
-          {/* Full Interactive Table */}
-          <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
+          <ActiveBookingCards
+            bookings={customerActiveBookings
+              .filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
+              .filter(b => {
+                const matchId = !activeBookingIdFilter || String(b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
+                const matchDate = !activeBookingDateFilter || b.date === activeBookingDateFilter
+                return matchId && matchDate
+              })}
+            selectedBookingId={selectedBookingId}
+            onToggleDetails={(bookingId) => setSelectedBookingId(prev => prev === bookingId ? null : bookingId)}
+            onCancel={handleCancelBooking}
+            onReview={openReview}
+            isPinUnlocked={checkIsPinUnlocked}
+          />
+
+          {/* Legacy table retained temporarily for contract parity; replaced visually by the cards above. */}
+          <div className="cd-table-wrap" hidden aria-hidden="true" style={{ display: 'none', background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
             <table className="cd-table" style={{ margin: 0 }}>
               <thead>
                 <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
