@@ -6,15 +6,15 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 182,
-    "totalEdges": 389,
+    "totalNodes": 192,
+    "totalEdges": 412,
     "nodesByGroup": {
-      "api": 91,
-      "database": 33,
-      "frontend": 31,
+      "api": 95,
+      "database": 34,
+      "frontend": 32,
       "middleware": 3,
-      "routes": 16,
-      "service": 8
+      "routes": 17,
+      "service": 11
     }
   },
   "nodes": [
@@ -46,6 +46,21 @@
       },
       "source": {
         "path": "backend/src/routes/notifications.js"
+      }
+    },
+    {
+      "id": "endpoint:DELETE_/api/promotions/:id",
+      "label": "DELETE /api/promotions/:id",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/promotions.js",
+      "metadata": {
+        "method": "DELETE",
+        "path": "/api/promotions/:id",
+        "routeFile": "promotions.js"
+      },
+      "source": {
+        "path": "backend/src/routes/promotions.js"
       }
     },
     {
@@ -301,6 +316,21 @@
       },
       "source": {
         "path": "backend/src/routes/services.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/chatbot/catalog",
+      "label": "GET /api/chatbot/catalog",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/chat.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/chatbot/catalog",
+        "routeFile": "chat.js"
+      },
+      "source": {
+        "path": "backend/src/routes/chat.js"
       }
     },
     {
@@ -766,6 +796,36 @@
       },
       "source": {
         "path": "backend/src/routes/uploads.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/chat",
+      "label": "POST /api/chat",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/chat.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/chat",
+        "routeFile": "chat.js"
+      },
+      "source": {
+        "path": "backend/src/routes/chat.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/chatbot/special-ask",
+      "label": "POST /api/chatbot/special-ask",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/chat.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/chatbot/special-ask",
+        "routeFile": "chat.js"
+      },
+      "source": {
+        "path": "backend/src/routes/chat.js"
       }
     },
     {
@@ -1595,6 +1655,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/AccountVerificationPanel.jsx"
+      }
+    },
+    {
+      "id": "frontend:ActiveBookingCards",
+      "label": "ActiveBookingCards.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/ActiveBookingCards.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/ActiveBookingCards.jsx"
       }
     },
     {
@@ -2459,6 +2530,10 @@
             "type": "DateTime"
           },
           {
+            "name": "discountAmount",
+            "type": "Decimal"
+          },
+          {
             "name": "expectedAmount",
             "type": "Decimal"
           },
@@ -2483,11 +2558,23 @@
             "type": "String"
           },
           {
+            "name": "originalAmount",
+            "type": "Decimal?"
+          },
+          {
             "name": "plan",
             "type": "SubscriptionPlan?"
           },
           {
             "name": "planId",
+            "type": "Int?"
+          },
+          {
+            "name": "promotion",
+            "type": "Promotion?"
+          },
+          {
+            "name": "promotionId",
             "type": "Int?"
           },
           {
@@ -2605,12 +2692,55 @@
             "type": "Int"
           },
           {
+            "name": "payments",
+            "type": "Payment[]"
+          },
+          {
+            "name": "planAssignments",
+            "type": "PromotionPlan[]"
+          },
+          {
             "name": "startsAt",
             "type": "DateTime?"
           },
           {
             "name": "title",
             "type": "String"
+          }
+        ],
+        "relations": []
+      },
+      "source": {
+        "path": "backend/prisma/schema.prisma"
+      }
+    },
+    {
+      "id": "model:PromotionPlan",
+      "label": "PromotionPlan",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "@@id([promotionId,",
+            "type": "planId])"
+          },
+          {
+            "name": "plan",
+            "type": "SubscriptionPlan"
+          },
+          {
+            "name": "planId",
+            "type": "Int"
+          },
+          {
+            "name": "promotion",
+            "type": "Promotion"
+          },
+          {
+            "name": "promotionId",
+            "type": "Int"
           }
         ],
         "relations": []
@@ -3156,6 +3286,10 @@
             "type": "Decimal"
           },
           {
+            "name": "promotions",
+            "type": "PromotionPlan[]"
+          },
+          {
             "name": "recommended",
             "type": "Boolean"
           },
@@ -3467,6 +3601,19 @@
       }
     },
     {
+      "id": "routefile:chat",
+      "label": "chat.js",
+      "type": "RouteModule",
+      "group": "routes",
+      "file": "backend/src/routes/chat.js",
+      "metadata": {
+        "baseMount": "/api"
+      },
+      "source": {
+        "path": "backend/src/routes/chat.js"
+      }
+    },
+    {
       "id": "routefile:complaints",
       "label": "complaints.js",
       "type": "RouteModule",
@@ -3636,6 +3783,19 @@
       }
     },
     {
+      "id": "service:bookingTimeouts",
+      "label": "bookingTimeouts.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/bookingTimeouts.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/bookingTimeouts.js"
+      }
+    },
+    {
       "id": "service:currency",
       "label": "currency.js",
       "type": "Service",
@@ -3717,6 +3877,19 @@
       }
     },
     {
+      "id": "service:promotions",
+      "label": "promotions.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/promotions.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/promotions.js"
+      }
+    },
+    {
       "id": "service:scheduling",
       "label": "scheduling.js",
       "type": "Service",
@@ -3727,6 +3900,19 @@
       },
       "source": {
         "path": "backend/src/services/scheduling.js"
+      }
+    },
+    {
+      "id": "service:sriLankaLocations",
+      "label": "sriLankaLocations.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/sriLankaLocations.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/sriLankaLocations.js"
       }
     },
     {
@@ -3780,6 +3966,20 @@
       "label": "DELETE",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:DELETE_/api/admin/subscriptions/:id",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->endpoint:DELETE_/api/promotions/:id:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:DELETE_/api/promotions/:id",
+      "type": "FETCHES_API",
+      "label": "DELETE",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:DELETE_/api/promotions/:id",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -4655,6 +4855,20 @@
       }
     },
     {
+      "id": "frontend:CustomerDashboard->frontend:ActiveBookingCards:RENDERS_COMPONENT",
+      "from": "frontend:CustomerDashboard",
+      "to": "frontend:ActiveBookingCards",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:CustomerDashboard",
+      "target": "frontend:ActiveBookingCards",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:CustomerDashboard->frontend:api_client:USES_CLIENT",
       "from": "frontend:CustomerDashboard",
       "to": "frontend:api_client",
@@ -4837,6 +5051,20 @@
       }
     },
     {
+      "id": "frontend:ProviderDashboard->endpoint:GET_/api/auth/me:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:GET_/api/auth/me",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:GET_/api/auth/me",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:ProviderDashboard->endpoint:GET_/api/bookings/assigned:FETCHES_API",
       "from": "frontend:ProviderDashboard",
       "to": "endpoint:GET_/api/bookings/assigned",
@@ -4914,6 +5142,20 @@
       "label": "POST",
       "source": "frontend:ProviderDashboard",
       "target": "endpoint:POST_/api/bookings/:id/photos",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/provider/kyc-documents:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/provider/kyc-documents",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:POST_/api/provider/kyc-documents",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",
@@ -5593,6 +5835,20 @@
       }
     },
     {
+      "id": "model:Payment->model:Promotion:DB_RELATION",
+      "from": "model:Payment",
+      "to": "model:Promotion",
+      "type": "DB_RELATION",
+      "label": "promotion",
+      "source": "model:Payment",
+      "target": "model:Promotion",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "model:Payment->model:RefundRequest:DB_RELATION",
       "from": "model:Payment",
       "to": "model:RefundRequest",
@@ -5642,6 +5898,62 @@
       "label": "subscription",
       "source": "model:Payment",
       "target": "model:UserSubscription",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:Promotion->model:Payment:DB_RELATION",
+      "from": "model:Promotion",
+      "to": "model:Payment",
+      "type": "DB_RELATION",
+      "label": "payments",
+      "source": "model:Promotion",
+      "target": "model:Payment",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:Promotion->model:PromotionPlan:DB_RELATION",
+      "from": "model:Promotion",
+      "to": "model:PromotionPlan",
+      "type": "DB_RELATION",
+      "label": "planAssignments",
+      "source": "model:Promotion",
+      "target": "model:PromotionPlan",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:PromotionPlan->model:Promotion:DB_RELATION",
+      "from": "model:PromotionPlan",
+      "to": "model:Promotion",
+      "type": "DB_RELATION",
+      "label": "promotion",
+      "source": "model:PromotionPlan",
+      "target": "model:Promotion",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:PromotionPlan->model:SubscriptionPlan:DB_RELATION",
+      "from": "model:PromotionPlan",
+      "to": "model:SubscriptionPlan",
+      "type": "DB_RELATION",
+      "label": "plan",
+      "source": "model:PromotionPlan",
+      "target": "model:SubscriptionPlan",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
@@ -6006,6 +6318,20 @@
       "label": "payments",
       "source": "model:SubscriptionPlan",
       "target": "model:Payment",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:SubscriptionPlan->model:PromotionPlan:DB_RELATION",
+      "from": "model:SubscriptionPlan",
+      "to": "model:PromotionPlan",
+      "type": "DB_RELATION",
+      "label": "promotions",
+      "source": "model:SubscriptionPlan",
+      "target": "model:PromotionPlan",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
@@ -6839,6 +7165,20 @@
       }
     },
     {
+      "id": "routefile:admin->service:integrations:CALLS_SERVICE",
+      "from": "routefile:admin",
+      "to": "service:integrations",
+      "type": "CALLS_SERVICE",
+      "label": "",
+      "source": "routefile:admin",
+      "target": "service:integrations",
+      "kind": "CALLS_SERVICE",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:admin->service:notify:CALLS_SERVICE",
       "from": "routefile:admin",
       "to": "service:notify",
@@ -7325,6 +7665,118 @@
       "kind": "CALLS_SERVICE",
       "evidence": {
         "path": "backend/src/routes/bookings.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->endpoint:GET_/api/chatbot/catalog:EXPOSES_ENDPOINT",
+      "from": "routefile:chat",
+      "to": "endpoint:GET_/api/chatbot/catalog",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:chat",
+      "target": "endpoint:GET_/api/chatbot/catalog",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->endpoint:POST_/api/chat:EXPOSES_ENDPOINT",
+      "from": "routefile:chat",
+      "to": "endpoint:POST_/api/chat",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:chat",
+      "target": "endpoint:POST_/api/chat",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->endpoint:POST_/api/chatbot/special-ask:EXPOSES_ENDPOINT",
+      "from": "routefile:chat",
+      "to": "endpoint:POST_/api/chatbot/special-ask",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:chat",
+      "target": "endpoint:POST_/api/chatbot/special-ask",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->model:Category:QUERIES_DB",
+      "from": "routefile:chat",
+      "to": "model:Category",
+      "type": "QUERIES_DB",
+      "label": "prisma.category",
+      "source": "routefile:chat",
+      "target": "model:Category",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->model:Service:QUERIES_DB",
+      "from": "routefile:chat",
+      "to": "model:Service",
+      "type": "QUERIES_DB",
+      "label": "prisma.service",
+      "source": "routefile:chat",
+      "target": "model:Service",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->model:SubscriptionPlan:QUERIES_DB",
+      "from": "routefile:chat",
+      "to": "model:SubscriptionPlan",
+      "type": "QUERIES_DB",
+      "label": "prisma.subscriptionPlan",
+      "source": "routefile:chat",
+      "target": "model:SubscriptionPlan",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->model:SupportTicket:QUERIES_DB",
+      "from": "routefile:chat",
+      "to": "model:SupportTicket",
+      "type": "QUERIES_DB",
+      "label": "prisma.supportTicket",
+      "source": "routefile:chat",
+      "target": "model:SupportTicket",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->model:User:QUERIES_DB",
+      "from": "routefile:chat",
+      "to": "model:User",
+      "type": "QUERIES_DB",
+      "label": "prisma.user",
+      "source": "routefile:chat",
+      "target": "model:User",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
         "extractor": "generate-graph.js:static-analysis"
       }
     },
@@ -8085,6 +8537,20 @@
       }
     },
     {
+      "id": "routefile:promotions->endpoint:DELETE_/api/promotions/:id:EXPOSES_ENDPOINT",
+      "from": "routefile:promotions",
+      "to": "endpoint:DELETE_/api/promotions/:id",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "DELETE",
+      "source": "routefile:promotions",
+      "target": "endpoint:DELETE_/api/promotions/:id",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/promotions.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:promotions->endpoint:GET_/api/promotions:EXPOSES_ENDPOINT",
       "from": "routefile:promotions",
       "to": "endpoint:GET_/api/promotions",
@@ -8190,6 +8656,34 @@
       "label": "prisma.promotion",
       "source": "routefile:promotions",
       "target": "model:Promotion",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/promotions.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:promotions->model:PromotionPlan:QUERIES_DB",
+      "from": "routefile:promotions",
+      "to": "model:PromotionPlan",
+      "type": "QUERIES_DB",
+      "label": "prisma.promotionPlan",
+      "source": "routefile:promotions",
+      "target": "model:PromotionPlan",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/promotions.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:promotions->model:SubscriptionPlan:QUERIES_DB",
+      "from": "routefile:promotions",
+      "to": "model:SubscriptionPlan",
+      "type": "QUERIES_DB",
+      "label": "prisma.subscriptionPlan",
+      "source": "routefile:promotions",
+      "target": "model:SubscriptionPlan",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/promotions.js",
@@ -8764,6 +9258,20 @@
       "label": "prisma.category",
       "source": "routefile:services",
       "target": "model:Category",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/services.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:services->model:Promotion:QUERIES_DB",
+      "from": "routefile:services",
+      "to": "model:Promotion",
+      "type": "QUERIES_DB",
+      "label": "prisma.promotion",
+      "source": "routefile:services",
+      "target": "model:Promotion",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/services.js",

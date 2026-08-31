@@ -432,11 +432,12 @@ function generateOutput() {
   fs.writeFileSync(jsonPath, JSON.stringify(graphFacts, null, 2) + '\n', 'utf-8');
   console.log(`💾 Saved Knowledge Graph JSON: ${jsonPath}`);
 
-  if (!fs.existsSync(rendererSourcePath)) {
+  if (fs.existsSync(rendererSourcePath)) {
+    fs.copyFileSync(rendererSourcePath, rendererOutputPath);
+    console.log(`🕸️ Saved bundled graph renderer: ${rendererOutputPath}`);
+  } else if (!fs.existsSync(rendererOutputPath)) {
     throw new Error('vis-network is missing. Run npm ci before generating the Knowledge Graph.');
   }
-  fs.copyFileSync(rendererSourcePath, rendererOutputPath);
-  console.log(`🕸️ Saved bundled graph renderer: ${rendererOutputPath}`);
 
   // 2. Interactive HTML Viewer (Vis.js Network)
   const htmlContent = `<!DOCTYPE html>
