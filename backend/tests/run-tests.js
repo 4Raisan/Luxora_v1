@@ -49,4 +49,5 @@ run(process.execPath, [
   'tests/api-fixes.test.js',
   'tests/booking-concurrency.test.js',
   'tests/booking-lifecycle-timeouts.test.js',
+  'tests/new-flow-rules.test.js',
 ]);
