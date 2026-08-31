@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.js';
-import { bookingStart, bookingEndsAt } from './scheduling.js';
+import { bookingStart, bookingEndsAt, pickProvider, getPlatformSettings } from './scheduling.js';
 import { notify } from './notify.js';
 import { sendEmail } from './integrations.js';
 
@@ -50,6 +50,30 @@ export async function processExpiredBookings(client = prisma, now = new Date()) 
         notificationMsg = `Your booking #${booking.id} (${booking.service?.title || 'Service'}) was cancelled because no provider was assigned within 30 minutes of start time. Your entitlement unit has been restored.`;
         emailSubject = `Luxora Booking #${booking.id} - Unassigned Timeout`;
         emailBody = `<p>Hi ${booking.user?.name || 'Customer'},</p><p>Your booking #${booking.id} for <strong>${booking.service?.title || 'Service'}</strong> could not be assigned to a provider within 30 minutes of the scheduled start time and has been cancelled.</p><p>Your subscription entitlement unit has been restored to your balance.</p>`;
+      } else if (!booking.providerId && booking.service) {
+        try {
+          const settings = await getPlatformSettings(client);
+          const newProvider = await pickProvider(
+            client,
+            booking.service.category?.name,
+            booking.town,
+            booking.addressDistrict,
+            booking.bookingDate,
+            booking.bookingTime,
+            booking.service,
+            settings
+          );
+          if (newProvider) {
+            await client.booking.update({
+              where: { id: booking.id },
+              data: { providerId: newProvider.id, status: 'ASSIGNED', autoAssigned: true },
+            });
+            await notify(newProvider.userId, `New booking assigned: ${booking.service.title} on ${booking.bookingDate} at ${booking.bookingTime}.`, '/provider-dashboard').catch(() => {});
+            await notify(booking.userId, `A provider has been assigned to your booking #${booking.id}.`, '/customer-dashboard').catch(() => {});
+          }
+        } catch (retryErr) {
+          console.warn(`[booking-retry] failed to assign booking #${booking.id}:`, retryErr.message);
+        }
       }
     } else if (booking.status === 'ASSIGNED') {
       deadline = getAssignedDeadline(booking);

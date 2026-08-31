@@ -111,7 +111,7 @@ async function main() {
   // Per-category service units each plan grants (mirrors the marketed features).
   // Without these rows a purchased plan has no bookable entitlements.
   if (await prisma.subscriptionEntitlement.count() === 0) {
-    const byTitle = async (title) => prisma.subscriptionPlan.findUniqueOrThrow({ where: { title } });
+    const byTitle = async (title) => prisma.subscriptionPlan.findFirstOrThrow({ where: { title } });
     const [basicPkg, gardenOasis, triCombo] = await Promise.all([
       byTitle('Basic Package'), byTitle('Single Care - Garden Oasis'), byTitle('Luxora Tri-Combo Luxury Suite'),
     ]);
