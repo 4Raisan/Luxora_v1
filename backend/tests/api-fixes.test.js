@@ -124,14 +124,16 @@ test('B3: pre-KYC provider token gets no operational access, but can upload KYC 
   const { status, body } = await json('/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Pending Provider', email, password: 'secret123', phone: '0771234567', role: 'provider', category: 'Auto Care' }),
+    body: JSON.stringify({ name: 'Pending Provider', email, password: 'secret123', phone: '0771234567', town: 'Colombo', role: 'provider', category: 'Auto Care' }),
   });
   assert.equal(status, 201);
   const token = body.token;
 
-  // Login must also be blocked while KYC is pending
+  // PENDING/REJECTED providers can log in to view KYC status and upload documents
   const pendingLogin = await json('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'secret123' }) });
-  assert.equal(pendingLogin.status, 403);
+  assert.equal(pendingLogin.status, 200);
+  assert.ok(pendingLogin.body.token);
+  assert.equal(pendingLogin.body.provider?.kycStatus, 'PENDING');
 
   // Operational provider routes must all reject the pre-KYC token server-side
   assert.equal((await authJson(token, '/provider/availability')).status, 403);
@@ -171,7 +173,7 @@ test('B3: pre-KYC provider token gets no operational access, but can upload KYC 
 
   // A rejected provider stays locked out
   const rejectEmail = `rejected-${RND}@test.com`;
-  const rejected = await json('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Rejected Provider', email: rejectEmail, password: 'secret123', phone: '0771234568', role: 'provider', category: 'Auto Care' }) });
+  const rejected = await json('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Rejected Provider', email: rejectEmail, password: 'secret123', phone: '0771234568', town: 'Colombo', role: 'provider', category: 'Auto Care' }) });
   assert.equal(rejected.status, 201);
   assert.equal((await authJson(rejected.body.token, '/bookings/assigned')).status, 403);
 });
@@ -259,7 +261,8 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const booking = await authJson(token, '/bookings', { method: 'POST', body: JSON.stringify({ service_id: 1, booking_date: tomorrow, booking_time: '09:00' }) });
   assert.ok([200, 201].includes(booking.status), JSON.stringify(booking.body));
-  assert.ok(booking.body.start_pin && booking.body.completion_pin);
+  assert.ok(booking.body.start_pin);
+  assert.equal(booking.body.completion_pin, null, 'completion_pin hidden until service start');
   const bookingId = booking.body.booking_id;
 
   const provider = await login('provider@luxora.lk');
@@ -273,8 +276,14 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   assert.equal((await authJson(provider, `/bookings/${bookingId}/photos`, { method: 'POST', body: photoForm('BEFORE') })).status, 201);
   const start = await authJson(provider, `/bookings/${bookingId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'in_progress', pin_code: booking.body.start_pin }) });
   assert.equal(start.status, 200);
+
+  // Customer fetches revealed completion PIN
+  const customerPins = await authJson(token, `/bookings/${bookingId}/pins`);
+  assert.equal(customerPins.status, 200);
+  assert.ok(customerPins.body.completion_pin, 'completion_pin is revealed after start');
+
   assert.equal((await authJson(provider, `/bookings/${bookingId}/photos`, { method: 'POST', body: photoForm('AFTER') })).status, 201);
-  const finish = await authJson(provider, `/bookings/${bookingId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'completed', pin_code: booking.body.completion_pin }) });
+  const finish = await authJson(provider, `/bookings/${bookingId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'completed', pin_code: customerPins.body.completion_pin }) });
   assert.equal(finish.status, 200);
   const review = await authJson(token, '/reviews', { method: 'POST', body: JSON.stringify({ booking_id: bookingId, rating: 5, comment: `flow-${RND}` }) });
   assert.equal(review.status, 201);

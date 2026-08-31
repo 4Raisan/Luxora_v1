@@ -136,11 +136,22 @@ test('NOWPayments E2E: Valid IPN settles payment, activates subscription, and is
   let user = await prisma.user.findFirst({ where: { email: 'customer@luxora.lk' } });
   if (!user) {
     user = await prisma.user.create({
-      data: { email: `np_e2e_${Date.now()}@luxora.lk`, name: 'NP E2E User', role: 'CUSTOMER', password: 'testpassword123' },
+      data: { email: `np_e2e_${Date.now()}@luxora.lk`, name: 'NP E2E User', role: 'CUSTOMER', passwordHash: '$2a$10$dummyhashfortestingnp1234567890abcdef' },
     });
   }
 
-  const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
+  let plan = await prisma.subscriptionPlan.findFirst();
+  if (!plan) {
+    plan = await prisma.subscriptionPlan.create({
+      data: {
+        title: 'Auto Care Basic',
+        type: 'Auto Care',
+        priceMonthly: 15000,
+        features: '["Priority auto care"]',
+        active: true,
+      },
+    });
+  }
 
   // 1. Create a PENDING payment record with original LKR 15,000 and converted USD 45.65
   const payment = await prisma.payment.create({

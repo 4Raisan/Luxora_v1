@@ -191,11 +191,10 @@ test('2. Complete Booking Flow on Fresh DB: Purchase, Auto-Assignment, Service P
   assert.ok(bookData.booking_id);
   assert.equal(bookData.status.toUpperCase(), 'ASSIGNED', 'Should be auto-assigned to eligible Colombo Auto Care provider');
   assert.ok(bookData.start_pin, 'Initial response returns start PIN for customer');
-  assert.ok(bookData.completion_pin, 'Initial response returns completion PIN for customer');
+  assert.equal(bookData.completion_pin, null, 'Initial response hides completion PIN until started');
 
   const bookingId = bookData.booking_id;
   const startPin = bookData.start_pin;
-  const completionPin = bookData.completion_pin;
 
   // Duplicate request (idempotency check)
   const dupRes = await fetch(`${BASE}/bookings`, {
@@ -224,7 +223,7 @@ test('2. Complete Booking Flow on Fresh DB: Purchase, Auto-Assignment, Service P
   assert.equal(pinsRes.status, 200);
   const pinsData = await pinsRes.json();
   assert.equal(pinsData.start_pin, startPin);
-  assert.equal(pinsData.completion_pin, completionPin);
+  assert.equal(pinsData.completion_pin, null, 'completion_pin hidden while ASSIGNED');
 
   // Attach required before photo
   await prisma.servicePhoto.create({
@@ -250,6 +249,14 @@ test('2. Complete Booking Flow on Fresh DB: Purchase, Auto-Assignment, Service P
   assert.equal(startRes.status, 200);
   const startData = await startRes.json();
   assert.equal(startData.status.toUpperCase(), 'IN_PROGRESS');
+
+  // Customer retrieves revealed completion PIN after service is in progress
+  const pinsInProgress = await fetch(`${BASE}/bookings/${bookingId}/pins`, {
+    headers: { Authorization: `Bearer ${customerLogin.token}` },
+  });
+  const pinsInProgressData = await pinsInProgress.json();
+  const completionPin = pinsInProgressData.completion_pin;
+  assert.ok(completionPin, 'completion PIN is revealed when IN_PROGRESS');
 
   // Attach required after photo
   await prisma.servicePhoto.create({

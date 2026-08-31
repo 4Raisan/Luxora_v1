@@ -137,12 +137,23 @@ test('NOWPayments: Database payment lifecycle and idempotency check', async () =
         email: `test_np_${Date.now()}@luxora.lk`,
         name: 'NOWPayments Test User',
         role: 'CUSTOMER',
-        password: 'hashed_password_123',
+        passwordHash: '$2a$10$dummyhashfortestingnp1234567890abcdef',
       },
     });
   }
 
-  const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
+  let plan = await prisma.subscriptionPlan.findFirst();
+  if (!plan) {
+    plan = await prisma.subscriptionPlan.create({
+      data: {
+        title: 'Auto Care Basic',
+        type: 'Auto Care',
+        priceMonthly: 12000,
+        features: '["Priority auto care"]',
+        active: true,
+      },
+    });
+  }
 
   // Create PENDING payment
   const payment = await prisma.payment.create({

@@ -132,13 +132,11 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
 
   assert.equal(res1.status, 201, `Expected 201 Created, got ${res1.status}: ${JSON.stringify(res1.body)}`);
   assert.ok(res1.body.booking_id, 'booking_id must be returned');
-  assert.ok(res1.body.start_pin, 'start_pin must be returned');
-  assert.ok(res1.body.completion_pin, 'completion_pin must be returned');
   assert.equal(res1.body.status, 'pending');
+  assert.equal(res1.body.start_pin, null, 'start_pin hidden while pending');
+  assert.equal(res1.body.completion_pin, null, 'completion_pin hidden while pending');
 
   const firstBookingId = res1.body.booking_id;
-  const firstStartPin = res1.body.start_pin;
-  const firstCompletionPin = res1.body.completion_pin;
 
   // 5. Test 2: Rapid duplicate booking request within 15 seconds (Idempotency check)
   const res2 = await authJson(customerToken, '/bookings', {
@@ -157,11 +155,11 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
   assert.equal(res2.body.completion_pin, undefined, 'Duplicate response MUST NOT expose completion_pin');
   assert.equal(res2.body.pin_code, undefined, 'Duplicate response MUST NOT expose pin_code');
 
-  // 6. Test 3: Authorized Owner PIN Retrieval via GET /api/bookings/:id/pins
+  // 6. Test 3: Authorized Owner PIN Retrieval via GET /api/bookings/:id/pins (hidden while pending)
   const ownerPinRes = await authJson(customerToken, `/bookings/${firstBookingId}/pins`);
   assert.equal(ownerPinRes.status, 200, `Owner must be able to retrieve PINs, got ${ownerPinRes.status}`);
-  assert.equal(ownerPinRes.body.start_pin, firstStartPin, 'Decrypted start_pin must match original');
-  assert.equal(ownerPinRes.body.completion_pin, firstCompletionPin, 'Decrypted completion_pin must match original');
+  assert.equal(ownerPinRes.body.start_pin, null, 'start_pin is null while pending');
+  assert.equal(ownerPinRes.body.completion_pin, null, 'completion_pin hidden until service start');
 
   // 7. Test 4: Another Customer cannot access owner's PINs (ID Manipulation Defense)
   const otherCustomer = await prisma.user.create({
