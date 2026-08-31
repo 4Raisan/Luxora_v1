@@ -2,6 +2,9 @@ import React, { useState, useRef } from 'react'
 import { apiRequest } from '../../services/api'
 import ChatTriggerButton from './ChatTriggerButton'
 import ChatWindow from './ChatWindow'
+import '../styles/chatbot-tokens.css'
+import '../styles/chatbot-animations.css'
+import '../styles/chatbot-components.css'
 import '../styles/chatbot-theme.css'
 
 const createInitialGreeting = () => ({
