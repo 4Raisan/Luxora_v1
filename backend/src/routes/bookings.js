@@ -10,6 +10,7 @@ import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSE
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
 import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
+import { processExpiredBookings, getAssignedDeadline, getInProgressDeadline } from '../services/bookingTimeouts.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -252,6 +253,7 @@ router.post('/', async (req, res) => {
 // My bookings (customer). Generic booking list returns high-level status;
 // active service PINs are retrieved on demand via GET /bookings/:id/pins.
 router.get('/my', async (req, res) => {
+  await processExpiredBookings(prisma).catch(() => {});
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
     include: { service: { include: { category: true } }, provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } } },
@@ -278,6 +280,7 @@ router.get('/my', async (req, res) => {
 
 // Providers fulfil only bookings assigned by the server scheduling flow.
 router.get('/assigned', async (req, res) => {
+  await processExpiredBookings(prisma).catch(() => {});
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   if (provider.kycStatus !== 'APPROVED') {
@@ -356,7 +359,7 @@ router.put('/:id/status', async (req, res) => {
       // per-booking lock, five simultaneous failures all read pinAttempts=0
       // and overwrite it with 1, defeating the lockout policy.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(bookingId)})`;
-      const booking = await tx.booking.findUnique({ where: { id: bookingId } });
+      const booking = await tx.booking.findUnique({ where: { id: bookingId }, include: { service: true } });
       const fail = (statusCode, message, details = {}) => {
         const error = new Error(message);
         error.statusCode = statusCode;
@@ -368,12 +371,44 @@ router.put('/:id/status', async (req, res) => {
       const allowedNext = PROVIDER_TRANSITIONS[booking.status] || [];
       if (!allowedNext.includes(nextStatus)) fail(409, `Cannot move booking from ${booking.status.toLowerCase()} to ${nextStatus.toLowerCase()}`);
 
+      const now = new Date();
+      if (nextStatus === 'IN_PROGRESS') {
+        const startDeadline = getAssignedDeadline(booking);
+        if (startDeadline && now > startDeadline) {
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: { status: 'CANCELLED', cancellationReason: 'Provider did not start service within 2 hours of scheduled time (Auto-cancelled)' },
+          });
+          return {
+            booking,
+            deadlineFailure: {
+              statusCode: 400,
+              body: { error: 'The 2-hour window to start this booking has expired. The booking has been auto-cancelled.' },
+            },
+          };
+        }
+      } else if (nextStatus === 'COMPLETED') {
+        const finishDeadline = getInProgressDeadline(booking);
+        if (finishDeadline && now > finishDeadline) {
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: { status: 'CANCELLED', cancellationReason: 'Service was not completed within 2 hours after scheduled end time (Auto-cancelled)' },
+          });
+          return {
+            booking,
+            deadlineFailure: {
+              statusCode: 400,
+              body: { error: 'The 2-hour completion deadline for this booking has expired. The booking has been auto-cancelled.' },
+            },
+          };
+        }
+      }
+
       let attempts = booking.pinAttempts;
       if (nextStatus === 'COMPLETED' || nextStatus === 'IN_PROGRESS') {
         const requiredPhotoKind = nextStatus === 'IN_PROGRESS' ? 'BEFORE' : 'AFTER';
         const requiredPhotos = await tx.servicePhoto.count({ where: { bookingId: booking.id, kind: requiredPhotoKind } });
         if (!requiredPhotos) fail(400, `${requiredPhotoKind.toLowerCase()} photo upload is required before this status change`);
-        const now = new Date();
         if (booking.pinLockedUntil && booking.pinLockedUntil > now) {
           const remainingMin = Math.ceil((booking.pinLockedUntil - now) / 60000);
           fail(429, `PIN verification is temporarily locked. Try again in ${remainingMin} minute${remainingMin !== 1 ? 's' : ''}.`, { locked_until: booking.pinLockedUntil, attempts });
@@ -422,6 +457,10 @@ router.put('/:id/status', async (req, res) => {
     throw error;
   }
 
+  if (outcome.deadlineFailure) {
+    await notify(outcome.booking.userId, `Your booking #${bookingId} was cancelled because service was not started/completed within the allowed deadline. Your entitlement unit has been restored.`, '/customer-dashboard');
+    return res.status(outcome.deadlineFailure.statusCode).json(outcome.deadlineFailure.body);
+  }
   if (outcome.pinFailure) return res.status(outcome.pinFailure.statusCode).json(outcome.pinFailure.body);
   const { booking, completedFreshly } = outcome;
 
@@ -485,22 +524,149 @@ router.put('/:id/cancel', async (req, res) => {
 
 router.put('/:id/reschedule', async (req, res) => {
   if (req.body.confirmed !== true) return res.status(400).json({ error: 'Reschedule confirmation is required' });
-  if (!isDate(req.body.booking_date) || !isTime(req.body.booking_time) || !isTodayOrFuture(req.body.booking_date)) return res.status(400).json({ error: 'Use a future valid date and time' });
+  const { booking_date, booking_time } = req.body;
+  if (!isDate(booking_date) || !isTime(booking_time) || !isTodayOrFuture(booking_date)) {
+    return res.status(400).json({ error: 'Use a future valid date and time' });
+  }
+  const normalizedTime = String(booking_time).trim().toUpperCase();
   const reason = String(req.body.reason || '').trim();
   if (reason.length < 3 || reason.length > 500) return res.status(400).json({ error: 'reason must be 3-500 characters' });
-  const booking = await prisma.booking.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id } });
-  if (!booking || !['PENDING', 'ASSIGNED'].includes(booking.status)) return res.status(404).json({ error: 'Reschedulable booking not found' });
-  if (booking.providerId) {
-    const [provider, service] = await Promise.all([prisma.provider.findUnique({ where: { id: booking.providerId } }), prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } })]);
-    const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, service }, { ignoreBookingId: booking.id });
-    if (!eligibility.ok) return res.status(409).json({ error: `Reschedule unavailable: ${eligibility.error}` });
+
+  const bookingId = toPositiveInt(req.params.id);
+  if (!bookingId) return res.status(400).json({ error: 'Valid booking ID is required' });
+
+  const oldBooking = await prisma.booking.findFirst({
+    where: { id: bookingId, userId: req.user.id },
+    include: { service: { include: { category: true } } },
+  });
+  if (!oldBooking || !['PENDING', 'ASSIGNED'].includes(oldBooking.status)) {
+    return res.status(404).json({ error: 'Reschedulable booking not found' });
   }
-  const newStart = bookingStart(req.body.booking_date, String(req.body.booking_time).trim().toUpperCase());
-  const newPinExpiresAt = newStart ? new Date(newStart.getTime() + 24 * 60 * 60 * 1000) : booking.pinExpiresAt;
-  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { bookingDate: req.body.booking_date, bookingTime: String(req.body.booking_time).trim().toUpperCase(), expectedEndTime: null, rescheduleReason: reason, pinExpiresAt: newPinExpiresAt } });
-  if (booking.providerId) { const provider = await prisma.provider.findUnique({ where: { id: booking.providerId } }); if (provider) await notify(provider.userId, `Booking #${booking.id} has been rescheduled by the customer.`); }
-  await notify(booking.userId, `Booking #${booking.id} has been rescheduled.`);
-  res.json({ id: updated.id, status: updated.status.toLowerCase(), booking_date: updated.bookingDate, booking_time: updated.bookingTime });
+
+  const customer = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { town: true, addressStreet: true, addressDistrict: true, email: true, name: true },
+  });
+  const town = normalizeTown(customer?.town);
+  const settings = await getPlatformSettings(prisma);
+  const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, normalizedTime, settings);
+  const scheduled = bookingStart(booking_date, normalizedTime);
+  const pinExpiresAt = scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null;
+
+  const startPin = crypto.randomInt(1000, 9999).toString();
+  const completionPin = crypto.randomInt(1000, 9999).toString();
+  const startPinHash = await bcrypt.hash(startPin, 10);
+  const completionPinHash = await bcrypt.hash(completionPin, 10);
+  const customerStartPinCipher = encryptPin(startPin);
+  const customerCompletionPinCipher = encryptPin(completionPin);
+
+  let newBooking;
+  const previousProviderId = oldBooking.providerId;
+
+  try {
+    newBooking = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(oldBooking.id)})`;
+      const freshOld = await tx.booking.findUnique({ where: { id: oldBooking.id } });
+      if (!freshOld || !['PENDING', 'ASSIGNED'].includes(freshOld.status)) {
+        const error = new Error('Booking is no longer eligible for rescheduling');
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const duplicate = await tx.booking.findFirst({
+        where: {
+          userId: req.user.id,
+          serviceId: oldBooking.serviceId,
+          bookingDate: booking_date,
+          bookingTime: normalizedTime,
+          status: { not: 'CANCELLED' },
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        const error = new Error('You already have this service booked for the selected date and time');
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // 1. Cancel old booking and record reschedule reason
+      await tx.booking.update({
+        where: { id: oldBooking.id },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: `Rescheduled to ${booking_date} at ${normalizedTime}: ${reason}`,
+          rescheduleReason: reason,
+        },
+      });
+
+      // 2. Perform fresh auto-assignment for new slot
+      const provider = shouldAutoAssign
+        ? await pickProvider(tx, oldBooking.service.category.name, town, customer?.addressDistrict, booking_date, normalizedTime, oldBooking.service, settings)
+        : null;
+
+      // 3. Create new booking linked to the same entitlement subscription
+      return tx.booking.create({
+        data: {
+          userId: req.user.id,
+          providerId: provider?.id || null,
+          serviceId: oldBooking.serviceId,
+          subscriptionId: oldBooking.subscriptionId,
+          bookingDate: booking_date,
+          bookingTime: normalizedTime,
+          town,
+          addressStreet: customer?.addressStreet || oldBooking.addressStreet,
+          addressDistrict: customer?.addressDistrict || oldBooking.addressDistrict,
+          status: provider ? 'ASSIGNED' : 'PENDING',
+          autoAssigned: Boolean(provider),
+          startPinHash,
+          completionPinHash,
+          customerStartPinCipher,
+          customerCompletionPinCipher,
+          pinExpiresAt,
+          totalPrice: oldBooking.totalPrice,
+          providerEarning: oldBooking.providerEarning,
+        },
+      });
+    }, { maxWait: 5000, timeout: 15000, isolationLevel: 'Serializable' });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    throw err;
+  }
+
+  if (previousProviderId) {
+    const prevProvider = await prisma.provider.findUnique({ where: { id: previousProviderId } });
+    if (prevProvider) {
+      await notify(prevProvider.userId, `Booking #${oldBooking.id} has been cancelled because the customer rescheduled.`);
+    }
+  }
+
+  if (newBooking.providerId) {
+    const assignedProvider = await prisma.provider.findUnique({ where: { id: newBooking.providerId } });
+    if (assignedProvider) {
+      await notify(assignedProvider.userId, `New booking assigned: ${oldBooking.service.title} on ${booking_date} at ${normalizedTime}.`);
+    }
+  }
+
+  await notify(req.user.id, `Booking #${oldBooking.id} was rescheduled. New booking #${newBooking.id} confirmed for ${booking_date} at ${normalizedTime}.`, '/customer-dashboard');
+
+  sendEmail({
+    to: customer?.email,
+    subject: `Luxora booking rescheduled #${newBooking.id}`,
+    html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your booking #${oldBooking.id} was rescheduled. Your new booking #${newBooking.id} for <strong>${oldBooking.service.title}</strong> is confirmed for <strong>${booking_date} at ${normalizedTime}</strong>.</p><p>Status: ${newBooking.status.toLowerCase()}.</p>`,
+  }).catch((error) => console.warn('[email] reschedule confirmation failed:', error.message));
+
+  res.json({
+    id: newBooking.id,
+    old_booking_id: oldBooking.id,
+    status: newBooking.status.toLowerCase(),
+    booking_date: newBooking.bookingDate,
+    booking_time: newBooking.bookingTime,
+    pin_code: startPin,
+    start_pin: startPin,
+    completion_pin: completionPin,
+    pin_expires_at: newBooking.pinExpiresAt,
+    message: 'Booking rescheduled successfully',
+  });
 });
 
 export default router;

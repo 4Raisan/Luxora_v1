@@ -23,6 +23,7 @@ import refundRoutes from './routes/refunds.js';
 import { prisma } from './config/prisma.js';
 import { startMonthlyPayoutScheduler } from './services/payouts.js';
 import { renewDueDemoSubscriptions } from './routes/services.js';
+import { startBookingTimeoutScheduler } from './services/bookingTimeouts.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -154,6 +155,7 @@ const server = app.listen(PORT, () => {
   console.log(`API docs: http://localhost:${PORT}/api/docs`);
 });
 startMonthlyPayoutScheduler();
+startBookingTimeoutScheduler();
 setInterval(() => renewDueDemoSubscriptions().catch((error) => console.error('[demo-renewal] failed:', error.message)), 60 * 60 * 1000).unref();
 
 // Graceful shutdown (Docker / orchestrator friendly)
