@@ -309,6 +309,7 @@ const CustomerDashboard = () => {
       location: booking?.town || 'Town not set',
       providerName: booking?.provider_name || 'Awaiting assignment',
       providerPhone: booking?.provider_phone,
+      cancellationReason: booking?.cancellationReason,
       isSession: true,
     }))
   }, [])
@@ -2348,7 +2349,7 @@ const CustomerDashboard = () => {
                           </td>
                           <td>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span className="cd-status-tag cd-status-tag--completed" style={{ background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(201, 168, 76, 0.12)', color: b.status === 'CANCELLED' ? '#ef4444' : 'var(--gold, #c9a84c)', border: b.status === 'CANCELLED' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }}>
+                              <span className="cd-status-tag cd-status-tag--completed" style={{ background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(201, 168, 76, 0.12)', color: b.status === 'CANCELLED' ? '#ef4444' : 'var(--gold, #c9a84c)', border: b.status === 'CANCELLED' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(201, 168, 76, 0.3)', fontWeight: 800 }} title={b.cancellationReason || undefined}>
                                 {b.status || '—'}
                               </span>
                               {b.status !== 'CANCELLED' && (
