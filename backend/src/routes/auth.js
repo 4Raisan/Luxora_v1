@@ -41,6 +41,10 @@ router.post('/register', authLimiter, async (req, res) => {
     if (userRole === 'PROVIDER' && !providerLocation) {
       return res.status(400).json({ error: 'Select a town from the Sri Lanka provider registration list' });
     }
+    const customerLocation = userRole === 'CUSTOMER' && town ? getSriLankaLocation(town) : null;
+    if (userRole === 'CUSTOMER' && town && !customerLocation) {
+      return res.status(400).json({ error: 'Select a valid town from the Sri Lanka location list' });
+    }
     const providerTowns = normalizeServiceTowns(service_towns);
     if (userRole === 'PROVIDER' && providerTowns === null) {
       return res.status(400).json({ error: 'service_towns must contain at most 10 towns' });
@@ -53,9 +57,9 @@ router.post('/register', authLimiter, async (req, res) => {
         email: normalizedEmail,
         passwordHash,
         phone: normalizedPhone || '',
-        town: providerLocation?.name || normalizeTown(town),
+        town: providerLocation?.name || customerLocation?.name || null,
         addressStreet: normalizeTown(address_street),
-        addressDistrict: providerLocation?.province || null,
+        addressDistrict: providerLocation?.province || customerLocation?.province || null,
         role: userRole,
       },
     });
