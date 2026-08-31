@@ -89,12 +89,13 @@ model KycDocument {
 }
 
 model Category {
-  id                       Int                       @id @default(autoincrement())
-  name                     String                    @unique
-  description              String?
-  icon                     String?
-  services                 Service[]
-  subscriptionEntitlements SubscriptionEntitlement[]
+  id                           Int                           @id @default(autoincrement())
+  name                         String                        @unique
+  description                  String?
+  icon                         String?
+  services                     Service[]
+  subscriptionEntitlements     SubscriptionEntitlement[]
+  userSubscriptionEntitlements UserSubscriptionEntitlement[]
 
   @@map("categories")
 }
@@ -146,22 +147,41 @@ model SubscriptionEntitlement {
 }
 
 model UserSubscription {
-  id                  Int              @id @default(autoincrement())
+  id                  Int                           @id @default(autoincrement())
   userId              Int
   planId              Int
-  startDate           DateTime         @default(now())
+  planTitle           String?
+  planType            String?
+  pricePaid           Decimal?                      @db.Decimal(12, 2)
+  currency            String                        @default("LKR")
+  durationDays        Int                           @default(30)
+  startDate           DateTime                      @default(now())
   endDate             DateTime
-  status              String           @default("active")
-  autoRenew           Boolean          @default(false)
-  renewalIntervalDays Int              @default(30)
+  status              String                        @default("active")
+  autoRenew           Boolean                       @default(false)
+  renewalIntervalDays Int                           @default(30)
   nextRenewalDate     DateTime?
-  plan                SubscriptionPlan @relation(fields: [planId], references: [id])
-  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                SubscriptionPlan              @relation(fields: [planId], references: [id])
+  user                User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entitlements        UserSubscriptionEntitlement[]
   bookings            Booking[]
   payments            Payment[]
   refundRequest       RefundRequest?
 
   @@map("user_subscriptions")
+}
+
+model UserSubscriptionEntitlement {
+  id             Int              @id @default(autoincrement())
+  subscriptionId Int
+  categoryId     Int
+  units          Int              @default(0)
+  subscription   UserSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  category       Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, categoryId])
+  @@index([categoryId])
+  @@map("user_subscription_entitlements")
 }
 
 model Booking {
@@ -389,6 +409,8 @@ model ProviderBankAccount {
   bankName      String
   accountHolder String
   accountNumber String
+  accountMask   String?
+  accountHash   String?
   selected      Boolean          @default(false)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt

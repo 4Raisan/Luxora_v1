@@ -4,6 +4,19 @@ import { Prisma } from '@prisma/client';
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
 /**
+ * Safely escape untrusted user-controlled strings for HTML output (emails).
+ */
+export function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Dispatches an email via Resend REST API.
  */
 export async function sendEmail({ to, subject, html, text = '' }) {

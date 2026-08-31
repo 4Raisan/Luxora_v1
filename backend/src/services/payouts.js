@@ -6,10 +6,8 @@ export function payoutPeriod(date = new Date()) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-export function maskAccountNumber(value) {
-  const digits = String(value || '');
-  return digits.length <= 4 ? digits : `${'*'.repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`;
-}
+import { maskAccountNumber } from './bankingCrypto.js';
+export { maskAccountNumber };
 
 // Queue one payout per provider/month. Actual bank transfer confirmation is
 // recorded by an admin or a future bank integration; the ledger is idempotent.
