@@ -73,8 +73,11 @@ export default function BookService() {
             </div>
             <div className="bs-success__icon">✓</div>
             <h2>Booking Confirmed</h2>
-            <p>Booking #{result.booking_id} · <strong>{result.status.toUpperCase()}</strong></p>
-            <p className="bs-pin">Your verification PIN: <strong>{result.pin_code}</strong></p>
+            <p className="bs-pin">
+              {result.pin_code || result.start_pin
+                ? <>Start PIN: <strong>{result.pin_code || result.start_pin}</strong></>
+                : <>Security PIN: <strong>Unlocks once specialist is assigned</strong></>}
+            </p>
             <p className="bs-price">LKR {Number(result.total_price).toLocaleString()}</p>
             <div className="bs-success__actions">
               <button className="bs-btn-gold" onClick={() => navigate('/customer-dashboard')}>View Dashboard</button>

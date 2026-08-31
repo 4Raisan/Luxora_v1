@@ -374,3 +374,196 @@ test('Rule 8: Support ticket notification link opens /admin-dashboard', async ()
   assert.ok(adminNotif);
   assert.equal(adminNotif.link, '/admin-dashboard', 'Support notification link must point to /admin-dashboard');
 });
+
+test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, hidden completion PIN, progressive start PIN)', async () => {
+  const uid = crypto.randomUUID().slice(0, 8);
+  // Monaragala has no auto-care providers seeded -> will be PENDING
+  const custPending = await prisma.user.create({
+    data: { name: `Cust Resched P ${uid}`, email: `cust.resched.p.${uid}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Monaragala', addressDistrict: 'Uva' },
+  });
+  const tokenPending = jwt.sign({ id: custPending.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
+
+  const plan = await prisma.subscriptionPlan.findFirst({ where: { type: 'Auto Care' }, include: { entitlements: true } });
+  await prisma.userSubscription.create({
+    data: { userId: custPending.id, planId: plan.id, startDate: new Date(), endDate: new Date(Date.now() + 30 * 86400000), status: 'active' },
+  });
+  const service = await prisma.service.findFirst({ where: { category: { name: 'Auto Care' } } });
+
+  // 1. Create unassigned booking -> PENDING
+  const bookRes1 = await authJson(tokenPending, '/bookings', {
+    method: 'POST',
+    body: JSON.stringify({ service_id: service.id, booking_date: '2026-09-08', booking_time: '10:00' }),
+  });
+  assert.equal(bookRes1.status, 201);
+  const bookingId1 = bookRes1.body.booking_id;
+  assert.equal(bookRes1.body.status, 'pending');
+  assert.equal(bookRes1.body.start_pin, null, 'Pending booking must not expose start_pin');
+  assert.equal(bookRes1.body.completion_pin, null, 'Pending booking must not expose completion_pin');
+
+  // 2. Reschedule unassigned booking -> new booking must be PENDING with null PINs
+  const reschedRes1 = await authJson(tokenPending, `/bookings/${bookingId1}/reschedule`, {
+    method: 'PUT',
+    body: JSON.stringify({ booking_date: '2026-09-09', booking_time: '14:00', reason: 'Need afternoon slot', confirmed: true }),
+  });
+  assert.equal(reschedRes1.status, 200, `Reschedule should succeed: ${reschedRes1.text}`);
+  assert.equal(reschedRes1.body.status, 'pending');
+  assert.equal(reschedRes1.body.start_pin, null, 'Pending rescheduled booking must not leak start_pin');
+  assert.equal(reschedRes1.body.completion_pin, null, 'Pending rescheduled booking must never leak completion_pin');
+
+  // 3. Test assigned reschedule: Colombo with an active auto-care provider
+  const provUser = await prisma.user.create({
+    data: { name: `Prov Resched ${uid}`, email: `prov.resched.${uid}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Colombo', addressDistrict: 'Western', active: true },
+  });
+  await prisma.provider.create({
+    data: { userId: provUser.id, category: 'Auto Care', serviceTowns: 'Colombo', kycStatus: 'APPROVED', availabilityStatus: 'available' },
+  });
+  const custAssigned = await prisma.user.create({
+    data: { name: `Cust Resched A ${uid}`, email: `cust.resched.a.${uid}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Colombo', addressDistrict: 'Western' },
+  });
+  const tokenAssigned = jwt.sign({ id: custAssigned.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
+  await prisma.userSubscription.create({
+    data: { userId: custAssigned.id, planId: plan.id, startDate: new Date(), endDate: new Date(Date.now() + 30 * 86400000), status: 'active' },
+  });
+
+  const bookRes2 = await authJson(tokenAssigned, '/bookings', {
+    method: 'POST',
+    body: JSON.stringify({ service_id: service.id, booking_date: '2026-09-08', booking_time: '10:00' }),
+  });
+  assert.equal(bookRes2.status, 201);
+  const bookingId2 = bookRes2.body.booking_id;
+  assert.equal(bookRes2.body.status, 'assigned');
+  assert.match(bookRes2.body.start_pin, /^\d{6}$/, 'Assigned booking must return 6-digit start_pin');
+  assert.equal(bookRes2.body.completion_pin, null, 'Assigned booking must never return completion_pin');
+
+  const reschedRes2 = await authJson(tokenAssigned, `/bookings/${bookingId2}/reschedule`, {
+    method: 'PUT',
+    body: JSON.stringify({ booking_date: '2026-09-09', booking_time: '11:00', reason: 'Change time', confirmed: true }),
+  });
+  assert.equal(reschedRes2.status, 200);
+  assert.equal(reschedRes2.body.status, 'assigned');
+  assert.match(reschedRes2.body.start_pin, /^\d{6}$/, 'Assigned rescheduled booking must return 6-digit start_pin');
+  assert.equal(reschedRes2.body.completion_pin, null, 'Assigned rescheduled booking must never leak completion_pin');
+});
+
+test('Audit Fix 2: PayHere approved refund can be manually settled by admin if gateway webhook does not arrive', async () => {
+  const uid = crypto.randomUUID().slice(0, 8);
+  const cust = await prisma.user.create({
+    data: { name: `Cust PayHere ${uid}`, email: `cust.payhere.${uid}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER' },
+  });
+  const custToken = jwt.sign({ id: cust.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
+  const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+  const adminToken = jwt.sign({ id: adminUser.id, role: 'ADMIN', tokenVersion: adminUser.tokenVersion }, JWT_SECRET);
+
+  const plan = await prisma.subscriptionPlan.findFirst({ where: { type: 'Garden Care' } });
+  const sub = await prisma.userSubscription.create({
+    data: { userId: cust.id, planId: plan.id, startDate: new Date(), endDate: new Date(Date.now() + 30 * 86400000), status: 'active' },
+  });
+  const payment = await prisma.payment.create({
+    data: {
+      userId: cust.id,
+      planId: plan.id,
+      subscriptionId: sub.id,
+      gateway: 'PAYHERE',
+      gatewayOrderId: `ph-order-${uid}`,
+      idempotencyKey: `ph-idem-${uid}`,
+      expectedAmount: plan.priceMonthly,
+      expectedCurrency: 'LKR',
+      capturedAmount: plan.priceMonthly,
+      capturedCurrency: 'LKR',
+      status: 'COMPLETED',
+    },
+  });
+
+  // Customer requests refund
+  const reqRes = await authJson(custToken, '/refunds', {
+    method: 'POST',
+    body: JSON.stringify({ subscription_id: sub.id, reason: 'Moving away' }),
+  });
+  assert.equal(reqRes.status, 201);
+  const refundId = reqRes.body.id;
+
+  // Admin approves refund -> live PayHere enters APPROVED awaiting gateway webhook
+  const approveRes = await authJson(adminToken, `/admin/refunds/${refundId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'APPROVED', admin_note: 'Approved for refund' }),
+  });
+  assert.equal(approveRes.status, 200);
+  assert.equal(approveRes.body.status, 'approved');
+  assert.equal(approveRes.body.awaiting_gateway_confirmation, true);
+
+  // Subscription remains active while awaiting gateway confirmation
+  let freshSub = await prisma.userSubscription.findUnique({ where: { id: sub.id } });
+  assert.equal(freshSub.status, 'active');
+
+  // Admin subsequently manually settles the refund after verifying external transfer
+  const settleRes = await authJson(adminToken, `/admin/refunds/${refundId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'REFUNDED', admin_note: 'Manually verified PayHere refund transaction' }),
+  });
+  assert.equal(settleRes.status, 200);
+  assert.equal(settleRes.body.status, 'refunded');
+  assert.equal(settleRes.body.manually_settled, true);
+
+  // Subscription and payment are now fully revoked
+  freshSub = await prisma.userSubscription.findUnique({ where: { id: sub.id } });
+  assert.equal(freshSub.status, 'refunded');
+  const freshPayment = await prisma.payment.findUnique({ where: { id: payment.id } });
+  assert.equal(freshPayment.status, 'REFUNDED');
+});
+
+test('Audit Fix 4: Customer registration and town update enforce canonical Sri Lankan location list', async () => {
+  const uid = crypto.randomUUID().slice(0, 8);
+
+  // 1. Invalid town during customer registration must be rejected with 400
+  const badReg = await json('/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: `Bad Cust ${uid}`,
+      email: `bad.cust.${uid}@test.luxora`,
+      password: 'password123',
+      role: 'customer',
+      town: 'NonExistentCityXYZ',
+    }),
+  });
+  assert.equal(badReg.status, 400);
+  assert.match(badReg.body.error, /valid town/i);
+
+  // 2. Valid town registration succeeds and populates canonical name + province
+  const goodReg = await json('/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: `Good Cust ${uid}`,
+      email: `good.cust.${uid}@test.luxora`,
+      password: 'password123',
+      role: 'customer',
+      town: 'Kandy',
+    }),
+  });
+  assert.equal(goodReg.status, 201);
+  assert.equal(goodReg.body.user.town, 'Kandy');
+
+  const custUser = await prisma.user.findUnique({ where: { email: `good.cust.${uid}@test.luxora` } });
+  assert.equal(custUser.town, 'Kandy');
+  assert.equal(custUser.addressDistrict, 'Central');
+
+  const custToken = goodReg.body.token;
+
+  // 3. Invalid town update via PUT /customer/town must fail with 400
+  const badUpdate = await authJson(custToken, '/customer/town', {
+    method: 'PUT',
+    body: JSON.stringify({ town: 'UnknownTown999' }),
+  });
+  assert.equal(badUpdate.status, 400);
+
+  // 4. Valid town update via PUT /customer/town succeeds and updates province
+  const goodUpdate = await authJson(custToken, '/customer/town', {
+    method: 'PUT',
+    body: JSON.stringify({ town: 'Galle' }),
+  });
+  assert.equal(goodUpdate.status, 200);
+  assert.equal(goodUpdate.body.town, 'Galle');
+  assert.equal(goodUpdate.body.address_district, 'Southern');
+});
+
