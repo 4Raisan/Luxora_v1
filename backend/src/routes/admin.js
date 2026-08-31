@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify, logAdminAction } from '../services/notify.js';
+import { sendEmail } from '../services/integrations.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
 import { getPlatformSettings, providerCanTakeBooking } from '../services/scheduling.js';
 import { maskAccountNumber, queueMonthlyPayouts } from '../services/payouts.js';
+import { processExpiredBookings } from '../services/bookingTimeouts.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
@@ -88,17 +90,38 @@ router.put('/providers/:id/kyc', async (req, res) => {
   const status = toEnum(req.body.status, KYC_STATUSES);
   if (!status) return res.status(400).json({ error: 'status must be one of: pending, approved, rejected' });
 
-  const provider = await prisma.provider.findUnique({ where: { id: Number(req.params.id) } });
+  const provider = await prisma.provider.findUnique({
+    where: { id: Number(req.params.id) },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
   if (!provider) return res.status(404).json({ error: 'Provider not found' });
 
   const rejectionReason = typeof req.body.rejection_reason === 'string' ? req.body.rejection_reason.trim() : '';
   if (status === 'REJECTED' && (rejectionReason.length < 3 || rejectionReason.length > 500)) return res.status(400).json({ error: 'rejection_reason must be 3-500 characters' });
+  
+  const isStatusTransition = provider.kycStatus !== status;
   await prisma.provider.update({ where: { id: provider.id }, data: { kycStatus: status, kycRejectionReason: status === 'REJECTED' ? rejectionReason : null } });
 
-  if (status === 'APPROVED') {
-    await notify(provider.userId, 'Your KYC has been approved. You can now receive bookings.');
-  } else if (status === 'REJECTED') {
-    await notify(provider.userId, 'Your KYC has been rejected. Please contact support.');
+  if (isStatusTransition) {
+    if (status === 'APPROVED') {
+      await notify(provider.userId, 'Your KYC has been approved. You can now receive bookings.', '/provider-dashboard');
+      if (provider.user?.email) {
+        sendEmail({
+          to: provider.user.email,
+          subject: 'Congratulations – Your Luxora Journey Begins!',
+          html: `<p>Hi ${provider.user.name || 'Provider'},</p><p>Congratulations! Your KYC documents have been reviewed and approved by the Luxora concierge team.</p><p>Your account is now fully active, and you are eligible to receive and fulfill customer service bookings.</p>`,
+        }).catch((err) => console.warn('[email] KYC approval email failed:', err.message));
+      }
+    } else if (status === 'REJECTED') {
+      await notify(provider.userId, 'Your KYC has been rejected. Please contact support.', '/provider-dashboard');
+      if (provider.user?.email) {
+        sendEmail({
+          to: provider.user.email,
+          subject: 'Luxora KYC Verification Update',
+          html: `<p>Hi ${provider.user.name || 'Provider'},</p><p>Your KYC verification could not be approved at this time.</p><p><strong>Reason:</strong> ${rejectionReason}</p><p>Please review your submitted documents or reach out to support for assistance.</p>`,
+        }).catch((err) => console.warn('[email] KYC rejection email failed:', err.message));
+      }
+    }
   }
 
   logAdminAction({ adminId: req.user.id, action: `KYC_${status}`, targetType: 'Provider', targetId: String(provider.id), details: { status, rejectionReason }, ipAddress: req.ip }).catch(() => {});
@@ -298,6 +321,7 @@ router.get('/reports', async (req, res) => {
 });
 
 router.get('/bookings', async (_req, res) => {
+  await processExpiredBookings(prisma).catch(() => {});
   const bookings = await prisma.booking.findMany({
     include: { service: { include: { category: true } }, user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } } } } },
     orderBy: { createdAt: 'desc' },

@@ -68,11 +68,19 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, email: normalizedEmail, role: userRole, name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
-    sendEmail({
-      to: normalizedEmail,
-      subject: 'Welcome to Luxora',
-      html: `<p>Welcome to Luxora, ${name.trim()}.</p><p>Your concierge account is ready.</p>`,
-    }).catch((error) => console.warn('[email] welcome failed:', error.message));
+    if (userRole === 'PROVIDER') {
+      sendEmail({
+        to: normalizedEmail,
+        subject: 'Luxora Provider Registration Received – KYC Pending',
+        html: `<p>Welcome to the Luxora Concierge Network, ${name.trim()}.</p><p>We have received your provider registration and details. Your account is currently in <strong>KYC Pending</strong> status while our operations team reviews your information.</p><p>You will receive an update as soon as your verification is complete.</p>`,
+      }).catch((error) => console.warn('[email] provider registration notification failed:', error.message));
+    } else {
+      sendEmail({
+        to: normalizedEmail,
+        subject: 'Welcome to Luxora',
+        html: `<p>Welcome to Luxora, ${name.trim()}.</p><p>Your concierge account is ready.</p>`,
+      }).catch((error) => console.warn('[email] welcome failed:', error.message));
+    }
 
     res.status(201).json({
       token,
