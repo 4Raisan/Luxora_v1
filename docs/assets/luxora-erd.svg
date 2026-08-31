@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1220" viewBox="0 0 1600 1220" role="img" aria-labelledby="title description">
+  <title id="title">Luxora database entity relationship diagram</title>
+  <desc id="description">An overview of the Luxora database showing users, providers, packages, bookings, payments, support and administration relationships.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#c3ad78"/></marker>
+    <style>
+      .bg{fill:#101110}.group{fill:#171918;stroke:#343633;stroke-width:1.5}.node{fill:#202321;stroke:#c3ad78;stroke-width:1.5}.node2{fill:#1a211d;stroke:#91b8a1;stroke-width:1.5}.node3{fill:#231f16;stroke:#b9a572;stroke-width:1.5}.standalone{fill:#1b1c1b;stroke:#73766f;stroke-width:1.5;stroke-dasharray:5 5}.title{fill:#f2efe8;font:700 24px Inter,Arial,sans-serif}.subtitle{fill:#a3a39b;font:14px Inter,Arial,sans-serif}.head{fill:#f2efe8;font:700 15px Inter,Arial,sans-serif}.text{fill:#c8c7c0;font:12px Inter,Arial,sans-serif}.label{fill:#e1d09b;font:11px Inter,Arial,sans-serif}.line{fill:none;stroke:#c3ad78;stroke-width:1.8;marker-end:url(#arrow)}.lineGreen{fill:none;stroke:#91b8a1;stroke-width:1.8;marker-end:url(#arrow)}.lineMuted{fill:none;stroke:#83867f;stroke-width:1.5;stroke-dasharray:5 4;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="1220"/>
+  <text class="title" x="70" y="55">LUXORA · DATABASE ER DIAGRAM</text>
+  <text class="subtitle" x="70" y="82">Primary entities and their key relationships. Arrow direction points from parent / reference to dependent record.</text>
+
+  <rect class="group" x="45" y="120" width="450" height="490" rx="18"/>
+  <text class="subtitle" x="70" y="151">IDENTITY &amp; PROVIDER OPERATIONS</text>
+  <rect class="node" x="185" y="185" width="180" height="92" rx="10"/><text class="head" x="205" y="215">users</text><text class="text" x="205" y="240">id · email · role</text><text class="text" x="205" y="259">active · tokenVersion</text>
+  <rect class="node2" x="75" y="350" width="165" height="75" rx="10"/><text class="head" x="95" y="380">providers</text><text class="text" x="95" y="402">userId · KYC status</text>
+  <rect class="node2" x="285" y="350" width="165" height="75" rx="10"/><text class="head" x="305" y="380">kyc_documents</text><text class="text" x="305" y="402">providerId · file</text>
+  <rect class="node2" x="75" y="485" width="165" height="75" rx="10"/><text class="head" x="95" y="515">bank_accounts</text><text class="text" x="95" y="537">providerId · selected</text>
+  <rect class="node2" x="285" y="485" width="165" height="75" rx="10"/><text class="head" x="305" y="515">provider_payouts</text><text class="text" x="305" y="537">providerId · amount</text>
+  <path class="lineGreen" d="M245 277 L165 350"/><text class="label" x="158" y="325">0..1 profile</text>
+  <path class="lineGreen" d="M240 387 L285 387"/><text class="label" x="242" y="374">1..*</text>
+  <path class="lineGreen" d="M155 425 L155 485"/><text class="label" x="162" y="462">1..*</text>
+  <path class="lineGreen" d="M240 520 L285 520"/><text class="label" x="245" y="507">1..*</text>
+
+  <rect class="group" x="545" y="120" width="1010" height="490" rx="18"/>
+  <text class="subtitle" x="570" y="151">CATALOGUE, PACKAGES &amp; BOOKINGS</text>
+  <rect class="node" x="585" y="190" width="150" height="72" rx="10"/><text class="head" x="605" y="218">categories</text><text class="text" x="605" y="240">id · name</text>
+  <rect class="node" x="585" y="370" width="150" height="72" rx="10"/><text class="head" x="605" y="398">services</text><text class="text" x="605" y="420">categoryId · price</text>
+  <rect class="node" x="850" y="185" width="185" height="80" rx="10"/><text class="head" x="870" y="215">subscription_plans</text><text class="text" x="870" y="238">type · priceMonthly</text>
+  <rect class="node" x="850" y="360" width="185" height="80" rx="10"/><text class="head" x="870" y="390">plan_entitlements</text><text class="text" x="870" y="413">planId · categoryId · units</text>
+  <rect class="node" x="1130" y="185" width="185" height="80" rx="10"/><text class="head" x="1150" y="215">user_subscriptions</text><text class="text" x="1150" y="238">userId · planId · status</text>
+  <rect class="node" x="1130" y="370" width="185" height="80" rx="10"/><text class="head" x="1150" y="400">bookings</text><text class="text" x="1150" y="423">user · provider · service</text>
+  <rect class="node" x="1380" y="370" width="135" height="72" rx="10"/><text class="head" x="1398" y="398">service_photos</text><text class="text" x="1398" y="420">bookingId</text>
+  <path class="line" d="M660 262 L660 370"/><text class="label" x="669" y="324">1..* services</text>
+  <path class="line" d="M735 226 L850 226"/><text class="label" x="760" y="214">categories</text>
+  <path class="line" d="M942 265 L942 360"/><text class="label" x="951" y="323">1..* entitlements</text>
+  <path class="line" d="M1035 225 L1130 225"/><text class="label" x="1050" y="214">1..* purchases</text>
+  <path class="line" d="M1035 400 L1130 400"/><text class="label" x="1050" y="389">plan credits</text>
+  <path class="line" d="M735 406 L1130 406"/><text class="label" x="995" y="430">service booked</text>
+  <path class="line" d="M1222 265 L1222 370"/><text class="label" x="1231" y="325">0..* bookings</text>
+  <path class="line" d="M1315 406 L1380 406"/><text class="label" x="1321" y="394">0..* evidence</text>
+
+  <rect class="group" x="45" y="670" width="720" height="460" rx="18"/>
+  <text class="subtitle" x="70" y="701">PAYMENTS, REFUNDS &amp; TRUST</text>
+  <rect class="node" x="90" y="755" width="175" height="80" rx="10"/><text class="head" x="110" y="785">payments</text><text class="text" x="110" y="808">user · plan · booking</text><text class="text" x="110" y="825">subscription · gateway</text>
+  <rect class="node" x="350" y="755" width="175" height="80" rx="10"/><text class="head" x="370" y="785">refund_requests</text><text class="text" x="370" y="808">subscription · payment</text><text class="text" x="370" y="825">reviewedBy user</text>
+  <rect class="node" x="90" y="935" width="175" height="72" rx="10"/><text class="head" x="110" y="963">reviews</text><text class="text" x="110" y="985">booking · user · provider</text>
+  <rect class="node" x="350" y="935" width="175" height="72" rx="10"/><text class="head" x="370" y="963">complaints</text><text class="text" x="370" y="985">user · optional booking</text>
+  <path class="line" d="M265 795 L350 795"/><text class="label" x="276" y="783">0..* refunds</text>
+  <path class="line" d="M177 835 L177 935"/><text class="label" x="186" y="890">booking review</text>
+  <path class="line" d="M265 970 L350 970"/><text class="label" x="272" y="958">booking issue</text>
+
+  <rect class="group" x="820" y="670" width="735" height="460" rx="18"/>
+  <text class="subtitle" x="845" y="701">COMMUNICATION &amp; ADMINISTRATION</text>
+  <rect class="node3" x="865" y="760" width="185" height="76" rx="10"/><text class="head" x="885" y="790">notifications</text><text class="text" x="885" y="812">userId · read</text>
+  <rect class="node3" x="1120" y="760" width="185" height="76" rx="10"/><text class="head" x="1140" y="790">support_tickets</text><text class="text" x="1140" y="812">userId · status</text>
+  <rect class="node3" x="865" y="935" width="185" height="76" rx="10"/><text class="head" x="885" y="965">admin_audit_logs</text><text class="text" x="885" y="987">adminId · action</text>
+  <rect class="standalone" x="1120" y="935" width="185" height="76" rx="10"/><text class="head" x="1140" y="965">promotions</text><text class="text" x="1140" y="987">code · discount · dates</text>
+  <rect class="standalone" x="1360" y="935" width="150" height="76" rx="10"/><text class="head" x="1380" y="965">platform_settings</text><text class="text" x="1380" y="987">singleton config</text>
+  <path class="lineMuted" d="M275 230 C470 230 560 200 585 215"/><text class="label" x="452" y="196">users own subscriptions / bookings / payments</text>
+  <path class="lineMuted" d="M275 270 C400 650 800 650 935 760"/><text class="label" x="550" y="625">users receive / create</text>
+  <path class="lineMuted" d="M1200 450 C1030 650 550 650 438 755"/><text class="label" x="710" y="640">payments may fund bookings / subscriptions</text>
+  <text class="subtitle" x="70" y="1180">Standalone catalogue/configuration entities are shown with dashed borders. See DATABASE-ERD.md for field detail, constraints, and delete behaviour.</text>
+</svg>

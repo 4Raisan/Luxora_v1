@@ -20,6 +20,7 @@ import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { convertLkrToUsd } from '../services/currency.js';
 import { toPositiveInt } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
+import { calculatePromotionPrice, findActivePromotionForPlan } from '../services/promotions.js';
 
 const router = Router();
 // Money is normalized and compared as exact 2-decimal-place Decimals end to end.
@@ -63,6 +64,28 @@ const payHereIsReady = () => {
 // Demo checkout is opt-in at deployment time. It never calls PayHere and is
 // intentionally unavailable unless PAYMENT_MODE=demo is set on the backend.
 const paymentMode = () => String(process.env.PAYMENT_MODE || 'payhere').trim().toLowerCase() === 'demo' ? 'demo' : 'payhere';
+
+async function promotionPricingForPlan(plan) {
+  const promotion = await findActivePromotionForPlan(prisma, plan.id);
+  const pricing = calculatePromotionPrice(plan.priceMonthly, promotion?.discountPct || 0);
+  return { promotion, ...pricing };
+}
+
+const promotionPaymentData = ({ promotion, originalAmount, discountAmount }) => ({
+  promotionId: promotion?.id || null,
+  originalAmount,
+  discountAmount,
+  webhookPayload: {
+    promotion: promotion ? {
+      id: promotion.id,
+      code: promotion.code,
+      title: promotion.title,
+      discountPct: Number(promotion.discountPct),
+      originalAmount: Number(originalAmount),
+      discountAmount: Number(discountAmount),
+    } : null,
+  },
+});
 
 export async function activateSubscription(payment, payload = {}, { capturedAmount, capturedCurrency, autoRenew = false } = {}) {
   const maxAttempts = 3;
@@ -297,7 +320,8 @@ router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'
     if (!planId) return res.status(400).json({ error: 'plan_id is required' });
     const [plan, user] = await Promise.all([prisma.subscriptionPlan.findFirst({ where: { id: planId, active: true } }), prisma.user.findUnique({ where: { id: req.user.id } })]);
     if (!plan || !user) return res.status(404).json({ error: 'Plan or customer not found' });
-    const amount = money(plan.priceMonthly);
+    const pricing = await promotionPricingForPlan(plan);
+    const amount = pricing.discountedAmount;
     const urls = payHereUrls();
 
     // Deduplicate rapid duplicate clicks within 15 seconds
@@ -305,6 +329,7 @@ router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'
       where: {
         userId: user.id,
         planId: plan.id,
+        promotionId: pricing.promotion?.id || null,
         gateway: 'PAYHERE',
         status: 'PENDING',
         createdAt: { gte: new Date(Date.now() - 15000) },
@@ -316,10 +341,11 @@ router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'
     let orderId = recentPending?.gatewayOrderId;
     if (!payment) {
       orderId = `LUX-PH-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-      payment = await prisma.payment.create({ data: { userId: user.id, planId: plan.id, gateway: 'PAYHERE', gatewayOrderId: orderId, idempotencyKey: orderId, expectedAmount: amount, expectedCurrency: 'LKR' } });
+      payment = await prisma.payment.create({ data: { userId: user.id, planId: plan.id, gateway: 'PAYHERE', gatewayOrderId: orderId, idempotencyKey: orderId, expectedAmount: amount, expectedCurrency: 'LKR', ...promotionPaymentData(pricing) } });
     }
 
-    const fields = createPayHereFields({ amount, orderId, currency: 'LKR', customer: { firstName: user.name.split(/\s+/)[0], lastName: user.name.split(/\s+/).slice(1).join(' ') || 'Customer', email: user.email, phone: user.phone || '', city: user.town || '', items: plan.title }, returnUrl: urls.returnUrl, cancelUrl: urls.cancelUrl });
+    const promoLabel = pricing.promotion ? ` — ${Number(pricing.promotion.discountPct)}% off` : '';
+    const fields = createPayHereFields({ amount, orderId, currency: 'LKR', customer: { firstName: user.name.split(/\s+/)[0], lastName: user.name.split(/\s+/).slice(1).join(' ') || 'Customer', email: user.email, phone: user.phone || '', city: user.town || '', items: `${plan.title}${promoLabel}` }, returnUrl: urls.returnUrl, cancelUrl: urls.cancelUrl });
     fields.notify_url = urls.notifyUrl;
     res.json({ paymentId: payment.id, orderId, environment: environment(), checkoutUrl: `${process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk'}/pay/checkout`, fields });
   } catch (error) { console.error('[payhere] order creation failed:', error.message); res.status(502).json({ error: 'Could not create payment order' }); }
@@ -340,7 +366,8 @@ router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTO
     ]);
     if (!plan || !user) return res.status(404).json({ error: 'Plan or customer not found' });
 
-    const lkrAmount = Number(plan.priceMonthly);
+    const pricing = await promotionPricingForPlan(plan);
+    const lkrAmount = Number(pricing.discountedAmount);
     const conversion = await convertLkrToUsd(lkrAmount);
 
     // Deduplicate rapid duplicate clicks within 15 seconds
@@ -348,6 +375,7 @@ router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTO
       where: {
         userId: user.id,
         planId: plan.id,
+        promotionId: pricing.promotion?.id || null,
         gateway: 'NOWPAYMENTS',
         status: 'PENDING',
         createdAt: { gte: new Date(Date.now() - 15000) },
@@ -369,8 +397,12 @@ router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTO
           expectedAmount: money(lkrAmount),
           expectedCurrency: 'LKR',
           webhookPayload: {
+            ...promotionPaymentData(pricing).webhookPayload,
             conversion,
           },
+          promotionId: pricing.promotion?.id || null,
+          originalAmount: pricing.originalAmount,
+          discountAmount: pricing.discountAmount,
         },
       });
     }
@@ -385,7 +417,7 @@ router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTO
       amount: conversion.convertedAmount,
       currency: conversion.convertedCurrency,
       orderId,
-      orderDescription: `Luxora Plan: ${plan.title} (LKR ${lkrAmount.toLocaleString()})`,
+      orderDescription: `Luxora Plan: ${plan.title}${pricing.promotion ? ` (${Number(pricing.promotion.discountPct)}% off)` : ''} (LKR ${lkrAmount.toLocaleString()})`,
       ipnCallbackUrl,
       successUrl,
       cancelUrl,
@@ -558,8 +590,14 @@ router.post('/payments/demo/order', authenticateToken, requireRole('CUSTOMER'), 
   const planId = toPositiveInt(req.body.plan_id);
   const plan = planId && await prisma.subscriptionPlan.findFirst({ where: { id: planId, active: true } });
   if (!plan) return res.status(404).json({ error: 'Active plan not found' });
+  const pricing = await promotionPricingForPlan(plan);
   const orderId = `LUX-DEMO-${req.user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-  const payment = await prisma.payment.create({ data: { userId: req.user.id, planId: plan.id, gateway: 'DEMO', gatewayOrderId: orderId, idempotencyKey: orderId, expectedAmount: money(plan.priceMonthly), expectedCurrency: 'LKR', webhookPayload: { mode: 'demo', autoRenew: Boolean(req.body.auto_renew) } } });
+  const payment = await prisma.payment.create({ data: {
+    userId: req.user.id, planId: plan.id, gateway: 'DEMO', gatewayOrderId: orderId, idempotencyKey: orderId,
+    expectedAmount: pricing.discountedAmount, expectedCurrency: 'LKR',
+    ...promotionPaymentData(pricing),
+    webhookPayload: { ...promotionPaymentData(pricing).webhookPayload, mode: 'demo', autoRenew: Boolean(req.body.auto_renew) },
+  } });
   res.status(201).json({ payment_id: payment.id, order_id: orderId, plan: { id: plan.id, title: plan.title, amount: payment.expectedAmount, currency: payment.expectedCurrency }, message: 'Demo checkout created. This is not a financial transaction.' });
 });
 

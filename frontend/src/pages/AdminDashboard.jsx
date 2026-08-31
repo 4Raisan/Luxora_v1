@@ -136,7 +136,7 @@ const AdminDashboard = () => {
   const [planEditor, setPlanEditor] = useState(null)
   const [planDetails, setPlanDetails] = useState(null)
   const [confirmPlanRemoval, setConfirmPlanRemoval] = useState(false)
-  const [promoForm, setPromoForm] = useState({ title: '', description: '', code: '', discount_pct: '' })
+  const [promoForm, setPromoForm] = useState({ title: '', description: '', code: '', discount_pct: '', starts_at: '', ends_at: '', plan_ids: [] })
   const [reportRange, setReportRange] = useState({ from: '', to: '' })
 
   const token = sessionStorage.getItem('token')
@@ -327,14 +327,22 @@ const AdminDashboard = () => {
     runAction(async () => {
       await apiRequest('/promotions', 'POST', {
         title: promoForm.title.trim(), description: promoForm.description.trim(), code: promoForm.code.trim() || undefined, discount_pct: pct,
+        starts_at: promoForm.starts_at || undefined, ends_at: promoForm.ends_at || undefined, plan_ids: promoForm.plan_ids,
       }, token)
-      setPromoForm({ title: '', description: '', code: '', discount_pct: '' })
+      setPromoForm({ title: '', description: '', code: '', discount_pct: '', starts_at: '', ends_at: '', plan_ids: [] })
     }, 'Promotion created.')
   }
 
   const togglePromotion = (promo) => runAction(async () => {
     await apiRequest(`/promotions/${promo.id}`, 'PUT', { active: !promo.active }, token)
   }, 'Promotion updated.')
+
+  const togglePromotionPackage = (planId) => setPromoForm((current) => ({
+    ...current,
+    plan_ids: current.plan_ids.includes(planId)
+      ? current.plan_ids.filter((id) => id !== planId)
+      : [...current.plan_ids, planId],
+  }))
 
   const saveScheduling = () => {
     const cooldown = Number(scheduling?.autoAssignmentCooldownHours)
@@ -739,18 +747,32 @@ const AdminDashboard = () => {
                   <input style={fieldStyle} placeholder="Code (optional)" value={promoForm.code} onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value })} />
                   <input style={fieldStyle} type="number" min="0" max="100" placeholder="Discount %" value={promoForm.discount_pct} onChange={(e) => setPromoForm({ ...promoForm, discount_pct: e.target.value })} />
                   <input style={fieldStyle} placeholder="Description" value={promoForm.description} onChange={(e) => setPromoForm({ ...promoForm, description: e.target.value })} />
+                  <label style={{ color: '#aaa', fontSize: '0.78rem' }}>Starts <input style={{ ...fieldStyle, marginTop: '0.35rem' }} type="datetime-local" value={promoForm.starts_at} onChange={(e) => setPromoForm({ ...promoForm, starts_at: e.target.value })} /></label>
+                  <label style={{ color: '#aaa', fontSize: '0.78rem' }}>Ends <input style={{ ...fieldStyle, marginTop: '0.35rem' }} type="datetime-local" value={promoForm.ends_at} onChange={(e) => setPromoForm({ ...promoForm, ends_at: e.target.value })} /></label>
                   <button style={goldBtn} disabled={busy} onClick={createPromotion}>Deploy Promotion</button>
+                </div>
+                <div style={{ marginTop: '1rem', borderTop: '1px solid #282828', paddingTop: '0.9rem' }}>
+                  <strong style={{ display: 'block', color: '#ddd', fontSize: '0.78rem', marginBottom: '0.35rem' }}>DISCOUNTED PACKAGES</strong>
+                  <small style={{ display: 'block', color: '#888', marginBottom: '0.65rem' }}>Select one or more packages. Leave all unchecked to make this a catalogue-wide promotion.</small>
+                  <div style={{ display: 'flex', gap: '0.55rem 1rem', flexWrap: 'wrap' }}>
+                    {plans.filter((plan) => plan.active).map((plan) => <label key={plan.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#ccc', fontSize: '0.78rem', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={promoForm.plan_ids.includes(plan.id)} onChange={() => togglePromotionPackage(plan.id)} />
+                      {plan.title} ({fmtMoney(plan.priceMonthly)})
+                    </label>)}
+                    {plans.filter((plan) => plan.active).length === 0 && <small style={{ color: '#888' }}>Create an active package before assigning a package-specific promotion.</small>}
+                  </div>
                 </div>
               </div>
               <div className="ad-table-card">
                 <h3 className="ad-table-title">ALL CAMPAIGNS ({promotions.length})</h3>
                 <table className="ad-data-table">
-                  <thead><tr><th>ID</th><th>TITLE</th><th>CODE</th><th>DISCOUNT</th><th>WINDOW</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                  <thead><tr><th>ID</th><th>TITLE</th><th>PACKAGES</th><th>CODE</th><th>DISCOUNT</th><th>WINDOW</th><th>STATUS</th><th>ACTION</th></tr></thead>
                   <tbody>
                     {promotions.map((p) => (
                       <tr key={p.id}>
                         <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
                         <td>{p.title}</td>
+                        <td style={{ maxWidth: '180px', fontSize: '0.75rem' }}>{p.packages?.length ? p.packages.map((plan) => plan.title).join(', ') : 'All active packages'}</td>
                         <td>{p.code || '—'}</td>
                         <td>{p.discountPct}%</td>
                         <td>{fmtDate(p.startsAt)} → {fmtDate(p.endsAt)}</td>
@@ -758,7 +780,7 @@ const AdminDashboard = () => {
                         <td><button style={ghostBtn} disabled={busy} onClick={() => togglePromotion(p)}>{p.active ? 'Deactivate' : 'Activate'}</button></td>
                       </tr>
                     ))}
-                    {promotions.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No campaigns.</td></tr>}
+                    {promotions.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No campaigns.</td></tr>}
                   </tbody>
                 </table>
               </div>

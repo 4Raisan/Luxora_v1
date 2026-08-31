@@ -11,6 +11,7 @@ import { verifyPayHereWebhook } from '../src/services/integrations.js';
 import { isPublicHttpsUrl } from '../src/routes/integrations.js';
 import { getObject, putObject, removeObject } from '../src/services/storage.js';
 import { providerOffersCategory } from '../src/services/scheduling.js';
+import { calculatePromotionPrice } from '../src/services/promotions.js';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46]);
@@ -114,4 +115,11 @@ test('Audit Fix C3: Promotion discount percentage Decimal precision', () => {
   const discount = new Prisma.Decimal('15.50');
   assert.equal(discount.toFixed(2), '15.50');
   assert.equal(JSON.parse(JSON.stringify(discount)), 15.5);
+});
+
+test('Package promotions calculate the payable amount exactly and preserve the saving', () => {
+  const priced = calculatePromotionPrice('12999.00', '15');
+  assert.equal(priced.originalAmount.toFixed(2), '12999.00');
+  assert.equal(priced.discountedAmount.toFixed(2), '11049.15');
+  assert.equal(priced.discountAmount.toFixed(2), '1949.85');
 });

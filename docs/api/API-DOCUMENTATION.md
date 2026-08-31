@@ -9,7 +9,7 @@ Local base: `http://localhost:5000/api`. Protected calls use `Authorization: Bea
 | GET | `/health` | Database-backed health |
 | POST | `/auth/register`, `/auth/login`, `/auth/google` | Authentication |
 | POST | `/auth/password-reset/request`, `/auth/password-reset/confirm` | Persisted single-use reset flow; confirmation revokes old JWTs |
-| GET | `/categories`, `/services`, `/subscriptions`, `/promotions` | Public catalogue |
+| GET | `/categories`, `/services`, `/subscriptions`, `/promotions` | Public catalogue; subscription plans include the best active package promotion and the server-calculated discounted price |
 | POST | `/payments/payhere/webhook` | PayHere checksum callback |
 | POST | `/payments/nowpayments/ipn`, `/payments/nowpayments/webhook` | NOWPayments HMAC callback |
 
@@ -43,6 +43,10 @@ All operational provider routes require provider role plus approved KYC. `/provi
 ## Admin
 
 There is no Super Admin. Every `/admin/*` route requires an Admin JWT. Admin covers users, providers/KYC, bookings, plans, complaints, reports, refunds, scheduling, payouts, and audit logs. Promotion and support mutation routes also require Admin.
+
+### Package promotions
+
+`POST /promotions` accepts `title`, `discount_pct`, optional `code`, optional `starts_at` / `ends_at`, and optional `plan_ids`. Select one or more package IDs to target only those packages; submit an empty `plan_ids` array for a catalogue-wide promotion. At checkout, the backend selects the highest eligible active promotion and stores the original price, discount amount, and applied promotion with the payment record.
 
 ## Private downloads
 

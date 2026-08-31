@@ -5,6 +5,7 @@ import { toPositiveInt } from '../middleware/validators.js';
 import { sendEmail } from '../services/integrations.js';
 import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { notify } from '../services/notify.js';
+import { activePromotionWhere, calculatePromotionPrice, serializePromotion } from '../services/promotions.js';
 
 const router = Router();
 const displayPackageType = (value, entitlements = []) => {
@@ -37,25 +38,42 @@ router.get('/services', async (_req, res) => {
 });
 
 router.get('/subscriptions', async (_req, res) => {
-  const plans = await prisma.subscriptionPlan.findMany({
+  const now = new Date();
+  const [plans, promotions] = await Promise.all([
+    prisma.subscriptionPlan.findMany({
     where: { active: true },
     include: { entitlements: { include: { category: true } } },
     orderBy: [
       { displayOrder: 'asc' },
       { id: 'asc' },
     ],
-  });
-  res.json(plans.map((p) => ({
+    }),
+    prisma.promotion.findMany({
+      where: activePromotionWhere(now),
+      include: { planAssignments: { select: { planId: true } } },
+      orderBy: [{ discountPct: 'desc' }, { createdAt: 'desc' }],
+    }),
+  ]);
+  res.json(plans.map((p) => {
+    const promotion = promotions.find((candidate) => candidate.planAssignments.length === 0 || candidate.planAssignments.some((assignment) => assignment.planId === p.id));
+    const price = calculatePromotionPrice(p.priceMonthly, promotion?.discountPct || 0);
+    return {
     ...p,
     displayOrder: p.displayOrder,
     type: displayPackageType(p.type, p.entitlements),
+    priceMonthly: Number(p.priceMonthly),
+    originalPriceMonthly: Number(price.originalAmount),
+    discountedPriceMonthly: Number(price.discountedAmount),
+    discountAmount: Number(price.discountAmount),
+    promotion: serializePromotion(promotion),
     features: JSON.parse(p.features || '[]'),
     entitlements: p.entitlements.map((item) => ({
       category_id: item.categoryId,
       category_name: item.category.name,
       units: item.units,
     })),
-  })));
+  };
+  }));
 });
 
 export async function renewDueDemoSubscriptions() {

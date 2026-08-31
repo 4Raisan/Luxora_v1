@@ -430,7 +430,10 @@ const CustomerDashboard = () => {
             tier: p.type || (ents[0]?.category_name || 'Care'),
             visits: units + ' visit' + (units === 1 ? '' : 's') + ' / month',
             tokens: units,
-            price: Number(p.priceMonthly) || 0,
+            price: Number(p.discountedPriceMonthly ?? p.priceMonthly) || 0,
+            originalPrice: Number(p.originalPriceMonthly ?? p.priceMonthly) || 0,
+            discountAmount: Number(p.discountAmount) || 0,
+            promotion: p.promotion || null,
             duration: Number(p.durationDays) || 30,
             features: Array.isArray(p.features) ? p.features : [],
             inclusives: (Array.isArray(p.features) && p.features.length)
@@ -1930,6 +1933,8 @@ const CustomerDashboard = () => {
                       {s.description && <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 0.85rem' }}>{s.description}</p>}
 
                       <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '1rem' }}>
+                        {s.promotion && <span style={{ display: 'block', color: '#7ed49b', fontSize: '0.7rem', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
+                        {s.promotion && <del style={{ color: '#777', fontSize: '0.82rem', fontWeight: 500, marginRight: '0.4rem' }}>LKR {Number(s.originalPrice).toLocaleString()}</del>}
                         LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.8rem', color: '#888', fontWeight: 400 }}>/mo</small>
                       </div>
 
@@ -1959,6 +1964,8 @@ const CustomerDashboard = () => {
                           serverId: s.serverId,
                           tier: (s.type || 'Care') + ' Plan ★',
                           price: `LKR ${Number(s.price).toLocaleString()}`,
+                          originalPrice: s.originalPrice,
+                          promotion: s.promotion,
                           cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
                           duration: s.duration || 30,
                           service_id: 1
@@ -2012,6 +2019,8 @@ const CustomerDashboard = () => {
                       <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem 0' }}>{s.description || 'Comprehensive multi-service estate suite with priority dispatch'}</p>
 
                       <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.6rem', fontWeight: 800, marginBottom: '1.1rem' }}>
+                        {s.promotion && <span style={{ display: 'block', color: '#7ed49b', fontSize: '0.72rem', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
+                        {s.promotion && <del style={{ color: '#777', fontSize: '0.85rem', fontWeight: 500, marginRight: '0.4rem' }}>LKR {Number(s.originalPrice).toLocaleString()}</del>}
                         LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.85rem', color: '#888', fontWeight: 400 }}>/mo</small>
                       </div>
 
@@ -2041,6 +2050,8 @@ const CustomerDashboard = () => {
                           serverId: s.serverId,
                           tier: 'VIP Combo Suite Plan 👑',
                           price: `LKR ${Number(s.price).toLocaleString()}`,
+                          originalPrice: s.originalPrice,
+                          promotion: s.promotion,
                           cat: 'system',
                           duration: s.duration || 30,
                           service_id: 1
@@ -3714,9 +3725,14 @@ const CustomerDashboard = () => {
               <div className="cd-book-confirm-row">
                 <span>Price:</span>
                 <strong className="cd-confirm-price">
+                  {selectedPackageToBook.promotion && <del style={{ color: '#888', fontSize: '0.82rem', marginRight: '0.45rem' }}>LKR {Number(selectedPackageToBook.originalPrice).toLocaleString()}</del>}
                   {selectedPackageToBook.price} {bookingBillingType === 'one_time' ? '/ 30 days' : '/ month'}
                 </strong>
               </div>
+              {selectedPackageToBook.promotion && <div className="cd-book-confirm-row">
+                <span>Package discount:</span>
+                <small style={{ color: '#7ed49b' }}>{selectedPackageToBook.promotion.code ? `${selectedPackageToBook.promotion.code} · ` : ''}{selectedPackageToBook.promotion.discountPct}% applied at checkout</small>
+              </div>}
               <div className="cd-book-confirm-row">
                 <span>Delivery Address:</span>
                 <small>{userAddress.street}, {userAddress.city}, {userAddress.district}</small>

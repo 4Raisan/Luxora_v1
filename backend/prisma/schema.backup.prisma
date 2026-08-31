@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int                @id @default(autoincrement())
+  name          String
+  email         String             @unique
+  passwordHash  String
+  phone         String?
+  role          Role               @default(CUSTOMER)
+  createdAt     DateTime           @default(now())
+  bookings      Booking[]
+  complaints    Complaint[]
+  notifications Notification[]
+  provider      Provider?
+  reviews       Review[]
+  subscriptions UserSubscription[]
+
+  @@map("users")
+}
+
+model Provider {
+  id                 Int       @id @default(autoincrement())
+  userId             Int       @unique
+  nic                String?
+  kycStatus          KycStatus @default(PENDING)
+  category           String
+  availabilityStatus String    @default("available")
+  earnings           Float     @default(0.0)
+  bookings           Booking[]
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews            Review[]
+
+  @@map("providers")
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  icon        String?
+  services    Service[]
+
+  @@map("categories")
+}
+
+model Service {
+  id           Int       @id @default(autoincrement())
+  categoryId   Int
+  title        String
+  description  String?
+  price        Float
+  durationMins Int       @default(60)
+  bookings     Booking[]
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("services")
+}
+
+model SubscriptionPlan {
+  id                Int                @id @default(autoincrement())
+  title             String
+  type              String
+  priceMonthly      Float
+  description       String?
+  features          String
+  userSubscriptions UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  planId    Int
+  startDate DateTime         @default(now())
+  endDate   DateTime
+  status    String           @default("active")
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_subscriptions")
+}
+
+model Booking {
+  id             Int           @id @default(autoincrement())
+  userId         Int
+  providerId     Int?
+  serviceId      Int
+  bookingDate    String
+  bookingTime    String
+  status         BookingStatus @default(PENDING)
+  pinCode        String
+  pinAttempts    Int           @default(0)
+  pinLockedUntil DateTime?
+  beforePhoto    String?
+  afterPhoto     String?
+  totalPrice     Float
+  createdAt      DateTime      @default(now())
+  provider       Provider?     @relation(fields: [providerId], references: [id])
+  service        Service       @relation(fields: [serviceId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+  complaints     Complaint[]
+  review         Review?
+
+  @@index([userId])
+  @@index([providerId])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  bookingId  Int      @unique
+  userId     Int
+  providerId Int
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  provider   Provider @relation(fields: [providerId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([providerId])
+  @@map("reviews")
+}
+
+model Complaint {
+  id          Int             @id @default(autoincrement())
+  userId      Int
+  bookingId   Int?
+  subject     String
+  description String
+  status      ComplaintStatus @default(OPEN)
+  createdAt   DateTime        @default(now())
+  booking     Booking?        @relation(fields: [bookingId], references: [id])
+  user        User            @relation(fields: [userId], references: [id])
+
+  @@map("complaints")
+}
+
+model Promotion {
+  id          Int     @id @default(autoincrement())
+  title       String
+  description String?
+  code        String?
+  discountPct Float   @default(0)
+  active      Boolean @default(true)
+
+  @@map("promotions")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
