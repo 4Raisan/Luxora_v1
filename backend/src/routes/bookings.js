@@ -474,7 +474,7 @@ router.put('/:id/status', async (req, res) => {
 
   if (nextStatus === 'COMPLETED') {
     if (completedFreshly) {
-      await notify(booking.userId, `Your service #${bookingId} has been completed. Leave a review!`, '/reviews');
+      await notify(booking.userId, `Your service #${bookingId} has been completed. Leave a review!`, '/customer-dashboard');
       const customer = await prisma.user.findUnique({ where: { id: booking.userId }, select: { email: true, name: true } });
       sendEmail({ to: customer?.email, subject: `Luxora service completed #${bookingId}`, html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your Luxora service booking #${bookingId} is complete. Thank you for choosing us.</p>` }).catch((error) => console.warn('[email] completion notification failed:', error.message));
     }
@@ -576,10 +576,12 @@ router.put('/:id/reschedule', async (req, res) => {
   const scheduled = bookingStart(booking_date, normalizedTime);
   const pinExpiresAt = scheduled ? new Date(scheduled.getTime() + 24 * 60 * 60 * 1000) : null;
 
-  const startPin = crypto.randomInt(1000, 9999).toString();
-  const completionPin = crypto.randomInt(1000, 9999).toString();
-  const startPinHash = await bcrypt.hash(startPin, 10);
-  const completionPinHash = await bcrypt.hash(completionPin, 10);
+  const startPin = crypto.randomInt(100000, 1000000).toString();
+  const completionPin = crypto.randomInt(100000, 1000000).toString();
+  const [startPinHash, completionPinHash] = await Promise.all([
+    bcrypt.hash(startPin, 12),
+    bcrypt.hash(completionPin, 12),
+  ]);
   const customerStartPinCipher = encryptPin(startPin);
   const customerCompletionPinCipher = encryptPin(completionPin);
 
@@ -678,15 +680,16 @@ router.put('/:id/reschedule', async (req, res) => {
     html: `<p>Hi ${customer?.name || 'Customer'},</p><p>Your booking #${oldBooking.id} was rescheduled. Your new booking #${newBooking.id} for <strong>${oldBooking.service.title}</strong> is confirmed for <strong>${booking_date} at ${normalizedTime}</strong>.</p><p>Status: ${newBooking.status.toLowerCase()}.</p>`,
   }).catch((error) => console.warn('[email] reschedule confirmation failed:', error.message));
 
+  const isAssigned = newBooking.status === 'ASSIGNED';
   res.json({
     id: newBooking.id,
     old_booking_id: oldBooking.id,
     status: newBooking.status.toLowerCase(),
     booking_date: newBooking.bookingDate,
     booking_time: newBooking.bookingTime,
-    pin_code: startPin,
-    start_pin: startPin,
-    completion_pin: completionPin,
+    pin_code: isAssigned ? startPin : null,
+    start_pin: isAssigned ? startPin : null,
+    completion_pin: null,
     pin_expires_at: newBooking.pinExpiresAt,
     message: 'Booking rescheduled successfully',
   });
