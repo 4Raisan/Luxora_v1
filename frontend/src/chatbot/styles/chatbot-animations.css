@@ -1,0 +1,71 @@
+/**
+ * Luxora AI Chatbot Animations
+ */
+
+@keyframes lxPulseGold {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(201, 168, 76, 0);
+  }
+}
+
+@keyframes lxWaveDots {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+@keyframes lxShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes lxWindowSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes lxMessageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lxSparkleTwinkle {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
+  50% { transform: scale(1.18) rotate(15deg); opacity: 1; filter: drop-shadow(0 0 6px #E8C96B); }
+}
+
+.lx-pulse-gold {
+  animation: lxPulseGold 2.8s infinite;
+}
+
+.lx-anim-slide-up {
+  animation: lxWindowSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lx-anim-msg-in {
+  animation: lxMessageFadeIn 0.25s ease forwards;
+}
+
+.lx-anim-sparkle {
+  animation: lxSparkleTwinkle 3.2s ease-in-out infinite;
+}

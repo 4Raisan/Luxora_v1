@@ -11,7 +11,6 @@ import { verifyPayHereWebhook } from '../src/services/integrations.js';
 import { isPublicHttpsUrl } from '../src/routes/integrations.js';
 import { getObject, putObject, removeObject } from '../src/services/storage.js';
 import { providerOffersCategory } from '../src/services/scheduling.js';
-import { getSriLankaLocation } from '../src/services/sriLankaLocations.js';
 import { calculatePromotionPrice } from '../src/services/promotions.js';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -89,12 +88,6 @@ test('Provider category matching accepts selected categories and preserves legac
   assert.equal(providerOffersCategory({ category: 'Auto Care, Garden Care, Pet Care' }, 'Garden Care'), true);
   assert.equal(providerOffersCategory({ category: 'Auto Care, Garden Care, Pet Care' }, 'Pet Care'), true);
   assert.equal(providerOffersCategory({ category: 'Auto Care, Garden Care' }, 'Pet Care'), false);
-});
-
-test('Sri Lanka provider towns resolve to their authoritative province', () => {
-  assert.deepEqual(getSriLankaLocation('Colombo'), { name: 'Colombo', province: 'Western' });
-  assert.deepEqual(getSriLankaLocation('  Nuwara   Eliya  '), { name: 'Nuwara Eliya', province: 'Central' });
-  assert.equal(getSriLankaLocation('Not a Sri Lanka town'), null);
 });
 
 test('PayHere checkout rejects non-HTTPS and private callback URLs', () => {

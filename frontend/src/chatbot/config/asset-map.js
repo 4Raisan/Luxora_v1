@@ -1,0 +1,103 @@
+/**
+ * Luxora AI Chatbot Asset Mapping
+ * Canonical references to all real Luxora assets and UI icons.
+ */
+
+export const assetMap = {
+  logos: {
+    primaryLogoPng: {
+      path: '/luxora-logo.png',
+      localPath: '../assets/logos/luxora-logo.png',
+      description: 'Official Luxora brand mark & emblem (PNG with gold gradient)'
+    },
+    primaryLogoJpg: {
+      path: '/luxora-logo.jpg',
+      localPath: '../assets/logos/luxora-logo.jpg',
+      description: 'Official Luxora brand logo JPG'
+    },
+    favicon: {
+      path: '/favicon.svg',
+      localPath: '../assets/logos/favicon.svg',
+      description: 'Luxora gold monogram shield favicon SVG'
+    }
+  },
+  images: {
+    heroMansion: {
+      path: '/dark_luxury_mansion.jpg',
+      localPath: '../assets/images/dark_luxury_mansion.jpg',
+      description: 'Ultra-luxury dark architectural estate photography for backgrounds & modal covers'
+    }
+  },
+  services: {
+    autoCare: {
+      path: '../assets/icons/auto-care.svg',
+      label: 'Auto Care',
+      symbol: '🚗',
+      description: 'Vehicle detailing, wash, polish, interior care icon'
+    },
+    gardenCare: {
+      path: '../assets/icons/garden-care.svg',
+      label: 'Garden Care',
+      symbol: '🌿',
+      description: 'Botanical estate grounds, lawn mowing, pruning icon'
+    },
+    petCare: {
+      path: '../assets/icons/pet-care.svg',
+      label: 'Pet Care',
+      symbol: '🐾',
+      description: 'Pet wellness, spa bath, walking, aquarium service icon'
+    },
+    comboCare: {
+      path: '../assets/icons/combo-care.svg',
+      label: 'Combo Package',
+      symbol: '✨',
+      description: 'All-inclusive multi-category estate concierge package icon'
+    }
+  },
+  coinsAndEconomy: {
+    luxoraCoin: {
+      path: '../assets/icons/luxora-coin.svg',
+      description: 'Official Luxora service token coin (1 Coin = 1 Service Visit)'
+    }
+  },
+  ui: {
+    aiConcierge: {
+      path: '../assets/icons/concierge-sparkle.svg',
+      description: 'Luxora Concierge AI sparkle badge & avatar emblem'
+    },
+    check: {
+      path: '../assets/icons/check.svg',
+      description: 'Feature inclusion checkmark (green/gold accent)'
+    },
+    arrowRight: {
+      path: '../assets/icons/arrow-right.svg',
+      description: 'Navigation & CTA action arrow'
+    },
+    close: {
+      path: '../assets/icons/close.svg',
+      description: 'Window close control'
+    },
+    minimize: {
+      path: '../assets/icons/minimize.svg',
+      description: 'Window collapse/minimize control'
+    },
+    send: {
+      path: '../assets/icons/send.svg',
+      description: 'Message submit action icon'
+    },
+    phoneVip: {
+      path: '../assets/icons/phone-vip.svg',
+      description: 'VIP Concierge hotline telephone icon'
+    },
+    statusSuccess: {
+      path: '../assets/icons/status-success.svg',
+      description: 'Confirmed booking / success status badge'
+    },
+    statusWarning: {
+      path: '../assets/icons/status-warning.svg',
+      description: 'Pending / Special Ask alert status badge'
+    }
+  }
+}
+
+export default assetMap

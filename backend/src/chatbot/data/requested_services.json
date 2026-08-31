@@ -1,0 +1,69 @@
+[
+  {
+    "id": "SA-2026-7831",
+    "type": "SPECIAL_ASK",
+    "category": "Auto Care",
+    "categoryId": "AUTO_CARE",
+    "scope": "8 vehicles (5 sedans, 3 SUVs)",
+    "requiredServices": "Full weekly detailing and engine steam",
+    "preferredSchedule": "Saturday mornings",
+    "customerName": "Marcus Sterling",
+    "contactInfo": "+94 77 888 9999",
+    "selectedRequirements": [
+      "Scope: 8 vehicles (5 sedans, 3 SUVs)"
+    ],
+    "openDescription": "Gated estate in Colombo 07",
+    "attachments": [],
+    "status": "Pending Review",
+    "quoteLKR": null,
+    "adminNotes": "",
+    "createdAt": "2026-08-27T18:32:00.879Z",
+    "updatedAt": "2026-08-27T18:32:00.879Z"
+  },
+  {
+    "id": "RS-2026-4413",
+    "category": "Garden Care",
+    "categoryId": "GARDEN_CARE",
+    "selectedRequirements": [
+      "Custom Request"
+    ],
+    "openDescription": "I need tree cutting and some landscaping.",
+    "attachments": [],
+    "status": "Pending Review",
+    "quoteLKR": null,
+    "adminNotes": "",
+    "createdAt": "2026-08-27T18:14:02.119Z",
+    "updatedAt": "2026-08-27T18:19:30.506Z"
+  },
+  {
+    "id": "RS-2026-3607",
+    "category": "Garden Care",
+    "categoryId": "GARDEN_CARE",
+    "selectedRequirements": [
+      "Landscaping & Lawn Redesign",
+      "Tree Trimming & Canopy Care"
+    ],
+    "structuredAttributes": {
+      "primaryAttribute": "Over 30 perches"
+    },
+    "openDescription": "45-perch garden with 4 tall mango trees requiring careful trimming near the property boundary.",
+    "attachments": [
+      {
+        "fileName": "tree1.jpg",
+        "fileUrl": "data:image/jpeg;base64,sample"
+      }
+    ],
+    "status": "Pending Review",
+    "statusHistory": [
+      {
+        "status": "Pending Review",
+        "timestamp": "2026-08-27T17:33:49.983Z",
+        "note": "Submitted by customer via Concierge"
+      }
+    ],
+    "quoteLKR": null,
+    "adminNotes": "",
+    "createdAt": "2026-08-27T17:33:49.983Z",
+    "updatedAt": "2026-08-27T17:33:49.983Z"
+  }
+]

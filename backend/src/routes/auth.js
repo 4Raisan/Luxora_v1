@@ -8,7 +8,6 @@ import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
 import { sendEmail, normalizePhoneNumber } from '../services/integrations.js';
 import { notify } from '../services/notify.js';
-import { getSriLankaLocation } from '../services/sriLankaLocations.js';
 
 const router = Router();
 
@@ -16,7 +15,7 @@ const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
 
 // Register (customer or provider — admin accounts are seeded, never self-registered)
 router.post('/register', authLimiter, async (req, res) => {
-  const { name, email, password, phone, town, address_street, service_towns, role, nic, category } = req.body;
+  const { name, email, password, phone, town, service_towns, role, nic, category } = req.body;
 
   if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Name is required' });
   if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
@@ -37,10 +36,6 @@ router.post('/register', authLimiter, async (req, res) => {
       providerCategory = category;
     }
 
-    const providerLocation = userRole === 'PROVIDER' ? getSriLankaLocation(town) : null;
-    if (userRole === 'PROVIDER' && !providerLocation) {
-      return res.status(400).json({ error: 'Select a town from the Sri Lanka provider registration list' });
-    }
     const providerTowns = normalizeServiceTowns(service_towns);
     if (userRole === 'PROVIDER' && providerTowns === null) {
       return res.status(400).json({ error: 'service_towns must contain at most 10 towns' });
@@ -53,9 +48,7 @@ router.post('/register', authLimiter, async (req, res) => {
         email: normalizedEmail,
         passwordHash,
         phone: normalizedPhone || '',
-        town: providerLocation?.name || normalizeTown(town),
-        addressStreet: normalizeTown(address_street),
-        addressDistrict: providerLocation?.province || null,
+        town: normalizeTown(town),
         role: userRole,
       },
     });
@@ -97,8 +90,7 @@ router.post('/register', authLimiter, async (req, res) => {
         email: normalizedEmail,
         role: userRole,
         phone: user.phone || '',
-        town: providerLocation?.name || normalizeTown(town),
-        province: providerLocation?.province || null,
+        town: normalizeTown(town),
       },
     });
   } catch (err) {

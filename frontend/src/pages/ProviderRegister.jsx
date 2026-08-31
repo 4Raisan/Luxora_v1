@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import { generateProviderPDF } from '../utils/pdfGenerator'
-import { SRI_LANKA_TOWNS, SRI_LANKA_PROVINCES } from '../data/sriLankaLocations'
 import './ProviderRegister.css'
 
 const steps = [
@@ -46,8 +45,6 @@ const ProviderRegister = () => {
     confirmPassword: '',
     nicNumber: '',
     mobile: '',
-    town: '',
-    province: '',
     nicFront: null,
     nicBack: null,
     nicFrontPreview: null,
@@ -70,12 +67,6 @@ const ProviderRegister = () => {
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
-  }
-
-  const handleTownChange = (e) => {
-    const town = e.target.value
-    const location = SRI_LANKA_TOWNS.find((item) => item.name === town)
-    setForm((prev) => ({ ...prev, town, province: location?.province || '' }))
   }
 
   const handleNicChange = (e) => {
@@ -184,9 +175,6 @@ const ProviderRegister = () => {
         fullName: form.fullName,
         email: form.email,
         phone: form.mobile,
-        town: form.town,
-        province: form.province,
-        address_street: form.address,
         nic: form.nicNumber,
         businessName: form.businessName || form.fullName + ' Services',
         businessType: form.businessType || 'Independent Provider',
@@ -210,12 +198,10 @@ const ProviderRegister = () => {
         email: form.email,
         password: form.password,
         phone: form.mobile,
-        town: form.town,
-        address_street: form.address,
         role: 'provider',
         nic: form.nicNumber,
         category: form.services[0],
-        service_towns: form.town,
+        service_towns: form.city,
       })
 
       const uploadDocument = async (file, documentType) => {
@@ -446,23 +432,6 @@ const ProviderRegister = () => {
                 maxLength={10} inputMode="numeric" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" required />
             </div>
 
-            <div className="pr-row">
-              <div className="pr-select-wrap">
-                <select id="pr-town" name="town" className="pr-input pr-select" value={form.town} onChange={handleTownChange} required>
-                  <option value="">Select your town</option>
-                  {SRI_LANKA_PROVINCES.map((province) => (
-                    <optgroup key={province} label={`${province} Province`}>
-                      {SRI_LANKA_TOWNS.filter((location) => location.province === province).map((location) => (
-                        <option key={location.name} value={location.name}>{location.name}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <span className="pr-select-arrow">⌄</span>
-              </div>
-              <input id="pr-province" name="province" type="text" className="pr-input" placeholder="Province" value={form.province ? `${form.province} Province` : ''} readOnly aria-label="Province, set automatically from town" />
-            </div>
-
             <div className="pr-actions">
               <div />
               <button type="submit" id="pr-next-1" className="pr-btn-next">
@@ -483,8 +452,8 @@ const ProviderRegister = () => {
 
             <div className="pr-row">
               <input id="pr-city" name="city" type="text" className="pr-input"
-                placeholder="Business city / region (optional)" value={form.city}
-                onChange={handleChange} />
+                placeholder="City / Region" value={form.city}
+                onChange={handleChange} required />
               <input id="pr-website" name="website" type="url" className="pr-input"
                 placeholder="Website (optional)" value={form.website}
                 onChange={handleChange} />
@@ -540,8 +509,6 @@ const ProviderRegister = () => {
                 <div className="pr-review-row"><span>Name</span><span>{form.fullName || '—'}</span></div>
                 <div className="pr-review-row"><span>NIC</span><span>{form.nicNumber || '—'}</span></div>
                 <div className="pr-review-row"><span>Mobile</span><span>{form.mobile || '—'}</span></div>
-                <div className="pr-review-row"><span>Town</span><span>{form.town || '—'}</span></div>
-                <div className="pr-review-row"><span>Province</span><span>{form.province ? `${form.province} Province` : '—'}</span></div>
                 <div className="pr-review-row"><span>Selfie Photo</span><span>{form.selfiePreview ? '✓ Uploaded' : 'Not Uploaded'}</span></div>
               </div>
               <div className="pr-review-section">

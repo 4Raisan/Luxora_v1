@@ -1,0 +1,35 @@
+{
+  "cancellation": {
+    "title": "Cancellation & Rescheduling Policy",
+    "freeCancellationWindowHours": 2,
+    "rules": [
+      "Standard Bookings: Free cancellation or reschedule up to 2 hours prior to the booked service slot.",
+      "Tri-Combo Luxury Suite members enjoy zero cancellation fees on all bookings anytime before provider dispatch.",
+      "If a booking is cancelled within the permitted window, the service coin is instantly credited back to your active monthly balance.",
+      "Late cancellations after the provider is already en route may forfeit that session coin to compensate the dedicated specialist."
+    ]
+  },
+  "coinsAndEntitlements": {
+    "title": "Luxora Coin & Entitlement Rules",
+    "rules": [
+      "1 Coin = 1 Standard Service Session in the designated category (Auto, Garden, or Pet).",
+      "Coins are replenished monthly on your subscription billing date.",
+      "Coins are tied to their designated service tier to guarantee vetted specialists for that specific discipline.",
+      "Unused coins remain active throughout your subscription billing cycle."
+    ]
+  },
+  "serviceLimitsAndExceedance": {
+    "title": "Exceeding Standard Limits",
+    "rules": [
+      "If your estate or fleet requires visits beyond your monthly package allowance, you may book additional single visits at member-discounted individual rates.",
+      "For custom estate layouts, commercial-scale grounds, multi-vehicle fleets, or exotic pet habitats, submit a Special Ask request for bespoke scheduling."
+    ]
+  },
+  "kycAndSecurity": {
+    "title": "Provider KYC & Trust Standards",
+    "rules": [
+      "100% of Luxora specialists undergo background verification, police clearance, and skill certifications.",
+      "All services are fully insured, with GPS-tracked arrivals and verified check-in/check-out timestamps."
+    ]
+  }
+}

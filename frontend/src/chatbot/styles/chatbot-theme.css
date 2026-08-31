@@ -1,0 +1,22 @@
+/**
+ * Luxora AI Chatbot Master Theme Stylesheet
+ */
+
+@import './chatbot-tokens.css';
+@import './chatbot-animations.css';
+@import './chatbot-components.css';
+
+/* Luxury helper styles */
+.lx-gold-text {
+  color: var(--lx-chat-gold);
+}
+
+.lx-font-display {
+  font-family: var(--lx-chat-font-display);
+}
+
+.lx-glass-panel {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--lx-chat-line);
+  backdrop-filter: blur(16px);
+}

@@ -20,6 +20,7 @@ import profileRoutes from './routes/profile.js';
 import uploadRoutes from './routes/uploads.js';
 import supportRoutes from './routes/support.js';
 import refundRoutes from './routes/refunds.js';
+import chatRoutes from './routes/chat.js';
 import { prisma } from './config/prisma.js';
 import { startMonthlyPayoutScheduler } from './services/payouts.js';
 import { renewDueDemoSubscriptions } from './routes/services.js';
@@ -82,6 +83,7 @@ app.use('/api', integrationRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api', refundRoutes);
+app.use('/api', chatRoutes);
 app.use('/api', docsRoutes);
 
 // Health check (used by docker-compose / load balancers)

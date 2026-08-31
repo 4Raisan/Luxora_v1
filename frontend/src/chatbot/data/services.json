@@ -1,0 +1,161 @@
+{
+  "categories": [
+    {
+      "id": "auto-care",
+      "categoryKey": "auto",
+      "name": "Auto Care",
+      "eyebrow": "AUTOMOTIVE CONCIERGE",
+      "icon": "auto-care.svg",
+      "tagline": "A meticulous standard of vehicle care, preserving every detail from pristine exterior to immaculate interior.",
+      "services": [
+        {
+          "id": "svc-auto-1",
+          "title": "Wash + Vacuum",
+          "description": "Premium exterior foam wash, wheel shine, glass wipe, and complete interior deep vacuuming.",
+          "durationMins": 60,
+          "includedInCoins": 1,
+          "standardPriceLKR": 4500,
+          "features": [
+            "pH-neutral luxury foam bath",
+            "Microfiber scratch-free dry",
+            "High-suction interior vacuuming",
+            "Dashboard and console treatment",
+            "Tyre dressing and rim detailing"
+          ]
+        },
+        {
+          "id": "svc-auto-2",
+          "title": "Full Auto Polish & Detailing",
+          "description": "Multi-stage paint correction, exterior wax polish, headlight restoration, and interior leather conditioning.",
+          "durationMins": 120,
+          "includedInCoins": 2,
+          "standardPriceLKR": 12500,
+          "features": [
+            "Clay bar decontamination",
+            "Dual-action machine polishing",
+            "Carnauba wax / sealant coat",
+            "Premium leather nourishing & UV shield",
+            "Engine bay surface wipe-down"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "garden-care",
+      "categoryKey": "garden",
+      "name": "Garden Care",
+      "eyebrow": "BOTANICAL & ESTATE GROUNDS",
+      "icon": "garden-care.svg",
+      "tagline": "Thoughtfully maintained grounds, where manicured lawns, healthy greenery, and refined presentation come together effortlessly.",
+      "services": [
+        {
+          "id": "svc-garden-1",
+          "title": "Lawn Mowing",
+          "description": "Precision rotary/cylinder lawn mowing, edge detailing, and organic waste clearance.",
+          "durationMins": 45,
+          "includedInCoins": 1,
+          "standardPriceLKR": 3500,
+          "features": [
+            "Precision cut height calibration",
+            "Border & perimeter edging",
+            "Clipping collection & disposal",
+            "Pathway blow-down & sweep"
+          ]
+        },
+        {
+          "id": "svc-garden-2",
+          "title": "Plant Watering & Health Care",
+          "description": "Deep root soil hydration, botanical health assessment, pruning dead leaves, and pest monitoring.",
+          "durationMins": 30,
+          "includedInCoins": 1,
+          "standardPriceLKR": 2500,
+          "features": [
+            "Moisture zone inspection",
+            "Targeted foliage spraying",
+            "Yellow leaf pruning",
+            "Early pest detection alert"
+          ]
+        },
+        {
+          "id": "svc-garden-3",
+          "title": "Fertilizer Application",
+          "description": "Custom organic nutrient blend application to stimulate lush foliage, root resilience, and bloom.",
+          "durationMins": 40,
+          "includedInCoins": 1,
+          "standardPriceLKR": 4000,
+          "features": [
+            "Soil pH evaluation",
+            "Slow-release organic pellets",
+            "Root-level hydration boost"
+          ]
+        },
+        {
+          "id": "svc-garden-4",
+          "title": "Landscape Maintenance",
+          "description": "Topiary hedge shaping, weed elimination, flowerbed contouring, and ornamental shrub care.",
+          "durationMins": 90,
+          "includedInCoins": 2,
+          "standardPriceLKR": 8500,
+          "features": [
+            "Hedge trimming & squaring",
+            "Selective weed extraction",
+            "Mulch repositioning & bed lining"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pet-care",
+      "categoryKey": "pet",
+      "name": "Pet Care",
+      "eyebrow": "COMPANION WELLNESS & SPA",
+      "icon": "pet-care.svg",
+      "tagline": "Exceptional care for cherished companions, combining gentle grooming, refined hygiene, and attentive personal care.",
+      "services": [
+        {
+          "id": "svc-pet-1",
+          "title": "Pet Bathing & Grooming",
+          "description": "Hypoallergenic warm bath, temperature-controlled blow dry, paw trim, ear hygiene, and coat scenting.",
+          "durationMins": 60,
+          "includedInCoins": 1,
+          "standardPriceLKR": 5000,
+          "features": [
+            "Hypoallergenic oat shampoo",
+            "Gentle de-shedding brush",
+            "Claw clipping & filing",
+            "Ear sanitary sanitization",
+            "Silk coat finishing mist"
+          ]
+        },
+        {
+          "id": "svc-pet-2",
+          "title": "Pet Walking (45 min)",
+          "description": "Structured walking exercise, sensory stimulation, hydration breaks, and GPS tracking report.",
+          "durationMins": 45,
+          "includedInCoins": 1,
+          "standardPriceLKR": 2000,
+          "features": [
+            "One-on-one attentive walking",
+            "Hydration & treat intervals",
+            "Route safety oversight",
+            "Post-walk paw wiping"
+          ]
+        },
+        {
+          "id": "svc-pet-3",
+          "title": "Fish Tank Cleaning & Water Quality Test",
+          "description": "Aquarium siphon clean, glass algae removal, mechanical filter cleanse, and multi-parameter pH testing.",
+          "durationMins": 60,
+          "includedInCoins": 1,
+          "standardPriceLKR": 6000,
+          "features": [
+            "Partial conditioned water exchange",
+            "Magnetic glass scrubbing",
+            "Nitrate/pH balance verification",
+            "Aquatic plant grooming"
+          ]
+        }
+      ]
+    }
+  ]
+}
