@@ -1,0 +1,8 @@
+title = "Luxora Gitleaks Configuration"
+
+[allowlist]
+description = "Allow dummy test keys in CI workflow and test suites"
+paths = [
+  '''.github/workflows/.*''',
+  '''backend/tests/.*''',
+]
