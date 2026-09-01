@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   classify:
-    name: Detect changes and scan secrets
+    name: 01 - Plan and secret scan
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
@@ -58,7 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   quality:
-    name: Lint and frontend
+    name: 02 - Code quality and frontend
     needs: classify
     if: needs.classify.outputs.quality == 'true'
     runs-on: ubuntu-latest
@@ -94,7 +94,7 @@ jobs:
         run: npm --prefix frontend run build
 
   backend:
-    name: Backend tests
+    name: 03 - Backend tests
     needs: classify
     if: needs.classify.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -145,7 +145,7 @@ jobs:
           NODE_ENV: test
 
   audit:
-    name: Production dependency audit
+    name: 04 - Dependency audit
     needs: classify
     if: needs.classify.outputs.audit == 'true'
     runs-on: ubuntu-latest
@@ -166,7 +166,7 @@ jobs:
           npm --prefix frontend audit --package-lock-only --omit=dev --audit-level=high
 
   docker:
-    name: Production Docker smoke
+    name: 05 - Docker smoke
     needs: classify
     if: needs.classify.outputs.docker == 'true'
     runs-on: ubuntu-latest
@@ -251,7 +251,7 @@ jobs:
           docker rm -f luxora-ci-container 2>/dev/null || true
 
   validate-and-test:
-    name: validate-and-test
+    name: 06 - Required gate
     if: always()
     needs: [classify, quality, backend, audit, docker]
     runs-on: ubuntu-latest
