@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,8 +50,7 @@ const authJson = (token, path, options = {}) => json(path, {
 });
 
 before(async () => {
-  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
-  server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`));
+  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: 'ignore' });
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
       const health = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) });
@@ -64,9 +63,13 @@ before(async () => {
 
 after(async () => {
   if (server) {
-    server.kill();
-    await new Promise((resolve) => server.on('exit', resolve));
+    if (process.platform === 'win32') {
+      try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
+    } else {
+      server.kill();
+    }
   }
+  await prisma.$disconnect();
 });
 
 test('Rule 1: PENDING booking timeout (> 30 mins after start) auto-cancels and restores entitlement', async () => {

@@ -61,6 +61,10 @@ const Signup = () => {
       setErrorMsg('Passwords do not match.')
       return
     }
+    if ((form.password || '').length < 8 || !/[a-zA-Z]/.test(form.password) || !/\d/.test(form.password)) {
+      setErrorMsg('Password must be at least 8 characters and contain both letters and numbers.')
+      return
+    }
     if (form.phone && form.phone.length !== 10) {
       setErrorMsg('Phone number must be exactly 10 digits.')
       return

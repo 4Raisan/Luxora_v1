@@ -20,8 +20,8 @@ export default function ResetPassword() {
     event.preventDefault()
     setError('')
     setMessage('')
-    if (password.length < 6 || password !== confirm) {
-      setError('Passwords must match and be at least 6 characters.')
+    if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password) || password !== confirm) {
+      setError('Passwords must match, be at least 8 characters, and contain both letters and numbers.')
       return
     }
     setLoading(true)

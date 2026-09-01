@@ -141,8 +141,8 @@ const ProviderRegister = () => {
         alert('Mobile number must be exactly 10 digits (e.g. 0771234567).')
         return
       }
-      if ((form.password || '').length < 6) {
-        alert('Password must be at least 6 characters.')
+      if ((form.password || '').length < 8 || !/[a-zA-Z]/.test(form.password) || !/\d/.test(form.password)) {
+        alert('Password must be at least 8 characters and contain both letters and numbers.')
         return
       }
       if (form.password !== form.confirmPassword) {

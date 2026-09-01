@@ -1,7 +1,18 @@
-// Deployments may supply either the server origin or an origin that already
-// includes /api. Normalise both forms so every request reaches the API router.
-const configuredApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
-export const API_BASE = configuredApiUrl.endsWith('/api') ? configuredApiUrl : `${configuredApiUrl}/api`;
+// Deployments may supply an explicit backend URL via VITE_API_URL.
+// In production builds without VITE_API_URL, default to same-origin '/api'.
+// In local Vite development, default to 'http://localhost:5000/api'.
+export function resolveApiBase(envUrl = import.meta.env?.VITE_API_URL, isProd = import.meta.env?.PROD) {
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    const clean = envUrl.trim().replace(/\/+$/, '');
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+  }
+  if (isProd) {
+    return '/api';
+  }
+  return 'http://localhost:5000/api';
+}
+
+export const API_BASE = resolveApiBase();
 
 export async function apiRequest(endpoint, method = 'GET', data = null, token = null, options = {}) {
   const isFormData = data instanceof FormData;
