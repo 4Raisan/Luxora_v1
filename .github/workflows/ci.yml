@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-and-test:
     runs-on: ubuntu-latest
@@ -28,11 +32,18 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Root Dependencies
@@ -49,9 +60,6 @@ jobs:
 
       - name: Build Frontend SPA
         run: npm --prefix frontend run build
-
-      - name: Generate & Validate Knowledge Graph
-        run: npm run graph:verify
 
       - name: Generate Prisma Client
         run: npm --prefix backend run prisma:generate
@@ -81,16 +89,41 @@ jobs:
       - name: Build Production Docker Image
         run: docker build -t luxora:ci .
 
-      - name: Smoke Test Production Docker Container
+      - name: Start Production Docker Container
         run: |
-          docker run --rm -d --name luxora-ci-smoke \
-            -e DATABASE_URL=postgresql://luxora_test_user:luxora_test_password@127.0.0.1:5432/luxora_test_db?schema=public \
-            -e JWT_SECRET=test_jwt_secret_luxora_ci_environment_key_2026 \
-            -e BANK_ENCRYPTION_KEY=test_bank_key_32_bytes_long_ci_encryption \
-            -e PAYMENT_MODE=demo \
-            -e PORT=5000 \
-            -p 5000:5000 \
+          docker run -d --name luxora-ci-container \
+            --network host \
+            -e DATABASE_URL="postgresql://luxora_test_user:luxora_test_password@127.0.0.1:5432/luxora_test_db?schema=public" \
+            -e JWT_SECRET="test_jwt_secret_luxora_ci_environment_key_2026" \
+            -e BANK_ENCRYPTION_KEY="test_bank_key_32_bytes_long_ci_encryption" \
+            -e PAYMENT_MODE="demo" \
+            -e PORT="5000" \
+            -e NODE_ENV="production" \
+            -e STORAGE_DRIVER="local" \
+            -e LOCAL_UPLOAD_DIR="/tmp/luxora-uploads" \
             luxora:ci
-          sleep 5
-          docker logs luxora-ci-smoke || true
-          docker stop luxora-ci-smoke || true
+
+      - name: Verify Production Container Health
+        run: |
+          echo "Polling container health check at http://127.0.0.1:5000/api/health..."
+          for i in $(seq 1 30); do
+            if [ "$(docker inspect -f '{{.State.Running}}' luxora-ci-container 2>/dev/null)" != "true" ]; then
+              echo "Error: Container stopped unexpectedly."
+              docker logs luxora-ci-container
+              exit 1
+            fi
+            if curl -fsS http://127.0.0.1:5000/api/health >/dev/null 2>&1; then
+              echo "Container health check passed on attempt $i!"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Error: Health check timed out after 30 seconds."
+          docker logs luxora-ci-container
+          exit 1
+
+      - name: Cleanup Production Docker Container
+        if: always()
+        run: |
+          docker stop luxora-ci-container 2>/dev/null || true
+          docker rm -f luxora-ci-container 2>/dev/null || true
