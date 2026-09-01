@@ -1888,7 +1888,7 @@ const CustomerDashboard = () => {
 
           {/* ── Individual category package grid ── */}
           {['auto', 'garden', 'pet'].includes(bookingType) && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+            <div className="cd-plan-grid">
               {adminSubscriptions
                 .filter(s => s.type === ({ auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }[bookingType]))
                 .slice()
@@ -1896,60 +1896,44 @@ const CustomerDashboard = () => {
                 .map((s) => (
                   <div
                     key={s.id}
-                    className={`cd-combo-card animate-fade-in ${s.recommended ? 'cd-combo-card--popular' : ''}`}
-                    style={{
-                      background: s.recommended ? 'linear-gradient(160deg, #18140b 0%, #141414 100%)' : '#141414',
-                      border: s.recommended ? '1px solid rgba(201, 168, 76, 0.55)' : '1px solid #282828',
-                      borderRadius: '14px',
-                      padding: '1.5rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      gap: '1rem',
-                    }}
+                    className={`cd-plan-card animate-fade-in ${s.recommended ? 'cd-plan-card--popular' : ''}`}
                   >
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <div className="cd-plan-card__top">
                         <span
-                          className={`cd-popular-badge ${s.recommended ? 'cd-popular-badge--glowing' : ''}`}
-                          style={{
-                            position: 'static',
-                            background: s.recommended ? 'var(--gold, #c9a84c)' : 'rgba(201, 168, 76, 0.15)',
-                            color: s.recommended ? '#000' : 'var(--gold, #c9a84c)',
-                            border: s.recommended ? 'none' : '1px solid rgba(201, 168, 76, 0.3)',
-                            fontWeight: s.recommended ? 800 : 600,
-                          }}
+                          className={`cd-plan-card__badge ${s.recommended ? 'cd-plan-card__badge--popular' : ''}`}
                         >
                           {s.recommended ? 'MOST POPULAR' : (s.type || 'CARE').toUpperCase()}
                         </span>
-                        <span style={{ color: '#888', fontSize: '0.75rem', fontWeight: 600 }}>{s.id}</span>
+                        <span className="cd-plan-card__id">Plan ID {s.serverId || s.id}</span>
                       </div>
 
-                      <h3 style={{ color: '#fff', fontSize: '1.25rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
+                      <p className="cd-plan-card__eyebrow">{s.type || 'CARE PACKAGE'}</p>
+                      <h3 className="cd-plan-card__title">
                         {s.title.replace('Single Package: ', '')}
                       </h3>
-                      {s.description && <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 0.85rem' }}>{s.description}</p>}
+                      {s.description && <p className="cd-plan-card__description">{s.description}</p>}
 
-                      <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '1rem' }}>
-                        {s.promotion && <span style={{ display: 'block', color: '#7ed49b', fontSize: '0.7rem', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
-                        {s.promotion && <del style={{ color: '#777', fontSize: '0.82rem', fontWeight: 500, marginRight: '0.4rem' }}>LKR {Number(s.originalPrice).toLocaleString()}</del>}
-                        LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.8rem', color: '#888', fontWeight: 400 }}>/mo</small>
+                      <div className="cd-plan-card__price">
+                        {s.promotion && <span className="cd-plan-card__promotion">{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
+                        <span className="cd-plan-card__currency">LKR</span> <strong>{Number(s.price).toLocaleString()}</strong>
+                        {s.promotion && <del>LKR {Number(s.originalPrice).toLocaleString()}</del>}
+                        <small>per month</small>
                       </div>
 
-                      <div style={{ borderTop: '1px solid #222', paddingTop: '0.85rem' }}>
-                        <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 700, letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>INCLUDED CONCIERGE SERVICES:</span>
-                        <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#ccc', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                          {Array.isArray(s.inclusives) ? s.inclusives.map((inc, i) => (
-                            <li key={i} style={{ color: '#bbb' }}>{inc}</li>
-                          )) : <li style={{ color: '#bbb' }}>{s.inclusives}</li>}
+                      <div className="cd-plan-card__features">
+                        <span>WHAT'S INCLUDED</span>
+                        <ul>
+                          {(Array.isArray(s.inclusives) ? s.inclusives : [s.inclusives]).filter(Boolean).map((inc, i) => (
+                            <li key={i}><i>✓</i>{inc}</li>
+                          ))}
                         </ul>
                       </div>
                     </div>
 
                     <button
                       type="button"
-                      className="cd-combo-book-btn"
-                      style={{ width: '100%', marginTop: '0.5rem' }}
+                      className="cd-plan-card__action"
                       onClick={() => {
                         if (!userAddress || (!userAddress.street && !userAddress.city)) {
                           setShowAddressModal(true)
@@ -1979,7 +1963,7 @@ const CustomerDashboard = () => {
 
           {/* ── Combo Packages Grid ── */}
           {bookingType === 'combo' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+            <div className="cd-plan-grid">
               {adminSubscriptions
                 .filter(s => s.type === 'Combo Package')
                 .slice()
@@ -1987,55 +1971,44 @@ const CustomerDashboard = () => {
                 .map((s) => (
                   <div
                     key={s.id}
-                    className={`cd-combo-card animate-fade-in ${s.recommended ? 'cd-combo-card--popular' : ''}`}
-                    style={{
-                      background: '#161616',
-                      border: '1px solid var(--gold, #c9a84c)',
-                      borderRadius: '16px',
-                      padding: '1.75rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      gap: '1.25rem',
-                      boxShadow: '0 0 25px rgba(201, 168, 76, 0.1)',
-                    }}
+                    className={`cd-plan-card animate-fade-in ${s.recommended ? 'cd-plan-card--popular' : ''}`}
                   >
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <div className="cd-plan-card__top">
                         <span
-                          className={`cd-combo-badge ${s.recommended ? 'cd-combo-badge--glowing' : ''}`}
-                          style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800 }}
+                          className={`cd-plan-card__badge ${s.recommended ? 'cd-plan-card__badge--popular' : ''}`}
                         >
                           {s.recommended ? 'MOST POPULAR' : 'COMBO PACKAGE'}
                         </span>
-                        <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 700 }}>{s.id}</span>
+                        <span className="cd-plan-card__id">Plan ID {s.serverId || s.id}</span>
                       </div>
 
-                      <h3 style={{ color: '#fff', fontSize: '1.35rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
+                      <p className="cd-plan-card__eyebrow">{s.type || 'COMBO PACKAGE'}</p>
+                      <h3 className="cd-plan-card__title">
                         {s.title.replace('Combo Package: ', '')}
                       </h3>
-                      <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem 0' }}>{s.description || 'Comprehensive multi-service estate suite with priority dispatch'}</p>
+                      <p className="cd-plan-card__description">{s.description || 'Comprehensive multi-service estate suite with priority dispatch'}</p>
 
-                      <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.6rem', fontWeight: 800, marginBottom: '1.1rem' }}>
-                        {s.promotion && <span style={{ display: 'block', color: '#7ed49b', fontSize: '0.72rem', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
-                        {s.promotion && <del style={{ color: '#777', fontSize: '0.85rem', fontWeight: 500, marginRight: '0.4rem' }}>LKR {Number(s.originalPrice).toLocaleString()}</del>}
-                        LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.85rem', color: '#888', fontWeight: 400 }}>/mo</small>
+                      <div className="cd-plan-card__price">
+                        {s.promotion && <span className="cd-plan-card__promotion">{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
+                        <span className="cd-plan-card__currency">LKR</span> <strong>{Number(s.price).toLocaleString()}</strong>
+                        {s.promotion && <del>LKR {Number(s.originalPrice).toLocaleString()}</del>}
+                        <small>per month</small>
                       </div>
 
-                      <div style={{ borderTop: '1px solid #282828', paddingTop: '1rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--gold, #c9a84c)', fontWeight: 700, letterSpacing: '0.05em', display: 'block', marginBottom: '0.6rem' }}>EXCLUSIVE COMBO INCLUSIVES:</span>
-                        <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#eee', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                          {Array.isArray(s.inclusives) ? s.inclusives.map((inc, i) => (
-                            <li key={i} style={{ color: '#ddd' }}>{inc}</li>
-                          )) : <li style={{ color: '#ddd' }}>{s.inclusives}</li>}
+                      <div className="cd-plan-card__features">
+                        <span>WHAT'S INCLUDED</span>
+                        <ul>
+                          {(Array.isArray(s.inclusives) ? s.inclusives : [s.inclusives]).filter(Boolean).map((inc, i) => (
+                            <li key={i}><i>✓</i>{inc}</li>
+                          ))}
                         </ul>
                       </div>
                     </div>
 
                     <button
                       type="button"
-                      className="cd-combo-book-btn"
-                      style={{ width: '100%', marginTop: '0.5rem', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800, padding: '0.75rem 1rem' }}
+                      className="cd-plan-card__action"
                       onClick={() => {
                         if (!userAddress || (!userAddress.street && !userAddress.city)) {
                           setShowAddressModal(true)

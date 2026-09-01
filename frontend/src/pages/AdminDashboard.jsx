@@ -604,10 +604,8 @@ const AdminDashboard = () => {
                 <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
                 <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, displayOrder: '', description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
               </div>
-              <table className="ad-data-table">
-                <thead><tr><th># (ORDER)</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
-                <tbody>
-                  {plans
+              <div className="ad-plan-grid">
+                {plans
                     .slice()
                     .sort((a, b) => {
                       const typeComp = String(a.type || '').localeCompare(String(b.type || ''))
@@ -617,29 +615,26 @@ const AdminDashboard = () => {
                       return (orderA - orderB) || (Number(a.id) - Number(b.id))
                     })
                     .map((p) => (
-                    <tr key={p.id} onClick={() => { setPlanDetails(p); setConfirmPlanRemoval(false) }} style={{ cursor: 'pointer' }} title="View package details">
-                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <span>#{p.displayOrder || p.id}</span>
-                          <small style={{ color: '#666', fontSize: '0.68rem' }}>(ID:{p.id})</small>
-                        </div>
-                      </td>
-                      <td>{p.title}</td>
-                      <td>{p.type || '—'}</td>
-                      <td>{fmtMoney(p.priceMonthly)} <small style={{ color: '#777' }}>/ {p.durationDays || 30}d</small></td>
-                      <td style={{ maxWidth: '260px' }}>{(p.entitlements || []).map((e) => `${e.category?.name || e.categoryId}: ${e.units}`).join(' · ') || '—'}</td>
-                      <td>{p.recommended ? 'Yes' : '—'}</td>
-                      <td>{p._count?.userSubscriptions ?? 0}</td>
-                      <td><StatBadge value={p.active ? 'active' : 'closed'} /></td>
-                      <td style={{ display: 'flex', gap: '0.5rem' }}>
+                    <article key={p.id} className={`ad-plan-card ${p.recommended ? 'ad-plan-card--popular' : ''}`} onClick={() => { setPlanDetails(p); setConfirmPlanRemoval(false) }} title="View package details">
+                      {p.recommended && <span className="ad-plan-card__popular">MOST POPULAR</span>}
+                      <div className="ad-plan-card__top"><span>{p.type || 'PACKAGE'}</span><small>Plan ID {p.id}</small></div>
+                      <p className="ad-plan-card__order">DISPLAY ORDER · #{p.displayOrder || p.id}</p>
+                      <h4>{p.title}</h4>
+                      <p className="ad-plan-card__description">{p.description || 'No customer-facing description yet.'}</p>
+                      <div className="ad-plan-card__price"><span>LKR</span> {fmtMoney(p.priceMonthly).replace('LKR', '').trim()} <small>/ {p.durationDays || 30}d</small></div>
+                      <div className="ad-plan-card__features">
+                        <span>INCLUDED SERVICE COINS</span>
+                        <ul>{(p.entitlements || []).map((e) => <li key={e.id || e.categoryId}><i>✓</i>{e.category?.name || e.categoryId}: {e.units}</li>)}</ul>
+                      </div>
+                      <div className="ad-plan-card__meta"><span>{p._count?.userSubscriptions ?? 0} subscribers</span><StatBadge value={p.active ? 'active' : 'closed'} /></div>
+                      <div className="ad-plan-card__actions">
                         <button style={ghostBtn} onClick={(event) => { event.stopPropagation(); openPlanEditor(p) }}>Edit</button>
                         <button style={p.active ? redBtn : goldBtn} disabled={busy} onClick={(event) => { event.stopPropagation(); togglePlanActive(p) }}>{p.active ? 'Disable' : 'Enable'}</button>
-                      </td>
-                    </tr>
+                      </div>
+                    </article>
                   ))}
-                  {plans.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No packages defined.</td></tr>}
-                </tbody>
-              </table>
+                {plans.length === 0 && <p className="ad-plan-grid__empty">No packages defined.</p>}
+              </div>
             </div>
           )}
 
