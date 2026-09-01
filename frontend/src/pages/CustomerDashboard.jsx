@@ -3144,126 +3144,210 @@ const CustomerDashboard = () => {
 
       {/* ── Service Session Confirmed Modal Popup ── */}
       {showSessionConfirmedModal && confirmedModalDetails && (
-        <div className="cd-address-overlay" onClick={() => setShowSessionConfirmedModal(false)}>
+        <div
+          className="cd-drawer-overlay animate-fade-in"
+          onClick={() => setShowSessionConfirmedModal(false)}
+          style={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '1rem',
+            zIndex: 1001,
+          }}
+        >
           <div
-            className="cd-address-modal animate-fade-in"
+            className="cd-modal"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '520px',
+              width: '100%',
+              maxWidth: '460px',
+              background: 'linear-gradient(180deg, #181818 0%, #111111 100%)',
+              border: '1px solid rgba(201, 168, 76, 0.4)',
+              borderRadius: '20px',
+              padding: '2.25rem 2rem',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(201, 168, 76, 0.18)',
               textAlign: 'center',
-              padding: '2.5rem 2rem',
-              position: 'relative'
+              position: 'relative',
+              animation: 'fadeIn 0.25s ease-out',
             }}
           >
+            {/* Close Button */}
             <button
-              className="auth-card-close-btn"
               onClick={() => setShowSessionConfirmedModal(false)}
-              aria-label="Close"
-              type="button"
+              aria-label="Close confirmation"
               style={{
                 position: 'absolute',
                 top: '1.25rem',
                 right: '1.25rem',
+                background: '#1c1c1c',
+                border: '1px solid #333',
+                color: '#aaa',
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#aaa',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '0.9rem'
+                fontSize: '0.85rem',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--gold, #c9a84c)'
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#333'
+                e.currentTarget.style.color = '#aaa'
               }}
             >
               ✕
             </button>
 
+            {/* Gold Checkmark Success Badge */}
             <div
               style={{
                 width: '68px',
                 height: '68px',
                 borderRadius: '50%',
-                background: 'rgba(34, 197, 94, 0.15)',
-                border: '1px solid rgba(34, 197, 94, 0.4)',
-                color: '#4ade80',
+                background: 'radial-gradient(circle, rgba(201, 168, 76, 0.25) 0%, rgba(201, 168, 76, 0.05) 70%)',
+                border: '2px solid rgba(201, 168, 76, 0.65)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2rem',
-                margin: '0 auto 1.25rem auto'
+                margin: '0 auto 1.25rem auto',
+                boxShadow: '0 0 30px rgba(201, 168, 76, 0.3)',
               }}
             >
-              🎉
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold, #c9a84c)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
             </div>
 
-            <h3 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800, margin: '0 0 0.35rem 0', letterSpacing: '-0.01em' }}>
-              SERVICE SESSION CONFIRMED!
-            </h3>
-            <p style={{ color: '#aaa', fontSize: '0.85rem', margin: '0 0 1.5rem 0' }}>
-              Your concierge service dispatch has been successfully scheduled.
-            </p>
+            <span
+              style={{
+                color: 'var(--gold, #c9a84c)',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                display: 'block',
+              }}
+            >
+              SESSION BOOKED
+            </span>
 
+            <h3
+              style={{
+                color: '#ffffff',
+                fontSize: '1.4rem',
+                fontWeight: 800,
+                margin: '0.35rem 0 1.25rem 0',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Service Session Booked Successfully
+            </h3>
+
+            {/* Booking Summary Box */}
             <div
               style={{
-                background: '#161619',
-                border: '1px solid rgba(201, 168, 76, 0.3)',
-                borderRadius: '14px',
-                padding: '1.25rem',
+                background: '#141414',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '1.1rem 1.25rem',
+                marginBottom: '1.25rem',
                 textAlign: 'left',
-                marginBottom: '1.5rem',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.75rem'
+                gap: '0.75rem',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>SERVICE CATEGORY</span>
-                <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>{confirmedModalDetails.service}</span>
+                <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Service Style
+                </span>
+                <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>
+                  {confirmedModalDetails.service}
+                </span>
               </div>
-              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>DATE &amp; TIME</span>
+                <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Date &amp; Time
+                </span>
                 <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.88rem', fontWeight: 800 }}>
-                  📅 {confirmedModalDetails.date} at {confirmedModalDetails.time}
+                  {confirmedModalDetails.date} at {confirmedModalDetails.time}
                 </span>
               </div>
-              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>TOKEN SUMMARY</span>
-                <span style={{ color: '#4ade80', fontSize: '0.82rem', fontWeight: 800 }}>
-                  1 {confirmedModalDetails.categoryName} Token Used ({confirmedModalDetails.remainingTokens} Left)
-                </span>
-              </div>
-              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#aaa', fontSize: '0.78rem', fontWeight: 700 }}>DISPATCH LOCATION</span>
-                <span style={{ color: '#ccc', fontSize: '0.78rem', fontWeight: 600, textAlign: 'right', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  📍 {confirmedModalDetails.location}
-                </span>
-              </div>
+
+              {confirmedModalDetails.id && (
+                <>
+                  <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Booking Reference
+                    </span>
+                    <span style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.05em' }}>
+                      #{confirmedModalDetails.id}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {confirmedModalDetails.categoryName && (
+                <>
+                  <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Token Balance
+                    </span>
+                    <span style={{ color: '#4ade80', fontSize: '0.82rem', fontWeight: 800 }}>
+                      1 Token Used ({confirmedModalDetails.remainingTokens} Left)
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
+
+            <p
+              style={{
+                color: '#cccccc',
+                fontSize: '0.88rem',
+                lineHeight: '1.55',
+                margin: '0 0 1.5rem 0',
+              }}
+            >
+              Your <strong style={{ color: '#fff' }}>{confirmedModalDetails.service}</strong> service session has been successfully booked for <strong style={{ color: '#fff' }}>{confirmedModalDetails.date}</strong> at <strong style={{ color: '#fff' }}>{confirmedModalDetails.time}</strong>. A Luxora Concierge Specialist will contact you shortly.
+            </p>
 
             <button
               type="button"
               onClick={() => setShowSessionConfirmedModal(false)}
               style={{
                 width: '100%',
-                background: 'linear-gradient(135deg, var(--gold, #c9a84c) 0%, #a68432 100%)',
+                background: 'linear-gradient(135deg, #dfc06b 0%, #c9a84c 100%)',
                 color: '#000',
                 border: 'none',
-                padding: '0.88rem 1.25rem',
+                fontWeight: 800,
+                padding: '0.85rem 1.5rem',
+                fontSize: '0.92rem',
                 borderRadius: '10px',
-                fontSize: '0.88rem',
-                fontWeight: 900,
-                letterSpacing: '0.04em',
+                boxShadow: '0 4px 18px rgba(201, 168, 76, 0.35)',
                 cursor: 'pointer',
-                boxShadow: '0 4px 15px rgba(201, 168, 76, 0.25)',
-                transition: 'all 0.2s ease'
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)'
+                e.currentTarget.style.boxShadow = '0 6px 22px rgba(201, 168, 76, 0.45)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 18px rgba(201, 168, 76, 0.35)'
               }}
             >
-              GREAT, GOT IT! &rarr;
+              OK
             </button>
           </div>
         </div>
