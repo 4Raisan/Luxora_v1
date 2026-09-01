@@ -78,6 +78,52 @@ const MapPinIcon = () => (
   </svg>
 )
 
+const SubscriptionPlanCard = ({ plan, onSelect }) => {
+  const title = String(plan.title || 'Luxora Package')
+    .replace('Single Package: ', '')
+    .replace('Combo Package: ', '')
+  const customFeatures = Array.isArray(plan.features) ? plan.features.filter(Boolean) : []
+  const tokenCount = Number(plan.tokens) || 0
+
+  return (
+    <article className={`cd-subscription-plan ${plan.recommended ? 'cd-subscription-plan--popular' : ''}`}>
+      {plan.recommended && <div className="cd-subscription-plan__popular"><span aria-hidden="true">♛</span> MOST POPULAR</div>}
+
+      <div className="cd-subscription-plan__content">
+        <p className="cd-subscription-plan__type">{plan.type || 'Luxora Package'}</p>
+        <h3 className="cd-subscription-plan__title">{title}</h3>
+
+        {plan.promotion && (
+          <p className="cd-subscription-plan__promotion">
+            {plan.promotion.code ? `${plan.promotion.code} · ` : ''}{plan.promotion.discountPct}% OFF
+          </p>
+        )}
+
+        <div className="cd-subscription-plan__price">
+          <span>LKR</span>
+          <strong>{Number(plan.price).toLocaleString()}</strong>
+          {plan.promotion && <del>LKR {Number(plan.originalPrice).toLocaleString()}</del>}
+        </div>
+        <p className="cd-subscription-plan__period">{tokenCount} service coin{tokenCount === 1 ? '' : 's'} per month</p>
+
+        {plan.description && <p className="cd-subscription-plan__description">{plan.description}</p>}
+
+        <div className="cd-subscription-plan__divider" />
+        <ul className="cd-subscription-plan__features">
+          <li><span aria-hidden="true">✓</span>{tokenCount} service coin{tokenCount === 1 ? '' : 's'} / month</li>
+          {customFeatures.map((item, index) => (
+            <li key={`${plan.serverId}-${index}`}><span aria-hidden="true">✓</span>{item}</li>
+          ))}
+        </ul>
+      </div>
+
+      <button type="button" className="cd-subscription-plan__button" onClick={() => onSelect(plan, title)}>
+        Get Started
+      </button>
+    </article>
+  )
+}
+
 /* ── Sri Lanka towns/provinces for the delivery-address autocomplete.
       Static reference data (like a country list), not business mock data. ── */
 const SRI_LANKA_TOWNS = [
@@ -285,6 +331,7 @@ const CustomerDashboard = () => {
   // GET /subscriptions into these cards). No hardcoded fallback catalogue
   // and no localStorage cache, so the member always sees the real plans.
   const [adminSubscriptions, setAdminSubscriptions] = useState([])
+  const [subscriptionPlansState, setSubscriptionPlansState] = useState('loading')
 
   // Customer Active Bookings Chart State & Filters
   const [selectedBookingId, setSelectedBookingId] = useState(null)
@@ -336,13 +383,13 @@ const CustomerDashboard = () => {
     if (!token || token === 'demo-token') return
     try {
       const [dash, notes, paymentRows, entitlementRows, planRows, mode, bookingRows] = await Promise.all([
-        apiRequest('/customer/dashboard', 'GET', null, token),
-        apiRequest('/notifications', 'GET', null, token),
-        apiRequest('/payments/my', 'GET', null, token),
-        apiRequest('/subscriptions/entitlements', 'GET', null, token),
-        apiRequest('/subscriptions'),
-        apiRequest('/payments/mode', 'GET', null, token),
-        apiRequest('/bookings/my', 'GET', null, token).catch(() => []),
+        apiRequest('/customer/dashboard', 'GET', null, token).catch(() => null),
+        apiRequest('/notifications', 'GET', null, token).catch(() => null),
+        apiRequest('/payments/my', 'GET', null, token).catch(() => null),
+        apiRequest('/subscriptions/entitlements', 'GET', null, token).catch(() => null),
+        apiRequest('/subscriptions').catch(() => null),
+        apiRequest('/payments/mode', 'GET', null, token).catch(() => null),
+        apiRequest('/bookings/my', 'GET', null, token).catch(() => null),
       ])
       if (mode?.mode) setPaymentMode(mode.mode)
       if (Array.isArray(dash?.activeSubscriptions)) setServerSubscriptions(dash.activeSubscriptions)
@@ -445,11 +492,28 @@ const CustomerDashboard = () => {
                 : (p.description || 'Luxora care package')),
           }
         }))
+        setSubscriptionPlansState('ready')
+      } else {
+        setSubscriptionPlansState('error')
       }
     } catch (error) { console.warn('Could not sync server data.', error) }
   }
 
   useEffect(() => { loadServerData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh the server-owned package catalogue when a customer returns to an
+  // already-open portal after an administrator edits a package.
+  useEffect(() => {
+    const refreshLivePlans = () => {
+      if (document.visibilityState === 'visible') void loadServerData()
+    }
+    window.addEventListener('focus', refreshLivePlans)
+    document.addEventListener('visibilitychange', refreshLivePlans)
+    return () => {
+      window.removeEventListener('focus', refreshLivePlans)
+      document.removeEventListener('visibilitychange', refreshLivePlans)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // PayHere and NOWPayments hosted checkout returns to /customer-dashboard
   // Strip query parameters immediately, then confirm the authoritative payment
@@ -1094,6 +1158,32 @@ const CustomerDashboard = () => {
     sessionStorage.removeItem('user')
     sessionStorage.removeItem('token')
     navigate('/')
+  }
+
+  const handleSelectSubscriptionPlan = (plan, title) => {
+    if (!userAddress || (!userAddress.street && !userAddress.city)) {
+      setShowAddressModal(true)
+      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      return
+    }
+    const planType = String(plan.type || '').toLowerCase()
+    const categoryName = String(plan.cat || '').toLowerCase()
+    const category = planType.includes('combo') ? 'system'
+      : categoryName.includes('garden') ? 'garden'
+        : categoryName.includes('pet') ? 'pet'
+          : 'auto'
+    setSelectedPackageToBook({
+      title,
+      serverId: plan.serverId,
+      tier: plan.type || 'Luxora Package',
+      price: `LKR ${Number(plan.price).toLocaleString()}`,
+      originalPrice: plan.originalPrice,
+      promotion: plan.promotion,
+      cat: category,
+      duration: plan.duration || 30,
+      service_id: 1,
+    })
   }
 
   return (
@@ -1861,188 +1951,41 @@ const CustomerDashboard = () => {
 
           {/* ── Live plans from the server; neutral message instead of a
               hardcoded catalogue when the backend has not answered yet ── */}
-          {adminSubscriptions.length === 0 && (
+          {subscriptionPlansState === 'loading' && (
             <div style={{ marginTop: '1.5rem', padding: '2rem 1.25rem', textAlign: 'center', color: '#888', fontSize: '0.85rem', border: '1px dashed #282828', borderRadius: '14px', background: '#111' }}>
               Loading live subscription plans from Luxora…
-              <br />
-              <small>If nothing appears, please refresh the page.</small>
+            </div>
+          )}
+          {subscriptionPlansState === 'error' && (
+            <div style={{ marginTop: '1.5rem', padding: '2rem 1.25rem', textAlign: 'center', color: '#bca869', fontSize: '0.85rem', border: '1px dashed rgba(201, 168, 76, 0.35)', borderRadius: '14px', background: '#111' }}>
+              Subscription plans are temporarily unavailable. Please try again shortly.
+            </div>
+          )}
+          {subscriptionPlansState === 'ready' && adminSubscriptions.length === 0 && (
+            <div style={{ marginTop: '1.5rem', padding: '2rem 1.25rem', textAlign: 'center', color: '#888', fontSize: '0.85rem', border: '1px dashed #282828', borderRadius: '14px', background: '#111' }}>
+              No subscription packages are currently active.
             </div>
           )}
 
           {/* ── Individual category package grid ── */}
           {['auto', 'garden', 'pet'].includes(bookingType) && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+            <div className="cd-subscription-plans-grid">
               {adminSubscriptions
                 .filter(s => s.type === ({ auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }[bookingType]))
                 .slice()
                 .sort((a, b) => (Number(a.displayOrder || a.serverId || 0) - Number(b.displayOrder || b.serverId || 0)) || (Number(a.serverId || 0) - Number(b.serverId || 0)))
-                .map((s) => (
-                  <div
-                    key={s.id}
-                    className={`cd-combo-card animate-fade-in ${s.recommended ? 'cd-combo-card--popular' : ''}`}
-                    style={{
-                      background: s.recommended ? 'linear-gradient(160deg, #18140b 0%, #141414 100%)' : '#141414',
-                      border: s.recommended ? '1px solid rgba(201, 168, 76, 0.55)' : '1px solid #282828',
-                      borderRadius: '14px',
-                      padding: '1.5rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      gap: '1rem',
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <span
-                          className={`cd-popular-badge ${s.recommended ? 'cd-popular-badge--glowing' : ''}`}
-                          style={{
-                            position: 'static',
-                            background: s.recommended ? 'var(--gold, #c9a84c)' : 'rgba(201, 168, 76, 0.15)',
-                            color: s.recommended ? '#000' : 'var(--gold, #c9a84c)',
-                            border: s.recommended ? 'none' : '1px solid rgba(201, 168, 76, 0.3)',
-                            fontWeight: s.recommended ? 800 : 600,
-                          }}
-                        >
-                          {s.recommended ? 'MOST POPULAR' : (s.type || 'CARE').toUpperCase()}
-                        </span>
-                        <span style={{ color: '#888', fontSize: '0.75rem', fontWeight: 600 }}>{s.id}</span>
-                      </div>
-
-                      <h3 style={{ color: '#fff', fontSize: '1.25rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
-                        {s.title.replace('Single Package: ', '')}
-                      </h3>
-                      {s.description && <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 0.85rem' }}>{s.description}</p>}
-
-                      <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '1rem' }}>
-                        {s.promotion && <span style={{ display: 'block', color: '#7ed49b', fontSize: '0.7rem', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
-                        {s.promotion && <del style={{ color: '#777', fontSize: '0.82rem', fontWeight: 500, marginRight: '0.4rem' }}>LKR {Number(s.originalPrice).toLocaleString()}</del>}
-                        LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.8rem', color: '#888', fontWeight: 400 }}>/mo</small>
-                      </div>
-
-                      <div style={{ borderTop: '1px solid #222', paddingTop: '0.85rem' }}>
-                        <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 700, letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>INCLUDED CONCIERGE SERVICES:</span>
-                        <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#ccc', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                          {Array.isArray(s.inclusives) ? s.inclusives.map((inc, i) => (
-                            <li key={i} style={{ color: '#bbb' }}>{inc}</li>
-                          )) : <li style={{ color: '#bbb' }}>{s.inclusives}</li>}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="cd-combo-book-btn"
-                      style={{ width: '100%', marginTop: '0.5rem' }}
-                      onClick={() => {
-                        if (!userAddress || (!userAddress.street && !userAddress.city)) {
-                          setShowAddressModal(true)
-                          setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
-                          setTimeout(() => setBookingSuccessMsg(''), 6000)
-                          return
-                        }
-                        setSelectedPackageToBook({
-                          title: s.title.replace('Single Package: ', ''),
-                          serverId: s.serverId,
-                          tier: (s.type || 'Care') + ' Plan ★',
-                          price: `LKR ${Number(s.price).toLocaleString()}`,
-                          originalPrice: s.originalPrice,
-                          promotion: s.promotion,
-                          cat: (s.cat || 'auto').toLowerCase().includes('garden') ? 'garden' : (s.cat || '').toLowerCase().includes('pet') ? 'pet' : 'auto',
-                          duration: s.duration || 30,
-                          service_id: 1
-                        })
-                      }}
-                    >
-                      Book Care Package &rsaquo;
-                    </button>
-                  </div>
-                ))}
+                .map((s) => <SubscriptionPlanCard key={s.id} plan={s} onSelect={handleSelectSubscriptionPlan} />)}
             </div>
           )}
 
           {/* ── Combo Packages Grid ── */}
           {bookingType === 'combo' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+            <div className="cd-subscription-plans-grid">
               {adminSubscriptions
                 .filter(s => s.type === 'Combo Package')
                 .slice()
                 .sort((a, b) => (Number(a.displayOrder || a.serverId || 0) - Number(b.displayOrder || b.serverId || 0)) || (Number(a.serverId || 0) - Number(b.serverId || 0)))
-                .map((s) => (
-                  <div
-                    key={s.id}
-                    className={`cd-combo-card animate-fade-in ${s.recommended ? 'cd-combo-card--popular' : ''}`}
-                    style={{
-                      background: '#161616',
-                      border: '1px solid var(--gold, #c9a84c)',
-                      borderRadius: '16px',
-                      padding: '1.75rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      gap: '1.25rem',
-                      boxShadow: '0 0 25px rgba(201, 168, 76, 0.1)',
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <span
-                          className={`cd-combo-badge ${s.recommended ? 'cd-combo-badge--glowing' : ''}`}
-                          style={{ background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800 }}
-                        >
-                          {s.recommended ? 'MOST POPULAR' : 'COMBO PACKAGE'}
-                        </span>
-                        <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.78rem', fontWeight: 700 }}>{s.id}</span>
-                      </div>
-
-                      <h3 style={{ color: '#fff', fontSize: '1.35rem', margin: '0 0 0.5rem 0', fontWeight: 800 }}>
-                        {s.title.replace('Combo Package: ', '')}
-                      </h3>
-                      <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem 0' }}>{s.description || 'Comprehensive multi-service estate suite with priority dispatch'}</p>
-
-                      <div style={{ color: 'var(--gold, #c9a84c)', fontSize: '1.6rem', fontWeight: 800, marginBottom: '1.1rem' }}>
-                        {s.promotion && <span style={{ display: 'block', color: '#7ed49b', fontSize: '0.72rem', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{s.promotion.code ? `${s.promotion.code} · ` : ''}{s.promotion.discountPct}% PACKAGE DISCOUNT</span>}
-                        {s.promotion && <del style={{ color: '#777', fontSize: '0.85rem', fontWeight: 500, marginRight: '0.4rem' }}>LKR {Number(s.originalPrice).toLocaleString()}</del>}
-                        LKR {Number(s.price).toLocaleString()} <small style={{ fontSize: '0.85rem', color: '#888', fontWeight: 400 }}>/mo</small>
-                      </div>
-
-                      <div style={{ borderTop: '1px solid #282828', paddingTop: '1rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--gold, #c9a84c)', fontWeight: 700, letterSpacing: '0.05em', display: 'block', marginBottom: '0.6rem' }}>EXCLUSIVE COMBO INCLUSIVES:</span>
-                        <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#eee', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                          {Array.isArray(s.inclusives) ? s.inclusives.map((inc, i) => (
-                            <li key={i} style={{ color: '#ddd' }}>{inc}</li>
-                          )) : <li style={{ color: '#ddd' }}>{s.inclusives}</li>}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="cd-combo-book-btn"
-                      style={{ width: '100%', marginTop: '0.5rem', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 800, padding: '0.75rem 1rem' }}
-                      onClick={() => {
-                        if (!userAddress || (!userAddress.street && !userAddress.city)) {
-                          setShowAddressModal(true)
-                          setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before purchasing a plan.')
-                          setTimeout(() => setBookingSuccessMsg(''), 6000)
-                          return
-                        }
-                        setSelectedPackageToBook({
-                          title: s.title.replace('Combo Package: ', ''),
-                          serverId: s.serverId,
-                          tier: 'VIP Combo Suite Plan 👑',
-                          price: `LKR ${Number(s.price).toLocaleString()}`,
-                          originalPrice: s.originalPrice,
-                          promotion: s.promotion,
-                          cat: 'system',
-                          duration: s.duration || 30,
-                          service_id: 1
-                        })
-                      }}
-                    >
-                      Subscribe VIP Combo Package &rsaquo;
-                    </button>
-                  </div>
-                ))}
+                .map((s) => <SubscriptionPlanCard key={s.id} plan={s} onSelect={handleSelectSubscriptionPlan} />)}
             </div>
           )}
 

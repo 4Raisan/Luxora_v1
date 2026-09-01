@@ -8,6 +8,15 @@ import { notify } from '../services/notify.js';
 import { activePromotionWhere, calculatePromotionPrice, serializePromotion } from '../services/promotions.js';
 
 const router = Router();
+const planFeatures = (value) => {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 const displayPackageType = (value, entitlements = []) => {
   const type = String(value || '').trim().toLowerCase();
   if (type === 'auto care' || type === 'auto') return 'Auto Care';
@@ -66,7 +75,7 @@ router.get('/subscriptions', async (_req, res) => {
     discountedPriceMonthly: Number(price.discountedAmount),
     discountAmount: Number(price.discountAmount),
     promotion: serializePromotion(promotion),
-    features: JSON.parse(p.features || '[]'),
+    features: planFeatures(p.features),
     entitlements: p.entitlements.map((item) => ({
       category_id: item.categoryId,
       category_name: item.category.name,

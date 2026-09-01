@@ -166,7 +166,10 @@ const AdminDashboard = () => {
       setComplaints(Array.isArray(c) ? c : [])
       setSupportTickets(Array.isArray(t) ? t : [])
       setRefunds(Array.isArray(r) ? r : [])
-      setPlans(Array.isArray(subs) ? subs : [])
+      setPlans(Array.isArray(subs) ? subs.map((plan) => ({
+        ...plan,
+        features: Array.isArray(plan.features) ? plan.features : [],
+      })) : [])
       setCategories(Array.isArray(cats) ? cats : [])
       setPromotions(Array.isArray(promos) ? promos : [])
       setNotifications(Array.isArray(notes) ? notes : [])
@@ -293,7 +296,8 @@ const AdminDashboard = () => {
     const displayOrderVal = parseInt(ed.displayOrder, 10)
     const body = {
       title: ed.title.trim(), type: ed.type || 'Auto Care', price_monthly: price, duration_days: 30,
-      description: (ed.description || '').trim(), recommended: Boolean(ed.recommended), features: [], entitlements,
+      description: (ed.description || '').trim(), recommended: Boolean(ed.recommended),
+      features: (ed.features || []).map((feature) => String(feature).trim()).filter(Boolean), entitlements,
       display_order: Number.isInteger(displayOrderVal) && displayOrderVal >= 0 ? displayOrderVal : 0,
     }
     runAction(async () => {
@@ -313,6 +317,7 @@ const AdminDashboard = () => {
     setPlanEditor({
       id: plan.id, title: plan.title, type: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Package'].includes(plan.type) ? plan.type : 'Auto Care', price: String(Number(plan.priceMonthly)), duration: plan.durationDays || 30, description: plan.description || '', recommended: Boolean(plan.recommended), active: plan.active,
       displayOrder: plan.displayOrder !== undefined && plan.displayOrder !== null ? plan.displayOrder : plan.id,
+      features: Array.isArray(plan.features) ? plan.features : [],
       entitlements: Object.fromEntries((plan.entitlements || []).map((entitlement) => [entitlement.categoryId, entitlement.units])),
     })
   }
@@ -602,7 +607,7 @@ const AdminDashboard = () => {
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
-                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, displayOrder: '', description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
+                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, displayOrder: '', description: '', features: [], recommended: false, active: true, entitlements: {} })}>+ New Package</button>
               </div>
               <table className="ad-data-table">
                 <thead><tr><th># (ORDER)</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
@@ -1071,6 +1076,10 @@ const AdminDashboard = () => {
                 <span style={{ color: '#777', fontSize: '0.7rem', letterSpacing: '0.05em' }}>INCLUDED SERVICE COINS</span>
                 <div style={{ color: '#ddd', fontSize: '0.84rem', marginTop: '0.35rem' }}>{(planDetails.entitlements || []).map((entitlement) => `${entitlement.category?.name || entitlement.categoryId}: ${entitlement.units}`).join(' · ') || 'No entitlements'}</div>
               </div>
+              <div style={{ borderTop: '1px solid #2a2a2a', marginTop: '1rem', paddingTop: '0.9rem' }}>
+                <span style={{ color: '#777', fontSize: '0.7rem', letterSpacing: '0.05em' }}>CUSTOMER-FACING INCLUSIONS</span>
+                <div style={{ color: '#ddd', fontSize: '0.84rem', marginTop: '0.35rem' }}>{(planDetails.features || []).join(' · ') || 'No custom inclusions — the customer card will show service coins.'}</div>
+              </div>
               <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.2rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                 <button style={ghostBtn} disabled={busy} onClick={() => openPlanEditor(planDetails)}>Edit Package</button>
                 <button style={redBtn} disabled={busy} onClick={() => setConfirmPlanRemoval(true)}>Remove Package</button>
@@ -1106,6 +1115,16 @@ const AdminDashboard = () => {
               </select></label>
             <label style={{ color: '#888', fontSize: '0.75rem' }}>Description
               <textarea style={{ ...fieldStyle, minHeight: '76px', resize: 'vertical' }} value={planEditor.description || ''} maxLength={1000} onChange={(e) => setPlanEditor({ ...planEditor, description: e.target.value })} /></label>
+            <label style={{ color: '#888', fontSize: '0.75rem' }}>What&apos;s included
+              <textarea
+                style={{ ...fieldStyle, minHeight: '110px', resize: 'vertical' }}
+                value={(planEditor.features || []).join('\n')}
+                maxLength={2000}
+                placeholder={'One customer benefit per line\nExterior wash\nInterior vacuum\nBasic tire shine'}
+                onChange={(e) => setPlanEditor({ ...planEditor, features: e.target.value.split('\n') })}
+              />
+              <small style={{ display: 'block', marginTop: '0.35rem', color: '#666', lineHeight: 1.45 }}>Each line appears with a check mark on the customer plan card. Service coins below control the actual booking allowance.</small>
+            </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', color: '#ccc', fontSize: '0.82rem' }}>
               <input type="checkbox" checked={Boolean(planEditor.recommended)} onChange={(e) => setPlanEditor({ ...planEditor, recommended: e.target.checked })} />
               Show the "Most Popular" banner on the homepage

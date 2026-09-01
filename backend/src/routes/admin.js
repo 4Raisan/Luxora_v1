@@ -14,6 +14,20 @@ router.use(authenticateToken, requireRole('ADMIN'));
 // providers.serviceTowns is persisted as a comma-separated string; the admin UI
 // renders town lists as arrays, so every admin response serializes it explicitly.
 const townsList = (value) => String(value || '').split(',').map((town) => town.trim()).filter(Boolean);
+const planFeatures = (value) => {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+const normalizePlanFeatures = (features) => features
+  .map((feature) => String(feature || '').trim())
+  .filter(Boolean)
+  .slice(0, 20)
+  .map((feature) => feature.slice(0, 160));
 const normalizePackageType = (value, entitlements = []) => {
   const type = String(value || '').trim().toLowerCase();
   if (type === 'auto care' || type === 'auto') return 'Auto Care';
@@ -225,6 +239,7 @@ router.get('/subscriptions', async (_req, res) => {
     ...plan,
     displayOrder: plan.displayOrder,
     type: normalizePackageType(plan.type, plan.entitlements) || plan.type,
+    features: planFeatures(plan.features),
   })));
 });
 
@@ -247,7 +262,7 @@ router.post('/subscriptions', async (req, res) => {
       durationDays: 30,
       description: String(description).slice(0, 1000),
       recommended,
-      features: JSON.stringify(features),
+      features: JSON.stringify(normalizePlanFeatures(features)),
       displayOrder: normalizedOrder,
       entitlements: { create: normalized },
     },
@@ -268,7 +283,7 @@ router.put('/subscriptions/:id', async (req, res) => {
   if (req.body.duration_days !== undefined && Number(req.body.duration_days) !== 30) return res.status(400).json({ error: 'Packages always run for 30 days' });
   if (typeof req.body.active === 'boolean') data.active = req.body.active;
   if (req.body.recommended !== undefined) { if (typeof req.body.recommended !== 'boolean') return res.status(400).json({ error: 'recommended must be a boolean' }); data.recommended = req.body.recommended; }
-  if (req.body.features !== undefined) { if (!Array.isArray(req.body.features)) return res.status(400).json({ error: 'features must be an array' }); data.features = JSON.stringify(req.body.features); }
+  if (req.body.features !== undefined) { if (!Array.isArray(req.body.features)) return res.status(400).json({ error: 'features must be an array' }); data.features = JSON.stringify(normalizePlanFeatures(req.body.features)); }
   if (req.body.display_order !== undefined || req.body.displayOrder !== undefined) {
     const orderVal = Number(req.body.display_order ?? req.body.displayOrder);
     if (!Number.isInteger(orderVal) || orderVal < 0) return res.status(400).json({ error: 'display_order must be a non-negative integer' });
