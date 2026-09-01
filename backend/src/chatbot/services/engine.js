@@ -510,7 +510,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   // ===========================================================================
   // 8. INTENT: TRIGGER SPECIAL ASK SERVICE
   // ===========================================================================
-  if (lower.includes('special ask') || lower.includes('special service') || lower.includes('custom request') || lower.includes('custom service') || lower.includes('tell us what you need')) {
+  if (lower.includes('special ask') || lower.includes('special service') || lower.includes('custom request') || lower.includes('custom service') || lower.includes('tell us what you need') || lower.includes('requested service') || lower.includes('requested services') || lower.includes('request service') || lower === 'start_special_ask' || lower === 'requested_service') {
     let cat = 'GARDEN_CARE';
     if (lower.includes('auto') || lower.includes('car')) cat = 'AUTO_CARE';
     else if (lower.includes('pet') || lower.includes('dog') || lower.includes('cat')) cat = 'PET_CARE';

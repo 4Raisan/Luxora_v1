@@ -17,14 +17,10 @@ const createInitialGreeting = () => ({
     { label: '🌿 Garden Care', action: 'SELECT_GARDEN' },
     { label: '🐾 Pet Care', action: 'SELECT_PET' },
     { label: '🎯 Find the Right Package', action: 'START_SIZING' },
-    { label: '💬 Talk to Us', action: 'CONTACT_SUPPORT' }
+    { label: '💬 Talk to Us', action: 'CONTACT_SUPPORT' },
+    { label: '📋 Requested Service', action: 'START_SPECIAL_ASK' }
   ],
-  quickReplies: [
-    '🚗 Auto Care',
-    '🌿 Garden Care',
-    '🐾 Pet Care',
-    'Find the right package for my home'
-  ]
+  quickReplies: []
 })
 
 export function LuxoraChatbot() {
@@ -33,18 +29,13 @@ export function LuxoraChatbot() {
   const sessionIdRef = useRef('session_' + Math.random().toString(36).substring(2, 9))
 
   const [messages, setMessages] = useState([createInitialGreeting()])
-  const [suggestedQuestions, setSuggestedQuestions] = useState([
-    '🚗 Auto Care',
-    '🌿 Garden Care',
-    '🐾 Pet Care',
-    'Find the right package for my home'
-  ])
+  const [suggestedQuestions, setSuggestedQuestions] = useState([])
 
   const handleReset = () => {
     sessionIdRef.current = 'session_' + Math.random().toString(36).substring(2, 9)
     const init = createInitialGreeting()
     setMessages([init])
-    setSuggestedQuestions(init.quickReplies)
+    setSuggestedQuestions([])
     setIsTyping(false)
   }
 
@@ -146,6 +137,9 @@ export function LuxoraChatbot() {
         break
       case 'START_SPECIAL_ASK':
       case 'START_CUSTOM_PACKAGE_REQUEST':
+      case 'REQUESTED_SERVICE':
+      case 'REQUESTED_SERVICES':
+      case 'START_REQUESTED_SERVICE':
         handleSendMessage('', {
           wizardType: 'SPECIAL_ASK',
           stepAction: 'START',
