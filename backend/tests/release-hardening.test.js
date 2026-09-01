@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import jwt from 'jsonwebtoken';
@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
+import { stopChildProcess } from './helpers/stop-child-process.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
 import { getEntitlementSnapshot } from '../src/services/entitlements.js';
 import {
@@ -74,13 +75,7 @@ before(async () => {
 });
 
 after(async () => {
-  if (server) {
-    if (process.platform === 'win32') {
-      try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
-    } else {
-      try { server.kill('SIGKILL'); } catch {}
-    }
-  }
+  await stopChildProcess(server);
   try { await prisma.$disconnect(); } catch {}
 });
 

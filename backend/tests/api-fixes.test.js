@@ -6,7 +6,7 @@
 // serialization (B12), plus the full booking lifecycle.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
+import { stopChildProcess } from './helpers/stop-child-process.js';
 import './assert-test-database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -71,13 +72,7 @@ after(async () => {
     await prisma.user.deleteMany({ where: { email: { contains: suffix } } });
     await prisma.payment.deleteMany({ where: { gatewayOrderId: { contains: suffix } } });
   } catch (error) { console.error('test cleanup failed:', error.message); }
-  if (server) {
-    if (process.platform === 'win32') {
-      try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
-    } else {
-      try { server.kill('SIGKILL'); } catch {}
-    }
-  }
+  await stopChildProcess(server);
   await prisma.$disconnect();
 });
 

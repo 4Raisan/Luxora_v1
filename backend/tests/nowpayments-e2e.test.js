@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import crypto from 'node:crypto';
 import path from 'node:path';
@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { prisma } from '../src/config/prisma.js';
 import { sortObject } from '../src/services/paymentContracts.js';
+import { stopChildProcess } from './helpers/stop-child-process.js';
 import './assert-test-database.js';
 
 dotenv.config();
@@ -68,13 +69,7 @@ before(async () => {
 });
 
 after(async () => {
-  if (server) {
-    if (process.platform === 'win32') {
-      try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
-    } else {
-      try { server.kill('SIGKILL'); } catch {}
-    }
-  }
+  await stopChildProcess(server);
   if (mockNowPayments) {
     try { mockNowPayments.closeAllConnections?.(); } catch {}
     await new Promise((resolve) => mockNowPayments.close(resolve));
