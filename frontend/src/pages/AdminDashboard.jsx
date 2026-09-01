@@ -43,6 +43,7 @@ const NAV_ITEMS = [
 const fmtMoney = (v) => 'LKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 const fmtDateTime = (v) => (v ? new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
+const bookingCareLabel = (booking) => booking?.category_name || booking?.service_title || '—'
 const statusColor = (s) => ({
   completed: '#4ade80', confirmed: '#4ade80', approved: '#4ade80', active: '#4ade80', resolved: '#4ade80', refunded: '#4ade80',
   pending: '#eab308', in_review: '#60a5fa', requested: '#eab308', assigned: '#60a5fa', in_progress: '#60a5fa',
@@ -482,7 +483,7 @@ const AdminDashboard = () => {
                         <tr key={b.id}>
                           <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{b.id}</td>
                           <td>{b.customer_name || '—'}</td>
-                          <td>{b.service_title || '—'}</td>
+                          <td>{bookingCareLabel(b)}</td>
                           <td><StatBadge value={b.status} /></td>
                           <td>{b.bookingDate} {b.bookingTime || ''}</td>
                         </tr>
@@ -659,7 +660,7 @@ const AdminDashboard = () => {
                     <tr key={b.id}>
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{b.id}</td>
                       <td>{b.customer_name || '—'}</td>
-                      <td>{b.service_title || '—'}<small style={{ display: 'block', color: '#777' }}>{b.category_name}</small></td>
+                      <td>{bookingCareLabel(b)}</td>
                       <td>{b.provider_name || 'Unassigned'}</td>
                       <td>{b.bookingDate} {b.bookingTime || ''}</td>
                       <td>{fmtMoney(b.total_price)}</td>
@@ -685,7 +686,7 @@ const AdminDashboard = () => {
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{c.id}</td>
                       <td>{c.customer_name || '—'}</td>
                       <td style={{ maxWidth: '220px' }}>{c.subject}</td>
-                      <td>{c.service_title || '—'}</td>
+                      <td>{bookingCareLabel(c)}</td>
                       <td>{fmtDateTime(c.createdAt)}</td>
                       <td><StatBadge value={c.status} /></td>
                       <td><button style={ghostBtn} onClick={() => { setComplaintOpen(c); setComplaintNote(c.adminNote || '') }}>Review</button></td>
@@ -973,7 +974,7 @@ const AdminDashboard = () => {
       )}
 
       {bookingEdit && (
-        <Modal title={`MANAGE BOOKING #${bookingEdit.booking.id}`} eyebrow={`${bookingEdit.booking.service_title} · ${bookingEdit.booking.customer_name}`} onClose={() => setBookingEdit(null)}>
+        <Modal title={`MANAGE BOOKING #${bookingEdit.booking.id}`} eyebrow={`${bookingCareLabel(bookingEdit.booking)} · ${bookingEdit.booking.customer_name}`} onClose={() => setBookingEdit(null)}>
           <p style={{ color: '#aaa', fontSize: '0.8rem' }}>Current: <StatBadge value={bookingEdit.booking.status} /> · Provider: {bookingEdit.booking.provider_name || 'Unassigned'}</p>
           <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', marginBottom: '0.4rem' }}>Override status (transitions are validated server-side)</label>
           <select style={fieldStyle} value={bookingEdit.status} onChange={(e) => setBookingEdit({ ...bookingEdit, status: e.target.value })}>

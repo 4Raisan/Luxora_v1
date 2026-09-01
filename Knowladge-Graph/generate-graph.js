@@ -546,9 +546,9 @@ function generateOutput() {
         </div>
         <div class="settings-section">
           <div class="settings-label">Scale</div>
-          <label class="settings-row"><span>Node size</span><input id="nodeScale" type="range" min="70" max="160" value="110"></label>
-          <label class="settings-row"><span>Label size</span><input id="labelScale" type="range" min="70" max="160" value="88"></label>
-          <label class="settings-row"><span>Edge strength</span><input id="edgeOpacity" type="range" min="10" max="90" value="37"></label>
+          <label class="settings-row"><span>Node size <output id="nodeScaleValue">110%</output></span><input id="nodeScale" type="range" min="70" max="160" value="110"></label>
+          <label class="settings-row"><span>Label size <output id="labelScaleValue">88%</output></span><input id="labelScale" type="range" min="70" max="160" value="88"></label>
+          <label class="settings-row"><span>Edge strength <output id="edgeOpacityValue">37%</output></span><input id="edgeOpacity" type="range" min="10" max="90" value="37"></label>
         </div>
         <div class="settings-section">
           <div class="settings-label">Export</div>
@@ -556,8 +556,8 @@ function generateOutput() {
         </div>
         <div class="settings-section">
           <div class="settings-label">Layout spacing</div>
-          <label class="settings-row"><span>Connected spacing</span><input id="innerSpacing" type="range" min="60" max="260" value="145"></label>
-          <label class="settings-row"><span>Outer pull</span><input id="outerPull" type="range" min="1" max="50" value="15"></label>
+          <label class="settings-row"><span>Connected spacing <output id="innerSpacingValue">145 px</output></span><input id="innerSpacing" type="range" min="60" max="260" value="145"></label>
+          <label class="settings-row"><span>Outer pull <output id="outerPullValue">0.015</output></span><input id="outerPull" type="range" min="1" max="50" value="15"></label>
           <label class="settings-row"><span>Horizontal vibe <output id="horizontalVibeValue">0%</output></span><input id="horizontalVibe" type="range" min="0" max="50" value="0" aria-label="Horizontal vibe control"></label>
         </div>
         <div class="settings-actions">
@@ -763,11 +763,16 @@ function generateOutput() {
             outerOrbitLayout.center.x + node.radius * horizontalStretch * Math.cos(angle),
             outerOrbitLayout.center.y + node.radius * Math.sin(angle));
         }
-        for (const node of outerOrbitLayout.outerNodes) {
-          const angle = node.angle + outerAngle;
-          network.moveNode(node.id,
-            outerOrbitLayout.center.x + node.radius * horizontalStretch * Math.cos(angle),
-            outerOrbitLayout.center.y + node.radius * Math.sin(angle));
+        for (const cluster of outerOrbitLayout.outerClusters) {
+          const angle = cluster.angle + outerAngle;
+          const clusterX = outerOrbitLayout.center.x + cluster.radius * horizontalStretch * Math.cos(angle);
+          const clusterY = outerOrbitLayout.center.y + cluster.radius * Math.sin(angle);
+          for (const node of cluster.nodes) {
+            const nodeAngle = node.offsetAngle + angle;
+            network.moveNode(node.id,
+              clusterX + node.offsetRadius * horizontalStretch * Math.cos(nodeAngle),
+              clusterY + node.offsetRadius * Math.sin(nodeAngle));
+          }
         }
         outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
       };
@@ -788,13 +793,68 @@ function generateOutput() {
       const radii = nodes.map(node => node.radius).sort((a, b) => a - b);
       const coreThreshold = radii[Math.floor(radii.length * 0.45)];
       const outerThreshold = radii[Math.floor(radii.length * 0.72)];
+      const nodeById = new Map(nodes.map(node => [node.id, node]));
+      const adjacency = new Map(nodes.map(node => [node.id, new Set()]));
+      visEdges.forEach(edge => {
+        if (!adjacency.has(edge.from) || !adjacency.has(edge.to)) return;
+        adjacency.get(edge.from).add(edge.to);
+        adjacency.get(edge.to).add(edge.from);
+      });
+      const visited = new Set();
+      const components = [];
+      for (const node of nodes) {
+        if (visited.has(node.id)) continue;
+        const queue = [node.id];
+        const memberIds = [];
+        visited.add(node.id);
+        while (queue.length) {
+          const id = queue.pop();
+          memberIds.push(id);
+          for (const neighbour of adjacency.get(id) || []) {
+            if (!visited.has(neighbour)) {
+              visited.add(neighbour);
+              queue.push(neighbour);
+            }
+          }
+        }
+        const members = memberIds.map(id => nodeById.get(id));
+        const componentCenter = members.reduce((sum, member) => {
+          const position = positions[member.id];
+          return { x: sum.x + position.x, y: sum.y + position.y };
+        }, { x: 0, y: 0 });
+        componentCenter.x /= members.length;
+        componentCenter.y /= members.length;
+        const componentRadius = Math.hypot(componentCenter.x - center.x, componentCenter.y - center.y);
+        const reachesOuterRing = members.some(member => member.radius >= outerThreshold);
+        const isUnlinked = members.length === 1 && members[0].degree === 0;
+        if (isUnlinked || (members.length <= 8 && reachesOuterRing && componentRadius >= outerThreshold * 0.8)) {
+          components.push({ id: memberIds.slice().sort().join('|'), members, center: componentCenter });
+        }
+      }
+      components.sort((a, b) => a.id.localeCompare(b.id));
+      const outerRadius = Math.max(outerThreshold + uiState.innerSpacing * 1.25, 260);
+      const outerClusters = components.map((component, index) => {
+        const angle = -Math.PI / 2 + (index * Math.PI * 2) / Math.max(components.length, 1);
+        return {
+          angle,
+          radius: outerRadius,
+          nodes: component.members.map(member => {
+            const position = positions[member.id];
+            const offsetX = position.x - component.center.x;
+            const offsetY = position.y - component.center.y;
+            return {
+              id: member.id,
+              offsetRadius: Math.hypot(offsetX, offsetY),
+              offsetAngle: Math.atan2(offsetY, offsetX) - angle
+            };
+          })
+        };
+      });
+      const outerNodeIds = new Set(outerClusters.flatMap(cluster => cluster.nodes.map(node => node.id)));
       outerOrbitLayout = {
         center,
-        // Direction belongs to the visible ring, not to connection count. A file such as
-        // docs.js can have several endpoints while still settling on the outer ring.
-        // Classifying it by degree made that visibly outer node orbit with the inner ring.
-        innerNodes: nodes.filter(node => node.radius >= coreThreshold && node.radius < outerThreshold),
-        outerNodes: nodes.filter(node => node.radius >= outerThreshold)
+        innerNodes: nodes.filter(node => !outerNodeIds.has(node.id) && node.radius >= coreThreshold),
+        outerClusters
       };
       network.stopSimulation();
       startOuterOrbit();
@@ -1031,10 +1091,15 @@ function generateOutput() {
       setDiagramBackground('#0b0f19');
       document.getElementById('searchInput').value = '';
       document.getElementById('nodeScale').value = '110';
+      document.getElementById('nodeScaleValue').textContent = '110%';
       document.getElementById('labelScale').value = '88';
+      document.getElementById('labelScaleValue').textContent = '88%';
       document.getElementById('edgeOpacity').value = '37';
+      document.getElementById('edgeOpacityValue').textContent = '37%';
       document.getElementById('innerSpacing').value = '145';
+      document.getElementById('innerSpacingValue').textContent = '145 px';
       document.getElementById('outerPull').value = '15';
+      document.getElementById('outerPullValue').textContent = '0.015';
       document.getElementById('horizontalVibe').value = '0';
       document.getElementById('horizontalVibeValue').textContent = '0%';
       document.getElementById('edgeLabelMode').value = 'light';
@@ -1155,26 +1220,31 @@ function generateOutput() {
 
     document.getElementById('nodeScale').addEventListener('input', (event) => {
       uiState.nodeScale = Number(event.target.value) / 100;
+      document.getElementById('nodeScaleValue').textContent = event.target.value + '%';
       updateNodeScale();
     });
 
     document.getElementById('labelScale').addEventListener('input', (event) => {
       uiState.labelScale = Number(event.target.value) / 100;
+      document.getElementById('labelScaleValue').textContent = event.target.value + '%';
       updateLabelScale();
     });
 
     document.getElementById('edgeOpacity').addEventListener('input', (event) => {
       uiState.edgeOpacity = Number(event.target.value) / 100;
+      document.getElementById('edgeOpacityValue').textContent = event.target.value + '%';
       updateEdgeAppearance();
     });
 
     document.getElementById('innerSpacing').addEventListener('input', (event) => {
       uiState.innerSpacing = Number(event.target.value);
+      document.getElementById('innerSpacingValue').textContent = event.target.value + ' px';
       updateLayoutSpacing();
     });
 
     document.getElementById('outerPull').addEventListener('input', (event) => {
       uiState.outerPull = Number(event.target.value) / 1000;
+      document.getElementById('outerPullValue').textContent = uiState.outerPull.toFixed(3);
       updateLayoutSpacing();
     });
 

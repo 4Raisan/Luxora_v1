@@ -475,7 +475,7 @@ router.put('/bookings/:id', async (req, res) => {
 
 router.get('/complaints', async (_req, res) => {
   const complaints = await prisma.complaint.findMany({
-    include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, booking: { include: { service: true } } },
+    include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, booking: { include: { service: { include: { category: true } } } } },
     orderBy: { createdAt: 'desc' },
   });
   res.json(complaints.map((c) => ({
@@ -484,6 +484,7 @@ router.get('/complaints', async (_req, res) => {
     customer_name: c.user?.name,
     customer_email: c.user?.email,
     service_title: c.booking?.service?.title,
+    category_name: c.booking?.service?.category?.name,
   })));
 });
 
