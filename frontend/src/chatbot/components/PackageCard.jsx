@@ -37,9 +37,24 @@ export function PackageCard({ pkg, onSelect }) {
 
       <button
         className="lx-package-card__cta"
-        onClick={() => onSelect?.(pkg)}
+        onClick={() => {
+          const pkgTitle = pkg.title || pkg.name || 'Selected Package'
+          const categoryKey = pkg.categoryKey || (pkgTitle.toLowerCase().includes('auto') ? 'auto' : pkgTitle.toLowerCase().includes('garden') ? 'garden' : pkgTitle.toLowerCase().includes('pet') ? 'pet' : 'auto')
+          sessionStorage.setItem('selectedCategory', categoryKey)
+          sessionStorage.setItem('selectedPlanName', pkgTitle)
+          sessionStorage.setItem('loginRedirect', '/book-service')
+
+          const token = sessionStorage.getItem('token')
+          const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+          if (!token || user?.role?.toLowerCase() !== 'customer') {
+            window.location.href = '/login?role=customer'
+          } else {
+            window.location.href = '/book-service'
+          }
+          onSelect?.(pkg)
+        }}
       >
-        View Package →
+        ✦ Select & Book Package →
       </button>
     </div>
   )

@@ -177,24 +177,21 @@ export function LuxoraChatbot() {
           category: 'PET_CARE'
         })
         break
-      case 'SELECT_AUTO':
-        handleSendMessage('Auto Care')
-        break
-      case 'SELECT_GARDEN':
-        handleSendMessage('Garden Care')
-        break
-      case 'SELECT_PET':
-        handleSendMessage('Pet Care')
-        break
       case 'START_BOOKING':
-      case 'CONFIRM_BOOKING':
-        if (!sessionStorage.getItem('token')) {
-          sessionStorage.setItem('loginRedirect', '/book-service')
-          window.location.href = '/login'
+      case 'CONFIRM_BOOKING': {
+        const categoryKey = btn.category || sessionStorage.getItem('selectedCategory') || 'auto'
+        sessionStorage.setItem('selectedCategory', categoryKey)
+        sessionStorage.setItem('loginRedirect', '/book-service')
+
+        const token = sessionStorage.getItem('token')
+        const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+        if (!token || user?.role?.toLowerCase() !== 'customer') {
+          window.location.href = '/login?role=customer'
         } else {
           window.location.href = '/book-service'
         }
         break
+      }
       case 'SHOW_CATEGORIES':
       case 'SHOW_MAIN_MENU':
         handleSendMessage('Main Menu')
@@ -209,14 +206,17 @@ export function LuxoraChatbot() {
         handleSendMessage('My provider has not arrived and is 40 minutes late')
         break
       case 'VIEW_DASHBOARD':
-      case 'CHECK_BALANCE':
-        if (!sessionStorage.getItem('token')) {
+      case 'CHECK_BALANCE': {
+        const token = sessionStorage.getItem('token')
+        const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+        if (!token || user?.role?.toLowerCase() !== 'customer') {
           sessionStorage.setItem('loginRedirect', '/customer-dashboard')
-          window.location.href = '/login'
+          window.location.href = '/login?role=customer'
         } else {
           window.location.href = '/customer-dashboard'
         }
         break
+      }
       case 'NEW_CONVERSATION':
         handleReset()
         break
@@ -235,7 +235,19 @@ export function LuxoraChatbot() {
   }
 
   const handleSelectPackage = (pkg) => {
-    handleSendMessage(`Tell me more about ${pkg.title || pkg.name}`)
+    const pkgTitle = pkg?.title || pkg?.name || 'Selected Package'
+    const categoryKey = pkg?.categoryKey || (pkgTitle.toLowerCase().includes('auto') ? 'auto' : pkgTitle.toLowerCase().includes('garden') ? 'garden' : pkgTitle.toLowerCase().includes('pet') ? 'pet' : 'auto')
+    sessionStorage.setItem('selectedCategory', categoryKey)
+    sessionStorage.setItem('selectedPlanName', pkgTitle)
+    sessionStorage.setItem('loginRedirect', '/book-service')
+
+    const token = sessionStorage.getItem('token')
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    if (!token || user?.role?.toLowerCase() !== 'customer') {
+      window.location.href = '/login?role=customer'
+    } else {
+      window.location.href = '/book-service'
+    }
   }
 
   return (

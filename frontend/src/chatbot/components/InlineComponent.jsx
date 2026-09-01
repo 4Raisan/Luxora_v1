@@ -153,8 +153,9 @@ function RecommendationCardsWidget({ comp, onSendMessage }) {
     sessionStorage.setItem('loginRedirect', '/book-service')
 
     const token = sessionStorage.getItem('token')
-    if (!token) {
-      window.location.href = '/login'
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    if (!token || user?.role?.toLowerCase() !== 'customer') {
+      window.location.href = '/login?role=customer'
     } else {
       window.location.href = '/book-service'
     }

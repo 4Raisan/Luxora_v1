@@ -40,6 +40,8 @@ if (process.env.TRUST_PROXY) {
   const tp = process.env.TRUST_PROXY.trim();
   if (tp === 'true' || tp === '1') {
     app.set('trust proxy', 1);
+  } else if (tp === 'false' || tp === '0') {
+    app.set('trust proxy', false);
   } else if (!isNaN(Number(tp))) {
     app.set('trust proxy', Number(tp));
   } else {

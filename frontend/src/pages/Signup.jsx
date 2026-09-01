@@ -43,7 +43,13 @@ const Signup = () => {
       if (!data.token || !data.user?.id) throw new Error('Google sign-in response was incomplete.')
       sessionStorage.setItem('token', data.token)
       sessionStorage.setItem('user', JSON.stringify(data.user))
-      navigate('/customer-dashboard')
+      const redirect = sessionStorage.getItem('loginRedirect')
+      if (redirect) {
+        sessionStorage.removeItem('loginRedirect')
+        navigate(redirect)
+      } else {
+        navigate('/customer-dashboard')
+      }
     } catch (err) {
       setErrorMsg(err.message)
     }
@@ -79,7 +85,13 @@ const Signup = () => {
       if (!data.token || !data.user?.id) throw new Error('Registration response was incomplete.')
       sessionStorage.setItem('token', data.token)
       sessionStorage.setItem('user', JSON.stringify(userData))
-      navigate('/customer-dashboard')
+      const redirect = sessionStorage.getItem('loginRedirect')
+      if (redirect) {
+        sessionStorage.removeItem('loginRedirect')
+        navigate(redirect)
+      } else {
+        navigate('/customer-dashboard')
+      }
     } catch (err) {
       setLoading(false)
       setErrorMsg(err.message || 'Unable to create your account.')

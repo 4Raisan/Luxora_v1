@@ -20,7 +20,29 @@ export default function BookService() {
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
-    apiRequest('/services').then(setServices).catch(() => {})
+    apiRequest('/services').then((data) => {
+      setServices(data || [])
+      const selectedPlan = sessionStorage.getItem('selectedPlanName')
+      const selectedCat = sessionStorage.getItem('selectedCategory')
+      if (data && data.length > 0) {
+        if (selectedPlan) {
+          const match = data.find((s) =>
+            s.title?.toLowerCase().includes(selectedPlan.toLowerCase()) ||
+            selectedPlan.toLowerCase().includes(s.title?.toLowerCase())
+          )
+          if (match) {
+            setServiceId(String(match.id))
+            return
+          }
+        }
+        if (selectedCat) {
+          const catMatch = data.find((s) =>
+            (s.category_name || '').toLowerCase().includes(selectedCat.toLowerCase())
+          )
+          if (catMatch) setServiceId(String(catMatch.id))
+        }
+      }
+    }).catch(() => {})
     apiRequest('/categories').then(setCategories).catch(() => {})
   }, [token, navigate])
 

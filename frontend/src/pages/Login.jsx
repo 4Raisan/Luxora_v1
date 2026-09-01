@@ -45,8 +45,6 @@ const Login = () => {
 
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Shared session handling for password and Google sign-in: the backend owns
-  // the role, so both paths route identically after authentication.
   const completeLogin = (data) => {
     if (!data.token || !data.user?.role) throw new Error('Login response was incomplete')
     const userObj = { ...data.user, ...(data.provider ? { provider: data.provider } : {}) }
@@ -55,7 +53,15 @@ const Login = () => {
     sessionStorage.setItem('user', JSON.stringify(userObj))
     if (userRole === 'admin') navigate('/admin-dashboard')
     else if (userRole === 'provider') navigate('/provider-dashboard')
-    else navigate('/customer-dashboard')
+    else {
+      const redirect = sessionStorage.getItem('loginRedirect')
+      if (redirect) {
+        sessionStorage.removeItem('loginRedirect')
+        navigate(redirect)
+      } else {
+        navigate('/customer-dashboard')
+      }
+    }
   }
 
   // 1-second polished login transition before navigating to destination dashboard
@@ -166,6 +172,29 @@ const Login = () => {
           <h1 className="auth-card__title">Welcome Back</h1>
           <p className="auth-card__subtitle">Access your elite concierge suite</p>
         </div>
+
+        {/* Customer booking redirect notification banner */}
+        {(sessionStorage.getItem('loginRedirect') === '/book-service' || window.location.search.includes('role=customer')) && (
+          <div style={{
+            background: 'rgba(201, 168, 76, 0.12)',
+            border: '1px solid rgba(201, 168, 76, 0.3)',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            marginBottom: '16px',
+            textAlign: 'center',
+            fontSize: '0.84rem',
+            color: '#f3e8c8'
+          }}>
+            <strong style={{ color: '#C9A84C', display: 'block', marginBottom: '2px', letterSpacing: '0.04em' }}>
+              ✦ CUSTOMER SIGN-IN
+            </strong>
+            {sessionStorage.getItem('selectedPlanName') ? (
+              <span>Sign in to complete your reservation for <strong>{sessionStorage.getItem('selectedPlanName')}</strong></span>
+            ) : (
+              <span>Sign in as a customer to reserve your concierge service</span>
+            )}
+          </div>
+        )}
 
         {/* Form — one unified sign-in. Your account's role decides the portal. */}
         <form className="auth-form" onSubmit={handleSubmit} id="login-form">
