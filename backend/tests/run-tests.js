@@ -33,8 +33,16 @@ function run(command, args) {
   if (result.status !== 0) process.exit(result.status || 1);
 }
 
-// The exact isolated schema name is verified above before this destructive reset.
-run(process.execPath, [prismaCli, 'migrate', 'reset', '--force', '--skip-seed']);
+import { PrismaClient } from '@prisma/client';
+
+const resetPrisma = new PrismaClient({ datasources: { db: { url: databaseUrl.toString() } } });
+try {
+  await resetPrisma.$executeRawUnsafe('DROP SCHEMA IF EXISTS luxora_test CASCADE; CREATE SCHEMA luxora_test;');
+} finally {
+  await resetPrisma.$disconnect();
+}
+
+run(process.execPath, [prismaCli, 'migrate', 'deploy']);
 run(process.execPath, ['prisma/seed.js']);
 run(process.execPath, [
   '--test',

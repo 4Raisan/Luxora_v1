@@ -78,7 +78,7 @@ after(async () => {
     if (process.platform === 'win32') {
       try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
     } else {
-      server.kill();
+      try { server.kill('SIGKILL'); } catch {}
     }
   }
   try { await prisma.$disconnect(); } catch {}
