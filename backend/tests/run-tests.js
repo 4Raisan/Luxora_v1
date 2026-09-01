@@ -37,7 +37,8 @@ import { PrismaClient } from '@prisma/client';
 
 const resetPrisma = new PrismaClient({ datasources: { db: { url: databaseUrl.toString() } } });
 try {
-  await resetPrisma.$executeRawUnsafe('DROP SCHEMA IF EXISTS luxora_test CASCADE; CREATE SCHEMA luxora_test;');
+  await resetPrisma.$executeRawUnsafe('DROP SCHEMA IF EXISTS luxora_test CASCADE;');
+  await resetPrisma.$executeRawUnsafe('CREATE SCHEMA luxora_test;');
 } finally {
   await resetPrisma.$disconnect();
 }
