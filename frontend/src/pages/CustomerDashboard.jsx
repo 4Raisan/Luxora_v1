@@ -805,34 +805,31 @@ const CustomerDashboard = () => {
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
 
-  // Restore pre-filled Bespoke Concierge draft from Chatbot if available
+  // Restore a pre-filled Bespoke Concierge request passed from the chatbot.
   useEffect(() => {
     try {
-      const savedBespokeStr = sessionStorage.getItem('pendingBespokeRequest')
-      const urlParams = new URLSearchParams(window.location.search)
-      const shouldOpenBespoke = urlParams.get('openBespoke') === 'true'
+      const savedRequest = sessionStorage.getItem('pendingBespokeRequest')
+      const params = new URLSearchParams(window.location.search)
+      const shouldOpenRequest = params.get('openBespoke') === 'true'
 
-      if (savedBespokeStr) {
-        const parsed = JSON.parse(savedBespokeStr)
+      if (savedRequest) {
+        const parsed = JSON.parse(savedRequest)
         setCustomForm((prev) => ({
           ...prev,
           title: parsed.title || prev.title,
           category: parsed.category || prev.category,
           date: parsed.date || prev.date,
-          notes: parsed.notes || prev.notes
+          notes: parsed.notes || prev.notes,
         }))
         setShowCustomRequestModal(true)
         sessionStorage.removeItem('pendingBespokeRequest')
-      } else if (shouldOpenBespoke) {
+      } else if (shouldOpenRequest) {
         setShowCustomRequestModal(true)
       }
 
-      if (shouldOpenBespoke) {
-        const newUrl = window.location.pathname
-        window.history.replaceState({}, '', newUrl)
-      }
-    } catch (err) {
-      console.warn('Could not restore bespoke request from session.', err)
+      if (shouldOpenRequest) window.history.replaceState({}, '', window.location.pathname)
+    } catch (error) {
+      console.warn('Could not restore bespoke request from session.', error)
     }
   }, [])
 
@@ -1849,10 +1846,9 @@ const CustomerDashboard = () => {
                           )
                         }
                         return displayList.map((b) => {
-                          const isSelectedRow = selectedBookingId === b.id
                           return (
-                            <React.Fragment key={b.id}>
                             <tr
+                              key={b.id}
                               className="cd-overview-bookings-row"
                               onClick={() => {
                                 if (b.status !== 'CANCELLED') {
@@ -1861,8 +1857,8 @@ const CustomerDashboard = () => {
                                 }
                               }}
                               style={{
-                                borderBottom: isSelectedRow && b.status !== 'CANCELLED' ? '1px solid var(--gold, #c9a84c)' : '1px solid #202020',
-                                background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.03)' : (isSelectedRow ? 'rgba(201, 168, 76, 0.08)' : 'transparent'),
+                                borderBottom: '1px solid #202020',
+                                background: b.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                 cursor: b.status === 'CANCELLED' ? 'not-allowed' : 'pointer',
                                 opacity: b.status === 'CANCELLED' ? 0.65 : 1,
                                 transition: 'all 0.2s ease'
@@ -1892,41 +1888,6 @@ const CustomerDashboard = () => {
                                 <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                               </td>
                             </tr>
-
-                          {/* Selected Row Detail Panel */}
-                          {isSelectedRow && b.status !== 'CANCELLED' && (
-                            <tr className="cd-overview-booking-detail-row" style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
-                              <td colSpan={4} style={{ padding: '0.85rem 1.25rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'rgba(201, 168, 76, 0.05)', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '0.85rem 1.25rem' }}>
-                                  <div>
-                                    <span style={{ color: '#888', fontSize: '0.68rem', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DISPATCH ADDRESS LOCATION</span>
-                                    <span style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.15rem' }}>
-                                      📍 {b.location || 'Address not set'}
-                                    </span>
-                                  </div>
-
-                                  <div style={{ background: '#16161a', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '10px', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <div>
-                                      <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', display: 'block' }}>🏁 WORKING END PIN</span>
-                                      <small style={{ color: '#888', fontSize: '0.68rem' }}>Completion Verification Code</small>
-                                    </div>
-                                    <span style={{ background: 'rgba(201, 168, 76, 0.15)', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', fontSize: '1.05rem', fontWeight: 900, padding: '0.25rem 0.75rem', borderRadius: '8px', letterSpacing: '0.15em' }}>
-                                      {b.endPin || '······'}
-                                    </span>
-                                  </div>
-
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedBookingId(null); }}
-                                    style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#aaa', padding: '0.55rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
-                                    title="Close panel"
-                                  >
-                                    Close ✕
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
                       )
                     })
                   })()}

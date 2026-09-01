@@ -65,6 +65,9 @@ const ActiveBookingCards = ({
                   <span>•</span>
                   {booking.location || 'Town not set'}
                 </p>
+                {booking.providerPhone && (
+                  <small className="cd-active-booking-card__phone">📞 {booking.providerPhone}</small>
+                )}
                 <div className="cd-active-booking-card__meta">
                   <span>Booking #{booking.id}</span>
                   <span>{booking.time || 'Time not set'}</span>

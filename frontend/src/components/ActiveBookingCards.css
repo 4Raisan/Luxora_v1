@@ -84,6 +84,14 @@
   color: var(--gold, #c9a84c);
 }
 
+.cd-active-booking-card__phone {
+  display: block;
+  margin-top: 0.28rem;
+  color: #b8b8c0;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 .cd-active-booking-card__meta {
   display: flex;
   flex-wrap: wrap;
