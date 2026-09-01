@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
@@ -44,11 +44,10 @@ before(async () => {
 after(async () => {
   if (server) {
     if (process.platform === 'win32') {
-      spawn('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' });
+      try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
     } else {
       server.kill();
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
   }
   await prisma.$disconnect();
 });

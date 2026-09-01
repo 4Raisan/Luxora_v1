@@ -12,7 +12,7 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 
-export async function migrateBankAccounts(client = prisma) {
+export async function migrateBankAccounts(client = prisma, { dryRun = false } = {}) {
   assertBankingKeyConfigured();
 
   const accounts = await client.providerBankAccount.findMany({
@@ -21,6 +21,7 @@ export async function migrateBankAccounts(client = prisma) {
 
   let migratedCount = 0;
   let verifiedCount = 0;
+  let alreadyEncryptedCount = 0;
 
   for (const account of accounts) {
     const rawNumber = String(account.accountNumber || '').trim();
@@ -28,6 +29,7 @@ export async function migrateBankAccounts(client = prisma) {
     let encryptedNumber = rawNumber;
 
     if (rawNumber.startsWith('enc:v1:')) {
+      alreadyEncryptedCount += 1;
       // Already encrypted, decrypt to verify and ensure mask/hash are present
       plainNumber = decryptAccountNumber(rawNumber);
     } else {
@@ -45,14 +47,16 @@ export async function migrateBankAccounts(client = prisma) {
     const mask = maskAccountNumber(plainNumber);
     const hash = hashAccountNumber(plainNumber);
 
-    await client.providerBankAccount.update({
-      where: { id: account.id },
-      data: {
-        accountNumber: encryptedNumber,
-        accountMask: mask,
-        accountHash: hash,
-      },
-    });
+    if (!dryRun) {
+      await client.providerBankAccount.update({
+        where: { id: account.id },
+        data: {
+          accountNumber: encryptedNumber,
+          accountMask: mask,
+          accountHash: hash,
+        },
+      });
+    }
   }
 
   // Normalize selected accounts so each provider has exactly one selected account
@@ -70,7 +74,7 @@ export async function migrateBankAccounts(client = prisma) {
 
     for (const acc of provAccounts) {
       const shouldBeSelected = acc.id === targetSelectedId;
-      if (acc.selected !== shouldBeSelected) {
+      if (acc.selected !== shouldBeSelected && !dryRun) {
         await client.providerBankAccount.update({
           where: { id: acc.id },
           data: { selected: shouldBeSelected },
@@ -79,17 +83,28 @@ export async function migrateBankAccounts(client = prisma) {
     }
   }
 
-  return { total: accounts.length, migrated: migratedCount, verified: verifiedCount };
+  return {
+    total: accounts.length,
+    migrated: migratedCount,
+    alreadyEncrypted: alreadyEncryptedCount,
+    verified: verifiedCount,
+    dryRun,
+  };
 }
 
 if (process.argv[1] && process.argv[1].endsWith('migrate-bank-accounts.js')) {
-  migrateBankAccounts()
+  const isDryRun = process.argv.includes('--dry-run') || process.argv.includes('-d');
+  migrateBankAccounts(prisma, { dryRun: isDryRun })
     .then((result) => {
-      console.log(`Bank account migration successful: ${result.total} total, ${result.migrated} newly encrypted, ${result.verified} verified.`);
+      if (result.dryRun) {
+        console.log(`[PREFLIGHT DRY-RUN] Bank account encryption verification passed. Total accounts: ${result.total} (${result.migrated} legacy to encrypt, ${result.alreadyEncrypted} already encrypted). All ${result.verified} accounts verified.`);
+      } else {
+        console.log(`[MIGRATION SUCCESS] Bank account migration completed. Total: ${result.total}, Newly encrypted: ${result.migrated}, Verified: ${result.verified}.`);
+      }
       process.exit(0);
     })
     .catch((err) => {
-      console.error('Bank account migration failed:', err);
+      console.error('[MIGRATION ERROR] Bank account migration failed:', err.message);
       process.exit(1);
     });
 }

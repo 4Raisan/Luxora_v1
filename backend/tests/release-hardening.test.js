@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import jwt from 'jsonwebtoken';
@@ -25,6 +25,8 @@ import { escapeHtml } from '../src/services/integrations.js';
 import { isOriginAllowed } from '../src/index.js';
 import { activateSubscription } from '../src/routes/integrations.js';
 import { renewDueDemoSubscriptions } from '../src/routes/services.js';
+import { validatePassword, isPassword } from '../src/middleware/validators.js';
+import { resolveApiBase } from '../../frontend/src/services/api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(__dirname, '..');
@@ -60,8 +62,7 @@ const authJson = (token, path, options = {}) => json(path, {
 });
 
 before(async () => {
-  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
-  server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`));
+  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: 'ignore' });
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
       const health = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) });
@@ -74,9 +75,13 @@ before(async () => {
 
 after(async () => {
   if (server) {
-    server.kill();
-    await new Promise((resolve) => server.once('exit', resolve));
+    if (process.platform === 'win32') {
+      try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
+    } else {
+      server.kill();
+    }
   }
+  try { await prisma.$disconnect(); } catch {}
 });
 
 test('Release Hardening 1: Immutable subscription entitlements snapshot on creation', async () => {
@@ -314,6 +319,11 @@ test('Release Hardening 6: Plaintext legacy bank account migration and normaliza
     },
   });
 
+  // Run the safe migration script in dry-run first
+  const dryResult = await migrateBankAccounts(prisma, { dryRun: true });
+  assert.equal(dryResult.dryRun, true);
+  assert.ok(dryResult.verified >= 2);
+
   // Run the safe migration script
   const result = await migrateBankAccounts(prisma);
   assert.ok(result.migrated >= 2);
@@ -499,4 +509,92 @@ test('Release Hardening 11: HTTP Security Headers and CSP verification', async (
   assert.equal(res.headers.get('x-xss-protection'), '1; mode=block');
   assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
   assert.ok(res.headers.get('content-security-policy')?.includes("default-src 'self'"), 'CSP header must be present');
+});
+
+test('Release Hardening 12: Promotion discount applies to subscription pricePaid and renewal preserves paid price', async () => {
+  const rnd = Math.random().toString(36).slice(2, 8);
+  const cust = await prisma.user.create({
+    data: { name: `Promo Cust ${rnd}`, email: `promo.cust.${rnd}@test.luxora`, passwordHash: await bcrypt.hash('ValidPass123!', 10), role: 'CUSTOMER', town: 'Colombo', addressDistrict: 'Western' },
+  });
+  let autoCat = await prisma.category.findFirst({ where: { name: 'Auto Care' } });
+  if (!autoCat) {
+    autoCat = await prisma.category.create({
+      data: { name: 'Auto Care', description: 'Auto Care Services' },
+    });
+  }
+
+  const plan = await prisma.subscriptionPlan.create({
+    data: {
+      title: `Promo Auto ${rnd}`,
+      type: 'Auto Care',
+      priceMonthly: 15000,
+      durationDays: 30,
+      features: JSON.stringify(['Interior', 'Exterior']),
+      entitlements: {
+        create: [{ categoryId: autoCat.id, units: 2 }],
+      },
+    },
+    include: { entitlements: true },
+  });
+
+  // Payment record with 20% discount (paid 12,000 instead of 15,000)
+  const payment = await prisma.payment.create({
+    data: {
+      userId: cust.id,
+      planId: plan.id,
+      gateway: 'DEMO',
+      gatewayOrderId: `DEMO-PROMO-${rnd}`,
+      idempotencyKey: `IDEM-PROMO-${rnd}`,
+      status: 'PENDING',
+      originalAmount: 15000,
+      discountAmount: 3000,
+      expectedAmount: 12000,
+      expectedCurrency: 'LKR',
+    },
+  });
+
+  const completedPayment = await activateSubscription(payment, { mode: 'demo' });
+  assert.ok(completedPayment);
+
+  const sub = await prisma.userSubscription.findUnique({
+    where: { id: completedPayment.subscriptionId },
+  });
+  assert.ok(sub);
+  assert.equal(Number(sub.pricePaid), 12000, 'Subscription pricePaid must store the discounted amount paid (12000), not pre-discount price (15000)');
+});
+
+test('Release Hardening 13: Strengthened password policy and common password blacklist', () => {
+  // Too short (< 8 chars)
+  assert.equal(validatePassword('short').valid, false);
+  assert.equal(validatePassword('pass12').valid, false);
+
+  // Common passwords
+  assert.equal(validatePassword('password123').valid, false);
+  assert.equal(validatePassword('12345678').valid, false);
+  assert.equal(validatePassword('admin123').valid, false);
+
+  // Missing digits or missing letters
+  assert.equal(validatePassword('abcdefghijk').valid, false);
+  assert.equal(validatePassword('9876543210').valid, false);
+
+  // Repeated single character
+  assert.equal(validatePassword('aaaaaaaa').valid, false);
+
+  // Valid passwords
+  assert.equal(validatePassword('StrongPass123!').valid, true);
+  assert.equal(validatePassword('LuxoraSecurity2026').valid, true);
+  assert.equal(isPassword('StrongPass123!'), true);
+});
+
+test('Release Hardening 14: Frontend API URL dynamic resolution', () => {
+  // In production mode without VITE_API_URL -> same-origin relative /api
+  assert.equal(resolveApiBase(undefined, true), '/api');
+  assert.equal(resolveApiBase('', true), '/api');
+
+  // In production mode with custom domain
+  assert.equal(resolveApiBase('https://luxora.bond/api', true), 'https://luxora.bond/api');
+  assert.equal(resolveApiBase('https://luxora.bond', true), 'https://luxora.bond/api');
+
+  // In development mode -> local Express backend
+  assert.equal(resolveApiBase(undefined, false), 'http://localhost:5000/api');
 });

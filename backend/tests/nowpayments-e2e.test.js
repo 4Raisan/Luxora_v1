@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import crypto from 'node:crypto';
 import path from 'node:path';
@@ -55,8 +55,7 @@ before(async () => {
   });
   await new Promise((resolve) => mockNowPayments.listen(MOCK_PORT, '127.0.0.1', resolve));
 
-  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
-  server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`));
+  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: 'ignore' });
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
@@ -71,13 +70,15 @@ before(async () => {
 after(async () => {
   if (server) {
     if (process.platform === 'win32') {
-      spawn('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' });
+      try { spawnSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}
     } else {
       server.kill();
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  if (mockNowPayments) await new Promise((resolve) => mockNowPayments.close(resolve));
+  if (mockNowPayments) {
+    try { mockNowPayments.closeAllConnections?.(); } catch {}
+    await new Promise((resolve) => mockNowPayments.close(resolve));
+  }
   await prisma.$disconnect();
 });
 

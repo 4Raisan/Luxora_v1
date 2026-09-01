@@ -52,3 +52,4 @@ run(process.execPath, [
   'tests/new-flow-rules.test.js',
   'tests/release-hardening.test.js',
 ]);
+process.exit(0);
