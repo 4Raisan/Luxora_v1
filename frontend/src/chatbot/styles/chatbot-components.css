@@ -8,7 +8,7 @@
 .lx-chat-trigger {
   position: fixed;
   bottom: 28px;
-  right: 28px;
+  left: 28px;
   z-index: 999999;
   display: flex;
   align-items: center;
@@ -82,7 +82,7 @@
 .lx-chat-window {
   position: fixed;
   bottom: 24px;
-  right: 24px;
+  left: 24px;
   width: 420px;
   max-width: calc(100vw - 32px);
   height: 640px;
@@ -103,7 +103,7 @@
 @media (max-width: 640px) {
   .lx-chat-trigger {
     bottom: max(16px, env(safe-area-inset-bottom));
-    right: 16px;
+    left: 16px;
     padding: 10px 16px 10px 12px;
     font-size: 0.82rem;
   }
