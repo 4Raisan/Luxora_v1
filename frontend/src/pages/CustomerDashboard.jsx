@@ -808,6 +808,37 @@ const CustomerDashboard = () => {
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
 
+  // Restore pre-filled Bespoke Concierge draft from Chatbot if available
+  useEffect(() => {
+    try {
+      const savedBespokeStr = sessionStorage.getItem('pendingBespokeRequest')
+      const urlParams = new URLSearchParams(window.location.search)
+      const shouldOpenBespoke = urlParams.get('openBespoke') === 'true'
+
+      if (savedBespokeStr) {
+        const parsed = JSON.parse(savedBespokeStr)
+        setCustomForm((prev) => ({
+          ...prev,
+          title: parsed.title || prev.title,
+          category: parsed.category || prev.category,
+          date: parsed.date || prev.date,
+          notes: parsed.notes || prev.notes
+        }))
+        setShowCustomRequestModal(true)
+        sessionStorage.removeItem('pendingBespokeRequest')
+      } else if (shouldOpenBespoke) {
+        setShowCustomRequestModal(true)
+      }
+
+      if (shouldOpenBespoke) {
+        const newUrl = window.location.pathname
+        window.history.replaceState({}, '', newUrl)
+      }
+    } catch (err) {
+      console.warn('Could not restore bespoke request from session.', err)
+    }
+  }, [])
+
   // Custom requests are real support tickets on the server; load them so the
   // list survives reloads and is visible to the concierge/admin team.
   useEffect(() => {
@@ -831,8 +862,8 @@ const CustomerDashboard = () => {
 
   const handleCustomRequestSubmit = async (e) => {
     e.preventDefault()
-    if (!customForm.title || !customForm.notes) {
-      alert('Please fill out Subject Title and Requirements.')
+    if (!customForm.title?.trim() || !customForm.category?.trim() || !customForm.date?.trim() || !customForm.notes?.trim()) {
+      alert('Please fill out all required fields: Subject Title, Category, Preferred Date, and Special Requirements.')
       return
     }
 
@@ -845,7 +876,7 @@ const CustomerDashboard = () => {
     try {
       const ticket = await apiRequest('/support', 'POST', {
         subject: customForm.title.trim(),
-        message: `[${customForm.category}${customForm.date ? ` · preferred ${customForm.date} ${customForm.time}` : ''}] ${customForm.notes.trim()}`,
+        message: `[${customForm.category}${customForm.date ? ` · preferred ${customForm.date} ${customForm.time || '10:00 AM'}` : ''}] ${customForm.notes.trim()}`,
         priority: 'NORMAL',
       }, token)
       const newReq = {
@@ -4115,6 +4146,8 @@ const CustomerDashboard = () => {
                   <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED DATE</label>
                   <input
                     type="date"
+                    required
+                    min={new Date().toISOString().split('T')[0]}
                     value={customForm.date}
                     onChange={(e) => setCustomForm({ ...customForm, date: e.target.value })}
                     style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}

@@ -806,39 +806,52 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #d4af37 0%, #aa820a 100%);
-  color: #0b0f19;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 0.8rem;
+  background: linear-gradient(135deg, #E8C96B 0%, #D4A843 50%, #A67C1E 100%);
+  color: #0F0F0F;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: var(--lx-chat-radius-pill);
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+  transition: all 0.22s ease;
   text-align: center;
+  box-shadow: 0 4px 14px rgba(201, 168, 76, 0.35);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 0 12px rgba(212, 175, 55, 0.35);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #FFF0B8 0%, #E8C96B 50%, #C9A84C 100%);
+  box-shadow: 0 6px 20px rgba(201, 168, 76, 0.5);
+  transform: translateY(-1.5px);
 }
 
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--lx-chat-text-muted);
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
+.btn-secondary,
+.in-chat-actions button {
+  background: linear-gradient(135deg, rgba(201, 168, 76, 0.12) 0%, rgba(140, 109, 35, 0.22) 100%);
+  border: 1px solid var(--lx-chat-gold-border);
+  color: var(--lx-chat-gold-light);
+  padding: 8px 16px;
+  border-radius: var(--lx-chat-radius-pill);
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+  transition: all 0.22s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-align: center;
 }
 
-.btn-secondary:hover {
-  background: rgba(201, 168, 76, 0.15);
+.btn-secondary:hover,
+.in-chat-actions button:hover {
+  background: linear-gradient(135deg, rgba(201, 168, 76, 0.28) 0%, rgba(140, 109, 35, 0.42) 100%);
   border-color: var(--lx-chat-gold);
-  color: var(--lx-chat-white);
+  color: #FFFFFF;
+  box-shadow: 0 4px 16px rgba(201, 168, 76, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1.5px);
 }
 
 /* Stepper Box */

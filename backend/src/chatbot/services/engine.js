@@ -95,52 +95,27 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   // 1. STRUCTURED PAYLOAD HANDLING
   // ===========================================================================
   if (structuredPayload) {
-    const { wizardType, stepAction, value, text: payloadText, files, category, customerName, contactInfo, quantity, scope, requiredServices, preferredSchedule, notes, date, timeSlot, address } = structuredPayload;
+    const { wizardType, stepAction, value, text: payloadText, title, category, notes, date, timeSlot, address } = structuredPayload;
 
     // A. Special Ask / Custom Request Flow
     if (wizardType === 'SPECIAL_ASK' || wizardType === 'CUSTOM_REQUEST' || (!wizardType && (session.activeWizard === 'SPECIAL_ASK' || session.activeWizard === 'CUSTOM_REQUEST'))) {
       if (!session.specialAskDraft || stepAction === 'START') {
         session.specialAskDraft = startSpecialAskWizard({
-          category: category || 'GARDEN_CARE',
-          quantity: quantity || scope || '',
-          scope: scope || quantity || '',
-          customerName: customerName || (user ? user.name : ''),
-          contactInfo: contactInfo || (user ? user.phone || user.email : ''),
-          requiredServices,
-          preferredSchedule,
-          notes: notes || payloadText || text
+          title: title || '',
+          category: category || 'Home & Estate Care',
+          date: date || '',
+          notes: notes || payloadText || text || ''
         });
       }
       const wizardResp = handleSpecialAskStep(session.specialAskDraft, {
         action: stepAction,
-        text: payloadText || value || text,
-        customerName: customerName || (user ? user.name : undefined),
-        contactInfo: contactInfo || (user ? user.phone || user.email : undefined),
-        scope: scope || quantity,
-        requiredServices,
-        preferredSchedule,
-        notes: notes || payloadText || text,
-        files
+        title: title || session.specialAskDraft.title,
+        category: category || session.specialAskDraft.category,
+        date: date || session.specialAskDraft.date,
+        notes: notes || payloadText || value || text || session.specialAskDraft.notes,
+        text: payloadText || value || text
       });
       if (wizardResp.completed) {
-        if (prisma) {
-          try {
-            let targetUserId = user ? user.id : null;
-            if (!targetUserId) {
-              const defCust = await prisma.user.findFirst({ where: { role: 'CUSTOMER' } });
-              targetUserId = defCust ? defCust.id : 1;
-            }
-            await prisma.supportTicket.create({
-              data: {
-                userId: targetUserId,
-                subject: `[Special Ask] ${session.specialAskDraft.category || 'Custom Service'} - ${session.specialAskDraft.scope || ''}`,
-                message: `Customer: ${session.specialAskDraft.customerName || (user ? user.name : 'Guest')} | Contact: ${session.specialAskDraft.contactInfo || (user ? user.email : '')}\nScope: ${session.specialAskDraft.scope || ''}\nRequired Services: ${session.specialAskDraft.requiredServices || ''}\nPreferred Schedule: ${session.specialAskDraft.preferredSchedule || ''}\nNotes: ${session.specialAskDraft.notes || ''}`
-              }
-            });
-          } catch (dbErr) {
-            console.error('Error saving Special Ask ticket to database:', dbErr);
-          }
-        }
         session.activeWizard = null;
         session.specialAskDraft = null;
         session.customRequestDraft = null;
@@ -510,7 +485,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   // ===========================================================================
   // 8. INTENT: TRIGGER SPECIAL ASK SERVICE
   // ===========================================================================
-  if (lower.includes('special ask') || lower.includes('special service') || lower.includes('custom request') || lower.includes('custom service') || lower.includes('tell us what you need')) {
+  if (lower.includes('special ask') || lower.includes('special service') || lower.includes('custom request') || lower.includes('custom service') || lower.includes('tell us what you need') || lower.includes('requested service') || lower.includes('requested services') || lower.includes('request service') || lower === 'start_special_ask' || lower === 'requested_service') {
     let cat = 'GARDEN_CARE';
     if (lower.includes('auto') || lower.includes('car')) cat = 'AUTO_CARE';
     else if (lower.includes('pet') || lower.includes('dog') || lower.includes('cat')) cat = 'PET_CARE';

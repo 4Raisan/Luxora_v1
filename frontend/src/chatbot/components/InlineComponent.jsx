@@ -206,193 +206,207 @@ function RecommendationCardsWidget({ comp, onSendMessage }) {
 }
 
 function SpecialAskFormWidget({ comp, onSendPayload }) {
-  const [scope, setScope] = useState(comp.scope || comp.quantity || '')
-  const [requiredServices, setRequiredServices] = useState(comp.requiredServices || '')
-  const [preferredSchedule, setPreferredSchedule] = useState(comp.preferredSchedule || '')
-  const [customerName, setCustomerName] = useState(comp.customerName || '')
-  const [contactInfo, setContactInfo] = useState(comp.contactInfo || '')
-  const [notes, setNotes] = useState(comp.initialNotes || comp.initialText || '')
-  const [uploadedFiles, setUploadedFiles] = useState([])
+  const categories = comp.categories || [
+    'Home & Estate Care',
+    'Auto Care',
+    'Garden Care',
+    'Pet Care',
+    'VIP Concierge'
+  ]
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files)
-    files.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (loadEvt) => {
-        const dataUrl = loadEvt.target.result
-        setUploadedFiles((prev) => [...prev, { fileName: file.name, fileUrl: dataUrl }])
-      }
-      reader.readAsDataURL(file)
-    })
-  }
+  const [title, setTitle] = useState(comp.title || '')
+  const [category, setCategory] = useState(comp.category || 'Home & Estate Care')
+  const [date, setDate] = useState(comp.date || '')
+  const [notes, setNotes] = useState(comp.notes || '')
+  const [validationError, setValidationError] = useState(comp.error || '')
 
-  const handleRemoveFile = (dataUrl) => {
-    setUploadedFiles((prev) => prev.filter((f) => f.fileUrl !== dataUrl))
-  }
+  const todayStr = new Date().toISOString().split('T')[0]
 
-  const handleSubmit = () => {
+  const handleSubmit = (e) => {
+    e?.preventDefault?.()
+    if (!title.trim()) {
+      setValidationError('Please enter a Service Subject / Title.')
+      return
+    }
+    if (!category || !categories.includes(category)) {
+      setValidationError('Please select a valid Category.')
+      return
+    }
+    if (!date) {
+      setValidationError('Please select a Preferred Date.')
+      return
+    }
+    if (!notes.trim()) {
+      setValidationError('Please provide Special Requirements & Details.')
+      return
+    }
+
+    setValidationError('')
     onSendPayload({
       wizardType: 'SPECIAL_ASK',
       stepAction: 'NEXT',
-      scope: scope || 'Custom scope',
-      requiredServices: requiredServices || 'Custom requirements',
-      preferredSchedule: preferredSchedule || 'Flexible',
-      customerName: customerName || 'Valued Member',
-      contactInfo: contactInfo || 'Provided in chat',
-      notes: notes || 'Special Ask Service evaluation',
-      text: notes || 'Special Ask Service evaluation',
-      files: uploadedFiles,
-      category: comp.category
+      title: title.trim(),
+      category: category,
+      date: date,
+      notes: notes.trim()
     })
   }
 
   return (
     <div className="in-chat-widget">
       <div style={{ fontWeight: 700, color: 'var(--lx-chat-gold-light)', fontSize: '0.92rem', marginBottom: '4px' }}>
-        ✦ Special Ask Service ({comp.categoryName})
+        ✦ Bespoke Concierge / Requested Service
       </div>
       <p style={{ fontSize: '0.76rem', color: 'var(--lx-chat-text-muted)', marginBottom: '10px' }}>
-        Have a requirement that doesn’t fit our standard packages? Submit a special request and our Luxora team will review your requirements and get back to you with the appropriate solution.
+        Submit your custom service specifications. All fields are required to prepare your bespoke proposal.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
-        <input
-          className="form-input"
-          placeholder="Number of vehicles / pets / property size"
-          value={scope}
-          onChange={(e) => setScope(e.target.value)}
-        />
-        <input
-          className="form-input"
-          placeholder="Required services (e.g. Full wash + detailing, landscaping, etc.)"
-          value={requiredServices}
-          onChange={(e) => setRequiredServices(e.target.value)}
-        />
-        <input
-          className="form-input"
-          placeholder="Preferred schedule (e.g. Bi-weekly on weekends)"
-          value={preferredSchedule}
-          onChange={(e) => setPreferredSchedule(e.target.value)}
-        />
-        <input
-          className="form-input"
-          placeholder="Your Name (e.g. Alexander Wright)"
-          value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-        />
-        <input
-          className="form-input"
-          placeholder="Phone or Email (e.g. +94 77 123 4567)"
-          value={contactInfo}
-          onChange={(e) => setContactInfo(e.target.value)}
-        />
-      </div>
-
-      <textarea
-        className="inline-text-area"
-        placeholder="Additional notes, access instructions, or special requests..."
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-      />
-
-      <label className="image-uploader-dropzone">
-        <div style={{ fontSize: '18px', marginBottom: '2px' }}>📷</div>
-        <div style={{ fontSize: '0.74rem', fontWeight: 600, color: '#fff' }}>
-          Add Photo (Optional)
-        </div>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          style={{ display: 'none' }}
-          onChange={handleFileUpload}
-        />
-      </label>
-
-      {uploadedFiles.length > 0 && (
-        <div className="upload-thumbnails">
-          {uploadedFiles.map((file, idx) => (
-            <div key={idx} className="thumb-preview">
-              <img src={file.fileUrl} alt={file.fileName} />
-              <div
-                className="thumb-remove"
-                onClick={() => handleRemoveFile(file.fileUrl)}
-              >
-                ✕
-              </div>
-            </div>
-          ))}
+      {validationError && (
+        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#ff8080', padding: '6px 10px', borderRadius: '6px', fontSize: '0.76rem', marginBottom: '8px' }}>
+          ⚠️ {validationError}
         </div>
       )}
 
-      <div className="in-chat-actions">
-        <button type="button" className="btn-primary" onClick={handleSubmit}>
-          {comp.submitLabel || 'Submit Special Ask'}
-        </button>
-      </div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--lx-chat-gold)', fontWeight: 700, marginBottom: '3px' }}>
+            1. SERVICE SUBJECT / TITLE *
+          </label>
+          <input
+            className="form-input"
+            required
+            placeholder="e.g. Villa Marble Floor Polishing & Restoration"
+            value={title}
+            onChange={(e) => { setTitle(e.target.value); setValidationError('') }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--lx-chat-gold)', fontWeight: 700, marginBottom: '3px' }}>
+            2. CATEGORY *
+          </label>
+          <select
+            className="form-input"
+            value={category}
+            onChange={(e) => { setCategory(e.target.value); setValidationError('') }}
+            style={{ cursor: 'pointer' }}
+          >
+            {categories.map((cat) => (
+              <option key={cat} value={cat} style={{ background: '#111', color: '#fff' }}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--lx-chat-gold)', fontWeight: 700, marginBottom: '3px' }}>
+            3. PREFERRED DATE *
+          </label>
+          <input
+            type="date"
+            className="form-input"
+            required
+            min={todayStr}
+            value={date}
+            onChange={(e) => { setDate(e.target.value); setValidationError('') }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--lx-chat-gold)', fontWeight: 700, marginBottom: '3px' }}>
+            4. SPECIAL REQUIREMENTS & DETAILS *
+          </label>
+          <textarea
+            className="inline-text-area"
+            required
+            rows="3"
+            placeholder="Describe your custom service requirements, estate dimensions, specialized instructions, or urgency..."
+            value={notes}
+            onChange={(e) => { setNotes(e.target.value); setValidationError('') }}
+          />
+        </div>
+
+        <div className="in-chat-actions" style={{ marginTop: '4px' }}>
+          <button type="submit" className="btn-primary" style={{ width: '100%' }}>
+            {comp.submitLabel || 'Review Request Summary →'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
 
 function SummaryCardWidget({ comp, onSendPayload }) {
+  const handleContinue = () => {
+    // 1. Store request data in sessionStorage to prevent any data loss
+    const requestData = {
+      title: comp.title || '',
+      category: comp.category || 'Home & Estate Care',
+      date: comp.date || '',
+      notes: comp.notes || ''
+    }
+    sessionStorage.setItem('pendingBespokeRequest', JSON.stringify(requestData))
+
+    // 2. Check login status
+    const token = sessionStorage.getItem('token')
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+    const isCustomer = token && user?.role?.toLowerCase() === 'customer'
+
+    if (isCustomer) {
+      window.location.href = '/customer-dashboard?openBespoke=true'
+    } else {
+      sessionStorage.setItem('loginRedirect', '/customer-dashboard?openBespoke=true')
+      window.location.href = '/login?role=customer'
+    }
+  }
+
   return (
     <div className="summary-review-card">
       <div style={{ fontWeight: 700, color: 'var(--lx-chat-gold-light)', fontSize: '0.88rem', marginBottom: '8px' }}>
-        ✦ REVIEW SPECIAL ASK SERVICE
+        ✦ REVIEW BESPOKE SERVICE REQUEST
       </div>
       <div className="summary-details">
         <div className="summary-row">
+          <span className="summary-label">Subject / Title:</span>
+          <span className="summary-val" style={{ color: 'var(--lx-chat-gold-light)' }}>{comp.title || 'Custom Service'}</span>
+        </div>
+        <div className="summary-row">
           <span className="summary-label">Category:</span>
-          <span className="summary-val">{comp.categoryName}</span>
+          <span className="summary-val">{comp.category}</span>
         </div>
         <div className="summary-row">
-          <span className="summary-label">Scope / Assets:</span>
-          <span className="summary-val">{comp.scope || comp.quantity || 'Custom Scope'}</span>
-        </div>
-        <div className="summary-row">
-          <span className="summary-label">Required Services:</span>
-          <span className="summary-val">{comp.requiredServices || 'Tailored assessment'}</span>
-        </div>
-        <div className="summary-row">
-          <span className="summary-label">Preferred Schedule:</span>
-          <span className="summary-val">{comp.preferredSchedule || 'Flexible'}</span>
-        </div>
-        <div className="summary-row">
-          <span className="summary-label">Name:</span>
-          <span className="summary-val">{comp.customerName || 'Valued Member'}</span>
-        </div>
-        <div className="summary-row">
-          <span className="summary-label">Contact:</span>
-          <span className="summary-val">{comp.contactInfo || 'On File'}</span>
-        </div>
-        <div className="summary-row">
-          <span className="summary-label">Photos attached:</span>
-          <span className="summary-val">{comp.attachmentsCount || 0} photo(s)</span>
+          <span className="summary-label">Preferred Date:</span>
+          <span className="summary-val">{comp.date || 'Not specified'}</span>
         </div>
         <div style={{ marginTop: '6px' }}>
-          <span className="summary-label">Additional Notes:</span>
+          <span className="summary-label">Requirements & Details:</span>
           <div className="summary-val" style={{ textAlign: 'left', marginTop: '3px', fontStyle: 'italic' }}>
-            &quot;{comp.notes || comp.description || 'None'}&quot;
+            &quot;{comp.notes || 'None'}&quot;
           </div>
         </div>
       </div>
 
       <div className="in-chat-actions">
-        {(comp.actions || []).map((act, idx) => (
-          <button
-            key={idx}
-            type="button"
-            className={act.primary ? 'btn-primary' : 'btn-secondary'}
-            onClick={() =>
-              onSendPayload({
-                wizardType: 'SPECIAL_ASK',
-                stepAction: act.action
-              })
-            }
-          >
-            {act.label}
-          </button>
-        ))}
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={handleContinue}
+        >
+          Continue & Submit →
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() =>
+            onSendPayload({
+              wizardType: 'SPECIAL_ASK',
+              stepAction: 'EDIT'
+            })
+          }
+        >
+          ✎ Edit Request
+        </button>
       </div>
     </div>
   )
