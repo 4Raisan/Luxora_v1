@@ -801,6 +801,7 @@ const CustomerDashboard = () => {
 
   // Custom Request State — real support tickets from GET /support/my only.
   const [showCustomRequestModal, setShowCustomRequestModal] = useState(false)
+  const [customRequestSuccessModal, setCustomRequestSuccessModal] = useState(null)
   const [customRequests, setCustomRequests] = useState([])
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
@@ -889,7 +890,10 @@ const CustomerDashboard = () => {
         message: `Your request "${customForm.title}" (${newReq.id}) has been submitted to Concierge Desk.`,
         category: 'system'
       })
-      alert(`Custom Request "${customForm.title}" submitted successfully (ref ${newReq.id}). A Luxora Concierge Specialist will contact you shortly.`)
+      setCustomRequestSuccessModal({
+        title: customForm.title,
+        id: newReq.id,
+      })
       setShowCustomRequestModal(false)
       setCustomForm({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
     } catch (error) {
@@ -4142,6 +4146,216 @@ const CustomerDashboard = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Request Success Modal ── */}
+      {customRequestSuccessModal && (
+        <div
+          className="cd-drawer-overlay animate-fade-in"
+          onClick={() => setCustomRequestSuccessModal(null)}
+          style={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '1rem',
+            zIndex: 1001,
+          }}
+        >
+          <div
+            className="cd-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              background: 'linear-gradient(180deg, #181818 0%, #111111 100%)',
+              border: '1px solid rgba(201, 168, 76, 0.4)',
+              borderRadius: '20px',
+              padding: '2.25rem 2rem',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(201, 168, 76, 0.18)',
+              textAlign: 'center',
+              position: 'relative',
+              animation: 'fadeIn 0.25s ease-out',
+            }}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setCustomRequestSuccessModal(null)}
+              aria-label="Close confirmation"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                background: '#1c1c1c',
+                border: '1px solid #333',
+                color: '#aaa',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.85rem',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--gold, #c9a84c)'
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#333'
+                e.currentTarget.style.color = '#aaa'
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Gold Checkmark Success Badge */}
+            <div
+              style={{
+                width: '68px',
+                height: '68px',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(201, 168, 76, 0.25) 0%, rgba(201, 168, 76, 0.05) 70%)',
+                border: '2px solid rgba(201, 168, 76, 0.65)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1.25rem auto',
+                boxShadow: '0 0 30px rgba(201, 168, 76, 0.3)',
+              }}
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold, #c9a84c)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+
+            <span
+              style={{
+                color: 'var(--gold, #c9a84c)',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                display: 'block',
+              }}
+            >
+              REQUEST SUBMITTED
+            </span>
+
+            <h3
+              style={{
+                color: '#ffffff',
+                fontSize: '1.4rem',
+                fontWeight: 800,
+                margin: '0.35rem 0 1.25rem 0',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Customer Request Confirmed
+            </h3>
+
+            {/* Request Summary Box */}
+            <div
+              style={{
+                background: '#141414',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '1.1rem 1.25rem',
+                marginBottom: '1.25rem',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>
+                Request Subject
+              </div>
+              <div
+                style={{
+                  fontSize: '1rem',
+                  color: '#fff',
+                  fontWeight: 700,
+                  marginBottom: '0.85rem',
+                  lineHeight: '1.4',
+                  wordBreak: 'break-word',
+                }}
+              >
+                "{customRequestSuccessModal.title}"
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingTop: '0.75rem',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: '0.68rem', color: '#888', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Reference ID
+                  </span>
+                  <span style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.05em' }}>
+                    {customRequestSuccessModal.id}
+                  </span>
+                </div>
+
+                <span
+                  style={{
+                    background: 'rgba(201, 168, 76, 0.12)',
+                    border: '1px solid rgba(201, 168, 76, 0.3)',
+                    color: 'var(--gold, #c9a84c)',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '0.3rem 0.75rem',
+                    borderRadius: '20px',
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  Concierge Review
+                </span>
+              </div>
+            </div>
+
+            <p
+              style={{
+                color: '#cccccc',
+                fontSize: '0.88rem',
+                lineHeight: '1.55',
+                margin: '0 0 1.5rem 0',
+              }}
+            >
+              Customer Request <strong style={{ color: '#fff' }}>"{customRequestSuccessModal.title}"</strong> submitted successfully (ref <strong style={{ color: 'var(--gold, #c9a84c)' }}>{customRequestSuccessModal.id}</strong>). A Luxora Concierge Specialist will contact you shortly.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setCustomRequestSuccessModal(null)}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #dfc06b 0%, #c9a84c 100%)',
+                color: '#000',
+                border: 'none',
+                fontWeight: 800,
+                padding: '0.85rem 1.5rem',
+                fontSize: '0.92rem',
+                borderRadius: '10px',
+                boxShadow: '0 4px 18px rgba(201, 168, 76, 0.35)',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)'
+                e.currentTarget.style.boxShadow = '0 6px 22px rgba(201, 168, 76, 0.45)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 18px rgba(201, 168, 76, 0.35)'
+              }}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
