@@ -348,8 +348,11 @@
       const outerThreshold = radii[Math.floor(radii.length * 0.72)];
       outerOrbitLayout = {
         center,
-        innerNodes: nodes.filter(node => node.degree > 1 && node.degree < 8 && node.radius >= coreThreshold),
-        outerNodes: nodes.filter(node => node.degree === 1 && node.radius >= outerThreshold)
+        // Direction belongs to the visible ring, not to connection count. A file such as
+        // docs.js can have several endpoints while still settling on the outer ring.
+        // Classifying it by degree made that visibly outer node orbit with the inner ring.
+        innerNodes: nodes.filter(node => node.radius >= coreThreshold && node.radius < outerThreshold),
+        outerNodes: nodes.filter(node => node.radius >= outerThreshold)
       };
       network.stopSimulation();
       startOuterOrbit();
