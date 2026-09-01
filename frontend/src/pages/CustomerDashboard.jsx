@@ -352,7 +352,9 @@ const CustomerDashboard = () => {
     return (rows || []).filter(Boolean).map((booking) => ({
       id: booking?.id,
       customer: currentUserName,
-      service: booking?.service_title || 'Concierge Service',
+      // Booking tables represent the purchased care category. The detailed
+      // service stays server-side for fulfilment, pricing, and assignment.
+      service: booking?.category_name || booking?.service_title || 'Concierge Service',
       status: (booking?.status || '').toUpperCase(),
       color: booking?.status === 'cancelled' ? '#ef4444' : '#4ade80',
       date: booking?.bookingDate,
@@ -715,7 +717,6 @@ const CustomerDashboard = () => {
       return
     }
     let created
-    let bookedServiceTitle = categoryName
     setBookingSessionBusy(true)
     try {
       await apiRequest('/profile', 'PUT', {
@@ -733,7 +734,6 @@ const CustomerDashboard = () => {
           ? `${selectedPetType.title} is not currently available.`
           : `No ${categoryName} service is currently available.`)
       }
-      bookedServiceTitle = service.title
       created = await apiRequest('/bookings', 'POST', {
         service_id: service.id,
         booking_date: serviceBookingForm.date,
@@ -746,9 +746,7 @@ const CustomerDashboard = () => {
       setBookingSessionBusy(false)
     }
 
-    const serviceTitle = cat === 'pet'
-      ? `${selectedPetType.title} — ${bookedServiceTitle}`
-      : categoryName
+    const serviceTitle = categoryName
 
     let startPin = created?.start_pin
     let completionPin = created?.completion_pin
