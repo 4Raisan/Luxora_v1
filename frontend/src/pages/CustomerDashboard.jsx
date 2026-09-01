@@ -641,14 +641,16 @@ const CustomerDashboard = () => {
 
   const checkIsPinUnlocked = () => true
 
+  const [cancelBookingConfirmModal, setCancelBookingConfirmModal] = useState(null)
+
   const handleCancelBooking = (bookingId) => {
     const target = customerActiveBookings.find(b => b.id === bookingId)
     const serviceName = target ? target.service : 'Service'
+    setCancelBookingConfirmModal({ bookingId, serviceName })
+  }
 
-    if (!window.confirm(`Are you sure you want to cancel booking ${bookingId} (${serviceName})?`)) {
-      return
-    }
-
+  const confirmCancelBooking = (bookingId, serviceName) => {
+    setCancelBookingConfirmModal(null)
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token' || !Number.isInteger(Number(bookingId))) {
       alert('Please sign in to cancel this booking.')
@@ -660,7 +662,6 @@ const CustomerDashboard = () => {
         setSelectedBookingId(prev => prev === bookingId ? null : prev)
         addNotification({ title: 'Booking Cancelled', message: `Your booking ${bookingId} (${serviceName}) has been cancelled.`, category: 'system' })
         await loadServerData()
-        alert(`Booking ${bookingId} has been cancelled successfully.`)
       })
       .catch((error) => alert(error.message || 'Could not cancel this booking.'))
   }
@@ -3346,6 +3347,220 @@ const CustomerDashboard = () => {
             >
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancel Booking Confirmation Modal Popup ── */}
+      {cancelBookingConfirmModal && (
+        <div
+          className="cd-drawer-overlay animate-fade-in"
+          onClick={() => setCancelBookingConfirmModal(null)}
+          style={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '1rem',
+            zIndex: 1001,
+          }}
+        >
+          <div
+            className="cd-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              background: 'linear-gradient(180deg, #181818 0%, #111111 100%)',
+              border: '1px solid rgba(201, 168, 76, 0.4)',
+              borderRadius: '20px',
+              padding: '2.25rem 2rem',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(201, 168, 76, 0.18)',
+              textAlign: 'center',
+              position: 'relative',
+              animation: 'fadeIn 0.25s ease-out',
+            }}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setCancelBookingConfirmModal(null)}
+              aria-label="Close cancellation modal"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                background: '#1c1c1c',
+                border: '1px solid #333',
+                color: '#aaa',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.85rem',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--gold, #c9a84c)'
+                e.currentTarget.style.color = '#fff'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#333'
+                e.currentTarget.style.color = '#aaa'
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Amber/Gold Warning Badge */}
+            <div
+              style={{
+                width: '68px',
+                height: '68px',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(239, 68, 68, 0.2) 0%, rgba(201, 168, 76, 0.08) 70%)',
+                border: '2px solid rgba(201, 168, 76, 0.65)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1.25rem auto',
+                boxShadow: '0 0 30px rgba(201, 168, 76, 0.25)',
+              }}
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold, #c9a84c)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+
+            <span
+              style={{
+                color: 'var(--gold, #c9a84c)',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                display: 'block',
+              }}
+            >
+              CANCEL BOOKING CONFIRMATION
+            </span>
+
+            <h3
+              style={{
+                color: '#ffffff',
+                fontSize: '1.4rem',
+                fontWeight: 800,
+                margin: '0.35rem 0 1rem 0',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Cancel Booking?
+            </h3>
+
+            {/* Dynamic Details Box */}
+            <div
+              style={{
+                background: '#141414',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '1.1rem 1.25rem',
+                marginBottom: '1.25rem',
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Booking Number
+                </span>
+                <span style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.05em' }}>
+                  #{cancelBookingConfirmModal.bookingId}
+                </span>
+              </div>
+
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Service
+                </span>
+                <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>
+                  {cancelBookingConfirmModal.serviceName}
+                </span>
+              </div>
+            </div>
+
+            <p
+              style={{
+                color: '#cccccc',
+                fontSize: '0.9rem',
+                lineHeight: '1.55',
+                margin: '0 0 1.5rem 0',
+              }}
+            >
+              Are you sure you want to cancel booking <strong style={{ color: 'var(--gold, #c9a84c)' }}>#{cancelBookingConfirmModal.bookingId}</strong> (<span style={{ color: '#fff', fontWeight: 600 }}>{cancelBookingConfirmModal.serviceName}</span>)?
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setCancelBookingConfirmModal(null)}
+                style={{
+                  flex: 1,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  color: '#aaa',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  fontWeight: 700,
+                  padding: '0.85rem 1rem',
+                  fontSize: '0.9rem',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+                  e.currentTarget.style.color = '#fff'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'
+                  e.currentTarget.style.color = '#aaa'
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => confirmCancelBooking(cancelBookingConfirmModal.bookingId, cancelBookingConfirmModal.serviceName)}
+                style={{
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #dfc06b 0%, #c9a84c 100%)',
+                  color: '#000',
+                  border: 'none',
+                  fontWeight: 800,
+                  padding: '0.85rem 1rem',
+                  fontSize: '0.9rem',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 18px rgba(201, 168, 76, 0.35)',
+                  cursor: 'pointer',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)'
+                  e.currentTarget.style.boxShadow = '0 6px 22px rgba(201, 168, 76, 0.45)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 18px rgba(201, 168, 76, 0.35)'
+                }}
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}
