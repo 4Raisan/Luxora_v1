@@ -1,51 +1,75 @@
 # Luxora Frontend
 
-React 19 + Vite SPA. The UI renders server data; the API remains the authority for roles, payments, coins, bookings, and database writes.
+The Luxora frontend is a React and Vite application for customer, provider, and administrator workflows. It consumes the Luxora API through the shared request client in `src/services/api.js`.
 
-## Run locally
+## Local development
 
 ```powershell
-Copy-Item .env.example .env.local
-npm install
+npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+The development server runs at `http://localhost:3000` by default.
 
-## Commands
+Useful checks:
 
 ```powershell
-npm run dev
+npm run lint
+npm run build
+```
+
+## API configuration
+
+Copy `.env.example` to `.env` and set `VITE_API_URL` when the API is not available at the default location.
+
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+API resolution is intentionally environment-aware:
+
+| Situation | API base used |
+| --- | --- |
+| Development without `VITE_API_URL` | `http://localhost:5000/api` |
+| Production without `VITE_API_URL` | Same-origin `/api` |
+| Separate frontend and API domains | Explicit `VITE_API_URL` value |
+
+The client normalizes an explicit URL so requests consistently use the `/api` prefix. A Vercel frontend deployed separately from the backend must define `VITE_API_URL` with the public backend URL.
+
+All `VITE_` variables are embedded in the browser build and are public. Never store JWT secrets, payment secrets, database credentials, bank-encryption keys, or other server credentials in frontend environment variables.
+
+## Production build
+
+```powershell
 npm run build
 npm run preview
-npm run lint
 ```
 
-## Environment
+Vite writes the production bundle to `dist/`. Vercel should use `npm run build` and publish that directory.
 
-| Variable | Example |
-| --- | --- |
-| `VITE_API_URL` | `http://localhost:5000/api` |
+## Authentication and navigation
 
-Only `VITE_` variables reach the browser. Never put database, JWT, payment, email, or object-storage secrets in this file.
+The shared API client attaches the current bearer token and handles the configured API base. Protected pages must still respect backend authorization: frontend role redirects improve navigation but do not replace JWT, role, ownership, or provider-KYC checks enforced by the API.
 
-## Important paths
+When changing a page’s API usage, verify the full contract:
 
-| Path | Purpose |
-| --- | --- |
-| `src/App.jsx` | Routes and role entry points |
-| `src/services/api.js` | API base URL and request helper |
-| `src/pages/*Dashboard.jsx` | Customer, provider, admin workspaces |
-| `src/components/PortalShell.jsx` | Shared portal layout |
+1. Request method and path.
+2. Request body and validation rules.
+3. Authentication and role requirements.
+4. Response shape, loading, empty, and error states.
+5. The matching backend route and service behaviour.
 
-## UI checks
+Then run `npm run graph:verify` from the repository root so the Knowledge Graph continues to reflect frontend-to-backend links.
+
+## Source map
 
 ```text
-1. Start the backend and check /api/health.
-2. Confirm Network requests use VITE_API_URL.
-3. Test a real signed-in read/write flow.
-4. Check desktop and mobile layouts.
-5. Run build and lint.
+src/pages/           Route-level screens
+src/components/      Reusable UI components
+src/services/api.js  API base resolution and authenticated requests
+src/context/         Shared application state
+src/App.jsx           Routes and role entry points
+public/              Static public assets
 ```
 
-Use `apiRequest()`, refresh from the server after mutations, and show API errors instead of inventing local records.
+See the [root README](../README.md) for full-project setup and the [Knowledge Graph guide](../Knowladge-Graph/README.md) for cross-layer navigation.

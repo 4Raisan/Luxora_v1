@@ -1,40 +1,79 @@
-# 🕸️ Luxora Codebase Knowledge Graph
+# Luxora Codebase Knowledge Graph
 
-Welcome to the **Luxora Knowledge Graph** hub. This directory provides automated tools, interactive visual diagrams, machine-readable dependency graphs, and debugging playbooks designed specifically for **AI Coding Agents** and human engineers.
+The Knowledge Graph maps Luxora’s frontend, API routes, middleware, services, integrations, Prisma models, tests, configuration, and runtime relationships. It helps developers and coding agents trace the full impact of a change before editing connected code.
 
----
+Explore it online: **[Luxora Interactive Knowledge Graph](https://4raisan.github.io/Luxora_v1/)**
 
-## 📁 Directory Structure
+## Agent entry point and source order
+
+Coding agents start with the repository-root [`AGENTS.md`](../AGENTS.md). That file directs them through the graph and the supporting references in this order:
+
+```text
+AGENTS.md
+  ├── knowledge-graph.json
+  ├── index.html
+  ├── ARCHITECTURE_GRAPH.md
+  ├── AGENT_DEBUGGING_PLAYBOOK.md
+  ├── CONFIRMED_PRODUCT_RULES.md
+  └── AGENT_NAVIGATION_MAP.md
+          ├── 00_AGENT_START.md
+          ├── 01_AUTH_FLOW.md
+          ├── 02_CUSTOMER_BOOKING_FLOW.md
+          ├── 03_PROVIDER_FULFILLMENT_FLOW.md
+          ├── 04_ADMIN_OPERATIONS_FLOW.md
+          ├── 05_API_CONTRACTS.md
+          ├── 06_DATABASE_SCHEMA.md
+          └── 07_RUNTIME_DEPLOYMENT.md
+```
+
+These links are part of the coding-agent workflow. Do not remove, rename, or replace them with a shortened README summary. `CONFIRMED_PRODUCT_RULES.md` is the authority for confirmed product behaviour when implementation details or older notes disagree.
+
+## Files
 
 | File | Purpose |
-| :--- | :--- |
-| **`generate-graph.js`** | Automated scanner that parses Prisma, Express routes, services, middleware, and React frontend to generate the live graph. |
-| **`index.html`** | Interactive visual web application to search, filter, and inspect nodes, dependencies, and blast radius in any browser. |
-| **`knowledge-graph.json`** | Machine-readable structured graph (163+ nodes, 259+ edges) for AI agents to query dependency paths. |
-| **`ARCHITECTURE_GRAPH.md`** | Comprehensive reference specification of the system architecture, API matrix, and state machines. |
-| **`AGENT_DEBUGGING_PLAYBOOK.md`** | Step-by-step impact-analysis and debugging guide for coding agents. |
+| --- | --- |
+| [`knowledge-graph.json`](knowledge-graph.json) | Machine-readable nodes, edges, metadata, and source locations |
+| [`index.html`](index.html) | Interactive browser explorer |
+| [`ARCHITECTURE_GRAPH.md`](ARCHITECTURE_GRAPH.md) | System architecture and lifecycle reference |
+| [`AGENT_DEBUGGING_PLAYBOOK.md`](AGENT_DEBUGGING_PLAYBOOK.md) | Debugging and blast-radius procedure |
+| [`CONFIRMED_PRODUCT_RULES.md`](CONFIRMED_PRODUCT_RULES.md) | Confirmed roles, booking, payment, earnings, and operational rules |
+| [`AGENT_NAVIGATION_MAP.md`](AGENT_NAVIGATION_MAP.md) | Index for task-specific agent flow documents |
+| [`00_AGENT_START.md`](00_AGENT_START.md) | Required starting procedure for coding agents |
+| [`01_AUTH_FLOW.md`](01_AUTH_FLOW.md) | Authentication and authorization flow |
+| [`02_CUSTOMER_BOOKING_FLOW.md`](02_CUSTOMER_BOOKING_FLOW.md) | Customer booking lifecycle |
+| [`03_PROVIDER_FULFILLMENT_FLOW.md`](03_PROVIDER_FULFILLMENT_FLOW.md) | Provider assignment and fulfilment lifecycle |
+| [`04_ADMIN_OPERATIONS_FLOW.md`](04_ADMIN_OPERATIONS_FLOW.md) | Administrative operations and controls |
+| [`05_API_CONTRACTS.md`](05_API_CONTRACTS.md) | Frontend-to-backend request and response contracts |
+| [`06_DATABASE_SCHEMA.md`](06_DATABASE_SCHEMA.md) | Prisma models, relations, and persistence rules |
+| [`07_RUNTIME_DEPLOYMENT.md`](07_RUNTIME_DEPLOYMENT.md) | Runtime services and deployment topology |
+| [`generate-graph.js`](generate-graph.js) | Deterministic graph generator |
+| [`validate-graph.js`](validate-graph.js) | Structural and semantic graph validator |
 
----
+## How to use it
 
-## 🚀 How to Use
+1. Locate the relevant node in `knowledge-graph.json` or the interactive explorer.
+2. Inspect its incoming and outgoing edges to identify its blast radius.
+3. Trace the complete contract: page or component → API client → mounted route → middleware → service → Prisma model.
+4. Consult the matching flow document and confirmed product rules.
+5. Update validation, authorization, persistence, and UI states together where applicable.
+6. Regenerate and verify the graph before finishing.
 
-### 1. View the Interactive Knowledge Graph in Browser
-Simply open `Knowladge-Graph/index.html` in your web browser, or serve it locally.
+## Regenerate and verify
 
-**Features:**
-- 🔍 **Real-time Search**: Search by component name (`CustomerDashboard`), API path (`/api/bookings`), service, or database model (`User`).
-- 🏷️ **Group Filters**: Filter by Frontend, Routes, API Endpoints, Services, Middleware, or Database models.
-- 🎯 **Blast Radius Inspector**: Click any node to instantly view all upstream callers and downstream dependencies.
+From the repository root:
 
-### 2. Regenerate the Graph After Code Changes
-Whenever you add or change files, routes, models, or components, run:
-
-```bash
-npm run graph
+```powershell
+npm run graph:verify
 ```
-or
-```bash
-node Knowladge-Graph/generate-graph.js
-```
 
-This will automatically re-scan the entire codebase and update both `knowledge-graph.json` and `index.html`.
+This regenerates the graph and validates its structure and important contracts. Review and commit any resulting graph changes with the related code change. Run it after changes to routes, middleware, services, Prisma models, frontend API calls, or other relationships represented by the graph.
+
+## Interactive explorer
+
+Open `index.html` locally or use the published GitHub Pages version. The explorer supports search, type and domain filters, dependency/dependent traversal, path finding, focus mode, multiple layouts, and node details with source locations.
+
+The explorer is a view over `knowledge-graph.json`; it does not replace the machine graph or the written architecture and product-rule references.
+
+## Publication
+
+The Knowledge Graph Pages workflow publishes the explorer to GitHub Pages. Publication is separate from application CI so graph hosting does not duplicate backend, frontend, database, or Docker tests.

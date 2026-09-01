@@ -1,72 +1,91 @@
 # Luxora API
 
-The Express/Prisma API owns authorization, payments, entitlements, booking state, provider operations, private uploads, notifications, and external integrations.
+The Luxora backend is an Express and Prisma API backed by PostgreSQL. It owns authentication, authorization, bookings, subscriptions, payments, provider fulfilment, earnings, complaints, refunds, notifications, and administrative operations.
 
-## Commands
+## Common commands
 
 ```powershell
-npm run prisma:generate
+npm ci
+npm run db:generate
 npm run db:migrate
-npm run db:migrate:dev -- --name describe_change
-npm run seed
+npm run db:seed
 npm run dev
-npm run test
+npm test
 ```
 
-`npm run test` uses the isolated local `luxora_test` schema. `npm start` generates Prisma Client, applies committed migrations, and starts the server. Do not seed production or use `db:push` as a deployment mechanism.
+Run these commands from `backend/`, or prefix them with `npm --prefix backend` from the repository root.
 
-## Environment
+Production starts with `npm start`. The startup sequence applies committed Prisma migrations, checks the bank-encryption configuration, and then starts the API. Do not use `prisma db push` or run the seed command against production.
+
+Health endpoint: `GET /api/health`
+
+## Environment configuration
+
+Copy `.env.example` to `.env` for local development. Keep real values in the hosting platform, never in Git.
 
 | Area | Variables |
 | --- | --- |
-| Core | `DATABASE_URL`, `JWT_SECRET`, `BANK_ENCRYPTION_KEY`, `TRUST_PROXY`, `PORT`, `FRONTEND_URL`, `BACKEND_PUBLIC_URL`, `CORS_ORIGIN`, `REDIS_URL` |
-| Mode | `PAYMENT_MODE=demo` or `payhere` |
-| PayHere | `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET`, base/return/cancel/notify URLs |
+| Core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `BACKEND_PUBLIC_URL` |
+| Browser and proxy | `CORS_ORIGIN`, `TRUST_PROXY` |
+| Payment mode | `PAYMENT_MODE` |
+| Bank data | `BANK_ENCRYPTION_KEY` |
+| Object storage | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_SESSION_TOKEN`, `S3_PREFIX` |
+| Redis | `REDIS_URL` |
+| PayHere | `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET`, `PAYHERE_BASE_URL`, `PAYHERE_NOTIFY_URL`, `PAYHERE_RETURN_URL`, `PAYHERE_CANCEL_URL` |
 | NOWPayments | `NOWPAYMENTS_API_KEY`, `NOWPAYMENTS_IPN_SECRET`, `NOWPAYMENTS_BASE_URL` |
-| Resend | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
-| Google | `GOOGLE_CLIENT_ID` |
-| Storage | `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PREFIX` |
-| Payouts | `PAYOUT_SCHEDULER_ENABLED` |
+| Email and sign-in | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `GOOGLE_CLIENT_ID` |
+| Payout worker | `PAYOUT_SCHEDULER_ENABLED` |
+| Local seed accounts | `CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, `ADMIN_PASSWORD` |
 
-PayHere callback URLs must be public HTTPS URLs. NOWPayments IPNs require a valid HMAC-SHA512 signature, exact invoice price/currency, matching order/payment identity, and an authoritative live status of `finished`. Phone numbers are profile contact data; SMS, WhatsApp, and phone OTP verification are not implemented.
+Production requirements:
 
-### Banking Key Setup & Key Rotation
-- `BANK_ENCRYPTION_KEY` is a required 32-byte secret (or high-entropy passphrase) in production.
-- Bank account numbers are encrypted at rest with AES-256-GCM (`enc:v1:<iv>:<tag>:<ciphertext>`).
-- To rotate the banking encryption key:
-  1. Set `OLD_BANK_KEY` and `NEW_BANK_KEY` in your maintenance script environment.
-  2. Use `reencryptAccountNumber(record.accountNumber, OLD_BANK_KEY, NEW_BANK_KEY)` across all `provider_bank_accounts` rows within a database transaction.
-  3. Deploy the application with `BANK_ENCRYPTION_KEY=NEW_BANK_KEY`.
-- Legacy unencrypted records can be migrated with `node prisma/migrate-bank-accounts.js`, which verifies decryption matches original plaintext before updating.
+- Use a long, unique `JWT_SECRET`.
+- Use a separate `BANK_ENCRYPTION_KEY`; never reuse the JWT secret.
+- Configure S3-compatible storage. Local disk uploads are development-only.
+- Use explicit public origins in `CORS_ORIGIN` or `FRONTEND_URL`, and configure `TRUST_PROXY` for the real ingress topology.
+- Provide a reachable Redis instance when the deployment relies on distributed rate limiting.
 
-### Rate Limiting & Proxy Configuration
-- `REDIS_URL`: If configured, rate limiting runs as a distributed token bucket across multiple backend replicas. When omitted in production, it operates in single-instance bounded in-memory mode.
-- `TRUST_PROXY`: In production, reverse proxy trust is disabled by default. Set `TRUST_PROXY=1` (or specify an exact hop count / subnet like `loopback, 10.0.0.0/8`) matching your ingress infrastructure.
+## Database and bank-account migration
 
-### Production CORS
-- `CORS_ORIGIN` / `FRONTEND_URL`: In production, only explicitly listed HTTPS origins are accepted. Wildcards (`*`) with credentials are strictly forbidden. Localhost origins are active only in development and test environments.
+Prisma migration files are the source of truth for production schema changes. Before applying a bank-account data migration, take a database backup and run the dry-run preflight:
 
-### PayHere Sandbox Testing Cards (Non-production testing reference only)
-- **Visa**: `4916217501611292`
-- **MasterCard**: `5307732125531191`
-- **AMEX**: `346781005510225`
-- **Expiry**: Any future date (e.g. `12/28`)
-- **CVV**: Any 3 digits (e.g. `123`)
-*Note: These are official PayHere sandbox testing instruments and must never be treated as production credentials.*
+```powershell
+npm run db:migrate
+npm run preflight:bank-accounts
+npm run migrate:bank-accounts
+npm run preflight:bank-accounts
+```
 
-## Uploads and secrets
+The schema migration normalizes duplicate selected accounts before creating the related unique index. The follow-up data migration is idempotent: it encrypts legacy plaintext account numbers, populates their mask and lookup hash, checks decryptability, and leaves one selected account per provider. Review its summary and stop deployment if it reports errors.
 
-KYC and service-evidence uploads are private, authenticated, magic-byte validated, limited to 5 MB per file, and served with `nosniff` plus sandboxing headers. S3-compatible storage is required for durable hosted uploads; local `private-uploads/` is a development fallback.
+Encrypted values use the versioned format `enc:v1:<base64(iv + ciphertext + authTag)>`. The application derives the 32-byte AES key by hashing `BANK_ENCRYPTION_KEY`, so production should use a long, random, dedicated secret.
 
-Never expose database, JWT, payment, Resend, Google, or storage credentials to the frontend. Production refuses to start without `JWT_SECRET`, `BANK_ENCRYPTION_KEY`, and S3 credentials.
+Key rotation requires a controlled maintenance operation: decrypt each value with the old key, encrypt it with the new key, verify every migrated row, and switch the deployment secret only after the transaction succeeds. Keep a recoverable backup until the rotated data has been verified.
+
+## Payments
+
+`PAYMENT_MODE=demo` keeps the local deterministic payment flow. Hosted checkout uses configured PayHere and NOWPayments credentials. Payment state and entitlements change only after the backend validates the callback signature, payment identity, expected amount and currency, and provider status.
+
+For PayHere sandbox checkout, use PayHere’s documented test cards only. Never use a real card in a sandbox environment.
+
+Subscription records preserve their contractual LKR price snapshot separately from the amount and currency captured by a payment gateway. Renewals and entitlement decisions must use the stored subscription terms rather than a plan’s current editable price.
+
+## Uploads and security
+
+Production uploads use private S3-compatible objects and short-lived signed read URLs. File validation checks authenticated ownership, MIME type, extension, size, and file signature. Sensitive provider documents and bank details must never be returned through public static paths.
+
+The API also enforces JWT authentication, role and KYC gates, request validation, explicit CORS origins, and rate limits. When multiple API instances are deployed, verify the limiter is using the shared Redis store and that the application is reachable only through the trusted proxy path.
 
 ## Source map
 
-| Path | Purpose |
-| --- | --- |
-| `src/index.js` | App setup, route mounts, health, centralized errors |
-| `src/middleware/` | JWT/database role authority, validation, rate limits |
-| `src/routes/` | HTTP contracts and orchestration |
-| `src/services/` | Scheduling, entitlements, integrations, storage, payouts |
-| `prisma/schema.prisma` | Database source of truth |
-| `prisma/migrations/` | Deployable schema history |
+```text
+src/index.js          Application setup, middleware, and route mounts
+src/routes/           HTTP validation and orchestration
+src/middleware/       Authentication, authorization, validation, and limiting
+src/services/         Business rules and third-party integrations
+prisma/schema.prisma  Database models, relations, and enums
+prisma/migrations/    Production schema history
+tests/                Backend automated tests
+```
+
+For cross-layer dependencies and blast-radius checks, follow the repository [agent entry point](../AGENTS.md) and [Knowledge Graph guide](../Knowladge-Graph/README.md).

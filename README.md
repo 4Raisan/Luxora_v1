@@ -1,85 +1,112 @@
-# Luxora
+<p align="center">
+  <img src="frontend/public/luxora-logo.png" alt="Luxora" width="160">
+</p>
 
-Luxora is a React/Vite, Express, Prisma, and PostgreSQL home-concierge platform for customers, KYC-approved providers, and admins.
+<h1 align="center">Luxora</h1>
+
+<p align="center">
+  A full-stack home concierge platform for customers, service providers, and administrators.
+</p>
+
+<p align="center">
+  <a href="https://github.com/4Raisan/Luxora_v1/actions/workflows/ci.yml"><img src="https://github.com/4Raisan/Luxora_v1/actions/workflows/ci.yml/badge.svg?branch=main" alt="Luxora CI"></a>
+  <a href="https://github.com/4Raisan/Luxora_v1/actions/workflows/knowledge-graph-pages.yml"><img src="https://github.com/4Raisan/Luxora_v1/actions/workflows/knowledge-graph-pages.yml/badge.svg?branch=main" alt="Knowledge Graph Pages"></a>
+</p>
+
+<p align="center">
+  <a href="https://luxora.bond">Website</a> ·
+  <a href="https://4raisan.github.io/Luxora_v1/">Knowledge Graph</a> ·
+  <a href="docs/api/API-DOCUMENTATION.md">API documentation</a>
+</p>
+
+## Overview
+
+Luxora coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, refunds, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state.
+
+| Role | Main capabilities |
+| --- | --- |
+| Customer | Manage a profile, buy a subscription, create bookings, pay, review services, and open complaints |
+| Provider | Complete KYC, manage availability and bank details, fulfil assigned work, and track earnings |
+| Admin | Manage users, services, plans, promotions, bookings, KYC, complaints, refunds, and platform reporting |
+
+There is no separate Super Admin role; Admin is the platform-administration role.
 
 ## Architecture
 
 ```text
-React SPA -> frontend/src/services/api.js -> Express /api -> middleware/routes/services -> Prisma -> PostgreSQL
-                                                            -> Resend / PayHere / NOWPayments
-                                                            -> private S3-compatible storage
+React + Vite frontend
+        │  HTTPS / JSON
+        ▼
+Express API ── Prisma ORM ── PostgreSQL
+    │
+    ├── PayHere / NOWPayments
+    ├── S3-compatible object storage
+    └── Email and notification integrations
 ```
 
-The backend is authoritative for roles, ownership, entitlements, booking state, Service PINs, payment settlement, refunds, earnings, and payouts. There is no Super Admin role.
+## Local development
 
-## Local setup
+Use Node.js 22 LTS and a PostgreSQL database. Copy the example environment files before starting:
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
-Copy-Item frontend/.env.example frontend/.env.local
-docker compose up -d postgres
+Copy-Item frontend/.env.example frontend/.env
 npm ci
 npm --prefix backend ci
 npm --prefix frontend ci
-npm --prefix backend run prisma:generate
+npm --prefix backend run db:generate
 npm --prefix backend run db:migrate
-npm --prefix backend run seed
+npm --prefix backend run db:seed
 npm run dev:all
 ```
 
-Set a non-placeholder `JWT_SECRET` in the host environment before starting the full Docker Compose stack. `db:push` is reserved for disposable local experiments; normal development and deployment use committed migrations.
+Set `DATABASE_URL` in `backend/.env` to your PostgreSQL database before running migrations. On Windows, `start.bat` provides the guided local startup path.
 
-| Service | URL |
-| --- | --- |
-| Frontend | `http://localhost:3000` |
-| API health | `http://localhost:5000/api/health` |
-| Swagger UI | `http://localhost:5000/api/docs` |
+Local services:
 
-## Quality gates
+- Frontend: `http://localhost:3000`
+- API: `http://localhost:5000/api`
+- Health check: `http://localhost:5000/api/health`
+- API reference: `http://localhost:5000/api/docs`
+
+Docker Compose requires its PostgreSQL and application secrets to be configured. Production additionally requires a dedicated bank-encryption key and S3-compatible storage credentials; see the [backend guide](backend/README.md).
+
+## Quality checks
 
 ```powershell
 npm test
 npm run lint
 npm run build
-npm run graph
-```
-
-`npm test` resets only the dedicated `luxora_test` PostgreSQL schema, applies the complete migration chain, seeds it, disables outbound Resend delivery, and runs the API/unit suites serially. It refuses non-local database hosts.
-
-## Live Knowledge Graph
-
-The source-derived Knowledge Graph maps Luxora frontend pages/components, API routes, middleware, services, Prisma models/enums, and their evidenced relationships. Its live explorer is available at [https://4raisan.github.io/Luxora_v1/](https://4raisan.github.io/Luxora_v1/).
-
-Every push to `main` and a manual **Knowledge Graph Pages** workflow dispatch regenerate, validate, and deploy only `Knowladge-Graph/` as a GitHub Pages artifact. It does not deploy the Luxora application. The graph generator is deterministic and the workflow reruns it to verify identical JSON and explorer output.
-
-To regenerate and validate locally:
-
-```powershell
 npm run graph:verify
 ```
 
-The validator checks JSON integrity, stable unique node/edge IDs, source paths, referenced nodes, deterministic metadata, Pages-safe explorer loading, removed OTP/messaging nodes, and accidental secret-like values. Generated graph data contains repository-relative evidence paths only; it never reads or publishes environment values, credentials, customer records, or private-storage URLs.
+The standard tests, lint, and build protect application behaviour. `graph:verify` regenerates and validates the codebase knowledge graph; review and commit any generated graph changes with the related code change.
 
-## Roles and core flows
+## Deployment
 
-| Role | Main capabilities |
-| --- | --- |
-| Customer | Packages, entitlements, bookings, Service PIN retrieval, reviews, complaints, support, refunds |
-| Provider | KYC upload, assigned work, before/after evidence, PIN-gated fulfilment, earnings, bank accounts |
-| Admin | Users, KYC, plans, bookings, scheduling, support, refunds, promotions, reports, payout ledger, audit log |
+- Frontend: Vercel
+- Backend and PostgreSQL: Northflank or Docker-compatible infrastructure
+- Knowledge Graph explorer: GitHub Pages
 
-Payments use demo mode for local/test work and PayHere or NOWPayments for hosted checkout. Only verified backend callbacks can activate subscriptions. NOWPayments grants benefits only for `finished` after a matching authoritative status query. Receipt delivery failure does not roll back a completed payment and can be retried. Official PayHere Sandbox testing cards (for test environments only): Visa (`4916217501611292`), MasterCard (`5307732125531191`), AMEX (`346781005510225`).
-
-Uploads are authenticated and ownership-checked, validated by magic bytes, and stored privately. Configure the `S3_*` variables on ephemeral or multi-instance hosts; local disk is a development fallback only.
+Keep production URLs and credentials in the deployment platform. Never commit `.env` files, payment secrets, JWT secrets, bank-encryption keys, database credentials, or cloud-storage credentials.
 
 ## Project map
 
-| Path | Purpose |
-| --- | --- |
-| `frontend/` | React UI and server-state handling |
-| `backend/src/` | API, authorization, domain rules, and integrations |
-| `backend/prisma/` | Canonical schema, migrations, seed data |
-| `docs/` | API, database, integration, requirements, and roadmap documentation |
-| `Knowladge-Graph/` | Generated dependency graph and agent navigation guides |
+```text
+frontend/             React application
+backend/              Express API, Prisma schema, services, and tests
+docs/                 API and supporting documentation
+Knowladge-Graph/      Codebase graph, architecture references, and agent playbooks
+.github/workflows/    CI, deployment checks, and Knowledge Graph publication
+```
 
-Read `Knowladge-Graph/CONFIRMED_PRODUCT_RULES.md` before changing behavior. Regenerate the graph after route, schema, service, or frontend API-call changes.
+- [Backend guide](backend/README.md)
+- [Frontend guide](frontend/README.md)
+- [Knowledge Graph guide](Knowladge-Graph/README.md)
+- [API documentation](docs/api/API-DOCUMENTATION.md)
+
+## Knowledge Graph and coding-agent workflow
+
+The repository includes a machine-readable codebase graph and an interactive explorer. Coding agents begin with [`AGENTS.md`](AGENTS.md), inspect the graph and its upstream/downstream relationships, then follow the architecture, debugging, product-rule, and flow references before changing connected code.
+
+The full workflow and every agent-facing source are documented in the [Knowledge Graph README](Knowladge-Graph/README.md). Changes to routes, services, Prisma models, or frontend API calls must finish with `npm run graph:verify` so those links remain trustworthy.
