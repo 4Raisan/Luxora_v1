@@ -10,6 +10,7 @@
     "build": "npm --prefix frontend run build",
     "lint": "oxlint",
     "test": "node backend/tests/run-tests.js",
+    "test:ci-plan": "node --test scripts/ci/plan-checks.test.mjs",
     "graph": "node Knowladge-Graph/generate-graph.js",
     "graph:validate": "node Knowladge-Graph/validate-graph.js",
     "graph:verify": "npm run graph && npm run graph:validate",
