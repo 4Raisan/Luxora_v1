@@ -3,6 +3,8 @@ name: Knowledge Graph Pages
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,7 +19,7 @@ concurrency:
 jobs:
   deploy:
     environment:
-      name: github-pages
+      name: ${{ github.event_name == 'pull_request' && 'knowledge-graph-validation' || 'github-pages' }}
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
@@ -48,13 +50,16 @@ jobs:
           cmp --silent /tmp/knowledge-graph.html Knowladge-Graph/index.html
 
       - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Upload Knowledge Graph artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: Knowladge-Graph
 
       - name: Deploy Knowledge Graph to GitHub Pages
+        if: github.event_name != 'pull_request'
         id: deployment
         uses: actions/deploy-pages@v4

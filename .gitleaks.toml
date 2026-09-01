@@ -1,8 +1,14 @@
 title = "Luxora Gitleaks Configuration"
 
 [allowlist]
-description = "Allow dummy test keys in CI workflow and test suites"
-paths = [
-  '''.github/workflows/.*''',
-  '''backend/tests/.*''',
+description = "Allow only exact, non-production test fixtures"
+regexes = [
+  '''^sandbox_secret_key_123$''',
+  '''^test_secret_for_fresh_smoke_2026$''',
+  '''^luxora_nowpayments_test_secret_2026$''',
+  '''^test_nowpayments_api_key_sample$''',
+  '''^key_alpha_secret_32_bytes_test_1$''',
+  '''^key_bravo_secret_32_bytes_test_2$''',
+  '''^test_ipn_secret_key_12345$''',
+  '''^test-secret$''',
 ]
