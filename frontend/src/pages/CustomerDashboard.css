@@ -2453,10 +2453,15 @@
 
 .cd-overview-bookings-row > td {
   max-width: 0;
+  height: 64px;
   padding-top: 0.68rem;
   padding-bottom: 0.68rem;
   overflow: hidden;
   vertical-align: middle;
+}
+
+.cd-overview-bookings-row {
+  height: 64px;
 }
 
 .cd-overview-bookings-row > td:nth-child(2),
