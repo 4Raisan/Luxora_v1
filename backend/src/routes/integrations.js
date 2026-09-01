@@ -97,15 +97,38 @@ export async function activateSubscription(payment, payload = {}, { capturedAmou
         if (fresh.status !== 'PENDING') return null;
         const days = fresh.plan.durationDays || 30;
         const endDate = new Date(Date.now() + days * 86400000);
-        const subscription = await tx.userSubscription.create({ data: { userId: fresh.userId, planId: fresh.planId, endDate, status: 'active', autoRenew, renewalIntervalDays: days, nextRenewalDate: endDate } });
-        const finalAmount = Number(capturedAmount ?? payload.payhere_amount ?? payload.price_amount ?? fresh.expectedAmount);
-        const finalCurrency = String(capturedCurrency ?? payload.payhere_currency ?? payload.price_currency ?? fresh.expectedCurrency).toUpperCase();
+        const contractualPrice = Number(fresh.originalAmount ?? fresh.plan.priceMonthly);
+        const contractualCurrency = 'LKR';
+        const finalCapturedAmount = Number(capturedAmount ?? payload.payhere_amount ?? payload.price_amount ?? fresh.expectedAmount);
+        const finalCapturedCurrency = String(capturedCurrency ?? payload.payhere_currency ?? payload.price_currency ?? fresh.expectedCurrency).toUpperCase();
+        const subscription = await tx.userSubscription.create({
+          data: {
+            userId: fresh.userId,
+            planId: fresh.planId,
+            planTitle: fresh.plan.title,
+            planType: fresh.plan.type,
+            pricePaid: contractualPrice,
+            currency: contractualCurrency,
+            durationDays: days,
+            endDate,
+            status: 'active',
+            autoRenew,
+            renewalIntervalDays: days,
+            nextRenewalDate: endDate,
+            entitlements: {
+              create: (fresh.plan.entitlements || []).map((e) => ({
+                categoryId: e.categoryId,
+                units: e.units,
+              })),
+            },
+          },
+        });
         return tx.payment.update({
           where: { id: fresh.id },
           data: {
             status: 'COMPLETED',
-            capturedAmount: finalAmount,
-            capturedCurrency: finalCurrency,
+            capturedAmount: finalCapturedAmount,
+            capturedCurrency: finalCapturedCurrency,
             webhookPayload: {
               ...(typeof fresh.webhookPayload === 'object' && fresh.webhookPayload ? fresh.webhookPayload : {}),
               ...payload,

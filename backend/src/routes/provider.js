@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
-import { maskAccountNumber } from '../services/payouts.js';
+import { encryptAccountNumber, decryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('PROVIDER'));
@@ -93,33 +93,79 @@ router.post('/bank-accounts', async (req, res) => {
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
 
-  const existing = await prisma.providerBankAccount.findFirst({
-    where: { providerId: provider.id, accountNumber },
-  });
+  const encryptedNumber = encryptAccountNumber(accountNumber);
+  const mask = maskAccountNumber(accountNumber);
+  const accountHash = hashAccountNumber(accountNumber);
 
   const account = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(provider.id)})`;
+    const allAccounts = await tx.providerBankAccount.findMany({ where: { providerId: provider.id } });
+    const existing = allAccounts.find((a) => {
+      if (a.accountHash && a.accountHash === accountHash) return true;
+      try {
+        return decryptAccountNumber(a.accountNumber) === accountNumber;
+      } catch {
+        return a.accountNumber === accountNumber;
+      }
+    });
+
     await tx.providerBankAccount.updateMany({ where: { providerId: provider.id }, data: { selected: false } });
     if (existing) {
       return tx.providerBankAccount.update({
         where: { id: existing.id },
-        data: { bankName, accountHolder, selected: true },
+        data: {
+          bankName,
+          accountHolder,
+          accountNumber: encryptedNumber,
+          accountMask: mask,
+          accountHash,
+          selected: true,
+        },
       });
     }
-    return tx.providerBankAccount.create({ data: { providerId: provider.id, bankName, accountHolder, accountNumber, selected: true } });
-  });
+    return tx.providerBankAccount.create({
+      data: {
+        providerId: provider.id,
+        bankName,
+        accountHolder,
+        accountNumber: encryptedNumber,
+        accountMask: mask,
+        accountHash,
+        selected: true,
+      },
+    });
+  }, { isolationLevel: 'Serializable' });
 
-  res.status(existing ? 200 : 201).json({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: true });
+  res.status(201).json({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: true });
 });
 
 router.put('/bank-accounts/:id/select', async (req, res) => {
+  const accountId = Number(req.params.id);
+  if (!Number.isInteger(accountId) || accountId <= 0) return res.status(400).json({ error: 'Invalid bank account ID' });
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
-  const account = await prisma.providerBankAccount.findFirst({ where: { id: Number(req.params.id), providerId: provider?.id } });
-  if (!account) return res.status(404).json({ error: 'Bank account not found' });
-  await prisma.$transaction([
-    prisma.providerBankAccount.updateMany({ where: { providerId: provider.id }, data: { selected: false } }),
-    prisma.providerBankAccount.update({ where: { id: account.id }, data: { selected: true } }),
-  ]);
-  res.json({ message: 'Bank account selected' });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const updatedAccount = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(provider.id)})`;
+        const account = await tx.providerBankAccount.findFirst({ where: { id: accountId, providerId: provider.id } });
+        if (!account) return null;
+        await tx.providerBankAccount.updateMany({ where: { providerId: provider.id }, data: { selected: false } });
+        return tx.providerBankAccount.update({ where: { id: account.id }, data: { selected: true } });
+      }, { isolationLevel: 'Serializable' });
+
+      if (!updatedAccount) return res.status(404).json({ error: 'Bank account not found' });
+      return res.json({ message: 'Bank account selected', id: updatedAccount.id });
+    } catch (err) {
+      const isConflict = err.code === 'P2034' || err.message?.includes('write conflict') || err.message?.includes('could not serialize access');
+      if (isConflict && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 50 * attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
 });
 
 export default router;

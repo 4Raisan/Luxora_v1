@@ -2310,7 +2310,6 @@ const CustomerDashboard = () => {
                   }
 
                   return filteredActive.map((b) => {
-                    const pinUnlocked = checkIsPinUnlocked(b.date, b.time)
                     const isSelectedRow = selectedBookingId === b.id
                     return (
                       <React.Fragment key={b.id}>
@@ -2697,12 +2696,18 @@ const CustomerDashboard = () => {
                 />
                 <input
                   type="text"
+                  list="sl-towns-profile"
                   value={profileEdit.town}
                   onChange={(e) => setProfileEdit({ ...profileEdit, town: e.target.value })}
                   placeholder="Service town (e.g. Colombo)"
                   maxLength={100}
                   style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
                 />
+                <datalist id="sl-towns-profile">
+                  {SRI_LANKA_TOWNS.map((t) => (
+                    <option key={t.name} value={t.name}>{t.name} ({t.province})</option>
+                  ))}
+                </datalist>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <button
                     type="submit"

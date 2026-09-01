@@ -1,0 +1,78 @@
+name: Luxora CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: luxora_test_user
+          POSTGRES_PASSWORD: luxora_test_password
+          POSTGRES_DB: luxora_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm ci
+
+      - name: Install Backend Dependencies
+        run: npm --prefix backend ci
+
+      - name: Install Frontend Dependencies
+        run: npm --prefix frontend ci
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Build Frontend SPA
+        run: npm --prefix frontend run build
+
+      - name: Generate & Validate Knowledge Graph
+        run: npm run graph:verify
+
+      - name: Generate Prisma Client
+        run: npm --prefix backend run prisma:generate
+
+      - name: Apply Database Migrations
+        run: npx --prefix backend prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://luxora_test_user:luxora_test_password@localhost:5432/luxora_test_db?schema=public
+
+      - name: Run Backend Automated Tests
+        run: npm --prefix backend test
+        env:
+          DATABASE_URL: postgresql://luxora_test_user:luxora_test_password@localhost:5432/luxora_test_db?schema=luxora_test
+          JWT_SECRET: test_jwt_secret_luxora_ci_environment_key_2026
+          BANK_ENCRYPTION_KEY: test_bank_key_32_bytes_long_ci_encryption
+          PAYMENT_MODE: demo
+          PORT: 5000
+          NODE_ENV: test
+
+      - name: Audit Production Dependencies
+        run: |
+          npm audit --audit-level=high
+          npm --prefix backend audit --audit-level=high
+          npm --prefix frontend audit --audit-level=high

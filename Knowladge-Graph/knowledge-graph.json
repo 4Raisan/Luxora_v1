@@ -6,15 +6,15 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 192,
-    "totalEdges": 412,
+    "totalNodes": 194,
+    "totalEdges": 416,
     "nodesByGroup": {
       "api": 95,
-      "database": 34,
+      "database": 35,
       "frontend": 32,
       "middleware": 3,
       "routes": 17,
-      "service": 11
+      "service": 12
     }
   },
   "nodes": [
@@ -2289,6 +2289,10 @@
           {
             "name": "subscriptionEntitlements",
             "type": "SubscriptionEntitlement[]"
+          },
+          {
+            "name": "userSubscriptionEntitlements",
+            "type": "UserSubscriptionEntitlement[]"
           }
         ],
         "relations": []
@@ -2845,8 +2849,16 @@
             "type": "selected])"
           },
           {
+            "name": "accountHash",
+            "type": "String?"
+          },
+          {
             "name": "accountHolder",
             "type": "String"
+          },
+          {
+            "name": "accountMask",
+            "type": "String?"
           },
           {
             "name": "accountNumber",
@@ -3507,8 +3519,20 @@
             "type": "Booking[]"
           },
           {
+            "name": "currency",
+            "type": "String"
+          },
+          {
+            "name": "durationDays",
+            "type": "Int"
+          },
+          {
             "name": "endDate",
             "type": "DateTime"
+          },
+          {
+            "name": "entitlements",
+            "type": "UserSubscriptionEntitlement[]"
           },
           {
             "name": "id",
@@ -3529,6 +3553,18 @@
           {
             "name": "planId",
             "type": "Int"
+          },
+          {
+            "name": "planTitle",
+            "type": "String?"
+          },
+          {
+            "name": "planType",
+            "type": "String?"
+          },
+          {
+            "name": "pricePaid",
+            "type": "Decimal?"
           },
           {
             "name": "refundRequest",
@@ -3552,6 +3588,49 @@
           },
           {
             "name": "userId",
+            "type": "Int"
+          }
+        ],
+        "relations": []
+      },
+      "source": {
+        "path": "backend/prisma/schema.prisma"
+      }
+    },
+    {
+      "id": "model:UserSubscriptionEntitlement",
+      "label": "UserSubscriptionEntitlement",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "@@unique([subscriptionId,",
+            "type": "categoryId])"
+          },
+          {
+            "name": "category",
+            "type": "Category"
+          },
+          {
+            "name": "categoryId",
+            "type": "Int"
+          },
+          {
+            "name": "id",
+            "type": "Int"
+          },
+          {
+            "name": "subscription",
+            "type": "UserSubscription"
+          },
+          {
+            "name": "subscriptionId",
+            "type": "Int"
+          },
+          {
+            "name": "units",
             "type": "Int"
           }
         ],
@@ -3780,6 +3859,19 @@
       },
       "source": {
         "path": "backend/src/routes/uploads.js"
+      }
+    },
+    {
+      "id": "service:bankingCrypto",
+      "label": "bankingCrypto.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/bankingCrypto.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/bankingCrypto.js"
       }
     },
     {
@@ -5709,6 +5801,20 @@
       }
     },
     {
+      "id": "model:Category->model:UserSubscriptionEntitlement:DB_RELATION",
+      "from": "model:Category",
+      "to": "model:UserSubscriptionEntitlement",
+      "type": "DB_RELATION",
+      "label": "userSubscriptionEntitlements",
+      "source": "model:Category",
+      "target": "model:UserSubscriptionEntitlement",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "model:Complaint->enum:ComplaintStatus:DB_RELATION",
       "from": "model:Complaint",
       "to": "enum:ComplaintStatus",
@@ -6640,6 +6746,48 @@
       "label": "user",
       "source": "model:UserSubscription",
       "target": "model:User",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:UserSubscription->model:UserSubscriptionEntitlement:DB_RELATION",
+      "from": "model:UserSubscription",
+      "to": "model:UserSubscriptionEntitlement",
+      "type": "DB_RELATION",
+      "label": "entitlements",
+      "source": "model:UserSubscription",
+      "target": "model:UserSubscriptionEntitlement",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:UserSubscriptionEntitlement->model:Category:DB_RELATION",
+      "from": "model:UserSubscriptionEntitlement",
+      "to": "model:Category",
+      "type": "DB_RELATION",
+      "label": "category",
+      "source": "model:UserSubscriptionEntitlement",
+      "target": "model:Category",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:UserSubscriptionEntitlement->model:UserSubscription:DB_RELATION",
+      "from": "model:UserSubscriptionEntitlement",
+      "to": "model:UserSubscription",
+      "type": "DB_RELATION",
+      "label": "subscription",
+      "source": "model:UserSubscriptionEntitlement",
+      "target": "model:UserSubscription",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",

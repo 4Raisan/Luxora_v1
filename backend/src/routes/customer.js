@@ -1,16 +1,27 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { getSriLankaLocation } from '../services/sriLankaLocations.js';
 
 const router = Router();
 router.use(authenticateToken);
 
 // The town is retained on the user and copied to each newly-created booking.
 router.put('/town', requireRole('CUSTOMER'), async (req, res) => {
-  const town = typeof req.body.town === 'string' ? req.body.town.trim().replace(/\s+/g, ' ') : '';
-  if (town.length > 100) return res.status(400).json({ error: 'town must be at most 100 characters' });
-  await prisma.user.update({ where: { id: req.user.id }, data: { town: town || null } });
-  res.json({ town: town || null });
+  const rawTown = typeof req.body.town === 'string' ? req.body.town.trim() : '';
+  if (!rawTown) {
+    await prisma.user.update({ where: { id: req.user.id }, data: { town: null, addressDistrict: null } });
+    return res.json({ town: null, address_district: null });
+  }
+  const location = getSriLankaLocation(rawTown);
+  if (!location) {
+    return res.status(400).json({ error: 'Select a valid town from the Sri Lanka location list' });
+  }
+  await prisma.user.update({
+    where: { id: req.user.id },
+    data: { town: location.name, addressDistrict: location.province },
+  });
+  res.json({ town: location.name, address_district: location.province });
 });
 
 router.get('/dashboard', async (req, res) => {

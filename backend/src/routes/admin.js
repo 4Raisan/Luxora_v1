@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify, logAdminAction } from '../services/notify.js';
-import { sendEmail } from '../services/integrations.js';
+import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
 import { getPlatformSettings, providerCanTakeBooking, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { maskAccountNumber, queueMonthlyPayouts } from '../services/payouts.js';
@@ -109,7 +109,7 @@ router.put('/providers/:id/kyc', async (req, res) => {
         sendEmail({
           to: provider.user.email,
           subject: 'Congratulations – Your Luxora Journey Begins!',
-          html: `<p>Hi ${provider.user.name || 'Provider'},</p><p>Congratulations! Your KYC documents have been reviewed and approved by the Luxora concierge team.</p><p>Your account is now fully active, and you are eligible to receive and fulfill customer service bookings.</p>`,
+          html: `<p>Hi ${escapeHtml(provider.user.name || 'Provider')},</p><p>Congratulations! Your KYC documents have been reviewed and approved by the Luxora concierge team.</p><p>Your account is now fully active, and you are eligible to receive and fulfill customer service bookings.</p>`,
         }).catch((err) => console.warn('[email] KYC approval email failed:', err.message));
       }
     } else if (status === 'REJECTED') {
@@ -119,7 +119,7 @@ router.put('/providers/:id/kyc', async (req, res) => {
         sendEmail({
           to: provider.user.email,
           subject: 'Luxora KYC Verification Update',
-          html: `<p>Hi ${provider.user.name || 'Provider'},</p><p>Your KYC verification could not be approved at this time.</p><p><strong>Reason:</strong> ${rejectionReason}</p><p>Please review your submitted documents or reach out to support for assistance.</p>`,
+          html: `<p>Hi ${escapeHtml(provider.user.name || 'Provider')},</p><p>Your KYC verification could not be approved at this time.</p><p><strong>Reason:</strong> ${escapeHtml(rejectionReason)}</p><p>Please review your submitted documents or reach out to support for assistance.</p>`,
         }).catch((err) => console.warn('[email] KYC rejection email failed:', err.message));
       }
     }

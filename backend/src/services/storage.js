@@ -43,10 +43,19 @@ async function s3Client() {
 
 const activeConfig = s3Config();
 export const objectStorageEnabled = Boolean(activeConfig);
-if (!objectStorageEnabled && process.env.NODE_ENV === 'production') {
-  console.error('[storage] WARNING: S3_BUCKET/S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY are not set — uploaded files are stored on ephemeral local disk and will be lost on redeploy.');
-} else {
-  fs.mkdirSync(localRoot, { recursive: true });
+
+export function assertStorageConfigured() {
+  if (process.env.NODE_ENV === 'production' && !objectStorageEnabled) {
+    throw new Error('[storage] FATAL: S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY must be configured in production. Ephemeral local disk storage is disallowed in production to prevent silent file loss on redeploy.');
+  }
+}
+
+if (!objectStorageEnabled) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[storage] FATAL: S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY must be configured in production.');
+  } else {
+    fs.mkdirSync(localRoot, { recursive: true });
+  }
 }
 
 export async function putObject(key, buffer, contentType) {

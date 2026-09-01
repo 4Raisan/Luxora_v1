@@ -37,6 +37,7 @@ Bookings cannot be cancelled once they are `IN_PROGRESS`. Cancellation and entit
 - Buying or renewing a package creates or renews the corresponding credit entitlements.
 - Admin manages package title, type, price, description, coins, and recommendation badge; package duration is fixed at 30 days.
 - PayHere checkout requires public HTTPS return, cancel, and webhook URLs before it can be enabled.
+- Official PayHere Sandbox testing instruments (non-production testing reference only): Visa (`4916217501611292`), MasterCard (`5307732125531191`), AMEX (`346781005510225`), Expiry: Any future date, CVV: Any 3 digits.
 
 ## Notifications & Account Verification
 

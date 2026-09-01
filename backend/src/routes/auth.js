@@ -6,7 +6,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
-import { sendEmail, normalizePhoneNumber } from '../services/integrations.js';
+import { sendEmail, escapeHtml, normalizePhoneNumber } from '../services/integrations.js';
 import { notify } from '../services/notify.js';
 import { getSriLankaLocation } from '../services/sriLankaLocations.js';
 
@@ -41,6 +41,10 @@ router.post('/register', authLimiter, async (req, res) => {
     if (userRole === 'PROVIDER' && !providerLocation) {
       return res.status(400).json({ error: 'Select a town from the Sri Lanka provider registration list' });
     }
+    const customerLocation = userRole === 'CUSTOMER' && town ? getSriLankaLocation(town) : null;
+    if (userRole === 'CUSTOMER' && town && !customerLocation) {
+      return res.status(400).json({ error: 'Select a valid town from the Sri Lanka location list' });
+    }
     const providerTowns = normalizeServiceTowns(service_towns);
     if (userRole === 'PROVIDER' && providerTowns === null) {
       return res.status(400).json({ error: 'service_towns must contain at most 10 towns' });
@@ -53,9 +57,9 @@ router.post('/register', authLimiter, async (req, res) => {
         email: normalizedEmail,
         passwordHash,
         phone: normalizedPhone || '',
-        town: providerLocation?.name || normalizeTown(town),
+        town: providerLocation?.name || customerLocation?.name || null,
         addressStreet: normalizeTown(address_street),
-        addressDistrict: providerLocation?.province || null,
+        addressDistrict: providerLocation?.province || customerLocation?.province || null,
         role: userRole,
       },
     });
@@ -79,13 +83,13 @@ router.post('/register', authLimiter, async (req, res) => {
       sendEmail({
         to: normalizedEmail,
         subject: 'Luxora Provider Registration Received – KYC Pending',
-        html: `<p>Welcome to the Luxora Concierge Network, ${name.trim()}.</p><p>We have received your provider registration and details. Your account is currently in <strong>KYC Pending</strong> status while our operations team reviews your information.</p><p>You will receive an update as soon as your verification is complete.</p>`,
+        html: `<p>Welcome to the Luxora Concierge Network, ${escapeHtml(name.trim())}.</p><p>We have received your provider registration and details. Your account is currently in <strong>KYC Pending</strong> status while our operations team reviews your information.</p><p>You will receive an update as soon as your verification is complete.</p>`,
       }).catch((error) => console.warn('[email] provider registration notification failed:', error.message));
     } else {
       sendEmail({
         to: normalizedEmail,
         subject: 'Welcome to Luxora',
-        html: `<p>Welcome to Luxora, ${name.trim()}.</p><p>Your concierge account is ready.</p>`,
+        html: `<p>Welcome to Luxora, ${escapeHtml(name.trim())}.</p><p>Your concierge account is ready.</p>`,
       }).catch((error) => console.warn('[email] welcome failed:', error.message));
     }
 
@@ -206,7 +210,7 @@ router.post('/google', authLimiter, async (req, res) => {
   if (!user) {
     const passwordHash = await bcrypt.hash(`${crypto.randomUUID()}${crypto.randomUUID()}`, 10);
     user = await prisma.user.create({ data: { name: String(profile.name || email.split('@')[0]).slice(0, 100), email, passwordHash, phone: '', role: 'CUSTOMER' } });
-    sendEmail({ to: email, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${user.name}.</p><p>Your concierge account is ready.</p>` }).catch(() => {});
+    sendEmail({ to: email, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${escapeHtml(user.name)}.</p><p>Your concierge account is ready.</p>` }).catch(() => {});
   }
   if (!user.active) return res.status(403).json({ error: 'This account has been deactivated. Contact Luxora support.' });
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });

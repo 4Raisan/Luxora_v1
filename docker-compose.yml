@@ -6,9 +6,17 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-luxora_user}:${POSTGRES_PASSWORD:-luxora_pass}@postgres:5432/${POSTGRES_DB:-luxoradb}?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB}?schema=public
       # Production-mode containers must never start with a public fallback key.
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in the host environment or Compose .env}
+      - BANK_ENCRYPTION_KEY=${BANK_ENCRYPTION_KEY:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_REGION=${S3_REGION:-auto}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
+      - S3_PREFIX=${S3_PREFIX:-uploads/}
+      - TRUST_PROXY=${TRUST_PROXY:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,11 +31,11 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-luxora_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-luxora_pass}
-      POSTGRES_DB: ${POSTGRES_DB:-luxoradb}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    # Database port is not exposed publicly by default in production.
+    # For local development debugging, expose port 5432 in a docker-compose.override.yml file.
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped

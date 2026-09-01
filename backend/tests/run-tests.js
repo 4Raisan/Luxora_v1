@@ -50,4 +50,5 @@ run(process.execPath, [
   'tests/booking-concurrency.test.js',
   'tests/booking-lifecycle-timeouts.test.js',
   'tests/new-flow-rules.test.js',
+  'tests/release-hardening.test.js',
 ]);

@@ -68,9 +68,27 @@ try {
   if (plan) {
     subscription = await prisma.userSubscription.findFirst({ where: { userId: customer.id, planId: plan.id, status: 'active' } });
     if (!subscription) {
+      const planDetails = await prisma.subscriptionPlan.findUnique({ where: { id: plan.id }, include: { entitlements: true } });
       const endDate = new Date(Date.now() + 30 * 86400000);
       subscription = await prisma.userSubscription.create({
-        data: { userId: customer.id, planId: plan.id, endDate, status: 'active', renewalIntervalDays: 30, nextRenewalDate: endDate },
+        data: {
+          userId: customer.id,
+          planId: plan.id,
+          planTitle: planDetails?.title || 'Auto Care Package',
+          planType: planDetails?.type || 'Auto Care',
+          pricePaid: planDetails?.priceMonthly || 12000,
+          durationDays: 30,
+          endDate,
+          status: 'active',
+          renewalIntervalDays: 30,
+          nextRenewalDate: endDate,
+          entitlements: {
+            create: (planDetails?.entitlements || []).map((e) => ({
+              categoryId: e.categoryId,
+              units: e.units,
+            })),
+          },
+        },
       });
       subscriptionCreated = true;
     }
