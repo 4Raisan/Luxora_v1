@@ -676,8 +676,7 @@ const CustomerDashboard = () => {
   })
   const [showInsufficientTokensModal, setShowInsufficientTokensModal] = useState(false)
   const [insufficientTokenCategory, setInsufficientTokenCategory] = useState('')
-  const [showSessionConfirmedModal, setShowSessionConfirmedModal] = useState(false)
-  const [confirmedModalDetails, setConfirmedModalDetails] = useState(null)
+  const [sessionBookingSuccessModal, setSessionBookingSuccessModal] = useState(null)
   const [bookingSessionBusy, setBookingSessionBusy] = useState(false)
 
   const handleConfirmServiceBooking = async () => {
@@ -783,13 +782,11 @@ const CustomerDashboard = () => {
       category: cat
     })
 
-    setServiceBookingConfirmation(newB)
-    setConfirmedModalDetails({
+    setSessionBookingSuccessModal({
       ...newB,
       categoryName,
       remainingTokens: Math.max(0, Number(created.entitlement?.remaining_units) || 0)
     })
-    setShowSessionConfirmedModal(true)
     setServiceBookingForm(prev => ({ ...prev, packageId: '', petType: '' }))
 
     // 1. Immediate optimistic UI update with full booking details
@@ -3143,10 +3140,10 @@ const CustomerDashboard = () => {
       )}
 
       {/* ── Service Session Confirmed Modal Popup ── */}
-      {showSessionConfirmedModal && confirmedModalDetails && (
+      {sessionBookingSuccessModal && (
         <div
           className="cd-drawer-overlay animate-fade-in"
-          onClick={() => setShowSessionConfirmedModal(false)}
+          onClick={() => setSessionBookingSuccessModal(null)}
           style={{
             justifyContent: 'center',
             alignItems: 'center',
@@ -3172,7 +3169,7 @@ const CustomerDashboard = () => {
           >
             {/* Close Button */}
             <button
-              onClick={() => setShowSessionConfirmedModal(false)}
+              onClick={() => setSessionBookingSuccessModal(null)}
               aria-label="Close confirmation"
               style={{
                 position: 'absolute',
@@ -3267,7 +3264,7 @@ const CustomerDashboard = () => {
                   Service Style
                 </span>
                 <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>
-                  {confirmedModalDetails.service}
+                  {sessionBookingSuccessModal.service}
                 </span>
               </div>
 
@@ -3278,11 +3275,11 @@ const CustomerDashboard = () => {
                   Date &amp; Time
                 </span>
                 <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.88rem', fontWeight: 800 }}>
-                  {confirmedModalDetails.date} at {confirmedModalDetails.time}
+                  {sessionBookingSuccessModal.date} at {sessionBookingSuccessModal.time}
                 </span>
               </div>
 
-              {confirmedModalDetails.id && (
+              {sessionBookingSuccessModal.id && (
                 <>
                   <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3290,13 +3287,13 @@ const CustomerDashboard = () => {
                       Booking Reference
                     </span>
                     <span style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.05em' }}>
-                      #{confirmedModalDetails.id}
+                      #{sessionBookingSuccessModal.id}
                     </span>
                   </div>
                 </>
               )}
 
-              {confirmedModalDetails.categoryName && (
+              {sessionBookingSuccessModal.categoryName && (
                 <>
                   <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3304,7 +3301,7 @@ const CustomerDashboard = () => {
                       Token Balance
                     </span>
                     <span style={{ color: '#4ade80', fontSize: '0.82rem', fontWeight: 800 }}>
-                      1 Token Used ({confirmedModalDetails.remainingTokens} Left)
+                      1 Token Used ({sessionBookingSuccessModal.remainingTokens} Left)
                     </span>
                   </div>
                 </>
@@ -3319,12 +3316,12 @@ const CustomerDashboard = () => {
                 margin: '0 0 1.5rem 0',
               }}
             >
-              Your <strong style={{ color: '#fff' }}>{confirmedModalDetails.service}</strong> service session has been successfully booked for <strong style={{ color: '#fff' }}>{confirmedModalDetails.date}</strong> at <strong style={{ color: '#fff' }}>{confirmedModalDetails.time}</strong>. A Luxora Concierge Specialist will contact you shortly.
+              Your <strong style={{ color: '#fff' }}>{sessionBookingSuccessModal.service}</strong> service session has been successfully booked for <strong style={{ color: '#fff' }}>{sessionBookingSuccessModal.date}</strong> at <strong style={{ color: '#fff' }}>{sessionBookingSuccessModal.time}</strong>. A Luxora Concierge Specialist will contact you shortly.
             </p>
 
             <button
               type="button"
-              onClick={() => setShowSessionConfirmedModal(false)}
+              onClick={() => setSessionBookingSuccessModal(null)}
               style={{
                 width: '100%',
                 background: 'linear-gradient(135deg, #dfc06b 0%, #c9a84c 100%)',
