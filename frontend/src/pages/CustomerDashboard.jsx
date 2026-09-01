@@ -1825,7 +1825,8 @@ const CustomerDashboard = () => {
                               className="cd-overview-bookings-row"
                               onClick={() => {
                                 if (b.status !== 'CANCELLED') {
-                                  setSelectedBookingId(prev => prev === b.id ? null : b.id)
+                                  setSelectedBookingId(b.id)
+                                  setActiveTab('active_bookings')
                                 }
                               }}
                               style={{
@@ -1835,7 +1836,7 @@ const CustomerDashboard = () => {
                                 opacity: b.status === 'CANCELLED' ? 0.65 : 1,
                                 transition: 'all 0.2s ease'
                               }}
-                              title={b.status === 'CANCELLED' ? 'Booking cancelled' : 'Click row to view details'}
+                              title={b.status === 'CANCELLED' ? 'Booking cancelled' : 'Open full booking details'}
                             >
                               <td data-label="Booking" style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
                               <td data-label="Category" style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
