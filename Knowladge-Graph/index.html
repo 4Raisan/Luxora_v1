@@ -22,20 +22,25 @@
     .header { padding: 18px 20px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.25); }
     .header h1 { font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
     .header p { font-size: 0.78rem; color: #94a3b8; margin-top: 4px; }
-    .search-box { padding: 12px 20px; border-bottom: 1px solid var(--border-color); }
-    .search-box input { width: 100%; padding: 10px 14px; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 6px; color: #fff; outline: none; font-size: 0.85rem; }
+    .search-box { padding: 12px 20px; border-bottom: 1px solid var(--border-color); position: relative; }
+    .search-box input { width: 100%; padding: 10px 32px 10px 14px; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 6px; color: #fff; outline: none; font-size: 0.85rem; }
     .search-box input:focus { border-color: var(--accent); }
+    .search-clear { position: absolute; right: 28px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.9rem; padding: 4px; display: none; line-height: 1; }
+    .search-clear:hover { color: #cbd5e1; }
     .controls { padding: 12px 20px; border-bottom: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 6px; }
     .filter-btn { padding: 5px 11px; font-size: 0.75rem; border-radius: 14px; border: 1px solid var(--border-color); background: #0b0f19; color: #cbd5e1; cursor: pointer; transition: 0.2s; }
     .filter-btn.active { background: var(--accent); color: #0b0f19; font-weight: bold; border-color: var(--accent); }
     #details-panel { flex: 1; padding: 20px; overflow-y: auto; font-size: 0.85rem; }
+    .sidebar-status { padding: 12px 20px; border-top: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.5); color: #94a3b8; font-size: 0.72rem; line-height: 1.45; }
     .stat-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; margin-right: 4px; }
-    .legend { position: absolute; bottom: 20px; right: 290px; width: 250px; background: #151d30; padding: 18px 20px; border-radius: 8px; border: 1px solid #334155; font-size: 0.78rem; z-index: 20; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    .legend.dragging { cursor: grabbing; }
+    .legend { position: absolute; bottom: 20px; right: 280px; width: 250px; background: rgba(21, 29, 48, 0.96); backdrop-filter: blur(12px); padding: 16px 18px; border-radius: 8px; border: 1px solid #334155; font-size: 0.78rem; z-index: 20; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .legend.dragging { cursor: grabbing; box-shadow: 0 12px 40px rgba(0,0,0,0.7); }
     .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
     .legend-color { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 14px; }
-    .settings-dock { position: absolute; top: 20px; right: 20px; width: 238px; z-index: 21; background: #151d30; border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden; }
-    .settings-dock summary { padding: 12px 14px; color: #fff; font-size: 0.82rem; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+    .settings-dock { position: absolute; top: 20px; right: 20px; width: 248px; max-height: calc(100vh - 40px); z-index: 21; background: rgba(21, 29, 48, 0.96); backdrop-filter: blur(12px); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); overflow-y: auto; overscroll-behavior: contain; }
+    .settings-dock::-webkit-scrollbar { width: 4px; }
+    .settings-dock::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    .settings-dock summary { padding: 12px 14px; color: #fff; font-size: 0.82rem; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #151d30; z-index: 2; }
     .settings-dock summary::-webkit-details-marker { display: none; }
     .settings-dock summary::after { content: '+'; color: #94a3b8; font-size: 1rem; }
     .settings-dock[open] summary::after { content: '-'; }
@@ -45,24 +50,33 @@
     .settings-label { color: #94a3b8; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 7px; }
     .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #cbd5e1; font-size: 0.74rem; margin-top: 8px; }
     .settings-row input[type='range'] { width: 112px; accent-color: var(--accent); }
-    .settings-row input[type='checkbox'] { accent-color: var(--accent); }
+    .settings-row input[type='checkbox'] { accent-color: var(--accent); cursor: pointer; }
     .settings-row input[type='color'] { width: 32px; height: 24px; padding: 1px; border: 1px solid var(--border-color); border-radius: 4px; background: transparent; cursor: pointer; }
     .settings-row select { width: 112px; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: #0b0f19; color: #cbd5e1; font-size: 0.72rem; }
     .settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 14px; }
-    .settings-action { min-height: 31px; border: 1px solid var(--border-color); border-radius: 5px; background: #0b0f19; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; }
+    .settings-action { min-height: 31px; border: 1px solid var(--border-color); border-radius: 5px; background: #0b0f19; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; transition: border-color 0.15s, color 0.15s; }
     .settings-action:hover, .settings-action:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
     .sidebar-toggle { position: absolute; top: 14px; left: 14px; z-index: 22; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 5px; background: #151d30; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
     .sidebar-toggle:hover, .sidebar-toggle:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
-    .graph-status { color: #64748b; font-size: 0.7rem; margin-top: 10px; }
-    .code-tag { background: #0b0f19; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 0.78rem; color: #38bdf8; word-break: break-all; border: 1px solid #1e293b; }
+    .more-settings { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+    .more-settings summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #cbd5e1; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; list-style: none; }
+    .more-settings summary::-webkit-details-marker { display: none; }
+    .more-settings summary::after { content: '+'; color: #38bdf8; font-size: 1rem; }
+    .more-settings[open] summary::after { content: '−'; }
+    .more-settings .settings-section { margin-top: 12px; }
+    .code-tag { display: inline-block; background: #0b0f19; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 0.78rem; color: #38bdf8; word-break: break-all; border: 1px solid #1e293b; text-decoration: none; }
+    .code-tag:hover { border-color: var(--accent); text-decoration: underline; }
     .badge-count { background: #1e293b; color: #38bdf8; padding: 2px 6px; border-radius: 10px; font-size: 0.7rem; margin-left: auto; }
-    .conn-list { background: #0b0f19; border-radius: 6px; border: 1px solid #1e293b; padding: 8px; max-height: 180px; overflow-y: auto; }
-    .conn-item { padding: 4px 0; border-bottom: 1px solid #162032; font-size: 0.78rem; display: flex; justify-content: space-between; }
+    .conn-list { background: #0b0f19; border-radius: 6px; border: 1px solid #1e293b; padding: 4px; max-height: 180px; overflow-y: auto; }
+    .conn-item { padding: 5px 8px; border-bottom: 1px solid #162032; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 4px; transition: background 0.15s ease; }
+    .conn-item:hover { background: #1e293b; }
     .conn-item:last-child { border-bottom: none; }
+    .clickable-node { color: #38bdf8; text-decoration: underline; text-decoration-color: transparent; transition: text-decoration-color 0.15s ease; }
+    .conn-item:hover .clickable-node { text-decoration-color: #38bdf8; }
     @media (max-width: 760px) {
-      #sidebar { width: min(320px, 44vw); }
-      .settings-dock { top: 12px; right: 12px; width: 218px; }
-      .legend { bottom: 12px; right: 12px; }
+      #sidebar { width: min(320px, 80vw); min-width: 0; position: absolute; top: 0; bottom: 0; left: 0; z-index: 30; }
+      .settings-dock { top: 12px; right: 12px; width: 218px; max-height: calc(100vh - 24px); }
+      .legend { bottom: 12px; right: 12px; max-width: calc(100vw - 24px); }
     }
   </style>
 </head>
@@ -73,10 +87,11 @@
       <p>Living Architecture & Dependency Knowledge Graph</p>
     </div>
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search node, file, route, model..." />
+      <input type="text" id="searchInput" placeholder="Search node, file, route, model (Enter to focus)..." />
+      <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">✕</button>
     </div>
-    <div class="controls">
-      <button class="filter-btn active" data-group="all">All (194)</button>
+    <div class="controls" id="filterControls">
+      <button class="filter-btn active" data-group="all">All</button>
       <button class="filter-btn" data-group="frontend">Frontend</button>
       <button class="filter-btn" data-group="routes">Routes</button>
       <button class="filter-btn" data-group="api">Endpoints</button>
@@ -88,6 +103,7 @@
       <h3 style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 10px;">🔍 Node Inspector</h3>
       <p style="color: #64748b; line-height: 1.5;">Click on any node in the interactive graph to analyze its file path, API routes, database models, and impact blast radius.</p>
     </div>
+    <div class="sidebar-status" id="graphStatus" aria-live="polite"></div>
   </div>
 
   <div id="graph-container">
@@ -98,34 +114,38 @@
       <div class="settings-content">
         <div class="settings-section">
           <div class="settings-label">Display</div>
-          <label class="settings-row"><span>Animate physics</span><input id="physicsToggle" type="checkbox" checked></label>
-          <label class="settings-row"><span>Outer reverse orbit</span><input id="livingMotionToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Animate graph + outer orbit</span><input id="motionToggle" type="checkbox" checked></label>
           <label class="settings-row"><span>Edge labels</span><select id="edgeLabelMode"><option value="always">Always</option><option value="selected">Selected node</option><option value="light" selected>Light</option><option value="none">Off</option></select></label>
         </div>
         <div class="settings-section">
           <div class="settings-label">Scale</div>
-          <label class="settings-row"><span>Node size <output id="nodeScaleValue">110%</output></span><input id="nodeScale" type="range" min="70" max="160" value="110"></label>
-          <label class="settings-row"><span>Label size <output id="labelScaleValue">88%</output></span><input id="labelScale" type="range" min="70" max="160" value="88"></label>
-          <label class="settings-row"><span>Edge strength <output id="edgeOpacityValue">37%</output></span><input id="edgeOpacity" type="range" min="10" max="90" value="37"></label>
-        </div>
-        <div class="settings-section">
-          <div class="settings-label">Export</div>
-          <label class="settings-row"><span>Diagram background</span><input id="backgroundColor" type="color" value="#0b0f19"></label>
+          <label class="settings-row"><span>Node size <output id="nodeScaleValue">100%</output></span><input id="nodeScale" type="range" min="70" max="160" value="100"></label>
+          <label class="settings-row"><span>Label size <output id="labelScaleValue">100%</output></span><input id="labelScale" type="range" min="70" max="160" value="100"></label>
+          <label class="settings-row"><span>Edge strength <output id="edgeOpacityValue">50%</output></span><input id="edgeOpacity" type="range" min="10" max="90" value="50"></label>
         </div>
         <div class="settings-section">
           <div class="settings-label">Layout spacing</div>
-          <label class="settings-row"><span>Connected spacing <output id="innerSpacingValue">145 px</output></span><input id="innerSpacing" type="range" min="60" max="260" value="145"></label>
-          <label class="settings-row"><span>Outer pull <output id="outerPullValue">0.015</output></span><input id="outerPull" type="range" min="1" max="50" value="15"></label>
-          <label class="settings-row"><span>Horizontal vibe <output id="horizontalVibeValue">0%</output></span><input id="horizontalVibe" type="range" min="0" max="50" value="0" aria-label="Horizontal vibe control"></label>
+          <label class="settings-row"><span>Connected spacing <output id="innerSpacingValue">125 px</output></span><input id="innerSpacing" type="range" min="60" max="260" value="125"></label>
+          <label class="settings-row"><span>Outer shell <output id="outerPullValue">0</output></span><input id="outerPull" type="range" min="-10" max="150" value="0"></label>
+          <label class="settings-row"><span>Physics strength <output id="physicsStrengthValue">100%</output></span><input id="physicsStrength" type="range" min="25" max="175" value="100"></label>
+          <label class="settings-row"><span>Rotation speed <output id="rotationSpeedValue">100%</output></span><input id="rotationSpeed" type="range" min="0" max="200" value="100"></label>
         </div>
-        <div class="settings-actions">
+        <div class="settings-actions" style="grid-template-columns: 1fr;">
           <button class="settings-action" id="fitGraph" type="button">Fit graph</button>
-          <button class="settings-action" id="resetGraph" type="button">Reset view</button>
         </div>
         <div class="settings-actions" style="grid-template-columns: 1fr; margin-top: 7px;">
           <button class="settings-action" id="exportGraph" type="button">Download full diagram PNG</button>
         </div>
-        <div class="graph-status" id="graphStatus" aria-live="polite"></div>
+        <details class="more-settings">
+          <summary>More settings</summary>
+          <div class="settings-section">
+            <label class="settings-row"><span>Diagram background</span><input id="backgroundColor" type="color" value="#0b0f19"></label>
+            <label class="settings-row"><span>Horizontal vibe <output id="horizontalVibeValue">0%</output></span><input id="horizontalVibe" type="range" min="0" max="50" value="0" aria-label="Horizontal vibe control"></label>
+          </div>
+          <div class="settings-actions" style="grid-template-columns: 1fr;">
+            <button class="settings-action" id="resetGraph" type="button">Reset view</button>
+          </div>
+        </details>
       </div>
     </details>
     <div class="legend">
@@ -160,6 +180,27 @@
       database: '#facc15'
     };
     const unlinkedColor = '#ef4444';
+
+    // Populate filter button counts dynamically from graph data
+    const counts = { all: graphData.nodes.length };
+    graphData.nodes.forEach(n => {
+      counts[n.group] = (counts[n.group] || 0) + 1;
+    });
+    const labelMap = {
+      all: 'All',
+      frontend: 'Frontend',
+      routes: 'Routes',
+      api: 'Endpoints',
+      service: 'Services',
+      database: 'Database',
+      middleware: 'Auth/MW'
+    };
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      const g = btn.dataset.group;
+      const baseName = labelMap[g] || g;
+      const count = counts[g] || 0;
+      btn.textContent = `${baseName} (${count})`;
+    });
 
     const degreeById = new Map(graphData.nodes.map(node => [node.id, 0]));
     graphData.edges.forEach(edge => {
@@ -219,8 +260,8 @@
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
           gravitationalConstant: -60,
-          centralGravity: 0.003,
-          springLength: 150,
+          centralGravity: 0.004,
+          springLength: 125,
           springConstant: 0.07,
           avoidOverlap: 1
         },
@@ -238,7 +279,10 @@
       sidebar.classList.toggle('collapsed', collapsed);
       sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
       sidebarToggle.textContent = collapsed ? 'Show panel' : 'Hide panel';
-      window.requestAnimationFrame(() => network.redraw());
+      window.requestAnimationFrame(() => {
+        network.redraw();
+        fitGraph();
+      });
     }
 
     sidebarToggle.addEventListener('click', () => {
@@ -247,58 +291,69 @@
     const uiState = {
       group: 'all',
       term: '',
-      nodeScale: 1.1,
-      labelScale: 0.88,
+      nodeScale: 1,
+      labelScale: 1,
       selectedNodeId: null,
-      edgeOpacity: 0.37,
+      edgeOpacity: 0.5,
       edgeLabelMode: 'light',
-      innerSpacing: 145,
-      outerPull: 0.015,
+      innerSpacing: 125,
+      outerPull: 0,
+      physicsStrength: 1,
+      rotationSpeed: 1,
       horizontalVibe: 0,
-      physicsEnabled: true,
-      livingMotion: true,
+      motionEnabled: true,
       backgroundColor: '#0b0f19'
     };
     let outerOrbitFrame;
     let outerOrbitLayout;
-    let outerOrbitStartedAt = 0;
+    let outerOrbitElapsed = 0;
+    let outerOrbitLastFrame = 0;
     let horizontalVibeBasePositions;
     let horizontalVibeFrame;
+    let needsInitialFit = true;
     const legend = document.querySelector('.legend');
     let legendDrag;
 
     function startLegendDrag(event) {
-      if (event.button !== 0) return;
+      if (event.button !== undefined && event.button !== 0) return;
       const legendBox = legend.getBoundingClientRect();
       const containerBox = document.getElementById('graph-container').getBoundingClientRect();
-      legendDrag = { offsetX: event.clientX - legendBox.left, offsetY: event.clientY - legendBox.top, containerBox };
+      legendDrag = { offsetX: event.clientX - legendBox.left, offsetY: event.clientY - legendBox.top };
       legend.style.left = (legendBox.left - containerBox.left) + 'px';
       legend.style.top = (legendBox.top - containerBox.top) + 'px';
       legend.style.right = 'auto';
       legend.style.bottom = 'auto';
       legend.classList.add('dragging');
+      if (legend.setPointerCapture) {
+        try { legend.setPointerCapture(event.pointerId); } catch {}
+      }
       event.preventDefault();
     }
 
     function moveLegendDrag(event) {
       if (!legendDrag) return;
-      const maxLeft = Math.max(0, legendDrag.containerBox.width - legend.offsetWidth);
-      const maxTop = Math.max(0, legendDrag.containerBox.height - legend.offsetHeight);
-      const left = Math.min(maxLeft, Math.max(0, event.clientX - legendDrag.containerBox.left - legendDrag.offsetX));
-      const top = Math.min(maxTop, Math.max(0, event.clientY - legendDrag.containerBox.top - legendDrag.offsetY));
+      const containerBox = document.getElementById('graph-container').getBoundingClientRect();
+      const maxLeft = Math.max(0, containerBox.width - legend.offsetWidth);
+      const maxTop = Math.max(0, containerBox.height - legend.offsetHeight);
+      const left = Math.min(maxLeft, Math.max(0, event.clientX - containerBox.left - legendDrag.offsetX));
+      const top = Math.min(maxTop, Math.max(0, event.clientY - containerBox.top - legendDrag.offsetY));
       legend.style.left = left + 'px';
       legend.style.top = top + 'px';
     }
 
-    function endLegendDrag() {
+    function endLegendDrag(event) {
       if (!legendDrag) return;
+      if (legend.releasePointerCapture && event?.pointerId) {
+        try { legend.releasePointerCapture(event.pointerId); } catch {}
+      }
       legendDrag = undefined;
       legend.classList.remove('dragging');
     }
 
-    legend.addEventListener('mousedown', startLegendDrag);
-    window.addEventListener('mousemove', moveLegendDrag);
-    window.addEventListener('mouseup', endLegendDrag);
+    legend.addEventListener('pointerdown', startLegendDrag);
+    window.addEventListener('pointermove', moveLegendDrag);
+    window.addEventListener('pointerup', endLegendDrag);
+    window.addEventListener('pointercancel', endLegendDrag);
 
     function stopOuterOrbit() {
       if (outerOrbitFrame) window.cancelAnimationFrame(outerOrbitFrame);
@@ -307,39 +362,53 @@
 
     function startOuterOrbit() {
       stopOuterOrbit();
-      if (!uiState.livingMotion || !outerOrbitLayout) return;
-      outerOrbitStartedAt = performance.now();
+      if (!uiState.motionEnabled || !outerOrbitLayout) return;
+      outerOrbitLastFrame = performance.now();
       const renderOuterOrbit = (now) => {
-        if (!uiState.livingMotion || !outerOrbitLayout) return;
-        const elapsed = now - outerOrbitStartedAt;
-        const innerAngle = elapsed * 0.000012;
-        const outerAngle = elapsed * -0.00003;
-        const horizontalStretch = 1 + (uiState.horizontalVibe / 100) * 4;
-        for (const node of outerOrbitLayout.innerNodes) {
-          const angle = node.angle + innerAngle;
-          network.moveNode(node.id,
-            outerOrbitLayout.center.x + node.radius * horizontalStretch * Math.cos(angle),
-            outerOrbitLayout.center.y + node.radius * Math.sin(angle));
-        }
-        for (const cluster of outerOrbitLayout.outerClusters) {
-          const angle = cluster.angle + outerAngle;
-          const clusterX = outerOrbitLayout.center.x + cluster.radius * horizontalStretch * Math.cos(angle);
-          const clusterY = outerOrbitLayout.center.y + cluster.radius * Math.sin(angle);
-          for (const node of cluster.nodes) {
-            const nodeAngle = node.offsetAngle + angle;
-            network.moveNode(node.id,
-              clusterX + node.offsetRadius * horizontalStretch * Math.cos(nodeAngle),
-              clusterY + node.offsetRadius * Math.sin(nodeAngle));
-          }
-        }
+        if (!uiState.motionEnabled || !outerOrbitLayout) return;
+        outerOrbitElapsed += now - outerOrbitLastFrame;
+        outerOrbitLastFrame = now;
+        positionOuterOrbit(outerOrbitElapsed);
         outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
       };
       outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
     }
 
+    function outerRingRadius(clusterCount) {
+      const spacingRadius = 250 + clusterCount * 10;
+      const shellRadius = 460 + uiState.outerPull * 8;
+      return Math.max(spacingRadius, shellRadius);
+    }
+
+    function positionOuterOrbit(elapsed = 0) {
+      if (!outerOrbitLayout) return;
+      const innerAngle = elapsed * 0.00008 * uiState.rotationSpeed;
+      const outerAngle = elapsed * -0.00008 * uiState.rotationSpeed;
+      const horizontalStretch = 1 + (uiState.horizontalVibe / 100) * 4;
+      const center = outerOrbitLayout.center;
+      for (const node of outerOrbitLayout.coreNodes) {
+        const angle = node.angle + innerAngle;
+        network.moveNode(node.id,
+          center.x + node.radius * horizontalStretch * Math.cos(angle),
+          center.y + node.radius * Math.sin(angle));
+      }
+      for (const cluster of outerOrbitLayout.outerClusters) {
+        const angle = cluster.angle + outerAngle;
+        const clusterX = center.x + outerOrbitLayout.radius * horizontalStretch * Math.cos(angle);
+        const clusterY = center.y + outerOrbitLayout.radius * Math.sin(angle);
+        for (const node of cluster.nodes) {
+          const nodeAngle = node.offsetAngle + angle;
+          network.moveNode(node.id,
+            clusterX + node.offsetRadius * horizontalStretch * Math.cos(nodeAngle),
+            clusterY + node.offsetRadius * Math.sin(nodeAngle));
+        }
+      }
+    }
+
     function captureOuterOrbitLayout() {
       const positions = horizontalVibeBasePositions || network.getPositions();
       const entries = Object.entries(positions);
+      if (entries.length === 0) return;
       const center = entries.reduce((sum, [, position]) => ({ x: sum.x + position.x, y: sum.y + position.y }), { x: 0, y: 0 });
       center.x /= entries.length;
       center.y /= entries.length;
@@ -349,8 +418,7 @@
         return { id, degree: degreeById.get(id) || 0, radius: Math.hypot(x, y), angle: Math.atan2(y, x) };
       });
       const radii = nodes.map(node => node.radius).sort((a, b) => a - b);
-      const coreThreshold = radii[Math.floor(radii.length * 0.45)];
-      const outerThreshold = radii[Math.floor(radii.length * 0.72)];
+      const outerThreshold = radii[Math.floor(radii.length * 0.72)] || 200;
       const nodeById = new Map(nodes.map(node => [node.id, node]));
       const adjacency = new Map(nodes.map(node => [node.id, new Set()]));
       visEdges.forEach(edge => {
@@ -375,9 +443,10 @@
             }
           }
         }
-        const members = memberIds.map(id => nodeById.get(id));
+        const members = memberIds.map(id => nodeById.get(id)).filter(Boolean);
+        if (members.length === 0) continue;
         const componentCenter = members.reduce((sum, member) => {
-          const position = positions[member.id];
+          const position = positions[member.id] || { x: 0, y: 0 };
           return { x: sum.x + position.x, y: sum.y + position.y };
         }, { x: 0, y: 0 });
         componentCenter.x /= members.length;
@@ -390,14 +459,12 @@
         }
       }
       components.sort((a, b) => a.id.localeCompare(b.id));
-      const outerRadius = Math.max(outerThreshold + uiState.innerSpacing * 1.25, 260);
       const outerClusters = components.map((component, index) => {
         const angle = -Math.PI / 2 + (index * Math.PI * 2) / Math.max(components.length, 1);
         return {
           angle,
-          radius: outerRadius,
           nodes: component.members.map(member => {
-            const position = positions[member.id];
+            const position = positions[member.id] || { x: 0, y: 0 };
             const offsetX = position.x - component.center.x;
             const offsetY = position.y - component.center.y;
             return {
@@ -409,13 +476,27 @@
         };
       });
       const outerNodeIds = new Set(outerClusters.flatMap(cluster => cluster.nodes.map(node => node.id)));
+      outerNodeIds.forEach(id => visNodes.update({ id, fixed: { x: true, y: true } }));
+      visEdges.forEach(edge => {
+        const isOuterClusterLink = outerNodeIds.has(edge.from) && outerNodeIds.has(edge.to);
+        visEdges.update({ id: edge.id, smooth: isOuterClusterLink ? false : { type: 'continuous' } });
+      });
+      const coreNodes = nodes.filter(node => !outerNodeIds.has(node.id));
+      coreNodes.forEach(node => visNodes.update({ id: node.id, fixed: { x: true, y: true } }));
       outerOrbitLayout = {
         center,
-        innerNodes: nodes.filter(node => !outerNodeIds.has(node.id) && node.radius >= coreThreshold),
-        outerClusters
+        coreNodes,
+        outerClusters,
+        radius: outerRingRadius(outerClusters.length)
       };
+      outerOrbitElapsed = 0;
+      positionOuterOrbit();
       network.stopSimulation();
-      startOuterOrbit();
+      if (uiState.motionEnabled) startOuterOrbit();
+      if (needsInitialFit) {
+        needsInitialFit = false;
+        window.requestAnimationFrame(fitGraph);
+      }
     }
 
     function applyHorizontalVibe() {
@@ -435,6 +516,7 @@
       stopOuterOrbit();
       const from = network.getPositions();
       const baseEntries = Object.entries(horizontalVibeBasePositions);
+      if (baseEntries.length === 0) return;
       const centerX = baseEntries.reduce((sum, [, position]) => sum + position.x, 0) / baseEntries.length;
       const stretch = 1 + (uiState.horizontalVibe / 100) * 4;
       const target = Object.fromEntries(baseEntries.map(([id, position]) => [id, {
@@ -463,25 +545,48 @@
     function reheatLayout() {
       if (horizontalVibeFrame) window.cancelAnimationFrame(horizontalVibeFrame);
       stopOuterOrbit();
-      network.setOptions({
-        physics: {
-          enabled: true,
-          forceAtlas2Based: {
-            gravitationalConstant: -60,
-            springLength: uiState.innerSpacing,
-            centralGravity: uiState.outerPull,
-            springConstant: 0.07,
-            avoidOverlap: 1
+      visNodes.forEach(node => visNodes.update({ id: node.id, fixed: false }));
+      if (uiState.motionEnabled) {
+        network.setOptions({
+          physics: {
+            enabled: true,
+            forceAtlas2Based: {
+              gravitationalConstant: -60 * uiState.physicsStrength,
+              springLength: uiState.innerSpacing,
+              centralGravity: 0.004,
+              springConstant: 0.07 * uiState.physicsStrength,
+              avoidOverlap: 1
+            }
           }
-        }
-      });
-      network.once('stabilizationIterationsDone', () => {
-        horizontalVibeBasePositions = network.getPositions();
-        applyHorizontalVibe();
-        window.requestAnimationFrame(captureOuterOrbitLayout);
-      });
-      network.startSimulation();
+        });
+        network.stabilize(120);
+        network.once('stabilizationIterationsDone', () => {
+          horizontalVibeBasePositions = network.getPositions();
+          applyHorizontalVibe();
+          window.requestAnimationFrame(captureOuterOrbitLayout);
+        });
+      } else {
+        network.setOptions({ physics: { enabled: false } });
+        captureOuterOrbitLayout();
+      }
     }
+
+    let resumeOrbitTimer;
+    function pauseOrbitForPointer() {
+      if (!uiState.motionEnabled) return;
+      stopOuterOrbit();
+      window.clearTimeout(resumeOrbitTimer);
+    }
+
+    function resumeOrbitAfterPointer() {
+      if (!uiState.motionEnabled) return;
+      window.clearTimeout(resumeOrbitTimer);
+      resumeOrbitTimer = window.setTimeout(startOuterOrbit, 180);
+    }
+
+    container.addEventListener('pointerdown', pauseOrbitForPointer);
+    container.addEventListener('pointerup', resumeOrbitAfterPointer);
+    container.addEventListener('pointercancel', resumeOrbitAfterPointer);
 
     function matchingNodeIds() {
       return new Set(graphData.nodes.filter(node => {
@@ -520,7 +625,7 @@
         visNodes.update({
           id: node.id,
           label: node.baseLabel,
-          font: { ...node.font, color: node.baseFontColor }
+          font: { ...node.font, color: node.baseFontColor, size: Math.round(node.baseFontSize * uiState.labelScale) }
         });
       });
     }
@@ -530,6 +635,7 @@
       document.documentElement.style.setProperty('--bg-color', color);
       document.getElementById('graph-container').style.backgroundColor = color;
       container.style.backgroundColor = color;
+      updateEdgeAppearance();
     }
 
     async function exportFullDiagram() {
@@ -549,11 +655,11 @@
           top: Math.min(total.top, box.top),
           bottom: Math.max(total.bottom, box.bottom)
         }), { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
-        const graphWidth = bounds.right - bounds.left;
-        const graphHeight = bounds.bottom - bounds.top;
+        const graphWidth = Math.max(100, bounds.right - bounds.left);
+        const graphHeight = Math.max(100, bounds.bottom - bounds.top);
         const padding = 96;
         const maximumDimension = 4096;
-        const currentZoomAtDoubleResolution = view.scale * 2;
+        const currentZoomAtDoubleResolution = Math.max(0.5, view.scale * 2);
         const scaleCap = Math.min(
           (maximumDimension - padding * 2) / graphWidth,
           (maximumDimension - padding * 2) / graphHeight
@@ -567,10 +673,10 @@
         exportHost = document.createElement('div');
         exportHost.style.cssText = 'position:fixed;left:-100000px;top:0;width:' + exportWidth + 'px;height:' + exportHeight + 'px;background:' + uiState.backgroundColor + ';';
         document.body.appendChild(exportHost);
-        const exportNodes = new window.vis.DataSet(visibleNodes.map(({ group, ...node }) => ({
+        const exportNodes = new window.vis.DataSet(visibleNodes.map((node) => ({
           ...node,
-          x: positions[node.id].x,
-          y: positions[node.id].y,
+          x: positions[node.id]?.x || 0,
+          y: positions[node.id]?.y || 0,
           fixed: { x: true, y: true }
         })));
         const exportEdges = new window.vis.DataSet(visibleEdges);
@@ -579,7 +685,15 @@
           interaction: { hover: false, zoomView: false, dragView: false }
         });
         exportNetwork.moveTo({ position: center, scale: exportScale, animation: false });
-        await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+        await new Promise(resolve => {
+          let frames = 0;
+          const waitDraw = () => {
+            frames++;
+            if (frames > 3) resolve();
+            else window.requestAnimationFrame(waitDraw);
+          };
+          window.requestAnimationFrame(waitDraw);
+        });
 
         const sourceCanvas = exportHost.querySelector('canvas');
         const exportCanvas = document.createElement('canvas');
@@ -617,54 +731,157 @@
             : (uiState.edgeLabelMode === 'light' ? 'rgba(226, 232, 240, 0.38)' : 'rgba(148, 163, 184, 0)'));
         const labelsOff = uiState.edgeLabelMode === 'none';
         visEdges.update({
-        id: edge.id,
-        label: labelsOff ? '' : edge.baseLabel,
-        color: { color: 'rgba(148, 163, 184, ' + uiState.edgeOpacity + ')', highlight: '#38bdf8' },
-        font: { color: labelColor, size: 8, align: 'middle', strokeWidth: labelsOff ? 0 : 2, strokeColor: labelsOff ? 'rgba(0,0,0,0)' : '#0b0f19' }
+          id: edge.id,
+          label: labelsOff ? '' : edge.baseLabel,
+          color: { color: 'rgba(148, 163, 184, ' + uiState.edgeOpacity + ')', highlight: '#38bdf8' },
+          font: { color: labelColor, size: 8, align: 'middle', strokeWidth: labelsOff ? 0 : 2, strokeColor: labelsOff ? 'rgba(0,0,0,0)' : uiState.backgroundColor }
         });
       });
     }
 
     function fitGraph() {
-      network.fit({ animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
+      const isMobile = window.innerWidth <= 760;
+      const isCollapsed = sidebar.classList.contains('collapsed');
+      const offsetX = isMobile ? 0 : (isCollapsed ? -50 : -90);
+      network.fit({
+        animation: { duration: 350, easingFunction: 'easeInOutQuad' },
+        offset: { x: offsetX, y: 0 }
+      });
     }
 
     function updateLayoutSpacing() {
       reheatLayout();
     }
 
+    function selectAndFocusNode(nodeId) {
+      const node = graphData.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      uiState.selectedNodeId = nodeId;
+      network.selectNodes([nodeId]);
+      network.focus(nodeId, {
+        scale: 1.3,
+        animation: { duration: 400, easingFunction: 'easeInOutQuad' }
+      });
+      renderNodeDetails(node);
+      updateLabelVisibility();
+      updateEdgeAppearance();
+    }
+
+    function renderNodeDetails(node) {
+      const inbound = graphData.edges.filter(e => e.to === node.id);
+      const outbound = graphData.edges.filter(e => e.from === node.id);
+
+      let html = `
+        <h2 style="color: #fff; font-size: 1.05rem; margin-bottom: 8px; word-break: break-word;">${node.label}</h2>
+        <div style="margin-bottom: 12px;">
+          <span class="stat-badge" style="background: ${colorMap[node.group] || '#64748b'}; color: #000;">${node.type}</span>
+          <span class="stat-badge" style="background: #1e293b; color: #94a3b8;">${node.group}</span>
+          <span class="stat-badge" style="background: #0f172a; color: #cbd5e1;">${degreeById.get(node.id) || 0} connections</span>
+        </div>
+        
+        <div style="margin-bottom: 14px;">
+          <div style="color: #64748b; font-size: 0.72rem; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">File Location</div>
+          ${node.file && graphData.sourceRepository ? '<a class="code-tag" target="_blank" rel="noopener noreferrer" href="https://github.com/' + graphData.sourceRepository.repository + '/blob/' + graphData.sourceRepository.branch + '/' + encodeURIComponent(node.file).replace(/%2F/g, '/') + '">' + node.file + '</a>' : '<div class="code-tag">' + (node.file || 'Dynamic / In-Memory') + '</div>'}
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; display:flex; align-items:center;">
+            💥 Upstream Callers (${inbound.length})
+          </div>
+          ${inbound.length === 0 ? '<p style="color:#64748b; font-size:0.78rem;">None (Root Entry)</p>' : `
+            <div class="conn-list">
+              ${inbound.map(e => `
+                <div class="conn-item" data-node-id="${e.from}" title="Click to inspect caller">
+                  <span class="clickable-node" style="max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${e.from}</span>
+                  <span style="color:#64748b; font-size:0.7rem;">${e.type}</span>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; display:flex; align-items:center;">
+            🎯 Downstream Impact (${outbound.length})
+          </div>
+          ${outbound.length === 0 ? '<p style="color:#64748b; font-size:0.78rem;">None (Leaf Node)</p>' : `
+            <div class="conn-list">
+              ${outbound.map(e => `
+                <div class="conn-item" data-node-id="${e.to}" title="Click to inspect target">
+                  <span class="clickable-node" style="color:#34d399; max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${e.to}</span>
+                  <span style="color:#64748b; font-size:0.7rem;">${e.type}</span>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      `;
+
+      const detailsPanel = document.getElementById('details-panel');
+      detailsPanel.innerHTML = html;
+      detailsPanel.querySelectorAll('.conn-item').forEach(item => {
+        item.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const targetId = item.dataset.nodeId;
+          if (targetId) selectAndFocusNode(targetId);
+        });
+      });
+    }
+
+    function resetNodeInspector() {
+      uiState.selectedNodeId = null;
+      document.getElementById('details-panel').innerHTML = `
+        <h3 style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 10px;">🔍 Node Inspector</h3>
+        <p style="color: #64748b; line-height: 1.5;">Click on any node in the interactive graph to analyze its file path, API routes, database models, and impact blast radius.</p>
+      `;
+      updateLabelVisibility();
+      updateEdgeAppearance();
+    }
+
     function resetGraph() {
       uiState.group = 'all';
       uiState.term = '';
-      uiState.nodeScale = 1.1;
-      uiState.labelScale = 0.88;
+      uiState.nodeScale = 1;
+      uiState.labelScale = 1;
       uiState.selectedNodeId = null;
-      uiState.edgeOpacity = 0.37;
+      uiState.edgeOpacity = 0.5;
       uiState.edgeLabelMode = 'light';
-      uiState.innerSpacing = 145;
-      uiState.outerPull = 0.015;
+      uiState.innerSpacing = 125;
+      uiState.outerPull = 0;
+      uiState.physicsStrength = 1;
+      uiState.rotationSpeed = 1;
       uiState.horizontalVibe = 0;
-      uiState.physicsEnabled = true;
-      uiState.livingMotion = true;
+      uiState.motionEnabled = true;
+      horizontalVibeBasePositions = null;
+      stopOuterOrbit();
       setDiagramBackground('#0b0f19');
+      legend.style.left = '';
+      legend.style.top = '';
+      legend.style.right = '';
+      legend.style.bottom = '';
       document.getElementById('searchInput').value = '';
-      document.getElementById('nodeScale').value = '110';
-      document.getElementById('nodeScaleValue').textContent = '110%';
-      document.getElementById('labelScale').value = '88';
-      document.getElementById('labelScaleValue').textContent = '88%';
-      document.getElementById('edgeOpacity').value = '37';
-      document.getElementById('edgeOpacityValue').textContent = '37%';
-      document.getElementById('innerSpacing').value = '145';
-      document.getElementById('innerSpacingValue').textContent = '145 px';
-      document.getElementById('outerPull').value = '15';
-      document.getElementById('outerPullValue').textContent = '0.015';
+      document.getElementById('searchClear').style.display = 'none';
+      document.getElementById('nodeScale').value = '100';
+      document.getElementById('nodeScaleValue').textContent = '100%';
+      document.getElementById('labelScale').value = '100';
+      document.getElementById('labelScaleValue').textContent = '100%';
+      document.getElementById('edgeOpacity').value = '50';
+      document.getElementById('edgeOpacityValue').textContent = '50%';
+      document.getElementById('innerSpacing').value = '125';
+      document.getElementById('innerSpacingValue').textContent = '125 px';
+      document.getElementById('outerPull').value = '0';
+      document.getElementById('outerPullValue').textContent = '0';
+      document.getElementById('physicsStrength').value = '100';
+      document.getElementById('physicsStrengthValue').textContent = '100%';
+      document.getElementById('rotationSpeed').value = '100';
+      document.getElementById('rotationSpeedValue').textContent = '100%';
       document.getElementById('horizontalVibe').value = '0';
       document.getElementById('horizontalVibeValue').textContent = '0%';
       document.getElementById('edgeLabelMode').value = 'light';
-      document.getElementById('physicsToggle').checked = true;
-      document.getElementById('livingMotionToggle').checked = true;
+      document.getElementById('motionToggle').checked = true;
       document.getElementById('backgroundColor').value = '#0b0f19';
       document.querySelectorAll('.filter-btn').forEach(button => button.classList.toggle('active', button.dataset.group === 'all'));
+      resetNodeInspector();
       visNodes.forEach(node => visNodes.update({ id: node.id, fixed: false, x: null, y: null }));
       updateGraphVisibility();
       updateNodeScale();
@@ -677,75 +894,57 @@
 
     // Node Selection & Detailed Inspector
     network.on('click', (params) => {
+      window.clearTimeout(resumeOrbitTimer);
       if (params.nodes.length > 0) {
         const nodeId = params.nodes[0];
         const node = graphData.nodes.find(n => n.id === nodeId);
         if (!node) return;
         uiState.selectedNodeId = nodeId;
+        renderNodeDetails(node);
         updateLabelVisibility();
         updateEdgeAppearance();
-
-        const inbound = graphData.edges.filter(e => e.to === nodeId);
-        const outbound = graphData.edges.filter(e => e.from === nodeId);
-
-        let html = `
-          <h2 style="color: #fff; font-size: 1.05rem; margin-bottom: 8px; word-break: break-word;">${node.label}</h2>
-          <div style="margin-bottom: 12px;">
-            <span class="stat-badge" style="background: ${colorMap[node.group] || '#64748b'}; color: #000;">${node.type}</span>
-            <span class="stat-badge" style="background: #1e293b; color: #94a3b8;">${node.group}</span>
-            <span class="stat-badge" style="background: #0f172a; color: #cbd5e1;">${degreeById.get(node.id) || 0} connections</span>
-          </div>
-          
-          <div style="margin-bottom: 14px;">
-            <div style="color: #64748b; font-size: 0.72rem; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">File Location</div>
-            ${node.file ? '<a class="code-tag" target="_blank" rel="noopener noreferrer" href="https://github.com/' + graphData.sourceRepository.repository + '/blob/' + graphData.sourceRepository.branch + '/' + encodeURIComponent(node.file).replace(/%2F/g, '/') + '">' + node.file + '</a>' : '<div class="code-tag">Dynamic / In-Memory</div>'}
-          </div>
-
-          <div style="margin-bottom: 14px;">
-            <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; display:flex; align-items:center;">
-              💥 Upstream Callers (${inbound.length})
-            </div>
-            ${inbound.length === 0 ? '<p style="color:#64748b; font-size:0.78rem;">None (Root Entry)</p>' : `
-              <div class="conn-list">
-                ${inbound.map(e => `
-                  <div class="conn-item">
-                    <span style="color:#38bdf8; max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${e.from}</span>
-                    <span style="color:#64748b; font-size:0.7rem;">${e.type}</span>
-                  </div>
-                `).join('')}
-              </div>
-            `}
-          </div>
-
-          <div style="margin-bottom: 14px;">
-            <div style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; display:flex; align-items:center;">
-              🎯 Downstream Impact (${outbound.length})
-            </div>
-            ${outbound.length === 0 ? '<p style="color:#64748b; font-size:0.78rem;">None (Leaf Node)</p>' : `
-              <div class="conn-list">
-                ${outbound.map(e => `
-                  <div class="conn-item">
-                    <span style="color:#34d399; max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${e.to}</span>
-                    <span style="color:#64748b; font-size:0.7rem;">${e.type}</span>
-                  </div>
-                `).join('')}
-              </div>
-            `}
-          </div>
-        `;
-
-        document.getElementById('details-panel').innerHTML = html;
       } else if (uiState.selectedNodeId) {
-        uiState.selectedNodeId = null;
-        updateLabelVisibility();
-        updateEdgeAppearance();
+        resetNodeInspector();
+      }
+      if (params.nodes.length === 0) resumeOrbitAfterPointer();
+    });
+
+    network.on('doubleClick', (params) => {
+      if (params.nodes.length > 0) {
+        selectAndFocusNode(params.nodes[0]);
+      } else {
+        fitGraph();
       }
     });
 
     // Search filter
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      uiState.term = e.target.value.toLowerCase().trim();
+    const searchInput = document.getElementById('searchInput');
+    const searchClear = document.getElementById('searchClear');
+
+    function applySearch() {
+      uiState.term = searchInput.value.toLowerCase().trim();
+      searchClear.style.display = uiState.term ? 'block' : 'none';
       updateGraphVisibility();
+    }
+
+    searchInput.addEventListener('input', applySearch);
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const visibleIds = [...matchingNodeIds()];
+        if (visibleIds.length > 0) {
+          selectAndFocusNode(visibleIds[0]);
+        }
+      } else if (e.key === 'Escape') {
+        searchInput.value = '';
+        applySearch();
+      }
+    });
+
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      applySearch();
+      searchInput.focus();
     });
 
     // Filter Buttons
@@ -758,16 +957,13 @@
       });
     });
 
-    document.getElementById('physicsToggle').addEventListener('change', (event) => {
-      uiState.physicsEnabled = event.target.checked;
+    document.getElementById('motionToggle').addEventListener('change', (event) => {
+      uiState.motionEnabled = event.target.checked;
       if (event.target.checked) reheatLayout();
-      else network.setOptions({ physics: { enabled: false } });
-    });
-
-    document.getElementById('livingMotionToggle').addEventListener('change', (event) => {
-      uiState.livingMotion = event.target.checked;
-      if (event.target.checked) startOuterOrbit();
-      else stopOuterOrbit();
+      else {
+        network.setOptions({ physics: { enabled: false } });
+        stopOuterOrbit();
+      }
     });
 
     document.getElementById('edgeLabelMode').addEventListener('change', (event) => {
@@ -801,9 +997,24 @@
     });
 
     document.getElementById('outerPull').addEventListener('input', (event) => {
-      uiState.outerPull = Number(event.target.value) / 1000;
-      document.getElementById('outerPullValue').textContent = uiState.outerPull.toFixed(3);
+      uiState.outerPull = Number(event.target.value);
+      document.getElementById('outerPullValue').textContent = String(uiState.outerPull);
+      if (outerOrbitLayout) {
+        outerOrbitLayout.radius = outerRingRadius(outerOrbitLayout.outerClusters.length);
+        positionOuterOrbit(outerOrbitElapsed);
+      }
+    });
+
+    document.getElementById('physicsStrength').addEventListener('input', (event) => {
+      uiState.physicsStrength = Number(event.target.value) / 100;
+      document.getElementById('physicsStrengthValue').textContent = event.target.value + '%';
       updateLayoutSpacing();
+    });
+
+    document.getElementById('rotationSpeed').addEventListener('input', (event) => {
+      uiState.rotationSpeed = Number(event.target.value) / 100;
+      document.getElementById('rotationSpeedValue').textContent = event.target.value + '%';
+      positionOuterOrbit(outerOrbitElapsed);
     });
 
     document.getElementById('horizontalVibe').addEventListener('input', (event) => {
