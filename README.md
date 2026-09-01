@@ -54,9 +54,9 @@ Copy-Item frontend/.env.example frontend/.env
 npm ci
 npm --prefix backend ci
 npm --prefix frontend ci
-npm --prefix backend run db:generate
+npm --prefix backend run prisma:generate
 npm --prefix backend run db:migrate
-npm --prefix backend run db:seed
+npm --prefix backend run seed
 npm run dev:all
 ```
 
@@ -75,12 +75,13 @@ Docker Compose requires its PostgreSQL and application secrets to be configured.
 
 ```powershell
 npm test
+npm run test:ci-plan
 npm run lint
 npm run build
 npm run graph:verify
 ```
 
-The standard tests, lint, and build protect application behaviour. `graph:verify` regenerates and validates the codebase knowledge graph; review and commit any generated graph changes with the related code change.
+The standard tests, lint, and build protect application behaviour. GitHub uses deterministic, fail-closed [selective CI rules](docs/CI.md) so ordinary commits run only their relevant checks while unknown and high-risk changes receive broader coverage. `graph:verify` regenerates and validates the codebase knowledge graph; review and commit any generated graph changes with the related code change.
 
 ## Deployment
 
@@ -104,6 +105,7 @@ Knowladge-Graph/      Codebase graph, architecture references, and agent playboo
 - [Frontend guide](frontend/README.md)
 - [Knowledge Graph guide](Knowladge-Graph/README.md)
 - [API documentation](docs/api/API-DOCUMENTATION.md)
+- [CI and test-selection guide](docs/CI.md)
 
 ## Knowledge Graph and coding-agent workflow
 

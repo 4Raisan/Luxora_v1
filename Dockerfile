@@ -1,5 +1,5 @@
 # Build frontend
-FROM node:20-alpine AS frontend-build
+FROM node:22-alpine AS frontend-build
 WORKDIR /app/frontend
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
@@ -9,7 +9,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Backend runtime
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 # Backend deps + Prisma client

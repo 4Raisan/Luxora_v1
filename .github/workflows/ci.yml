@@ -5,15 +5,100 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 2 * * *'
+
+permissions:
+  contents: read
+  pull-requests: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  validate-and-test:
+  classify:
+    name: Detect changes and scan secrets
     runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      quality: ${{ steps.plan.outputs.quality }}
+      frontend: ${{ steps.plan.outputs.frontend }}
+      backend: ${{ steps.plan.outputs.backend }}
+      database: ${{ steps.plan.outputs.database }}
+      docker: ${{ steps.plan.outputs.docker }}
+      audit: ${{ steps.plan.outputs.audit }}
+      knowledge_graph: ${{ steps.plan.outputs.knowledge_graph }}
+      full: ${{ steps.plan.outputs.full }}
+      docs_only: ${{ steps.plan.outputs.docs_only }}
+      backend_suites: ${{ steps.plan.outputs.backend_suites }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Select required checks
+        id: plan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          FORCE_FULL: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: node scripts/ci/plan-checks.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
+
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  quality:
+    name: Lint and frontend
+    needs: classify
+    if: needs.classify.outputs.quality == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Test CI classifier
+        run: npm run test:ci-plan
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Install frontend dependencies
+        if: needs.classify.outputs.frontend == 'true'
+        run: npm --prefix frontend ci
+
+      - name: Build frontend SPA
+        if: needs.classify.outputs.frontend == 'true'
+        run: npm --prefix frontend run build
+
+  backend:
+    name: Backend tests
+    needs: classify
+    if: needs.classify.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
     services:
       postgres:
         image: postgres:15-alpine
@@ -28,102 +113,166 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Gitleaks Secret Scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Install Root Dependencies
-        run: npm ci
-
-      - name: Install Backend Dependencies
+      - name: Install backend dependencies
         run: npm --prefix backend ci
-
-      - name: Install Frontend Dependencies
-        run: npm --prefix frontend ci
-
-      - name: Run Linter
-        run: npm run lint
-
-      - name: Build Frontend SPA
-        run: npm --prefix frontend run build
 
       - name: Generate Prisma Client
         run: npm --prefix backend run prisma:generate
 
-      - name: Apply Database Migrations
-        working-directory: backend
-        run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: postgresql://luxora_test_user:luxora_test_password@localhost:5432/luxora_test_db?schema=public
+      - name: Create ephemeral test secrets
+        shell: bash
+        run: |
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "BANK_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
-      - name: Run Backend Automated Tests
-        run: npm --prefix backend test
+      - name: Run selected backend suites
+        run: npm --prefix backend run test:ci -- --suite=${{ needs.classify.outputs.backend_suites }}
         env:
           DATABASE_URL: postgresql://luxora_test_user:luxora_test_password@localhost:5432/luxora_test_db?schema=luxora_test
-          JWT_SECRET: test_jwt_secret_luxora_ci_environment_key_2026
-          BANK_ENCRYPTION_KEY: test_bank_key_32_bytes_long_ci_encryption
           PAYMENT_MODE: demo
           PORT: 5000
           NODE_ENV: test
 
-      - name: Audit Production Dependencies
-        run: |
-          npm audit --omit=dev --audit-level=high
-          npm --prefix backend audit --omit=dev --audit-level=high
-          npm --prefix frontend audit --omit=dev --audit-level=high
+  audit:
+    name: Production dependency audit
+    needs: classify
+    if: needs.classify.outputs.audit == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Build Production Docker Image
-        run: docker build -t luxora:ci .
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - name: Start Production Docker Container
+      - name: Audit lockfiles
         run: |
-          docker run -d --name luxora-ci-container \
-            --network host \
-            -e DATABASE_URL="postgresql://luxora_test_user:luxora_test_password@127.0.0.1:5432/luxora_test_db?schema=public" \
-            -e JWT_SECRET="test_jwt_secret_luxora_ci_environment_key_2026" \
-            -e BANK_ENCRYPTION_KEY="test_bank_key_32_bytes_long_ci_encryption" \
-            -e PAYMENT_MODE="demo" \
-            -e PORT="5000" \
-            -e NODE_ENV="production" \
-            -e STORAGE_DRIVER="local" \
-            -e LOCAL_UPLOAD_DIR="/tmp/luxora-uploads" \
-            luxora:ci
+          npm audit --package-lock-only --omit=dev --audit-level=high
+          npm --prefix backend audit --package-lock-only --omit=dev --audit-level=high
+          npm --prefix frontend audit --package-lock-only --omit=dev --audit-level=high
 
-      - name: Verify Production Container Health
+  docker:
+    name: Production Docker smoke
+    needs: classify
+    if: needs.classify.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: luxora_test_user
+          POSTGRES_PASSWORD: luxora_test_password
+          POSTGRES_DB: luxora_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: luxora:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create ephemeral container secrets
+        shell: bash
         run: |
-          echo "Polling container health check at http://127.0.0.1:5000/api/health..."
-          for i in $(seq 1 30); do
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "BANK_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Start production container
+        run: >-
+          docker run -d
+          --name luxora-ci-container
+          --network host
+          -e DATABASE_URL="postgresql://luxora_test_user:luxora_test_password@127.0.0.1:5432/luxora_test_db?schema=public"
+          -e JWT_SECRET="$JWT_SECRET"
+          -e BANK_ENCRYPTION_KEY="$BANK_ENCRYPTION_KEY"
+          -e PAYMENT_MODE="demo"
+          -e PORT="5000"
+          -e NODE_ENV="production"
+          -e S3_BUCKET="luxora-ci-private"
+          -e S3_REGION="auto"
+          -e S3_ENDPOINT="http://127.0.0.1:9"
+          -e S3_ACCESS_KEY_ID="ci_access_key"
+          -e S3_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY"
+          luxora:ci
+
+      - name: Verify production container health
+        run: |
+          for attempt in $(seq 1 30); do
             if [ "$(docker inspect -f '{{.State.Running}}' luxora-ci-container 2>/dev/null)" != "true" ]; then
-              echo "Error: Container stopped unexpectedly."
+              echo "Container stopped unexpectedly."
               docker logs luxora-ci-container
               exit 1
             fi
             if curl -fsS http://127.0.0.1:5000/api/health >/dev/null 2>&1; then
-              echo "Container health check passed on attempt $i!"
+              echo "Production container health check passed."
               exit 0
             fi
             sleep 1
           done
-          echo "Error: Health check timed out after 30 seconds."
+          echo "Container health check timed out after 30 seconds."
           docker logs luxora-ci-container
           exit 1
 
-      - name: Cleanup Production Docker Container
+      - name: Cleanup production container
         if: always()
         run: |
           docker stop luxora-ci-container 2>/dev/null || true
           docker rm -f luxora-ci-container 2>/dev/null || true
+
+  validate-and-test:
+    name: validate-and-test
+    if: always()
+    needs: [classify, quality, backend, audit, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Confirm selected checks passed
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          AUDIT_RESULT: ${{ needs.audit.result }}
+          DOCKER_RESULT: ${{ needs.docker.result }}
+        run: |
+          for result in "$CLASSIFY_RESULT" "$QUALITY_RESULT" "$BACKEND_RESULT" "$AUDIT_RESULT" "$DOCKER_RESULT"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "A required CI job did not pass: $result"
+              exit 1
+            fi
+          done
+          if [ "$CLASSIFY_RESULT" != "success" ]; then
+            echo "Change classification and secret scanning must pass."
+            exit 1
+          fi
+          echo "All selected CI checks passed."

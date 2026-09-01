@@ -6,14 +6,16 @@ The Luxora backend is an Express and Prisma API backed by PostgreSQL. It owns au
 
 ```powershell
 npm ci
-npm run db:generate
+npm run prisma:generate
 npm run db:migrate
-npm run db:seed
+npm run seed
 npm run dev
 npm test
 ```
 
 Run these commands from `backend/`, or prefix them with `npm --prefix backend` from the repository root.
+
+For faster targeted verification, use `test:smoke`, `test:payments`, `test:bookings`, or `test:security`. The [CI guide](../docs/CI.md) explains how commits are mapped to these suites.
 
 Production starts with `npm start`. The startup sequence applies committed Prisma migrations, checks the bank-encryption configuration, and then starts the API. Do not use `prisma db push` or run the seed command against production.
 
