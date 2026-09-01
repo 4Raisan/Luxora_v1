@@ -1,8 +1,22 @@
-﻿import React from 'react'
+import React from 'react'
 
-export function ChatHeader({ onClose, onMinimize, onReset }) {
+export function ChatHeader({
+  onClose,
+  onMinimize,
+  onReset,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  isDraggable = false
+}) {
   return (
-    <header className="lx-chat-header">
+    <header
+      className={`lx-chat-header ${isDraggable ? 'lx-chat-header--draggable' : ''}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      title={isDraggable ? 'Drag header to move chat window' : undefined}
+    >
       <div className="lx-chat-header__brand">
         <div className="lx-chat-header__avatar">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

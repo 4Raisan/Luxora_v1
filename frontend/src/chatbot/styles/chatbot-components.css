@@ -7,31 +7,53 @@
    ========================================================================== */
 .lx-chat-trigger {
   position: fixed;
-  bottom: 28px;
-  right: 28px;
   z-index: 999999;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 20px 12px 14px;
+  padding: 12px 18px 12px 12px;
   border-radius: var(--lx-chat-radius-pill);
   background: linear-gradient(135deg, #1C1C1C 0%, #121212 100%);
   border: 1px solid var(--lx-chat-gold-border);
   box-shadow: var(--lx-chat-shadow-trigger);
   color: var(--lx-chat-white);
-  cursor: pointer;
+  cursor: grab;
   font-family: var(--lx-chat-font-primary);
   font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
 
 .lx-chat-trigger:hover {
-  transform: translateY(-3px) scale(1.02);
+  transform: translateY(-2px) scale(1.02);
   border-color: var(--lx-chat-gold);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 28px rgba(201, 168, 76, 0.45);
+}
+
+.lx-chat-trigger--dragging {
+  cursor: grabbing !important;
+  transition: none !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 35px rgba(201, 168, 76, 0.6) !important;
+  border-color: var(--lx-chat-gold-light) !important;
+  z-index: 1000000 !important;
+}
+
+.lx-chat-trigger__drag-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  opacity: 0.65;
+  cursor: grab;
+}
+
+.lx-chat-trigger:hover .lx-chat-trigger__drag-grip {
+  opacity: 1;
 }
 
 .lx-chat-trigger__icon-wrap {
@@ -82,7 +104,7 @@
 .lx-chat-window {
   position: fixed;
   bottom: 24px;
-  right: 24px;
+  left: 24px;
   width: 420px;
   max-width: calc(100vw - 32px);
   height: 640px;
@@ -100,11 +122,26 @@
   backdrop-filter: blur(20px);
 }
 
+.lx-chat-window--dragging {
+  transition: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.lx-chat-header--draggable {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.lx-chat-window--dragging .lx-chat-header--draggable {
+  cursor: grabbing !important;
+}
+
 @media (max-width: 640px) {
   .lx-chat-trigger {
-    bottom: max(16px, env(safe-area-inset-bottom));
-    right: 16px;
-    padding: 10px 16px 10px 12px;
+    padding: 10px 14px 10px 10px;
     font-size: 0.82rem;
   }
 
