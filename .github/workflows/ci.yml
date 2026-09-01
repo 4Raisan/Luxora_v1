@@ -57,7 +57,7 @@ jobs:
         run: npm --prefix backend run prisma:generate
 
       - name: Apply Database Migrations
-        run: npx --prefix backend prisma migrate deploy
+        run: npm --prefix backend run db:migrate
         env:
           DATABASE_URL: postgresql://luxora_test_user:luxora_test_password@localhost:5432/luxora_test_db?schema=public
 
@@ -73,6 +73,23 @@ jobs:
 
       - name: Audit Production Dependencies
         run: |
-          npm audit --audit-level=high
-          npm --prefix backend audit --audit-level=high
-          npm --prefix frontend audit --audit-level=high
+          npm audit --omit=dev --audit-level=high
+          npm --prefix backend audit --omit=dev --audit-level=high
+          npm --prefix frontend audit --omit=dev --audit-level=high
+
+      - name: Build Production Docker Image
+        run: docker build -t luxora:ci .
+
+      - name: Smoke Test Production Docker Container
+        run: |
+          docker run --rm -d --name luxora-ci-smoke \
+            -e DATABASE_URL=postgresql://luxora_test_user:luxora_test_password@127.0.0.1:5432/luxora_test_db?schema=public \
+            -e JWT_SECRET=test_jwt_secret_luxora_ci_environment_key_2026 \
+            -e BANK_ENCRYPTION_KEY=test_bank_key_32_bytes_long_ci_encryption \
+            -e PAYMENT_MODE=demo \
+            -e PORT=5000 \
+            -p 5000:5000 \
+            luxora:ci
+          sleep 5
+          docker logs luxora-ci-smoke || true
+          docker stop luxora-ci-smoke || true

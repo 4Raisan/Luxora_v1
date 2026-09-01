@@ -13,7 +13,9 @@
     "test": "node tests/run-tests.js",
     "seed": "node prisma/seed.js",
     "demo:seed": "node prisma/demo-bookings.js seed",
-    "demo:clean": "node prisma/demo-bookings.js clean"
+    "demo:clean": "node prisma/demo-bookings.js clean",
+    "preflight:bank-accounts": "node prisma/migrate-bank-accounts.js --dry-run",
+    "migrate:bank-accounts": "node prisma/migrate-bank-accounts.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",
