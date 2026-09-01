@@ -64,7 +64,6 @@ after(async () => {
   const suffix = RND;
   // Remove this run's test users (cascades their bookings/subscriptions/etc.)
   try {
-    await prisma.refundRequest.deleteMany({ where: { user: { email: { contains: suffix } } } });
     // bookings reference users/reviews with RESTRICT, so remove dependents first
     await prisma.review.deleteMany({ where: { booking: { user: { email: { contains: suffix } } } } });
     await prisma.complaint.deleteMany({ where: { booking: { user: { email: { contains: suffix } } } } });
@@ -100,7 +99,6 @@ test('B1: no credential fields in any list/dashboard API response', async () => 
     authJson(admin, '/admin/bookings'),
     authJson(admin, '/admin/complaints'),
     authJson(admin, '/admin/users'),
-    authJson(admin, '/admin/refunds'),
   ]);
   for (const { status, text } of responses) {
     assert.equal(status, 200);

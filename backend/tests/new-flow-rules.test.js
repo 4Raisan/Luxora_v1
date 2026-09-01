@@ -65,13 +65,11 @@ after(async () => {
   await prisma.$disconnect();
 });
 
-test('Rule 1: Customer can request direct refund even with prior usage, revoking remaining entitlements upon refund approval', async () => {
+test('Rule 1: V1 does not offer direct refund routes and package entitlements remain intact', async () => {
   const customerUser = await prisma.user.create({
     data: { name: `Cust R1 ${RND}`, email: `cust.r1.${RND}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Colombo', addressDistrict: 'Western' },
   });
-  const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
   const customerToken = jwt.sign({ id: customerUser.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
-  const adminToken = jwt.sign({ id: adminUser.id, role: 'ADMIN', tokenVersion: adminUser.tokenVersion }, JWT_SECRET);
 
   const plan = await prisma.subscriptionPlan.findFirst({ where: { type: 'Auto Care' }, include: { entitlements: true } });
   const sub = await prisma.userSubscription.create({
@@ -99,35 +97,16 @@ test('Rule 1: Customer can request direct refund even with prior usage, revoking
     },
   });
 
-  const service = await prisma.service.findFirst({ where: { category: { name: 'Auto Care' } } });
-  // Create 1 booking (usage > 0)
-  const bookRes = await authJson(customerToken, '/bookings', {
-    method: 'POST',
-    body: JSON.stringify({ service_id: service.id, booking_date: '2026-09-02', booking_time: '10:00' }),
-  });
-  assert.equal(bookRes.status, 201);
-
-  // Request direct refund (previously was blocked if used_units > 0)
+  // Verify direct refund endpoint does not exist (V1 no-refund rule)
   const refundReq = await authJson(customerToken, '/refunds', {
     method: 'POST',
-    body: JSON.stringify({ subscription_id: sub.id, reason: 'I want a refund for the package' }),
+    body: JSON.stringify({ subscription_id: sub.id, reason: 'I want a refund' }),
   });
-  assert.equal(refundReq.status, 201, `Direct refund request should succeed. Error: ${JSON.stringify(refundReq.body)}`);
+  assert.equal(refundReq.status, 404, 'Direct refund endpoint should be 404 in V1');
 
-  // Admin approves refund
-  const approveRes = await authJson(adminToken, `/admin/refunds/${refundReq.body.id}`, {
-    method: 'PUT',
-    body: JSON.stringify({ status: 'APPROVED', admin_note: 'Approved demo refund' }),
-  });
-  assert.equal(approveRes.status, 200);
-
-  // Sub should now be status: 'refunded' and remaining entitlements revoked
-  const updatedSub = await prisma.userSubscription.findUnique({ where: { id: sub.id } });
-  assert.equal(updatedSub.status, 'refunded');
-
-  const snapshot = await getEntitlementSnapshot(prisma, customerUser.id);
-  const autoCat = snapshot.find((s) => s.category_name === 'Auto Care');
-  assert.equal(autoCat?.remaining_units || 0, 0, 'Remaining entitlements must be 0 after refund');
+  // Sub remains active
+  const freshSub = await prisma.userSubscription.findUnique({ where: { id: sub.id } });
+  assert.equal(freshSub.status, 'active');
 });
 
 test('Rule 2: Customer deactivation cancels active bookings, restores entitlement, notifies customer and provider', async () => {
@@ -441,72 +420,6 @@ test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, 
   assert.equal(reschedRes2.body.status, 'assigned');
   assert.match(reschedRes2.body.start_pin, /^\d{6}$/, 'Assigned rescheduled booking must return 6-digit start_pin');
   assert.equal(reschedRes2.body.completion_pin, null, 'Assigned rescheduled booking must never leak completion_pin');
-});
-
-test('Audit Fix 2: PayHere approved refund can be manually settled by admin if gateway webhook does not arrive', async () => {
-  const uid = crypto.randomUUID().slice(0, 8);
-  const cust = await prisma.user.create({
-    data: { name: `Cust PayHere ${uid}`, email: `cust.payhere.${uid}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER' },
-  });
-  const custToken = jwt.sign({ id: cust.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
-  const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
-  const adminToken = jwt.sign({ id: adminUser.id, role: 'ADMIN', tokenVersion: adminUser.tokenVersion }, JWT_SECRET);
-
-  const plan = await prisma.subscriptionPlan.findFirst({ where: { type: 'Garden Care' } });
-  const sub = await prisma.userSubscription.create({
-    data: { userId: cust.id, planId: plan.id, startDate: new Date(), endDate: new Date(Date.now() + 30 * 86400000), status: 'active' },
-  });
-  const payment = await prisma.payment.create({
-    data: {
-      userId: cust.id,
-      planId: plan.id,
-      subscriptionId: sub.id,
-      gateway: 'PAYHERE',
-      gatewayOrderId: `ph-order-${uid}`,
-      idempotencyKey: `ph-idem-${uid}`,
-      expectedAmount: plan.priceMonthly,
-      expectedCurrency: 'LKR',
-      capturedAmount: plan.priceMonthly,
-      capturedCurrency: 'LKR',
-      status: 'COMPLETED',
-    },
-  });
-
-  // Customer requests refund
-  const reqRes = await authJson(custToken, '/refunds', {
-    method: 'POST',
-    body: JSON.stringify({ subscription_id: sub.id, reason: 'Moving away' }),
-  });
-  assert.equal(reqRes.status, 201);
-  const refundId = reqRes.body.id;
-
-  // Admin approves refund -> live PayHere enters APPROVED awaiting gateway webhook
-  const approveRes = await authJson(adminToken, `/admin/refunds/${refundId}`, {
-    method: 'PUT',
-    body: JSON.stringify({ status: 'APPROVED', admin_note: 'Approved for refund' }),
-  });
-  assert.equal(approveRes.status, 200);
-  assert.equal(approveRes.body.status, 'approved');
-  assert.equal(approveRes.body.awaiting_gateway_confirmation, true);
-
-  // Subscription remains active while awaiting gateway confirmation
-  let freshSub = await prisma.userSubscription.findUnique({ where: { id: sub.id } });
-  assert.equal(freshSub.status, 'active');
-
-  // Admin subsequently manually settles the refund after verifying external transfer
-  const settleRes = await authJson(adminToken, `/admin/refunds/${refundId}`, {
-    method: 'PUT',
-    body: JSON.stringify({ status: 'REFUNDED', admin_note: 'Manually verified PayHere refund transaction' }),
-  });
-  assert.equal(settleRes.status, 200);
-  assert.equal(settleRes.body.status, 'refunded');
-  assert.equal(settleRes.body.manually_settled, true);
-
-  // Subscription and payment are now fully revoked
-  freshSub = await prisma.userSubscription.findUnique({ where: { id: sub.id } });
-  assert.equal(freshSub.status, 'refunded');
-  const freshPayment = await prisma.payment.findUnique({ where: { id: payment.id } });
-  assert.equal(freshPayment.status, 'REFUNDED');
 });
 
 test('Audit Fix 4: Customer registration and town update enforce canonical Sri Lankan location list', async () => {

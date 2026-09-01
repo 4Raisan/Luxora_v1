@@ -31,8 +31,6 @@ model User {
   passwordResetTokens    PasswordResetToken[]
   payments               Payment[]
   supportTickets         SupportTicket[]
-  refundRequests         RefundRequest[]      @relation("RefundCustomer")
-  reviewedRefundRequests RefundRequest[]      @relation("RefundReviewer")
   adminAuditLogs         AdminAuditLog[]      @relation("AdminAuditLogs")
 
   @@map("users")
@@ -166,7 +164,6 @@ model UserSubscription {
   entitlements        UserSubscriptionEntitlement[]
   bookings            Booking[]
   payments            Payment[]
-  refundRequest       RefundRequest?
 
   @@map("user_subscriptions")
 }
@@ -284,7 +281,6 @@ model Payment {
   booking          Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   subscription     UserSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   promotion        Promotion?        @relation(fields: [promotionId], references: [id], onDelete: SetNull)
-  refundRequests   RefundRequest[]
 
   @@index([userId, status])
   @@index([planId])
@@ -292,27 +288,6 @@ model Payment {
   @@index([subscriptionId])
   @@index([promotionId])
   @@map("payments")
-}
-
-model RefundRequest {
-  id             Int              @id @default(autoincrement())
-  userId         Int
-  subscriptionId Int              @unique
-  paymentId      Int?
-  reason         String?
-  status         RefundStatus     @default(REQUESTED)
-  adminNote      String?
-  requestedAt    DateTime         @default(now())
-  reviewedAt     DateTime?
-  reviewedById   Int?
-  user           User             @relation("RefundCustomer", fields: [userId], references: [id], onDelete: Cascade)
-  subscription   UserSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
-  payment        Payment?         @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  reviewedBy     User?            @relation("RefundReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-
-  @@index([userId, status])
-  @@index([status, requestedAt])
-  @@map("refund_requests")
 }
 
 model Review {
@@ -486,13 +461,6 @@ enum PaymentStatus {
   PENDING
   COMPLETED
   FAILED
-  REFUNDED
-}
-
-enum RefundStatus {
-  REQUESTED
-  APPROVED
-  REJECTED
   REFUNDED
 }
 

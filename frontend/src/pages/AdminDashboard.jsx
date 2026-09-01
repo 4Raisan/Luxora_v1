@@ -19,7 +19,6 @@ const Icons = {
   Complaints: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l9.5 16.5H2.5L12 3z" stroke="currentColor" strokeWidth="1.8"/><path d="M12 10v4M12 17.2v.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Promotions: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M20 12l-8-8H4v8l8 8 8-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg>),
   Support: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 13a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.8"/><rect x="2.5" y="13" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8"/><rect x="17.5" y="13" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8"/><path d="M19.5 19a3.5 3.5 0 01-3.5 3h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
-  Refunds: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 9V5h4M20 9V5h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M4 5.5a8.5 8.5 0 0113.4 9M20 15v4h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M20 18.5A8.5 8.5 0 016.6 9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Reports: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Operations: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Bell: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="currentColor" strokeWidth="1.8"/><path d="M10 19a2 2 0 004 0" stroke="currentColor" strokeWidth="1.8"/></svg>),
@@ -34,7 +33,6 @@ const NAV_ITEMS = [
   { id: 'bookings', label: 'Bookings', icon: Icons.Bookings },
   { id: 'complaints', label: 'Complaints', icon: Icons.Complaints },
   { id: 'support', label: 'Support Desk', icon: Icons.Support },
-  { id: 'refunds', label: 'Refunds', icon: Icons.Refunds },
   { id: 'promotions', label: 'Promotions', icon: Icons.Promotions },
   { id: 'reports', label: 'Reports & Analysis', icon: Icons.Reports },
   { id: 'operations', label: 'Operations', icon: Icons.Operations },
@@ -111,7 +109,6 @@ const AdminDashboard = () => {
   const [bookings, setBookings] = useState([])
   const [complaints, setComplaints] = useState([])
   const [supportTickets, setSupportTickets] = useState([])
-  const [refunds, setRefunds] = useState([])
   const [plans, setPlans] = useState([])
   const [categories, setCategories] = useState([])
   const [promotions, setPromotions] = useState([])
@@ -131,8 +128,6 @@ const AdminDashboard = () => {
   const [complaintNote, setComplaintNote] = useState('')
   const [ticketOpen, setTicketOpen] = useState(null)
   const [ticketResponse, setTicketResponse] = useState('')
-  const [refundOpen, setRefundOpen] = useState(null)
-  const [refundNote, setRefundNote] = useState('')
   const [bookingEdit, setBookingEdit] = useState(null)
   const [planEditor, setPlanEditor] = useState(null)
   const [planDetails, setPlanDetails] = useState(null)
@@ -148,13 +143,12 @@ const AdminDashboard = () => {
     if (!token) return
     setLoadError('')
     try {
-      const [s, p, b, c, t, r, subs, cats, promos, notes, u] = await Promise.all([
+      const [s, p, b, c, t, subs, cats, promos, notes, u] = await Promise.all([
         apiRequest('/admin/stats', 'GET', null, token),
         apiRequest('/admin/providers', 'GET', null, token),
         apiRequest('/admin/bookings', 'GET', null, token),
         apiRequest('/admin/complaints', 'GET', null, token),
         apiRequest('/support', 'GET', null, token),
-        apiRequest('/admin/refunds', 'GET', null, token),
         apiRequest('/admin/subscriptions', 'GET', null, token),
         apiRequest('/categories', 'GET', null, token),
         apiRequest('/promotions/all', 'GET', null, token),
@@ -166,7 +160,6 @@ const AdminDashboard = () => {
       setBookings(Array.isArray(b) ? b : [])
       setComplaints(Array.isArray(c) ? c : [])
       setSupportTickets(Array.isArray(t) ? t : [])
-      setRefunds(Array.isArray(r) ? r : [])
       setPlans(Array.isArray(subs) ? subs.map((plan) => ({
         ...plan,
         features: Array.isArray(plan.features) ? plan.features : [],
@@ -271,11 +264,6 @@ const AdminDashboard = () => {
     await apiRequest(`/support/${ticketOpen.id}`, 'PUT', { status, admin_response: ticketResponse.trim() || undefined }, token)
     setTicketOpen(null); setTicketResponse('')
   }, 'Ticket updated.')
-
-  const decideRefund = (status) => runAction(async () => {
-    await apiRequest(`/admin/refunds/${refundOpen.id}`, 'PUT', { status, admin_note: refundNote.trim() || undefined }, token)
-    setRefundOpen(null); setRefundNote('')
-  }, `Refund ${status.toLowerCase()}.`)
 
   const savePlan = () => {
     const ed = planEditor || {}
@@ -722,34 +710,6 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* REFUNDS */}
-          {activeNav === 'refunds' && (
-            <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <h3 className="ad-table-title">REFUND REQUESTS ({refunds.length})</h3>
-              <table className="ad-data-table">
-                <thead><tr><th>ID</th><th>MEMBER</th><th>PACKAGE</th><th>PAYMENT</th><th>REQUESTED</th><th>STATUS</th><th>ACTION</th></tr></thead>
-                <tbody>
-                  {refunds.map((r) => (
-                    <tr key={r.id}>
-                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{r.id}</td>
-                      <td>{r.user?.name || '—'}</td>
-                      <td>{r.subscription?.plan?.title || '—'}</td>
-                      <td>{r.payment ? `${r.payment.gateway} · ${fmtMoney(r.payment.expectedAmount)}` : '—'}</td>
-                      <td>{fmtDateTime(r.requestedAt)}</td>
-                      <td><StatBadge value={r.status} /></td>
-                      <td>
-                        {r.status === 'REQUESTED'
-                          ? <button style={ghostBtn} disabled={busy} onClick={() => { setRefundOpen(r); setRefundNote(r.adminNote || '') }}>Review</button>
-                          : <small style={{ color: '#777' }}>{r.adminNote ? 'Reviewed' : 'Settled'}</small>}
-                      </td>
-                    </tr>
-                  ))}
-                  {refunds.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No refund requests.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
-
           {/* PROMOTIONS */}
           {activeNav === 'promotions' && (
             <>
@@ -1016,22 +976,6 @@ const AdminDashboard = () => {
           <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button style={ghostBtn} disabled={busy} onClick={() => saveTicket('in_progress')}>Save & In Progress</button>
             <button style={goldBtn} disabled={busy} onClick={() => saveTicket('resolved')}>Send & Resolve</button>
-          </div>
-        </Modal>
-      )}
-
-      {refundOpen && (
-        <Modal title={`REFUND #${refundOpen.id}`} eyebrow={refundOpen.user?.name || 'MEMBER'} onClose={() => setRefundOpen(null)}>
-          <p style={{ color: '#aaa', fontSize: '0.84rem' }}>
-            {refundOpen.subscription?.plan?.title || 'Subscription'} · {refundOpen.payment ? `${refundOpen.payment.gateway} ${fmtMoney(refundOpen.payment.expectedAmount)}` : 'no payment record'}
-          </p>
-          <p style={{ color: '#bbb', fontSize: '0.84rem' }}>Reason: {refundOpen.reason || '—'}</p>
-          <p style={{ color: '#777', fontSize: '0.72rem' }}>Approving a demo payment refunds immediately; PayHere refunds settle when the gateway webhook confirms.</p>
-          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Admin note</label>
-          <textarea rows={3} style={fieldStyle} value={refundNote} onChange={(e) => setRefundNote(e.target.value)} placeholder="Decision note…" />
-          <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
-            <ActionButton style={redBtn} loading={busy} loadingText="Rejecting..." onClick={() => decideRefund('REJECTED')}>Reject</ActionButton>
-            <ActionButton style={goldBtn} loading={busy} loadingText="Approving..." onClick={() => decideRefund('APPROVED')}>Approve Refund</ActionButton>
           </div>
         </Modal>
       )}

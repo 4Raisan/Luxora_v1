@@ -40,7 +40,7 @@ frontend/src/pages|components
 
 ## Important mounts
 
-`backend/src/index.js` mounts `/api/auth`, `/api/bookings`, `/api/customer`, `/api/provider`, `/api/admin`, `/api/profile`, `/api/support`, `/api/notifications`, `/api/promotions`, `/api/reviews`, `/api/complaints`, `/api/uploads` (via `/api`), integrations, refunds, and API docs.
+`backend/src/index.js` mounts `/api/auth`, `/api/bookings`, `/api/customer`, `/api/provider`, `/api/admin`, `/api/profile`, `/api/support`, `/api/notifications`, `/api/promotions`, `/api/reviews`, `/api/complaints`, `/api/uploads` (via `/api`), integrations, and API docs.
 
 Provider operations are gated by JWT role and approved KYC in `backend/src/routes/provider.js` and `backend/src/routes/bookings.js`. Never bypass those gates in the frontend.
 

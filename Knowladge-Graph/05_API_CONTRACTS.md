@@ -16,7 +16,7 @@ Related: [Agent start](00_AGENT_START.md) Â· [Authentication](01_AUTH_FLOW.md) Â
 | `/api/provider` | `backend/src/routes/provider.js` | Provider dashboard |
 | `/api/admin` | `backend/src/routes/admin.js` | Admin dashboard |
 | `/api/profile` | `backend/src/routes/profile.js` | Customer/provider profile |
-| `/api` uploads/integrations/refunds/docs | `uploads.js`, `integrations.js`, `refunds.js`, `docs.js` | Role dashboards and checkout |
+| `/api` uploads/integrations/docs | `uploads.js`, `integrations.js`, `docs.js` | Role dashboards and checkout |
 
 For exact method, status code, validation, and response shape, read the active route implementation first; the route file is the contract authority.
 

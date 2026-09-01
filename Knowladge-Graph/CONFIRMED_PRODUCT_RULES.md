@@ -5,8 +5,8 @@ Confirmed with the product owner on 2026-08-23. These rules override older notes
 ## Roles and authority
 
 - There is no Super Admin role.
-- Customer, Provider, and Admin are the application roles.
-- Admin can perform all administrative operations, including customer/provider management, plans, bookings, provider assignment, KYC, refunds, promotions, reports, support, and scheduling.
+- Admin can perform all administrative operations, including customer/provider management, plans, bookings, provider assignment, KYC, promotions, reports, support, and scheduling.
+- **Refund Policy**: There are **no refunds in V1**. All package purchases are final.
 - Customers can buy subscription plans and book services.
 - Providers fulfil automatically assigned customer bookings.
 - Providers must keep an approved KYC record to access operational work.

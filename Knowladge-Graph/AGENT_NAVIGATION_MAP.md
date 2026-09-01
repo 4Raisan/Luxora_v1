@@ -32,7 +32,7 @@ Provider operations require a bearer token, `PROVIDER` role, and approved KYC. K
 
 ### Admin
 
-`AdminDashboard.jsx` -> `api.js` -> `/api/admin/*` -> admin route/middleware -> users, providers/KYC, bookings, plans, refunds, promotions, reports, and support models.
+`AdminDashboard.jsx` -> `api.js` -> `/api/admin/*` -> admin route/middleware -> users, providers/KYC, bookings, plans, promotions, reports, and support models.
 
 ## Key files by responsibility
 

@@ -19,7 +19,6 @@ import integrationRoutes from './routes/integrations.js';
 import profileRoutes from './routes/profile.js';
 import uploadRoutes from './routes/uploads.js';
 import supportRoutes from './routes/support.js';
-import refundRoutes from './routes/refunds.js';
 import chatRoutes from './routes/chat.js';
 import { prisma } from './config/prisma.js';
 import { assertStorageConfigured } from './services/storage.js';
@@ -145,7 +144,6 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api', integrationRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/support', supportRoutes);
-app.use('/api', refundRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', docsRoutes);
 

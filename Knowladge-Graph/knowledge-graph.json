@@ -6,14 +6,14 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 194,
-    "totalEdges": 416,
+    "totalNodes": 187,
+    "totalEdges": 396,
     "nodesByGroup": {
-      "api": 95,
-      "database": 35,
+      "api": 91,
+      "database": 33,
       "frontend": 32,
       "middleware": 3,
-      "routes": 17,
+      "routes": 16,
       "service": 12
     }
   },
@@ -151,21 +151,6 @@
       },
       "source": {
         "path": "backend/src/routes/admin.js"
-      }
-    },
-    {
-      "id": "endpoint:GET_/api/admin/refunds",
-      "label": "GET /api/admin/refunds",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/refunds.js",
-      "metadata": {
-        "method": "GET",
-        "path": "/api/admin/refunds",
-        "routeFile": "refunds.js"
-      },
-      "source": {
-        "path": "backend/src/routes/refunds.js"
       }
     },
     {
@@ -526,21 +511,6 @@
       },
       "source": {
         "path": "backend/src/routes/provider.js"
-      }
-    },
-    {
-      "id": "endpoint:GET_/api/refunds/my",
-      "label": "GET /api/refunds/my",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/refunds.js",
-      "metadata": {
-        "method": "GET",
-        "path": "/api/refunds/my",
-        "routeFile": "refunds.js"
-      },
-      "source": {
-        "path": "backend/src/routes/refunds.js"
       }
     },
     {
@@ -1024,21 +994,6 @@
       }
     },
     {
-      "id": "endpoint:POST_/api/refunds",
-      "label": "POST /api/refunds",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/refunds.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/refunds",
-        "routeFile": "refunds.js"
-      },
-      "source": {
-        "path": "backend/src/routes/refunds.js"
-      }
-    },
-    {
       "id": "endpoint:POST_/api/reviews",
       "label": "POST /api/reviews",
       "type": "ApiEndpoint",
@@ -1141,21 +1096,6 @@
       },
       "source": {
         "path": "backend/src/routes/admin.js"
-      }
-    },
-    {
-      "id": "endpoint:PUT_/api/admin/refunds/:id",
-      "label": "PUT /api/admin/refunds/:id",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/refunds.js",
-      "metadata": {
-        "method": "PUT",
-        "path": "/api/admin/refunds/:id",
-        "routeFile": "refunds.js"
-      },
-      "source": {
-        "path": "backend/src/routes/refunds.js"
       }
     },
     {
@@ -1558,24 +1498,6 @@
         "values": [
           "AFTER",
           "BEFORE"
-        ]
-      },
-      "source": {
-        "path": "backend/prisma/schema.prisma"
-      }
-    },
-    {
-      "id": "enum:RefundStatus",
-      "label": "RefundStatus",
-      "type": "Enum",
-      "group": "database",
-      "file": "backend/prisma/schema.prisma",
-      "metadata": {
-        "values": [
-          "APPROVED",
-          "REFUNDED",
-          "REJECTED",
-          "REQUESTED"
         ]
       },
       "source": {
@@ -2582,10 +2504,6 @@
             "type": "Int?"
           },
           {
-            "name": "refundRequests",
-            "type": "RefundRequest[]"
-          },
-          {
             "name": "status",
             "type": "PaymentStatus"
           },
@@ -2962,85 +2880,6 @@
           {
             "name": "status",
             "type": "PayoutStatus"
-          }
-        ],
-        "relations": []
-      },
-      "source": {
-        "path": "backend/prisma/schema.prisma"
-      }
-    },
-    {
-      "id": "model:RefundRequest",
-      "label": "RefundRequest",
-      "type": "DatabaseModel",
-      "group": "database",
-      "file": "backend/prisma/schema.prisma",
-      "metadata": {
-        "fields": [
-          {
-            "name": "@@index([status,",
-            "type": "requestedAt])"
-          },
-          {
-            "name": "@@index([userId,",
-            "type": "status])"
-          },
-          {
-            "name": "adminNote",
-            "type": "String?"
-          },
-          {
-            "name": "id",
-            "type": "Int"
-          },
-          {
-            "name": "payment",
-            "type": "Payment?"
-          },
-          {
-            "name": "paymentId",
-            "type": "Int?"
-          },
-          {
-            "name": "reason",
-            "type": "String?"
-          },
-          {
-            "name": "requestedAt",
-            "type": "DateTime"
-          },
-          {
-            "name": "reviewedAt",
-            "type": "DateTime?"
-          },
-          {
-            "name": "reviewedBy",
-            "type": "User?"
-          },
-          {
-            "name": "reviewedById",
-            "type": "Int?"
-          },
-          {
-            "name": "status",
-            "type": "RefundStatus"
-          },
-          {
-            "name": "subscription",
-            "type": "UserSubscription"
-          },
-          {
-            "name": "subscriptionId",
-            "type": "Int"
-          },
-          {
-            "name": "user",
-            "type": "User"
-          },
-          {
-            "name": "userId",
-            "type": "Int"
           }
         ],
         "relations": []
@@ -3460,14 +3299,6 @@
             "type": "Provider?"
           },
           {
-            "name": "refundRequests",
-            "type": "RefundRequest[]"
-          },
-          {
-            "name": "reviewedRefundRequests",
-            "type": "RefundRequest[]"
-          },
-          {
             "name": "reviews",
             "type": "Review[]"
           },
@@ -3565,10 +3396,6 @@
           {
             "name": "pricePaid",
             "type": "Decimal?"
-          },
-          {
-            "name": "refundRequest",
-            "type": "RefundRequest?"
           },
           {
             "name": "renewalIntervalDays",
@@ -3794,19 +3621,6 @@
       },
       "source": {
         "path": "backend/src/routes/provider.js"
-      }
-    },
-    {
-      "id": "routefile:refunds",
-      "label": "refunds.js",
-      "type": "RouteModule",
-      "group": "routes",
-      "file": "backend/src/routes/refunds.js",
-      "metadata": {
-        "baseMount": "/api"
-      },
-      "source": {
-        "path": "backend/src/routes/refunds.js"
       }
     },
     {
@@ -4135,20 +3949,6 @@
       }
     },
     {
-      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/refunds:FETCHES_API",
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/refunds",
-      "type": "FETCHES_API",
-      "label": "GET",
-      "source": "frontend:AdminDashboard",
-      "target": "endpoint:GET_/api/admin/refunds",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/AdminDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
       "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/reports:FETCHES_API",
       "from": "frontend:AdminDashboard",
       "to": "endpoint:GET_/api/admin/reports",
@@ -4380,20 +4180,6 @@
       "label": "PUT",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:PUT_/api/admin/providers/:id/kyc",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/AdminDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:AdminDashboard->endpoint:PUT_/api/admin/refunds/:id:FETCHES_API",
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:PUT_/api/admin/refunds/:id",
-      "type": "FETCHES_API",
-      "label": "PUT",
-      "source": "frontend:AdminDashboard",
-      "target": "endpoint:PUT_/api/admin/refunds/:id",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -5955,20 +5741,6 @@
       }
     },
     {
-      "id": "model:Payment->model:RefundRequest:DB_RELATION",
-      "from": "model:Payment",
-      "to": "model:RefundRequest",
-      "type": "DB_RELATION",
-      "label": "refundRequests",
-      "source": "model:Payment",
-      "target": "model:RefundRequest",
-      "kind": "DB_RELATION",
-      "evidence": {
-        "path": "backend/prisma/schema.prisma",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
       "id": "model:Payment->model:SubscriptionPlan:DB_RELATION",
       "from": "model:Payment",
       "to": "model:SubscriptionPlan",
@@ -6228,62 +6000,6 @@
       "label": "bankAccount",
       "source": "model:ProviderPayout",
       "target": "model:ProviderBankAccount",
-      "kind": "DB_RELATION",
-      "evidence": {
-        "path": "backend/prisma/schema.prisma",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "model:RefundRequest->enum:RefundStatus:DB_RELATION",
-      "from": "model:RefundRequest",
-      "to": "enum:RefundStatus",
-      "type": "DB_RELATION",
-      "label": "status",
-      "source": "model:RefundRequest",
-      "target": "enum:RefundStatus",
-      "kind": "DB_RELATION",
-      "evidence": {
-        "path": "backend/prisma/schema.prisma",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "model:RefundRequest->model:Payment:DB_RELATION",
-      "from": "model:RefundRequest",
-      "to": "model:Payment",
-      "type": "DB_RELATION",
-      "label": "payment",
-      "source": "model:RefundRequest",
-      "target": "model:Payment",
-      "kind": "DB_RELATION",
-      "evidence": {
-        "path": "backend/prisma/schema.prisma",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "model:RefundRequest->model:User:DB_RELATION",
-      "from": "model:RefundRequest",
-      "to": "model:User",
-      "type": "DB_RELATION",
-      "label": "user",
-      "source": "model:RefundRequest",
-      "target": "model:User",
-      "kind": "DB_RELATION",
-      "evidence": {
-        "path": "backend/prisma/schema.prisma",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "model:RefundRequest->model:UserSubscription:DB_RELATION",
-      "from": "model:RefundRequest",
-      "to": "model:UserSubscription",
-      "type": "DB_RELATION",
-      "label": "subscription",
-      "source": "model:RefundRequest",
-      "target": "model:UserSubscription",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
@@ -6627,20 +6343,6 @@
       }
     },
     {
-      "id": "model:User->model:RefundRequest:DB_RELATION",
-      "from": "model:User",
-      "to": "model:RefundRequest",
-      "type": "DB_RELATION",
-      "label": "refundRequests",
-      "source": "model:User",
-      "target": "model:RefundRequest",
-      "kind": "DB_RELATION",
-      "evidence": {
-        "path": "backend/prisma/schema.prisma",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
       "id": "model:User->model:Review:DB_RELATION",
       "from": "model:User",
       "to": "model:Review",
@@ -6704,20 +6406,6 @@
       "label": "payments",
       "source": "model:UserSubscription",
       "target": "model:Payment",
-      "kind": "DB_RELATION",
-      "evidence": {
-        "path": "backend/prisma/schema.prisma",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "model:UserSubscription->model:RefundRequest:DB_RELATION",
-      "from": "model:UserSubscription",
-      "to": "model:RefundRequest",
-      "type": "DB_RELATION",
-      "label": "refundRequest",
-      "source": "model:UserSubscription",
-      "target": "model:RefundRequest",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
@@ -9031,160 +8719,6 @@
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/provider.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->endpoint:GET_/api/admin/refunds:EXPOSES_ENDPOINT",
-      "from": "routefile:refunds",
-      "to": "endpoint:GET_/api/admin/refunds",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "GET",
-      "source": "routefile:refunds",
-      "target": "endpoint:GET_/api/admin/refunds",
-      "kind": "EXPOSES_ENDPOINT",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->endpoint:GET_/api/refunds/my:EXPOSES_ENDPOINT",
-      "from": "routefile:refunds",
-      "to": "endpoint:GET_/api/refunds/my",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "GET",
-      "source": "routefile:refunds",
-      "target": "endpoint:GET_/api/refunds/my",
-      "kind": "EXPOSES_ENDPOINT",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->endpoint:POST_/api/refunds:EXPOSES_ENDPOINT",
-      "from": "routefile:refunds",
-      "to": "endpoint:POST_/api/refunds",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST",
-      "source": "routefile:refunds",
-      "target": "endpoint:POST_/api/refunds",
-      "kind": "EXPOSES_ENDPOINT",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->endpoint:PUT_/api/admin/refunds/:id:EXPOSES_ENDPOINT",
-      "from": "routefile:refunds",
-      "to": "endpoint:PUT_/api/admin/refunds/:id",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "PUT",
-      "source": "routefile:refunds",
-      "target": "endpoint:PUT_/api/admin/refunds/:id",
-      "kind": "EXPOSES_ENDPOINT",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->middleware:auth:USES_AUTH",
-      "from": "routefile:refunds",
-      "to": "middleware:auth",
-      "type": "USES_AUTH",
-      "label": "authenticateToken",
-      "source": "routefile:refunds",
-      "target": "middleware:auth",
-      "kind": "USES_AUTH",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->middleware:auth:USES_RBAC",
-      "from": "routefile:refunds",
-      "to": "middleware:auth",
-      "type": "USES_RBAC",
-      "label": "requireRole",
-      "source": "routefile:refunds",
-      "target": "middleware:auth",
-      "kind": "USES_RBAC",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->middleware:validators:USES_VALIDATION",
-      "from": "routefile:refunds",
-      "to": "middleware:validators",
-      "type": "USES_VALIDATION",
-      "label": "",
-      "source": "routefile:refunds",
-      "target": "middleware:validators",
-      "kind": "USES_VALIDATION",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->model:Booking:QUERIES_DB",
-      "from": "routefile:refunds",
-      "to": "model:Booking",
-      "type": "QUERIES_DB",
-      "label": "prisma.booking",
-      "source": "routefile:refunds",
-      "target": "model:Booking",
-      "kind": "QUERIES_DB",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->model:RefundRequest:QUERIES_DB",
-      "from": "routefile:refunds",
-      "to": "model:RefundRequest",
-      "type": "QUERIES_DB",
-      "label": "prisma.refundRequest",
-      "source": "routefile:refunds",
-      "target": "model:RefundRequest",
-      "kind": "QUERIES_DB",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->model:UserSubscription:QUERIES_DB",
-      "from": "routefile:refunds",
-      "to": "model:UserSubscription",
-      "type": "QUERIES_DB",
-      "label": "prisma.userSubscription",
-      "source": "routefile:refunds",
-      "target": "model:UserSubscription",
-      "kind": "QUERIES_DB",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:refunds->service:notify:CALLS_SERVICE",
-      "from": "routefile:refunds",
-      "to": "service:notify",
-      "type": "CALLS_SERVICE",
-      "label": "",
-      "source": "routefile:refunds",
-      "target": "service:notify",
-      "kind": "CALLS_SERVICE",
-      "evidence": {
-        "path": "backend/src/routes/refunds.js",
         "extractor": "generate-graph.js:static-analysis"
       }
     },

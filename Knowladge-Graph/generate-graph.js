@@ -249,7 +249,6 @@ function parseBackendRoutes() {
     'integrations.js': '/api',
     'profile.js': '/api/profile',
     'support.js': '/api/support',
-    'refunds.js': '/api',
     'docs.js': '/api'
   };
 
@@ -560,10 +559,10 @@ function generateOutput() {
           <label class="settings-row"><span>Edge labels</span><select id="edgeLabelMode"><option value="always">Always</option><option value="selected">Selected node</option><option value="light" selected>Light</option><option value="none">Off</option></select></label>
         </div>
         <div class="settings-section">
-          <div class="settings-label">Scale</div>
+          <div class="settings-label">Scale & Contrast</div>
           <label class="settings-row"><span>Node size <output id="nodeScaleValue">100%</output></span><input id="nodeScale" type="range" min="70" max="160" value="100"></label>
           <label class="settings-row"><span>Label size <output id="labelScaleValue">100%</output></span><input id="labelScale" type="range" min="70" max="160" value="100"></label>
-          <label class="settings-row"><span>Edge strength <output id="edgeOpacityValue">50%</output></span><input id="edgeOpacity" type="range" min="10" max="90" value="50"></label>
+          <label class="settings-row"><span>Edge opacity <output id="edgeOpacityValue">18%</output></span><input id="edgeOpacity" type="range" min="5" max="80" value="18"></label>
         </div>
         <div class="settings-section">
           <div class="settings-label">Concentric Layout & Spacing</div>
@@ -650,60 +649,111 @@ function generateOutput() {
       degreeById.set(edge.to, (degreeById.get(edge.to) || 0) + 1);
     });
 
-    // Compute concentric circular layout so both inner and outer layers are round and perfectly balanced
+    const nodeOrbitInfo = new Map();
+
+    // Compute multi-track concentric circular layout so database cylinders and API boxes never overlap
     function computeConcentricLayout(nodes, edges, spacingMultiplier = 1, outerShellBonus = 0, horizontalVibePct = 0) {
-      const rings = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
+      const rings = {
+        0: [], // Center Core Hubs (Middleware)
+        1: [], // Inner Database Core (Top connected DB models)
+        2: [], // Secondary Database Ring (Remaining DB models)
+        3: [], // Core Business Services
+        4: [], // Route Controllers
+        5: [], // API Endpoints Track 1
+        6: [], // API Endpoints Track 2
+        7: [], // API Endpoints Track 3
+        8: [], // Frontend UI Pages & Components
+        9: []  // Outermost Shell (Unlinked Evidence)
+      };
+
+      const dbNodes = nodes.filter(n => n.group === 'database' && (degreeById.get(n.id) || 0) > 0);
+      dbNodes.sort((a, b) => (degreeById.get(b.id) || 0) - (degreeById.get(a.id) || 0));
+      const dbCoreSet = new Set(dbNodes.slice(0, 12).map(n => n.id));
+
+      const apiNodes = nodes.filter(n => n.group === 'api' && (degreeById.get(n.id) || 0) > 0);
+      apiNodes.sort((a, b) => a.label.localeCompare(b.label));
+      const apiTrackMap = new Map();
+      apiNodes.forEach((n, idx) => {
+        apiTrackMap.set(n.id, 5 + (idx % 3)); // Stagger across rings 5, 6, 7
+      });
 
       nodes.forEach(node => {
         const deg = degreeById.get(node.id) || 0;
         if (deg === 0) {
-          rings[5].push(node);
-        } else if (node.group === 'middleware' || (node.group === 'service' && deg >= 6)) {
-          rings[0].push(node); // Center Core Hubs (Middleware & Hub Services)
+          rings[9].push(node); // Ring 9: Outermost Unlinked Evidence
+        } else if (node.group === 'middleware') {
+          rings[0].push(node); // Ring 0: Center Hubs
         } else if (node.group === 'database') {
-          rings[1].push(node); // Inner Ring 1: Database Models
-        } else if (node.group === 'routes' || node.group === 'service') {
-          rings[2].push(node); // Mid Ring 2: Route Controllers & Services
+          if (dbCoreSet.has(node.id)) rings[1].push(node); // Ring 1: Primary Database Core
+          else rings[2].push(node); // Ring 2: Secondary Database
+        } else if (node.group === 'service') {
+          rings[3].push(node); // Ring 3: Services
+        } else if (node.group === 'routes') {
+          rings[4].push(node); // Ring 4: Route Handlers
         } else if (node.group === 'api') {
-          rings[3].push(node); // Outer-Mid Ring 3: API Endpoints
+          const track = apiTrackMap.get(node.id) || 5;
+          rings[track].push(node); // Rings 5, 6, 7: Interleaved API Endpoints
         } else if (node.group === 'frontend') {
-          rings[4].push(node); // Outer Ring 4: Frontend UI Pages & Components
+          rings[8].push(node); // Ring 8: Frontend UI Pages & Components
         } else {
-          rings[5].push(node); // Perimeter Ring 5: Unlinked Evidence
+          rings[9].push(node);
         }
       });
 
       const baseRadii = {
-        0: 95 * spacingMultiplier,
-        1: 250 * spacingMultiplier,
-        2: 420 * spacingMultiplier,
-        3: 590 * spacingMultiplier,
-        4: 770 * spacingMultiplier + outerShellBonus * 1.5,
-        5: 950 * spacingMultiplier + outerShellBonus * 2.5
+        0: 90 * spacingMultiplier,
+        1: 240 * spacingMultiplier,
+        2: 400 * spacingMultiplier,
+        3: 540 * spacingMultiplier,
+        4: 680 * spacingMultiplier,
+        5: 840 * spacingMultiplier,
+        6: 980 * spacingMultiplier,
+        7: 1120 * spacingMultiplier,
+        8: 1300 * spacingMultiplier + outerShellBonus * 1.5,
+        9: 1480 * spacingMultiplier + outerShellBonus * 3.0
+      };
+
+      // Harmonious orbital velocities (rad/sec)
+      const ringSpeeds = {
+        0: 0.020,
+        1: -0.030,
+        2: 0.035,
+        3: -0.040,
+        4: 0.045,
+        5: -0.050,
+        6: 0.055,
+        7: -0.060,
+        8: 0.065,
+        9: -0.080  // Outer cycle rotates visibly and smoothly
       };
 
       const positions = {};
       const stretch = 1 + (horizontalVibePct / 100) * 3;
 
-      Object.entries(rings).forEach(([ringLevel, ringNodes]) => {
+      Object.entries(rings).forEach(([ringKey, ringNodes]) => {
+        const ringLevel = Number(ringKey);
         const r = baseRadii[ringLevel] || 500;
         const count = ringNodes.length;
         if (count === 0) return;
 
-        // Sort nodes by connectivity & identifier for clean adjacent placement
         ringNodes.sort((a, b) => (degreeById.get(b.id) || 0) - (degreeById.get(a.id) || 0) || a.id.localeCompare(b.id));
-
-        const startAngle = (Number(ringLevel) * Math.PI) / 5;
+        const startAngle = (ringLevel * Math.PI) / 6;
 
         ringNodes.forEach((node, idx) => {
           const angle = startAngle + (idx / count) * 2 * Math.PI;
-          // Dual-track radius stagger for high-density rings to eliminate label overlap
-          const jitter = (ringLevel === '3') ? (idx % 2 === 0 ? -38 : 42) : (ringLevel === '1' && idx % 2 === 0 ? -15 : 15);
-          const actualR = r + jitter;
+          const actualR = r;
+
           positions[node.id] = {
             x: Math.round(actualR * stretch * Math.cos(angle)),
             y: Math.round(actualR * Math.sin(angle))
           };
+
+          nodeOrbitInfo.set(node.id, {
+            ring: ringLevel,
+            baseAngle: angle,
+            radius: actualR,
+            speedMultiplier: ringSpeeds[ringLevel] || 0.05
+          });
         });
       });
 
@@ -716,35 +766,41 @@ function generateOutput() {
       const degree = degreeById.get(n.id) || 0;
       const isHub = degree >= 8;
       const isUnlinked = degree === 0;
-      const baseSize = n.group === 'database' ? 16 : (n.group === 'api' ? 13 : 15);
-      const baseFontColor = isUnlinked ? '#fecaca' : '#ffffff';
+      const isDb = n.group === 'database';
+      const isApi = n.group === 'api';
+      const baseSize = isDb ? 18 : (isApi ? 11 : 14);
+      const baseLabel = isDb ? ('🗄️ ' + n.label) : n.label;
+      const baseFontColor = isUnlinked ? '#fecaca' : (isDb ? '#0f172a' : '#ffffff');
+      const baseFontSize = isDb ? (isHub ? 11 : 10) : (isHub ? 11 : (isApi ? 8.5 : (degree <= 1 ? 8.5 : 10)));
       const pos = initialPositions[n.id] || { x: 0, y: 0 };
       return {
         id: n.id,
         x: pos.x,
         y: pos.y,
         fixed: false,
-        label: n.label,
-        baseLabel: n.label,
+        label: baseLabel,
+        baseLabel: baseLabel,
         title: n.label + ' — ' + degree + ' connection' + (degree === 1 ? '' : 's'),
         color: {
-          background: isUnlinked ? unlinkedColor : (colorMap[n.group] || '#94a3b8'),
-          border: isHub ? '#ffffff' : (isUnlinked ? '#fecaca' : '#ffffff'),
-          highlight: { background: '#ffffff', border: colorMap[n.group] || '#38bdf8' }
+          background: isUnlinked ? unlinkedColor : (isDb ? '#facc15' : (colorMap[n.group] || '#94a3b8')),
+          border: isDb ? '#fef08a' : (isHub ? '#ffffff' : (isUnlinked ? '#fecaca' : '#ffffff')),
+          highlight: { background: isDb ? '#fef08a' : '#ffffff', border: colorMap[n.group] || '#38bdf8' }
         },
         font: {
           color: baseFontColor,
-          size: isHub ? 13 : (degree <= 1 ? 9 : 11),
+          size: baseFontSize,
           face: 'system-ui',
-          strokeWidth: n.group === 'database' ? 4 : 2,
+          strokeWidth: isDb ? 0 : 2,
           strokeColor: '#020617',
-          align: n.group === 'api' ? 'center' : 'horizontal'
+          align: (isApi || isDb) ? 'center' : 'horizontal'
         },
-        widthConstraint: n.group === 'api' ? { maximum: 150 } : false,
-        shape: n.group === 'database' ? 'database' : (n.group === 'api' ? 'box' : 'dot'),
-        size: baseSize + (isHub ? 5 : 0),
-        baseSize: baseSize + (isHub ? 5 : 0),
-        baseFontSize: isHub ? 13 : (degree <= 1 ? 9 : 11),
+        margin: isDb ? { top: 4, bottom: 4, left: 8, right: 8 } : (isApi ? { top: 3, bottom: 3, left: 6, right: 6 } : undefined),
+        widthConstraint: isApi ? { maximum: 115 } : false,
+        shape: (isDb || isApi) ? 'box' : 'dot',
+        borderRadius: isDb ? 6 : 4,
+        size: baseSize + (isHub ? 4 : 0),
+        baseSize: baseSize + (isHub ? 4 : 0),
+        baseFontSize: baseFontSize,
         baseFontColor
       };
     }));
@@ -756,9 +812,9 @@ function generateOutput() {
       label: e.label || '',
       baseLabel: e.label || '',
       arrows: 'to',
-      color: { color: 'rgba(148, 163, 184, 0.35)', highlight: '#38bdf8' },
-      font: { color: '#94a3b8', size: 9, align: 'middle' },
-      smooth: { type: 'continuous' }
+      color: { color: 'rgba(148, 163, 184, 0.18)', highlight: '#38bdf8' },
+      font: { color: 'rgba(226, 232, 240, 0.35)', size: 8, align: 'middle' },
+      smooth: { type: 'curvedCW', roundness: 0.12 }
     })));
 
     const container = document.getElementById('network');
@@ -820,7 +876,7 @@ function generateOutput() {
       nodeScale: 1,
       labelScale: 1,
       selectedNodeId: null,
-      edgeOpacity: 0.5,
+      edgeOpacity: 0.18,
       edgeLabelMode: 'light',
       innerSpacing: 120,
       outerPull: 0,
@@ -831,9 +887,9 @@ function generateOutput() {
       backgroundColor: '#0b0f19'
     };
 
-    let orbitAngle = 0;
+    let orbitTime = 0;
     let orbitAnimFrame;
-    let isInteracting = false;
+    let activeDragNodeId = null;
     let lastAnimTime = performance.now();
     const legend = document.querySelector('.legend');
     let legendDrag;
@@ -879,30 +935,43 @@ function generateOutput() {
     window.addEventListener('pointerup', endLegendDrag);
     window.addEventListener('pointercancel', endLegendDrag);
 
-    // Track user interaction so cosmic rotation never interferes with dragging nodes or panning
-    network.on('dragStart', () => { isInteracting = true; });
-    network.on('dragEnd', () => { isInteracting = false; });
-    network.on('zoom', () => { isInteracting = true; window.clearTimeout(window._zoomTimer); window._zoomTimer = window.setTimeout(() => { isInteracting = false; }, 500); });
+    // Track user drag on nodes so dragged node is responsive and smoothly resumes orbit from its dropped coordinate
+    network.on('dragStart', (params) => {
+      if (params.nodes && params.nodes.length > 0) {
+        activeDragNodeId = params.nodes[0];
+      }
+    });
+
+    network.on('dragEnd', (params) => {
+      if (activeDragNodeId) {
+        const pos = network.getPosition(activeDragNodeId);
+        const info = nodeOrbitInfo.get(activeDragNodeId);
+        if (info && pos) {
+          const angleNow = Math.atan2(pos.y, pos.x);
+          info.baseAngle = angleNow - (orbitTime * info.speedMultiplier);
+          info.radius = Math.hypot(pos.x, pos.y);
+        }
+        activeDragNodeId = null;
+      }
+    });
 
     function startCosmicOrbit() {
       if (orbitAnimFrame) window.cancelAnimationFrame(orbitAnimFrame);
       lastAnimTime = performance.now();
       const orbitLoop = (now) => {
-        const dt = (now - lastAnimTime) / 1000;
+        const dt = Math.min(0.1, (now - lastAnimTime) / 1000);
         lastAnimTime = now;
-        if (uiState.motionEnabled && uiState.rotationSpeed > 0 && !isInteracting && !uiState.selectedNodeId) {
-          orbitAngle += 0.00004 * uiState.rotationSpeed * dt * 60;
-          // Apply subtle cosmic orbital drift to outer floating unlinked nodes without freezing inner physics
+        if (uiState.motionEnabled && uiState.rotationSpeed > 0 && !uiState.selectedNodeId) {
+          orbitTime += dt * uiState.rotationSpeed;
           const stretch = 1 + (uiState.horizontalVibe / 100) * 3;
-          const outerNodes = visNodes.get({ filter: n => degreeById.get(n.id) === 0 });
-          if (outerNodes.length > 0) {
-            const count = outerNodes.length;
-            const r = 950 * (uiState.innerSpacing / 120) + uiState.outerPull * 2.5;
-            outerNodes.forEach((n, idx) => {
-              const a = (idx / count) * 2 * Math.PI + orbitAngle;
-              network.moveNode(n.id, Math.round(r * stretch * Math.cos(a)), Math.round(r * Math.sin(a)));
-            });
-          }
+          nodeOrbitInfo.forEach((info, id) => {
+            if (id === activeDragNodeId) return;
+            const currentAngle = info.baseAngle + orbitTime * info.speedMultiplier;
+            const r = info.radius;
+            const x = Math.round(r * stretch * Math.cos(currentAngle));
+            const y = Math.round(r * Math.sin(currentAngle));
+            network.moveNode(id, x, y);
+          });
         }
         orbitAnimFrame = window.requestAnimationFrame(orbitLoop);
       };
@@ -913,7 +982,7 @@ function generateOutput() {
 
     function applyConcentricLayout(repositionAll = true) {
       const spacingMultiplier = uiState.innerSpacing / 120;
-      const positions = computeConcentricLayout(
+      computeConcentricLayout(
         graphData.nodes,
         graphData.edges,
         spacingMultiplier,
@@ -922,30 +991,13 @@ function generateOutput() {
       );
 
       if (repositionAll) {
-        visNodes.forEach(node => {
-          const pos = positions[node.id];
-          if (pos) {
-            visNodes.update({ id: node.id, x: pos.x, y: pos.y, fixed: false });
-          }
+        const stretch = 1 + (uiState.horizontalVibe / 100) * 3;
+        nodeOrbitInfo.forEach((info, id) => {
+          const currentAngle = info.baseAngle + orbitTime * info.speedMultiplier;
+          const x = Math.round(info.radius * stretch * Math.cos(currentAngle));
+          const y = Math.round(info.radius * Math.sin(currentAngle));
+          network.moveNode(id, x, y);
         });
-      }
-
-      network.setOptions({
-        physics: {
-          enabled: uiState.motionEnabled,
-          forceAtlas2Based: {
-            gravitationalConstant: -40 * uiState.physicsStrength,
-            centralGravity: Math.max(0.001, 0.003 - (uiState.outerPull * 0.00001)),
-            springLength: uiState.innerSpacing,
-            springConstant: 0.05 * uiState.physicsStrength,
-            damping: 0.88,
-            avoidOverlap: 0.95
-          }
-        }
-      });
-
-      if (uiState.motionEnabled) {
-        network.stabilize(100);
       }
     }
 

@@ -56,6 +56,39 @@ The live explorer is deployed separately at [https://4raisan.github.io/Luxora_v1
 - PayHere and NOWPayments checkouts require valid public HTTPS callback URLs.
 - Entitlements and booking state are server-authoritative.
 
+
+## Route groups
+
+| Group | Mount | Main responsibility |
+| --- | --- | --- |
+| Auth | `/api/auth` | Login, registration, Google sign-in, password reset |
+| Services | `/api` | Categories, services, subscriptions, entitlements |
+| Bookings | `/api/bookings` | Booking, cancellation, provider status, PIN/photo lifecycle |
+| Customer | `/api/customer` | Dashboard data |
+| Provider | `/api/provider` | Availability, towns, earnings, bank accounts |
+| Admin | `/api/admin` | Operations, plans, KYC, payouts, reports |
+| Integrations | `/api` | PayHere, NOWPayments, demo payments, transactional email |
+
+## Gates
+
+| Action | Required checks |
+| --- | --- |
+| Customer booking | JWT, customer role, active entitlement, booking validation |
+| Provider operations | JWT, provider role, approved KYC |
+| Provider KYC upload | JWT and provider role only; pending KYC is allowed |
+| Admin operations | JWT and admin role |
+| PayHere webhook | Public endpoint with verified PayHere signature |
+| NOWPayments IPN | Public endpoint with verified NOWPayments IPN HMAC-SHA512 signature |
+
+## Product rules
+
+- Roles: Customer, Provider, Admin. There is no Super Admin.
+- Plans are admin-managed and always run for 30 days.
+- Plan type is `Single Package` or `Combo Package`.
+- Demo, PayHere, and NOWPayments are the supported payment flows.
+- PayHere and NOWPayments checkouts require valid public HTTPS callback URLs.
+- Entitlements and booking state are server-authoritative.
+
 ## Core models
 
 | Model | Purpose |
@@ -63,7 +96,7 @@ The live explorer is deployed separately at [https://4raisan.github.io/Luxora_v1
 | `User`, `Provider`, `KycDocument` | Accounts, provider KYC |
 | `SubscriptionPlan`, `SubscriptionEntitlement`, `UserSubscription` | Packages and coins |
 | `Booking`, `ServicePhoto` | Fulfilment, PINs, evidence |
-| `Payment`, `RefundRequest` | Payment and refund state |
+| `Payment` | Payment state |
 | `Notification`, `SupportTicket`, `Complaint` | Customer/admin communication |
 | `ProviderBankAccount`, `ProviderPayout` | Monthly provider payout ledger |
 
