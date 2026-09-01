@@ -474,7 +474,7 @@ function generateOutput() {
     #details-panel { flex: 1; padding: 20px; overflow-y: auto; font-size: 0.85rem; }
     .sidebar-status { padding: 12px 20px; border-top: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.5); color: #94a3b8; font-size: 0.72rem; line-height: 1.45; }
     .stat-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; margin-right: 4px; }
-    .legend { position: absolute; bottom: 20px; right: 280px; width: 250px; background: rgba(21, 29, 48, 0.96); backdrop-filter: blur(12px); padding: 16px 18px; border-radius: 8px; border: 1px solid #334155; font-size: 0.78rem; z-index: 20; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .legend { position: absolute; bottom: 20px; right: 20px; width: 235px; background: rgba(21, 29, 48, 0.94); backdrop-filter: blur(12px); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155; font-size: 0.76rem; z-index: 20; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
     .legend.dragging { cursor: grabbing; box-shadow: 0 12px 40px rgba(0,0,0,0.7); }
     .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
     .legend-color { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 14px; }
@@ -550,7 +550,7 @@ function generateOutput() {
   <div id="graph-container">
     <div id="network" style="width: 100%; height: 100%;"></div>
     <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="sidebar" aria-expanded="true">Hide panel</button>
-    <details class="settings-dock" open>
+    <details class="settings-dock">
       <summary>Graph Settings</summary>
       <div class="settings-content">
         <div class="settings-section">
@@ -853,6 +853,8 @@ function generateOutput() {
     };
 
     const network = new window.vis.Network(container, data, options);
+    network.once('stabilizationIterationsDone', () => { fitGraph(); });
+    network.once('stabilized', () => { fitGraph(); });
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
 
@@ -1153,12 +1155,9 @@ function generateOutput() {
     }
 
     function fitGraph() {
-      const isMobile = window.innerWidth <= 760;
-      const isCollapsed = sidebar.classList.contains('collapsed');
-      const offsetX = isMobile ? 0 : (isCollapsed ? -50 : -90);
       network.fit({
         animation: { duration: 350, easingFunction: 'easeInOutQuad' },
-        offset: { x: offsetX, y: 0 }
+        offset: { x: 0, y: 0 }
       });
     }
 
