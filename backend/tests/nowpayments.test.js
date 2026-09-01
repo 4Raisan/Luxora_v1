@@ -1,4 +1,4 @@
-import { test, before } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import {
@@ -174,4 +174,8 @@ test('NOWPayments: Database payment lifecycle and idempotency check', async () =
 
   // Clean up
   await prisma.payment.deleteMany({ where: { gatewayOrderId: orderId } });
+});
+
+after(async () => {
+  await prisma.$disconnect();
 });

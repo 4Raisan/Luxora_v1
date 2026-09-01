@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -187,4 +187,8 @@ test('Security Audit: Reschedule recalculates pinExpiresAt from new booking date
   const rescheduledExpiry = computeRescheduledPinExpiresAt('2026-09-15', '10:00 AM');
   assert.ok(rescheduledExpiry instanceof Date, 'Must return a Date');
   assert.equal(rescheduledExpiry.toISOString().slice(0, 10), '2026-09-16', 'PIN must expire 24 hours after new scheduled time');
+});
+
+after(async () => {
+  await prisma.$disconnect();
 });
