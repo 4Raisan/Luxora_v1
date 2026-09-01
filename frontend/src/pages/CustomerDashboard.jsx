@@ -451,6 +451,20 @@ const CustomerDashboard = () => {
 
   useEffect(() => { loadServerData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A customer returning to an already-open portal receives package edits made
+  // in Admin without relying on a browser refresh or a separate local template.
+  useEffect(() => {
+    const refreshPlans = () => {
+      if (document.visibilityState === 'visible') void loadServerData()
+    }
+    window.addEventListener('focus', refreshPlans)
+    document.addEventListener('visibilitychange', refreshPlans)
+    return () => {
+      window.removeEventListener('focus', refreshPlans)
+      document.removeEventListener('visibilitychange', refreshPlans)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // PayHere and NOWPayments hosted checkout returns to /customer-dashboard
   // Strip query parameters immediately, then confirm the authoritative payment
   // state from the backend before displaying any completion UI.

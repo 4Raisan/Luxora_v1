@@ -166,7 +166,12 @@ const AdminDashboard = () => {
       setComplaints(Array.isArray(c) ? c : [])
       setSupportTickets(Array.isArray(t) ? t : [])
       setRefunds(Array.isArray(r) ? r : [])
-      setPlans(Array.isArray(subs) ? subs : [])
+      setPlans(Array.isArray(subs) ? subs.map((plan) => ({
+        ...plan,
+        features: Array.isArray(plan.features)
+          ? plan.features
+          : (() => { try { return JSON.parse(plan.features || '[]') } catch { return [] } })(),
+      })) : [])
       setCategories(Array.isArray(cats) ? cats : [])
       setPromotions(Array.isArray(promos) ? promos : [])
       setNotifications(Array.isArray(notes) ? notes : [])
@@ -293,7 +298,8 @@ const AdminDashboard = () => {
     const displayOrderVal = parseInt(ed.displayOrder, 10)
     const body = {
       title: ed.title.trim(), type: ed.type || 'Auto Care', price_monthly: price, duration_days: 30,
-      description: (ed.description || '').trim(), recommended: Boolean(ed.recommended), features: [], entitlements,
+      description: (ed.description || '').trim(), recommended: Boolean(ed.recommended),
+      features: Array.isArray(ed.features) ? ed.features.map((feature) => String(feature).trim()).filter(Boolean) : [], entitlements,
       display_order: Number.isInteger(displayOrderVal) && displayOrderVal >= 0 ? displayOrderVal : 0,
     }
     runAction(async () => {
@@ -313,6 +319,7 @@ const AdminDashboard = () => {
     setPlanEditor({
       id: plan.id, title: plan.title, type: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo Package'].includes(plan.type) ? plan.type : 'Auto Care', price: String(Number(plan.priceMonthly)), duration: plan.durationDays || 30, description: plan.description || '', recommended: Boolean(plan.recommended), active: plan.active,
       displayOrder: plan.displayOrder !== undefined && plan.displayOrder !== null ? plan.displayOrder : plan.id,
+      features: Array.isArray(plan.features) ? plan.features : [],
       entitlements: Object.fromEntries((plan.entitlements || []).map((entitlement) => [entitlement.categoryId, entitlement.units])),
     })
   }
@@ -602,7 +609,7 @@ const AdminDashboard = () => {
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
-                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, displayOrder: '', description: '', recommended: false, active: true, entitlements: {} })}>+ New Package</button>
+                <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, displayOrder: '', description: '', features: [], recommended: false, active: true, entitlements: {} })}>+ New Package</button>
               </div>
               <div className="ad-plan-grid">
                 {plans
@@ -624,7 +631,7 @@ const AdminDashboard = () => {
                       <div className="ad-plan-card__price"><span>LKR</span> {fmtMoney(p.priceMonthly).replace('LKR', '').trim()} <small>/ {p.durationDays || 30}d</small></div>
                       <div className="ad-plan-card__features">
                         <span>INCLUDED SERVICE COINS</span>
-                        <ul>{(p.entitlements || []).map((e) => <li key={e.id || e.categoryId}><i>✓</i>{e.category?.name || e.categoryId}: {e.units}</li>)}</ul>
+                        <ul>{(p.features?.length ? p.features : (p.entitlements || []).map((e) => `${e.category?.name || e.categoryId}: ${e.units} service coin${Number(e.units) === 1 ? '' : 's'}`)).map((feature, index) => <li key={`${p.id}-${index}`}><i>✓</i>{feature}</li>)}</ul>
                       </div>
                       <div className="ad-plan-card__meta"><span>{p._count?.userSubscriptions ?? 0} subscribers</span><StatBadge value={p.active ? 'active' : 'closed'} /></div>
                       <div className="ad-plan-card__actions">
@@ -1101,6 +1108,16 @@ const AdminDashboard = () => {
               </select></label>
             <label style={{ color: '#888', fontSize: '0.75rem' }}>Description
               <textarea style={{ ...fieldStyle, minHeight: '76px', resize: 'vertical' }} value={planEditor.description || ''} maxLength={1000} onChange={(e) => setPlanEditor({ ...planEditor, description: e.target.value })} /></label>
+            <label style={{ color: '#888', fontSize: '0.75rem' }}>Customer-facing inclusions
+              <textarea
+                style={{ ...fieldStyle, minHeight: '96px', resize: 'vertical' }}
+                value={(planEditor.features || []).join('\n')}
+                maxLength={2000}
+                placeholder={'One inclusion per line\nExample: Exterior wash\nExample: Interior vacuum'}
+                onChange={(e) => setPlanEditor({ ...planEditor, features: e.target.value.split('\n') })}
+              />
+              <small style={{ display: 'block', marginTop: '0.35rem', color: '#777', lineHeight: 1.35 }}>These lines appear as the check-mark list in the customer subscription card. Service coins below remain the booking entitlement rules.</small>
+            </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', color: '#ccc', fontSize: '0.82rem' }}>
               <input type="checkbox" checked={Boolean(planEditor.recommended)} onChange={(e) => setPlanEditor({ ...planEditor, recommended: e.target.checked })} />
               Show the "Most Popular" banner on the homepage
