@@ -343,7 +343,6 @@ const CustomerDashboard = () => {
   const [selectedBookingId, setSelectedBookingId] = useState(null)
   const [activeBookingIdFilter, setActiveBookingIdFilter] = useState('')
   const [activeBookingDateFilter, setActiveBookingDateFilter] = useState('')
-  const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
   const [customerActiveBookings, setCustomerActiveBookings] = useState([])
 
   const mapCustomerBookingRows = useCallback((rows) => {
@@ -353,7 +352,9 @@ const CustomerDashboard = () => {
     return (rows || []).filter(Boolean).map((booking) => ({
       id: booking?.id,
       customer: currentUserName,
-      service: booking?.service_title || 'Concierge Service',
+      // Booking tables represent the purchased care category. The detailed
+      // service stays server-side for fulfilment, pricing, and assignment.
+      service: booking?.category_name || booking?.service_title || 'Concierge Service',
       status: (booking?.status || '').toUpperCase(),
       color: booking?.status === 'cancelled' ? '#ef4444' : '#4ade80',
       date: booking?.bookingDate,
@@ -716,7 +717,6 @@ const CustomerDashboard = () => {
       return
     }
     let created
-    let bookedServiceTitle = categoryName
     setBookingSessionBusy(true)
     try {
       await apiRequest('/profile', 'PUT', {
@@ -734,7 +734,6 @@ const CustomerDashboard = () => {
           ? `${selectedPetType.title} is not currently available.`
           : `No ${categoryName} service is currently available.`)
       }
-      bookedServiceTitle = service.title
       created = await apiRequest('/bookings', 'POST', {
         service_id: service.id,
         booking_date: serviceBookingForm.date,
@@ -747,9 +746,7 @@ const CustomerDashboard = () => {
       setBookingSessionBusy(false)
     }
 
-    const serviceTitle = cat === 'pet'
-      ? `${selectedPetType.title} — ${bookedServiceTitle}`
-      : categoryName
+    const serviceTitle = categoryName
 
     let startPin = created?.start_pin
     let completionPin = created?.completion_pin
@@ -1820,7 +1817,6 @@ const CustomerDashboard = () => {
                   <button
                     className="cd-btn-view-receipt"
                     onClick={() => {
-                      setShowAllActiveBookings(true)
                       setActiveTab('active_bookings')
                     }}
                     style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.4rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px' }}
@@ -1829,8 +1825,8 @@ const CustomerDashboard = () => {
                   </button>
                 </div>
 
-                <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <table className="cd-table cd-bookings-table" style={{ margin: 0, height: '100%' }}>
+                <div className="cd-table-wrap cd-overview-bookings-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <table className="cd-table cd-bookings-table cd-overview-bookings-table" style={{ margin: 0 }}>
                     <thead>
                       <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
                         <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', padding: '0.75rem 0.75rem' }}>BOOKING ID</th>
@@ -1842,7 +1838,7 @@ const CustomerDashboard = () => {
                     <tbody>
                       {(() => {
                         const sessionOnly = customerActiveBookings.filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
-                        const displayList = showAllActiveBookings ? sessionOnly : sessionOnly.slice(0, 5)
+                        const displayList = sessionOnly.slice(0, 6)
                         if (displayList.length === 0) {
                           return (
                             <tr>
@@ -1857,9 +1853,11 @@ const CustomerDashboard = () => {
                           return (
                             <React.Fragment key={b.id}>
                             <tr
+                              className="cd-overview-bookings-row"
                               onClick={() => {
                                 if (b.status !== 'CANCELLED') {
-                                  setSelectedBookingId(prev => prev === b.id ? null : b.id)
+                                  setSelectedBookingId(b.id)
+                                  setActiveTab('active_bookings')
                                 }
                               }}
                               style={{
@@ -1869,7 +1867,7 @@ const CustomerDashboard = () => {
                                 opacity: b.status === 'CANCELLED' ? 0.65 : 1,
                                 transition: 'all 0.2s ease'
                               }}
-                              title={b.status === 'CANCELLED' ? 'Booking cancelled' : 'Click row to view details'}
+                              title={b.status === 'CANCELLED' ? 'Booking cancelled' : 'Open full booking details'}
                             >
                               <td data-label="Booking" style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
                               <td data-label="Category" style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
@@ -1897,7 +1895,7 @@ const CustomerDashboard = () => {
 
                           {/* Selected Row Detail Panel */}
                           {isSelectedRow && b.status !== 'CANCELLED' && (
-                            <tr style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
+                            <tr className="cd-overview-booking-detail-row" style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
                               <td colSpan={4} style={{ padding: '0.85rem 1.25rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'rgba(201, 168, 76, 0.05)', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '0.85rem 1.25rem' }}>
                                   <div>
