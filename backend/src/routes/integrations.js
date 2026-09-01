@@ -97,7 +97,7 @@ export async function activateSubscription(payment, payload = {}, { capturedAmou
         if (fresh.status !== 'PENDING') return null;
         const days = fresh.plan.durationDays || 30;
         const endDate = new Date(Date.now() + days * 86400000);
-        const contractualPrice = Number(fresh.originalAmount ?? fresh.plan.priceMonthly);
+        const contractualPrice = Number(fresh.expectedAmount ?? fresh.plan.priceMonthly);
         const contractualCurrency = 'LKR';
         const finalCapturedAmount = Number(capturedAmount ?? payload.payhere_amount ?? payload.price_amount ?? fresh.expectedAmount);
         const finalCapturedCurrency = String(capturedCurrency ?? payload.payhere_currency ?? payload.price_currency ?? fresh.expectedCurrency).toUpperCase();

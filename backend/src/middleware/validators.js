@@ -22,7 +22,37 @@ export const isTodayOrFuture = (dateStr) => {
   return dateStr >= todayStr;
 };
 
-export const isPassword = (v) => typeof v === 'string' && v.length >= 6;
+const COMMON_PASSWORDS = new Set([
+  'password', 'password1', 'password12', 'password123', '12345678', '123456789',
+  '1234567890', 'qwerty123', 'qwertyuiop', 'letmein123', 'iloveyou123',
+  'admin123', 'admin1234', 'welcome123', 'luxora12345', 'pass1234',
+]);
+
+export function validatePassword(v) {
+  if (typeof v !== 'string') {
+    return { valid: false, error: 'Password must be a string' };
+  }
+  if (v.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters long' };
+  }
+  if (v.length > 128) {
+    return { valid: false, error: 'Password must be at most 128 characters long' };
+  }
+  if (COMMON_PASSWORDS.has(v.trim().toLowerCase())) {
+    return { valid: false, error: 'Password is too common or easily guessable' };
+  }
+  const hasLetter = /[a-zA-Z]/.test(v);
+  const hasNumber = /\d/.test(v);
+  if (!hasLetter || !hasNumber) {
+    return { valid: false, error: 'Password must contain both letters and numbers' };
+  }
+  if (/^(.)\1+$/.test(v)) {
+    return { valid: false, error: 'Password cannot consist of a single repeated character' };
+  }
+  return { valid: true };
+}
+
+export const isPassword = (v) => validatePassword(v).valid;
 
 // Normalizes any-case status string to a Prisma enum value.
 // Returns null when the value is not one of the allowed enum members.

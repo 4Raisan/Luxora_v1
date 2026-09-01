@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
-import { isEmail, isNonEmptyString, isPassword } from '../middleware/validators.js';
+import { isEmail, isNonEmptyString, validatePassword } from '../middleware/validators.js';
 import { sendEmail, escapeHtml, normalizePhoneNumber } from '../services/integrations.js';
 import { notify } from '../services/notify.js';
 import { getSriLankaLocation } from '../services/sriLankaLocations.js';
@@ -20,7 +20,8 @@ router.post('/register', authLimiter, async (req, res) => {
 
   if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Name is required' });
   if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
-  if (!isPassword(password)) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  const passwordCheck = validatePassword(password);
+  if (!passwordCheck.valid) return res.status(400).json({ error: passwordCheck.error });
 
   const normalizedEmail = email.trim().toLowerCase();
   const userRole = String(role || '').toLowerCase() === 'provider' ? 'PROVIDER' : 'CUSTOMER';
@@ -146,7 +147,9 @@ router.post('/password-reset/confirm', resetLimiter, async (req, res) => {
       expiresAt: { gt: new Date() },
     },
   });
-  if (!record || !isPassword(req.body.password)) return res.status(400).json({ error: 'Invalid or expired reset token' });
+  if (!record) return res.status(400).json({ error: 'Invalid or expired reset token' });
+  const passwordCheck = validatePassword(req.body.password);
+  if (!passwordCheck.valid) return res.status(400).json({ error: passwordCheck.error });
   const passwordHash = await bcrypt.hash(req.body.password, 10);
   try {
     await prisma.$transaction(async (tx) => {

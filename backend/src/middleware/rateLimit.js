@@ -6,15 +6,23 @@ const MAX_TRACKED_IPS = 10000;
 let redisClient = null;
 let redisLogged = false;
 
-function getRedisClient() {
+export function getRedisClient() {
   if (redisClient) return redisClient;
   const redisUrl = process.env.REDIS_URL;
   if (redisUrl) {
     try {
       redisClient = new Redis(redisUrl, {
-        maxRetriesPerRequest: 1,
+        maxRetriesPerRequest: 2,
         enableOfflineQueue: false,
-        lazyConnect: true,
+        retryStrategy(times) {
+          return Math.min(times * 200, 2000);
+        },
+      });
+      redisClient.on('connect', () => {
+        if (!redisLogged) {
+          console.info('[rate-limit] Connected to Redis distributed store.');
+          redisLogged = true;
+        }
       });
       redisClient.on('error', (err) => {
         if (!redisLogged) {
@@ -31,6 +39,23 @@ function getRedisClient() {
     redisLogged = true;
   }
   return null;
+}
+
+export function setRedisClient(client) {
+  redisClient = client;
+  redisLogged = false;
+}
+
+export async function closeRedisClient() {
+  if (redisClient) {
+    try {
+      await redisClient.quit();
+    } catch {
+      redisClient.disconnect();
+    }
+    redisClient = null;
+    redisLogged = false;
+  }
 }
 
 export function rateLimit({ windowMs = 15 * 60 * 1000, max = 10, message = 'Too many attempts, try again later', keyPrefix = 'rl' } = {}) {
