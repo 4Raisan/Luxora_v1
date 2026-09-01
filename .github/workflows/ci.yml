@@ -57,7 +57,8 @@ jobs:
         run: npm --prefix backend run prisma:generate
 
       - name: Apply Database Migrations
-        run: npm --prefix backend run db:migrate
+        working-directory: backend
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://luxora_test_user:luxora_test_password@localhost:5432/luxora_test_db?schema=public
 
