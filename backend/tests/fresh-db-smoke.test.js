@@ -28,8 +28,7 @@ const SERVER_ENV = {
 let server;
 
 before(async () => {
-  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
-  server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`));
+  server = spawn(process.execPath, ['src/index.js'], { cwd: backendDir, env: SERVER_ENV, stdio: 'ignore' });
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
