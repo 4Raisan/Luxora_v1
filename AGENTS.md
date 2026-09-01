@@ -1,6 +1,6 @@
 # Luxora Agent Entry Point
 
-Use this file before changing code in `C:\Users\hdgan\OneDrive\Desktop\lucxx`.
+Use this file before changing code in this repository.
 
 ## Source of truth
 
@@ -14,7 +14,7 @@ Use this file before changing code in `C:\Users\hdgan\OneDrive\Desktop\lucxx`.
 Regenerate after changes to routes, schema, services, or frontend API calls:
 
 ```powershell
-npm run graph
+npm run graph:verify
 ```
 
 ## Layer map
@@ -36,7 +36,7 @@ frontend/src/pages|components
 2. Trace the complete contract: page/component -> `apiRequest()` -> mounted route -> middleware -> service/database.
 3. Update validation, authorization, persistence, and UI loading/error/empty states together.
 4. Verify route paths and response shapes against the backend code; do not invent frontend data.
-5. Run the smallest relevant checks, then `npm run graph` to refresh the graph.
+5. Run the smallest relevant checks, then `npm run graph:verify` to refresh and validate the graph.
 
 ## Important mounts
 

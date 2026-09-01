@@ -1,6 +1,6 @@
 # Database and Persistence Map
 
-Related: [[00_AGENT_START]] · [[02_CUSTOMER_BOOKING_FLOW]] · [[03_PROVIDER_FULFILLMENT_FLOW]] · [[04_ADMIN_OPERATIONS_FLOW]] · [[05_API_CONTRACTS]] · [[07_RUNTIME_DEPLOYMENT]]
+Related: [Agent start](00_AGENT_START.md) · [Customer booking](02_CUSTOMER_BOOKING_FLOW.md) · [Provider fulfilment](03_PROVIDER_FULFILLMENT_FLOW.md) · [Admin operations](04_ADMIN_OPERATIONS_FLOW.md) · [API contracts](05_API_CONTRACTS.md) · [Runtime and deployment](07_RUNTIME_DEPLOYMENT.md)
 
 `backend/prisma/schema.prisma` is the persistence contract. Prisma is the only application path to PostgreSQL.
 
@@ -20,5 +20,5 @@ Schema change procedure:
 2. Run Prisma generation and schema sync/migration via the project scripts.
 3. Update route validation and service logic.
 4. Update real frontend API handling and all affected states.
-5. Run `npm run graph`.
+5. Run `npm run graph:verify`.
 

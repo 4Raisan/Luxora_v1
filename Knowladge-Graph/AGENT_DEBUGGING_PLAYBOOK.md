@@ -4,7 +4,7 @@
 
 ```powershell
 rg -n "endpoint-or-field" frontend/src backend/src backend/prisma
-npm run graph
+npm run graph:verify
 ```
 
 Trace: page -> `apiRequest()` -> mounted route -> middleware -> service -> Prisma model.
@@ -24,8 +24,8 @@ Trace: page -> `apiRequest()` -> mounted route -> middleware -> service -> Prism
 ```powershell
 npm run build
 npm run lint
-node --test
-npm run graph
+npm test
+npm run graph:verify
 ```
 
 For frontend changes, also check desktop and mobile layouts, browser console, and Network responses.

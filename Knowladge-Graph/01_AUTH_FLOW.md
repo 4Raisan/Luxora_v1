@@ -1,6 +1,6 @@
 # Authentication and Authorization Flow
 
-Related: [[00_AGENT_START]] · [[05_API_CONTRACTS]] · [[06_DATABASE_SCHEMA]] · [[07_RUNTIME_DEPLOYMENT]]
+Related: [Agent start](00_AGENT_START.md) · [API contracts](05_API_CONTRACTS.md) · [Database schema](06_DATABASE_SCHEMA.md) · [Runtime and deployment](07_RUNTIME_DEPLOYMENT.md)
 
 ```text
 Login / registration page

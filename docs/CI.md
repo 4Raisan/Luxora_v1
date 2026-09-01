@@ -6,7 +6,7 @@ The selector lives in `scripts/ci/plan-checks.mjs`. Its unit tests live beside i
 
 ## Always-run checks
 
-Every run checks out full Git history, classifies the change, and runs Gitleaks. A final job named `validate-and-test` succeeds only when every selected job passes. Use `Luxora CI / validate-and-test` as the stable branch-protection check.
+Every run checks out full Git history, classifies the change, and runs Gitleaks. The final job, `Luxora CI / 06 - Required gate`, succeeds only when every selected job passes. Use this final gate as the stable branch-protection check.
 
 ## Check selection
 

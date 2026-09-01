@@ -1,6 +1,6 @@
 # Admin Operations Flow
 
-Related: [[00_AGENT_START]] · [[01_AUTH_FLOW]] · [[02_CUSTOMER_BOOKING_FLOW]] · [[03_PROVIDER_FULFILLMENT_FLOW]] · [[05_API_CONTRACTS]]
+Related: [Agent start](00_AGENT_START.md) · [Authentication](01_AUTH_FLOW.md) · [Customer booking](02_CUSTOMER_BOOKING_FLOW.md) · [Provider fulfilment](03_PROVIDER_FULFILLMENT_FLOW.md) · [API contracts](05_API_CONTRACTS.md)
 
 ```text
 AdminDashboard

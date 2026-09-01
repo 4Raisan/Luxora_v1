@@ -1,6 +1,6 @@
 # Customer Booking Flow
 
-Related: [[00_AGENT_START]] · [[01_AUTH_FLOW]] · [[03_PROVIDER_FULFILLMENT_FLOW]] · [[05_API_CONTRACTS]] · [[06_DATABASE_SCHEMA]]
+Related: [Agent start](00_AGENT_START.md) · [Authentication](01_AUTH_FLOW.md) · [Provider fulfilment](03_PROVIDER_FULFILLMENT_FLOW.md) · [API contracts](05_API_CONTRACTS.md) · [Database schema](06_DATABASE_SCHEMA.md)
 
 ```text
 CustomerDashboard / BookService

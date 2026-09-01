@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/4Raisan/Luxora_v1/actions/workflows/ci.yml"><img src="https://github.com/4Raisan/Luxora_v1/actions/workflows/ci.yml/badge.svg?branch=main" alt="Luxora CI"></a>
-  <a href="https://github.com/4Raisan/Luxora_v1/actions/workflows/knowledge-graph-pages.yml"><img src="https://github.com/4Raisan/Luxora_v1/actions/workflows/knowledge-graph-pages.yml/badge.svg?branch=main" alt="Knowledge Graph Pages"></a>
+  <a href="https://github.com/4Raisan/Luxora_v1/actions/workflows/knowledge-graph-pages.yml"><img src="https://github.com/4Raisan/Luxora_v1/actions/workflows/knowledge-graph-pages.yml/badge.svg?branch=main" alt="Knowledge Graph"></a>
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@
 
 ## Overview
 
-Luxora coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, refunds, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state.
+Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet Care**. It coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, refunds, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state.
 
 | Role | Main capabilities |
 | --- | --- |
@@ -30,6 +30,12 @@ Luxora coordinates customer bookings, provider fulfilment, payments, promotions,
 | Admin | Manage users, services, plans, promotions, bookings, KYC, complaints, refunds, and platform reporting |
 
 There is no separate Super Admin role; Admin is the platform-administration role.
+
+## MVP demo flow
+
+The clearest end-to-end demo is: customer signs up or signs in, purchases a package in demo-payment mode, creates a booking, and follows its status. An approved provider then records before evidence, starts and completes the work with the required PINs and after evidence. Admin can oversee KYC, bookings, plans, refunds, promotions, and reports.
+
+The application demonstrates the agreed MVP scope. External production services such as live payment-gateway settlement, verified email-domain delivery, durable S3 storage, Google OAuth, and managed runtime logging still need authorised live-environment validation; see the [roadmap](docs/planning/roadmap.md).
 
 ## Architecture
 
@@ -106,6 +112,17 @@ Knowladge-Graph/      Codebase graph, architecture references, and agent playboo
 - [Knowledge Graph guide](Knowladge-Graph/README.md)
 - [API documentation](docs/api/API-DOCUMENTATION.md)
 - [CI and test-selection guide](docs/CI.md)
+
+## Project documents
+
+| Resource | Purpose |
+| --- | --- |
+| [Requirements and acceptance rules](docs/planning/requirements.md) | Current functional and non-functional behaviour |
+| [Roadmap](docs/planning/roadmap.md) | Current baseline, future work, and external validation still required |
+| [System architecture diagram](docs/architecture/system-architecture.png) | System and deployment overview |
+| [Database ERD](docs/DATABASE-ERD.md) | Entity relationships derived from the Prisma model |
+| [API documentation](docs/api/API-DOCUMENTATION.md) | Active API routes and contracts |
+| [Knowledge Graph](Knowladge-Graph/README.md) | Codebase navigation, architecture references, and agent workflow |
 
 ## Knowledge Graph and coding-agent workflow
 

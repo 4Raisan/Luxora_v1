@@ -63,5 +63,5 @@ Then verify:
 - backend validation and error status codes;
 - Prisma field names, enum casing, and relations;
 - loading, error, empty, and success states in the UI;
-- `npm run graph` output after the change.
+- `npm run graph:verify` output after the change.
 

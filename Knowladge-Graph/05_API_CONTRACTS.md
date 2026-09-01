@@ -1,6 +1,6 @@
 # API Contract Map
 
-Related: [[00_AGENT_START]] · [[01_AUTH_FLOW]] · [[02_CUSTOMER_BOOKING_FLOW]] · [[03_PROVIDER_FULFILLMENT_FLOW]] · [[04_ADMIN_OPERATIONS_FLOW]] · [[06_DATABASE_SCHEMA]]
+Related: [Agent start](00_AGENT_START.md) · [Authentication](01_AUTH_FLOW.md) · [Customer booking](02_CUSTOMER_BOOKING_FLOW.md) · [Provider fulfilment](03_PROVIDER_FULFILLMENT_FLOW.md) · [Admin operations](04_ADMIN_OPERATIONS_FLOW.md) · [Database schema](06_DATABASE_SCHEMA.md)
 
 ## Request transport
 
