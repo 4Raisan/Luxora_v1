@@ -113,8 +113,8 @@
       <summary>Graph Settings</summary>
       <div class="settings-content">
         <div class="settings-section">
-          <div class="settings-label">Display</div>
-          <label class="settings-row"><span>Animate graph + outer orbit</span><input id="motionToggle" type="checkbox" checked></label>
+          <div class="settings-label">Physics & Orbit</div>
+          <label class="settings-row"><span>Live physics & orbit</span><input id="motionToggle" type="checkbox" checked></label>
           <label class="settings-row"><span>Edge labels</span><select id="edgeLabelMode"><option value="always">Always</option><option value="selected">Selected node</option><option value="light" selected>Light</option><option value="none">Off</option></select></label>
         </div>
         <div class="settings-section">
@@ -124,11 +124,11 @@
           <label class="settings-row"><span>Edge strength <output id="edgeOpacityValue">50%</output></span><input id="edgeOpacity" type="range" min="10" max="90" value="50"></label>
         </div>
         <div class="settings-section">
-          <div class="settings-label">Layout spacing</div>
-          <label class="settings-row"><span>Connected spacing <output id="innerSpacingValue">125 px</output></span><input id="innerSpacing" type="range" min="60" max="260" value="125"></label>
-          <label class="settings-row"><span>Outer shell <output id="outerPullValue">0</output></span><input id="outerPull" type="range" min="-10" max="150" value="0"></label>
-          <label class="settings-row"><span>Physics strength <output id="physicsStrengthValue">100%</output></span><input id="physicsStrength" type="range" min="25" max="175" value="100"></label>
-          <label class="settings-row"><span>Rotation speed <output id="rotationSpeedValue">100%</output></span><input id="rotationSpeed" type="range" min="0" max="200" value="100"></label>
+          <div class="settings-label">Concentric Layout & Spacing</div>
+          <label class="settings-row"><span>Ring spacing <output id="innerSpacingValue">120 px</output></span><input id="innerSpacing" type="range" min="60" max="240" value="120"></label>
+          <label class="settings-row"><span>Outer shell <output id="outerPullValue">0</output></span><input id="outerPull" type="range" min="-100" max="200" value="0"></label>
+          <label class="settings-row"><span>Physics spring <output id="physicsStrengthValue">100%</output></span><input id="physicsStrength" type="range" min="25" max="175" value="100"></label>
+          <label class="settings-row"><span>Orbit speed <output id="rotationSpeedValue">100%</output></span><input id="rotationSpeed" type="range" min="0" max="200" value="100"></label>
         </div>
         <div class="settings-actions" style="grid-template-columns: 1fr;">
           <button class="settings-action" id="fitGraph" type="button">Fit graph</button>
@@ -208,14 +208,80 @@
       degreeById.set(edge.to, (degreeById.get(edge.to) || 0) + 1);
     });
 
+    // Compute concentric circular layout so both inner and outer layers are round and perfectly balanced
+    function computeConcentricLayout(nodes, edges, spacingMultiplier = 1, outerShellBonus = 0, horizontalVibePct = 0) {
+      const rings = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
+
+      nodes.forEach(node => {
+        const deg = degreeById.get(node.id) || 0;
+        if (deg === 0) {
+          rings[5].push(node);
+        } else if (node.group === 'middleware' || (node.group === 'service' && deg >= 6)) {
+          rings[0].push(node); // Center Core Hubs (Middleware & Hub Services)
+        } else if (node.group === 'database') {
+          rings[1].push(node); // Inner Ring 1: Database Models
+        } else if (node.group === 'routes' || node.group === 'service') {
+          rings[2].push(node); // Mid Ring 2: Route Controllers & Services
+        } else if (node.group === 'api') {
+          rings[3].push(node); // Outer-Mid Ring 3: API Endpoints
+        } else if (node.group === 'frontend') {
+          rings[4].push(node); // Outer Ring 4: Frontend UI Pages & Components
+        } else {
+          rings[5].push(node); // Perimeter Ring 5: Unlinked Evidence
+        }
+      });
+
+      const baseRadii = {
+        0: 95 * spacingMultiplier,
+        1: 250 * spacingMultiplier,
+        2: 420 * spacingMultiplier,
+        3: 590 * spacingMultiplier,
+        4: 770 * spacingMultiplier + outerShellBonus * 1.5,
+        5: 950 * spacingMultiplier + outerShellBonus * 2.5
+      };
+
+      const positions = {};
+      const stretch = 1 + (horizontalVibePct / 100) * 3;
+
+      Object.entries(rings).forEach(([ringLevel, ringNodes]) => {
+        const r = baseRadii[ringLevel] || 500;
+        const count = ringNodes.length;
+        if (count === 0) return;
+
+        // Sort nodes by connectivity & identifier for clean adjacent placement
+        ringNodes.sort((a, b) => (degreeById.get(b.id) || 0) - (degreeById.get(a.id) || 0) || a.id.localeCompare(b.id));
+
+        const startAngle = (Number(ringLevel) * Math.PI) / 5;
+
+        ringNodes.forEach((node, idx) => {
+          const angle = startAngle + (idx / count) * 2 * Math.PI;
+          // Dual-track radius stagger for high-density rings to eliminate label overlap
+          const jitter = (ringLevel === '3') ? (idx % 2 === 0 ? -38 : 42) : (ringLevel === '1' && idx % 2 === 0 ? -15 : 15);
+          const actualR = r + jitter;
+          positions[node.id] = {
+            x: Math.round(actualR * stretch * Math.cos(angle)),
+            y: Math.round(actualR * Math.sin(angle))
+          };
+        });
+      });
+
+      return positions;
+    }
+
+    const initialPositions = computeConcentricLayout(graphData.nodes, graphData.edges, 1, 0, 0);
+
     const visNodes = new vis.DataSet(graphData.nodes.map(n => {
       const degree = degreeById.get(n.id) || 0;
       const isHub = degree >= 8;
       const isUnlinked = degree === 0;
       const baseSize = n.group === 'database' ? 16 : (n.group === 'api' ? 13 : 15);
       const baseFontColor = isUnlinked ? '#fecaca' : '#ffffff';
+      const pos = initialPositions[n.id] || { x: 0, y: 0 };
       return {
         id: n.id,
+        x: pos.x,
+        y: pos.y,
+        fixed: false,
         label: n.label,
         baseLabel: n.label,
         title: n.label + ' — ' + degree + ' connection' + (degree === 1 ? '' : 's'),
@@ -257,18 +323,35 @@
     const data = { nodes: visNodes, edges: visEdges };
     const options = {
       physics: {
+        enabled: true,
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
-          gravitationalConstant: -60,
-          centralGravity: 0.004,
-          springLength: 125,
-          springConstant: 0.07,
-          avoidOverlap: 1
+          gravitationalConstant: -40,
+          centralGravity: 0.003,
+          springLength: 120,
+          springConstant: 0.05,
+          damping: 0.88,
+          avoidOverlap: 0.95
         },
-        maxVelocity: 50,
-        stabilization: { iterations: 150 }
+        maxVelocity: 40,
+        minVelocity: 0.1,
+        stabilization: {
+          enabled: true,
+          iterations: 120,
+          updateInterval: 25,
+          onlyDynamicEdges: false,
+          fit: true
+        }
       },
-      interaction: { hover: true, tooltipDelay: 100, zoomView: true }
+      interaction: {
+        dragNodes: true,
+        dragView: true,
+        zoomView: true,
+        hover: true,
+        tooltipDelay: 100,
+        selectable: true,
+        selectConnectedEdges: true
+      }
     };
 
     const network = new window.vis.Network(container, data, options);
@@ -288,6 +371,7 @@
     sidebarToggle.addEventListener('click', () => {
       setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
     });
+
     const uiState = {
       group: 'all',
       term: '',
@@ -296,7 +380,7 @@
       selectedNodeId: null,
       edgeOpacity: 0.5,
       edgeLabelMode: 'light',
-      innerSpacing: 125,
+      innerSpacing: 120,
       outerPull: 0,
       physicsStrength: 1,
       rotationSpeed: 1,
@@ -304,13 +388,11 @@
       motionEnabled: true,
       backgroundColor: '#0b0f19'
     };
-    let outerOrbitFrame;
-    let outerOrbitLayout;
-    let outerOrbitElapsed = 0;
-    let outerOrbitLastFrame = 0;
-    let horizontalVibeBasePositions;
-    let horizontalVibeFrame;
-    let needsInitialFit = true;
+
+    let orbitAngle = 0;
+    let orbitAnimFrame;
+    let isInteracting = false;
+    let lastAnimTime = performance.now();
     const legend = document.querySelector('.legend');
     let legendDrag;
 
@@ -355,238 +437,75 @@
     window.addEventListener('pointerup', endLegendDrag);
     window.addEventListener('pointercancel', endLegendDrag);
 
-    function stopOuterOrbit() {
-      if (outerOrbitFrame) window.cancelAnimationFrame(outerOrbitFrame);
-      outerOrbitFrame = undefined;
-    }
+    // Track user interaction so cosmic rotation never interferes with dragging nodes or panning
+    network.on('dragStart', () => { isInteracting = true; });
+    network.on('dragEnd', () => { isInteracting = false; });
+    network.on('zoom', () => { isInteracting = true; window.clearTimeout(window._zoomTimer); window._zoomTimer = window.setTimeout(() => { isInteracting = false; }, 500); });
 
-    function startOuterOrbit() {
-      stopOuterOrbit();
-      if (!uiState.motionEnabled || !outerOrbitLayout) return;
-      outerOrbitLastFrame = performance.now();
-      const renderOuterOrbit = (now) => {
-        if (!uiState.motionEnabled || !outerOrbitLayout) return;
-        outerOrbitElapsed += now - outerOrbitLastFrame;
-        outerOrbitLastFrame = now;
-        positionOuterOrbit(outerOrbitElapsed);
-        outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
-      };
-      outerOrbitFrame = window.requestAnimationFrame(renderOuterOrbit);
-    }
-
-    function outerRingRadius(clusterCount) {
-      const spacingRadius = 250 + clusterCount * 10;
-      const shellRadius = 460 + uiState.outerPull * 8;
-      return Math.max(spacingRadius, shellRadius);
-    }
-
-    function positionOuterOrbit(elapsed = 0) {
-      if (!outerOrbitLayout) return;
-      const innerAngle = elapsed * 0.00008 * uiState.rotationSpeed;
-      const outerAngle = elapsed * -0.00008 * uiState.rotationSpeed;
-      const horizontalStretch = 1 + (uiState.horizontalVibe / 100) * 4;
-      const center = outerOrbitLayout.center;
-      for (const node of outerOrbitLayout.coreNodes) {
-        const angle = node.angle + innerAngle;
-        network.moveNode(node.id,
-          center.x + node.radius * horizontalStretch * Math.cos(angle),
-          center.y + node.radius * Math.sin(angle));
-      }
-      for (const cluster of outerOrbitLayout.outerClusters) {
-        const angle = cluster.angle + outerAngle;
-        const clusterX = center.x + outerOrbitLayout.radius * horizontalStretch * Math.cos(angle);
-        const clusterY = center.y + outerOrbitLayout.radius * Math.sin(angle);
-        for (const node of cluster.nodes) {
-          const nodeAngle = node.offsetAngle + angle;
-          network.moveNode(node.id,
-            clusterX + node.offsetRadius * horizontalStretch * Math.cos(nodeAngle),
-            clusterY + node.offsetRadius * Math.sin(nodeAngle));
-        }
-      }
-    }
-
-    function captureOuterOrbitLayout() {
-      const positions = horizontalVibeBasePositions || network.getPositions();
-      const entries = Object.entries(positions);
-      if (entries.length === 0) return;
-      const center = entries.reduce((sum, [, position]) => ({ x: sum.x + position.x, y: sum.y + position.y }), { x: 0, y: 0 });
-      center.x /= entries.length;
-      center.y /= entries.length;
-      const nodes = entries.map(([id, position]) => {
-        const x = position.x - center.x;
-        const y = position.y - center.y;
-        return { id, degree: degreeById.get(id) || 0, radius: Math.hypot(x, y), angle: Math.atan2(y, x) };
-      });
-      const radii = nodes.map(node => node.radius).sort((a, b) => a - b);
-      const outerThreshold = radii[Math.floor(radii.length * 0.72)] || 200;
-      const nodeById = new Map(nodes.map(node => [node.id, node]));
-      const adjacency = new Map(nodes.map(node => [node.id, new Set()]));
-      visEdges.forEach(edge => {
-        if (!adjacency.has(edge.from) || !adjacency.has(edge.to)) return;
-        adjacency.get(edge.from).add(edge.to);
-        adjacency.get(edge.to).add(edge.from);
-      });
-      const visited = new Set();
-      const components = [];
-      for (const node of nodes) {
-        if (visited.has(node.id)) continue;
-        const queue = [node.id];
-        const memberIds = [];
-        visited.add(node.id);
-        while (queue.length) {
-          const id = queue.pop();
-          memberIds.push(id);
-          for (const neighbour of adjacency.get(id) || []) {
-            if (!visited.has(neighbour)) {
-              visited.add(neighbour);
-              queue.push(neighbour);
-            }
+    function startCosmicOrbit() {
+      if (orbitAnimFrame) window.cancelAnimationFrame(orbitAnimFrame);
+      lastAnimTime = performance.now();
+      const orbitLoop = (now) => {
+        const dt = (now - lastAnimTime) / 1000;
+        lastAnimTime = now;
+        if (uiState.motionEnabled && uiState.rotationSpeed > 0 && !isInteracting && !uiState.selectedNodeId) {
+          orbitAngle += 0.00004 * uiState.rotationSpeed * dt * 60;
+          // Apply subtle cosmic orbital drift to outer floating unlinked nodes without freezing inner physics
+          const stretch = 1 + (uiState.horizontalVibe / 100) * 3;
+          const outerNodes = visNodes.get({ filter: n => degreeById.get(n.id) === 0 });
+          if (outerNodes.length > 0) {
+            const count = outerNodes.length;
+            const r = 950 * (uiState.innerSpacing / 120) + uiState.outerPull * 2.5;
+            outerNodes.forEach((n, idx) => {
+              const a = (idx / count) * 2 * Math.PI + orbitAngle;
+              network.moveNode(n.id, Math.round(r * stretch * Math.cos(a)), Math.round(r * Math.sin(a)));
+            });
           }
         }
-        const members = memberIds.map(id => nodeById.get(id)).filter(Boolean);
-        if (members.length === 0) continue;
-        const componentCenter = members.reduce((sum, member) => {
-          const position = positions[member.id] || { x: 0, y: 0 };
-          return { x: sum.x + position.x, y: sum.y + position.y };
-        }, { x: 0, y: 0 });
-        componentCenter.x /= members.length;
-        componentCenter.y /= members.length;
-        const componentRadius = Math.hypot(componentCenter.x - center.x, componentCenter.y - center.y);
-        const reachesOuterRing = members.some(member => member.radius >= outerThreshold);
-        const isUnlinked = members.length === 1 && members[0].degree === 0;
-        if (isUnlinked || (members.length <= 8 && reachesOuterRing && componentRadius >= outerThreshold * 0.8)) {
-          components.push({ id: memberIds.slice().sort().join('|'), members, center: componentCenter });
-        }
-      }
-      components.sort((a, b) => a.id.localeCompare(b.id));
-      const outerClusters = components.map((component, index) => {
-        const angle = -Math.PI / 2 + (index * Math.PI * 2) / Math.max(components.length, 1);
-        return {
-          angle,
-          nodes: component.members.map(member => {
-            const position = positions[member.id] || { x: 0, y: 0 };
-            const offsetX = position.x - component.center.x;
-            const offsetY = position.y - component.center.y;
-            return {
-              id: member.id,
-              offsetRadius: Math.hypot(offsetX, offsetY),
-              offsetAngle: Math.atan2(offsetY, offsetX) - angle
-            };
-          })
-        };
-      });
-      const outerNodeIds = new Set(outerClusters.flatMap(cluster => cluster.nodes.map(node => node.id)));
-      outerNodeIds.forEach(id => visNodes.update({ id, fixed: { x: true, y: true } }));
-      visEdges.forEach(edge => {
-        const isOuterClusterLink = outerNodeIds.has(edge.from) && outerNodeIds.has(edge.to);
-        visEdges.update({ id: edge.id, smooth: isOuterClusterLink ? false : { type: 'continuous' } });
-      });
-      const coreNodes = nodes.filter(node => !outerNodeIds.has(node.id));
-      coreNodes.forEach(node => visNodes.update({ id: node.id, fixed: { x: true, y: true } }));
-      outerOrbitLayout = {
-        center,
-        coreNodes,
-        outerClusters,
-        radius: outerRingRadius(outerClusters.length)
+        orbitAnimFrame = window.requestAnimationFrame(orbitLoop);
       };
-      outerOrbitElapsed = 0;
-      positionOuterOrbit();
-      network.stopSimulation();
-      if (uiState.motionEnabled) startOuterOrbit();
-      if (needsInitialFit) {
-        needsInitialFit = false;
-        window.requestAnimationFrame(fitGraph);
+      orbitAnimFrame = window.requestAnimationFrame(orbitLoop);
+    }
+
+    startCosmicOrbit();
+
+    function applyConcentricLayout(repositionAll = true) {
+      const spacingMultiplier = uiState.innerSpacing / 120;
+      const positions = computeConcentricLayout(
+        graphData.nodes,
+        graphData.edges,
+        spacingMultiplier,
+        uiState.outerPull,
+        uiState.horizontalVibe
+      );
+
+      if (repositionAll) {
+        visNodes.forEach(node => {
+          const pos = positions[node.id];
+          if (pos) {
+            visNodes.update({ id: node.id, x: pos.x, y: pos.y, fixed: false });
+          }
+        });
       }
-    }
 
-    function applyHorizontalVibe() {
-      if (!horizontalVibeBasePositions) horizontalVibeBasePositions = network.getPositions();
-      const entries = Object.entries(horizontalVibeBasePositions);
-      if (entries.length === 0) return;
-      const centerX = entries.reduce((sum, [, position]) => sum + position.x, 0) / entries.length;
-      const stretch = 1 + (uiState.horizontalVibe / 100) * 4;
-      for (const [id, position] of entries) {
-        network.moveNode(id, centerX + (position.x - centerX) * stretch, position.y);
-      }
-    }
-
-    function animateHorizontalVibe() {
-      if (!horizontalVibeBasePositions) horizontalVibeBasePositions = network.getPositions();
-      if (horizontalVibeFrame) window.cancelAnimationFrame(horizontalVibeFrame);
-      stopOuterOrbit();
-      const from = network.getPositions();
-      const baseEntries = Object.entries(horizontalVibeBasePositions);
-      if (baseEntries.length === 0) return;
-      const centerX = baseEntries.reduce((sum, [, position]) => sum + position.x, 0) / baseEntries.length;
-      const stretch = 1 + (uiState.horizontalVibe / 100) * 4;
-      const target = Object.fromEntries(baseEntries.map(([id, position]) => [id, {
-        x: centerX + (position.x - centerX) * stretch,
-        y: position.y
-      }]));
-      const startedAt = performance.now();
-      const render = (now) => {
-        const progress = Math.min(1, (now - startedAt) / 460);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        for (const [id, position] of Object.entries(target)) {
-          const origin = from[id] || position;
-          network.moveNode(id,
-            origin.x + (position.x - origin.x) * eased,
-            origin.y + (position.y - origin.y) * eased);
+      network.setOptions({
+        physics: {
+          enabled: uiState.motionEnabled,
+          forceAtlas2Based: {
+            gravitationalConstant: -40 * uiState.physicsStrength,
+            centralGravity: Math.max(0.001, 0.003 - (uiState.outerPull * 0.00001)),
+            springLength: uiState.innerSpacing,
+            springConstant: 0.05 * uiState.physicsStrength,
+            damping: 0.88,
+            avoidOverlap: 0.95
+          }
         }
-        if (progress < 1) horizontalVibeFrame = window.requestAnimationFrame(render);
-        else {
-          horizontalVibeFrame = undefined;
-          captureOuterOrbitLayout();
-        }
-      };
-      horizontalVibeFrame = window.requestAnimationFrame(render);
-    }
+      });
 
-    function reheatLayout() {
-      if (horizontalVibeFrame) window.cancelAnimationFrame(horizontalVibeFrame);
-      stopOuterOrbit();
-      visNodes.forEach(node => visNodes.update({ id: node.id, fixed: false }));
       if (uiState.motionEnabled) {
-        network.setOptions({
-          physics: {
-            enabled: true,
-            forceAtlas2Based: {
-              gravitationalConstant: -60 * uiState.physicsStrength,
-              springLength: uiState.innerSpacing,
-              centralGravity: 0.004,
-              springConstant: 0.07 * uiState.physicsStrength,
-              avoidOverlap: 1
-            }
-          }
-        });
-        network.stabilize(120);
-        network.once('stabilizationIterationsDone', () => {
-          horizontalVibeBasePositions = network.getPositions();
-          applyHorizontalVibe();
-          window.requestAnimationFrame(captureOuterOrbitLayout);
-        });
-      } else {
-        network.setOptions({ physics: { enabled: false } });
-        captureOuterOrbitLayout();
+        network.stabilize(100);
       }
     }
-
-    let resumeOrbitTimer;
-    function pauseOrbitForPointer() {
-      if (!uiState.motionEnabled) return;
-      stopOuterOrbit();
-      window.clearTimeout(resumeOrbitTimer);
-    }
-
-    function resumeOrbitAfterPointer() {
-      if (!uiState.motionEnabled) return;
-      window.clearTimeout(resumeOrbitTimer);
-      resumeOrbitTimer = window.setTimeout(startOuterOrbit, 180);
-    }
-
-    container.addEventListener('pointerdown', pauseOrbitForPointer);
-    container.addEventListener('pointerup', resumeOrbitAfterPointer);
-    container.addEventListener('pointercancel', resumeOrbitAfterPointer);
 
     function matchingNodeIds() {
       return new Set(graphData.nodes.filter(node => {
@@ -749,10 +668,6 @@
       });
     }
 
-    function updateLayoutSpacing() {
-      reheatLayout();
-    }
-
     function selectAndFocusNode(nodeId) {
       const node = graphData.nodes.find(n => n.id === nodeId);
       if (!node) return;
@@ -846,14 +761,13 @@
       uiState.selectedNodeId = null;
       uiState.edgeOpacity = 0.5;
       uiState.edgeLabelMode = 'light';
-      uiState.innerSpacing = 125;
+      uiState.innerSpacing = 120;
       uiState.outerPull = 0;
       uiState.physicsStrength = 1;
       uiState.rotationSpeed = 1;
       uiState.horizontalVibe = 0;
       uiState.motionEnabled = true;
-      horizontalVibeBasePositions = null;
-      stopOuterOrbit();
+      orbitAngle = 0;
       setDiagramBackground('#0b0f19');
       legend.style.left = '';
       legend.style.top = '';
@@ -867,8 +781,8 @@
       document.getElementById('labelScaleValue').textContent = '100%';
       document.getElementById('edgeOpacity').value = '50';
       document.getElementById('edgeOpacityValue').textContent = '50%';
-      document.getElementById('innerSpacing').value = '125';
-      document.getElementById('innerSpacingValue').textContent = '125 px';
+      document.getElementById('innerSpacing').value = '120';
+      document.getElementById('innerSpacingValue').textContent = '120 px';
       document.getElementById('outerPull').value = '0';
       document.getElementById('outerPullValue').textContent = '0';
       document.getElementById('physicsStrength').value = '100';
@@ -882,19 +796,17 @@
       document.getElementById('backgroundColor').value = '#0b0f19';
       document.querySelectorAll('.filter-btn').forEach(button => button.classList.toggle('active', button.dataset.group === 'all'));
       resetNodeInspector();
-      visNodes.forEach(node => visNodes.update({ id: node.id, fixed: false, x: null, y: null }));
       updateGraphVisibility();
       updateNodeScale();
       updateLabelScale();
       updateLabelVisibility();
       updateEdgeAppearance();
-      reheatLayout();
-      network.once('stabilizationIterationsDone', fitGraph);
+      applyConcentricLayout(true);
+      fitGraph();
     }
 
     // Node Selection & Detailed Inspector
     network.on('click', (params) => {
-      window.clearTimeout(resumeOrbitTimer);
       if (params.nodes.length > 0) {
         const nodeId = params.nodes[0];
         const node = graphData.nodes.find(n => n.id === nodeId);
@@ -906,7 +818,6 @@
       } else if (uiState.selectedNodeId) {
         resetNodeInspector();
       }
-      if (params.nodes.length === 0) resumeOrbitAfterPointer();
     });
 
     network.on('doubleClick', (params) => {
@@ -959,11 +870,7 @@
 
     document.getElementById('motionToggle').addEventListener('change', (event) => {
       uiState.motionEnabled = event.target.checked;
-      if (event.target.checked) reheatLayout();
-      else {
-        network.setOptions({ physics: { enabled: false } });
-        stopOuterOrbit();
-      }
+      network.setOptions({ physics: { enabled: event.target.checked } });
     });
 
     document.getElementById('edgeLabelMode').addEventListener('change', (event) => {
@@ -993,34 +900,30 @@
     document.getElementById('innerSpacing').addEventListener('input', (event) => {
       uiState.innerSpacing = Number(event.target.value);
       document.getElementById('innerSpacingValue').textContent = event.target.value + ' px';
-      updateLayoutSpacing();
+      applyConcentricLayout(false);
     });
 
     document.getElementById('outerPull').addEventListener('input', (event) => {
       uiState.outerPull = Number(event.target.value);
       document.getElementById('outerPullValue').textContent = String(uiState.outerPull);
-      if (outerOrbitLayout) {
-        outerOrbitLayout.radius = outerRingRadius(outerOrbitLayout.outerClusters.length);
-        positionOuterOrbit(outerOrbitElapsed);
-      }
+      applyConcentricLayout(false);
     });
 
     document.getElementById('physicsStrength').addEventListener('input', (event) => {
       uiState.physicsStrength = Number(event.target.value) / 100;
       document.getElementById('physicsStrengthValue').textContent = event.target.value + '%';
-      updateLayoutSpacing();
+      applyConcentricLayout(false);
     });
 
     document.getElementById('rotationSpeed').addEventListener('input', (event) => {
       uiState.rotationSpeed = Number(event.target.value) / 100;
       document.getElementById('rotationSpeedValue').textContent = event.target.value + '%';
-      positionOuterOrbit(outerOrbitElapsed);
     });
 
     document.getElementById('horizontalVibe').addEventListener('input', (event) => {
       uiState.horizontalVibe = Number(event.target.value);
       document.getElementById('horizontalVibeValue').textContent = uiState.horizontalVibe + '%';
-      animateHorizontalVibe();
+      applyConcentricLayout(true);
     });
 
     document.getElementById('backgroundColor').addEventListener('input', (event) => {
@@ -1030,11 +933,12 @@
     document.getElementById('fitGraph').addEventListener('click', fitGraph);
     document.getElementById('resetGraph').addEventListener('click', resetGraph);
     document.getElementById('exportGraph').addEventListener('click', exportFullDiagram);
+
     updateGraphVisibility();
     updateEdgeAppearance();
     updateLabelVisibility();
     setDiagramBackground(uiState.backgroundColor);
-    reheatLayout();
+    fitGraph();
   </script>
 </body>
 </html>
