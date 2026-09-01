@@ -343,7 +343,6 @@ const CustomerDashboard = () => {
   const [selectedBookingId, setSelectedBookingId] = useState(null)
   const [activeBookingIdFilter, setActiveBookingIdFilter] = useState('')
   const [activeBookingDateFilter, setActiveBookingDateFilter] = useState('')
-  const [showAllActiveBookings, setShowAllActiveBookings] = useState(false)
   const [customerActiveBookings, setCustomerActiveBookings] = useState([])
 
   const mapCustomerBookingRows = useCallback((rows) => {
@@ -1789,7 +1788,6 @@ const CustomerDashboard = () => {
                   <button
                     className="cd-btn-view-receipt"
                     onClick={() => {
-                      setShowAllActiveBookings(true)
                       setActiveTab('active_bookings')
                     }}
                     style={{ background: 'transparent', border: '1px solid var(--gold, #c9a84c)', color: 'var(--gold, #c9a84c)', padding: '0.4rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', borderRadius: '8px' }}
@@ -1798,8 +1796,8 @@ const CustomerDashboard = () => {
                   </button>
                 </div>
 
-                <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <table className="cd-table cd-bookings-table" style={{ margin: 0, height: '100%' }}>
+                <div className="cd-table-wrap cd-overview-bookings-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <table className="cd-table cd-bookings-table cd-overview-bookings-table" style={{ margin: 0 }}>
                     <thead>
                       <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
                         <th style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', padding: '0.75rem 0.75rem' }}>BOOKING ID</th>
@@ -1811,7 +1809,7 @@ const CustomerDashboard = () => {
                     <tbody>
                       {(() => {
                         const sessionOnly = customerActiveBookings.filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
-                        const displayList = showAllActiveBookings ? sessionOnly : sessionOnly.slice(0, 5)
+                        const displayList = sessionOnly.slice(0, 6)
                         if (displayList.length === 0) {
                           return (
                             <tr>
@@ -1826,6 +1824,7 @@ const CustomerDashboard = () => {
                           return (
                             <React.Fragment key={b.id}>
                             <tr
+                              className="cd-overview-bookings-row"
                               onClick={() => {
                                 if (b.status !== 'CANCELLED') {
                                   setSelectedBookingId(prev => prev === b.id ? null : b.id)
@@ -1866,7 +1865,7 @@ const CustomerDashboard = () => {
 
                           {/* Selected Row Detail Panel */}
                           {isSelectedRow && b.status !== 'CANCELLED' && (
-                            <tr style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
+                            <tr className="cd-overview-booking-detail-row" style={{ background: '#0e0e11', borderBottom: '1px solid var(--gold, #c9a84c)' }}>
                               <td colSpan={4} style={{ padding: '0.85rem 1.25rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'rgba(201, 168, 76, 0.05)', border: '1px solid rgba(201, 168, 76, 0.3)', borderRadius: '12px', padding: '0.85rem 1.25rem' }}>
                                   <div>

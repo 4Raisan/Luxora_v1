@@ -2439,6 +2439,45 @@
   background: rgba(201, 168, 76, 0.045);
 }
 
+/* Overview only: keep the six most recent active-booking rows compact even
+   when the booking panel sits beside a much taller scheduler. */
+.cd-overview-bookings-table-wrap {
+  justify-content: flex-start;
+}
+
+.cd-overview-bookings-table {
+  width: 100%;
+  height: auto !important;
+  table-layout: fixed;
+}
+
+.cd-overview-bookings-row > td {
+  max-width: 0;
+  padding-top: 0.68rem;
+  padding-bottom: 0.68rem;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.cd-overview-bookings-row > td:nth-child(2),
+.cd-overview-bookings-row > td:nth-child(3) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-overview-bookings-row > td:nth-child(3) span,
+.cd-overview-bookings-row > td:nth-child(3) small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-overview-booking-detail-row > td {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
 .cd-pet-type-picker__heading {
   display: flex;
   align-items: center;
