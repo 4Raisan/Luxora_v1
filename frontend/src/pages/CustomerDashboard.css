@@ -2429,6 +2429,120 @@
    the header actions group is the one that renders. */
 .cd-header-tokens--mobile { display: none; }
 
+/* Pet Care expands into a second, concise choice only after the customer
+   selects the Pet Care category in the concierge scheduler. */
+.cd-pet-type-picker {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: 14px;
+  background: rgba(201, 168, 76, 0.045);
+}
+
+.cd-pet-type-picker__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.cd-pet-type-picker__heading > span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gold, #c9a84c);
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.cd-pet-type-picker__heading strong,
+.cd-pet-type-picker__heading small,
+.cd-pet-type-card strong,
+.cd-pet-type-card small {
+  display: block;
+}
+
+.cd-pet-type-picker__heading strong {
+  color: var(--gold, #c9a84c);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.cd-pet-type-picker__heading small,
+.cd-pet-type-card small {
+  margin-top: 0.14rem;
+  color: #999;
+  font-size: 0.72rem;
+}
+
+.cd-pet-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.cd-pet-type-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 70px;
+  padding: 0.7rem;
+  border: 1px solid #2a2a30;
+  border-radius: 12px;
+  background: #161619;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.cd-pet-type-card:hover,
+.cd-pet-type-card:focus-visible {
+  border-color: rgba(201, 168, 76, 0.7);
+  background: rgba(201, 168, 76, 0.08);
+  outline: none;
+}
+
+.cd-pet-type-card:focus-visible { box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.25); }
+
+.cd-pet-type-card.is-selected {
+  border: 2px solid var(--gold, #c9a84c);
+  background: rgba(201, 168, 76, 0.14);
+  box-shadow: 0 0 18px rgba(201, 168, 76, 0.18);
+}
+
+.cd-pet-type-card__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #252529;
+  font-size: 1.1rem;
+}
+
+.cd-pet-type-card.is-selected .cd-pet-type-card__icon { background: var(--gold, #c9a84c); }
+
+.cd-pet-type-card strong { font-size: 0.78rem; }
+
+.cd-pet-type-card b {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  color: #000;
+  background: var(--gold, #c9a84c);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  text-align: center;
+  font-size: 0.62rem;
+  line-height: 16px;
+}
+
 /* Log out button at the bottom of the profile drawer (primary logout
    surface on phones). */
 .cd-drawer-logout {

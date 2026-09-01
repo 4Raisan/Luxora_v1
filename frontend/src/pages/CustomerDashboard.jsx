@@ -78,6 +78,12 @@ const MapPinIcon = () => (
   </svg>
 )
 
+const PET_TYPE_OPTIONS = [
+  { id: 'dog', title: 'Dog Care', detail: 'Walking & playtime', icon: '🐕', servicePattern: /dog|walk/i },
+  { id: 'cat', title: 'Cat Care', detail: 'Bathing & grooming', icon: '🐈', servicePattern: /cat|bath|groom/i },
+  { id: 'fish', title: 'Fish Care', detail: 'Aquarium cleaning', icon: '🐠', servicePattern: /fish|tank|aquarium/i },
+]
+
 const SubscriptionPlanCard = ({ plan, onSelect }) => {
   const title = String(plan.title || 'Luxora Package')
     .replace('Single Package: ', '')
@@ -661,6 +667,7 @@ const CustomerDashboard = () => {
   // Service Booking State
   const [serviceBookingForm, setServiceBookingForm] = useState({
     packageId: '',
+    petType: '',
     date: new Date().toISOString().split('T')[0],
     hour: '10',
     minute: '30',
@@ -689,6 +696,12 @@ const CustomerDashboard = () => {
     const cat = serviceBookingForm.packageId || 'auto'
     const catLabels = { auto: 'Auto Care', garden: 'Garden Care', pet: 'Pet Care' }
     const categoryName = catLabels[cat] || 'Service'
+    const selectedPetType = PET_TYPE_OPTIONS.find((item) => item.id === serviceBookingForm.petType)
+
+    if (cat === 'pet' && !selectedPetType) {
+      alert('Please choose Dog Care, Cat Care, or Fish Care.')
+      return
+    }
 
     if ((tokens[cat] || 0) <= 0) {
       setInsufficientTokenCategory(categoryName)
@@ -696,7 +709,6 @@ const CustomerDashboard = () => {
       return
     }
 
-    const serviceTitle = categoryName
     const selectedTimeFormatted = `${serviceBookingForm.hour}:${serviceBookingForm.minute} ${serviceBookingForm.ampm}`
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') {
@@ -704,6 +716,7 @@ const CustomerDashboard = () => {
       return
     }
     let created
+    let bookedServiceTitle = categoryName
     setBookingSessionBusy(true)
     try {
       await apiRequest('/profile', 'PUT', {
@@ -712,8 +725,16 @@ const CustomerDashboard = () => {
         address_district: userAddress.district,
       }, token)
       const services = await apiRequest('/services', 'GET', null, token)
-      const service = services.find((item) => item.category_name === categoryName)
-      if (!service) throw new Error(`No ${categoryName} service is currently available.`)
+      const categoryServices = services.filter((item) => item.category_name === categoryName)
+      const service = cat === 'pet'
+        ? categoryServices.find((item) => selectedPetType.servicePattern.test(item.title))
+        : categoryServices[0]
+      if (!service) {
+        throw new Error(cat === 'pet'
+          ? `${selectedPetType.title} is not currently available.`
+          : `No ${categoryName} service is currently available.`)
+      }
+      bookedServiceTitle = service.title
       created = await apiRequest('/bookings', 'POST', {
         service_id: service.id,
         booking_date: serviceBookingForm.date,
@@ -725,6 +746,10 @@ const CustomerDashboard = () => {
     } finally {
       setBookingSessionBusy(false)
     }
+
+    const serviceTitle = cat === 'pet'
+      ? `${selectedPetType.title} — ${bookedServiceTitle}`
+      : categoryName
 
     let startPin = created?.start_pin
     let completionPin = created?.completion_pin
@@ -768,7 +793,7 @@ const CustomerDashboard = () => {
       remainingTokens: Math.max(0, Number(created.entitlement?.remaining_units) || 0)
     })
     setShowSessionConfirmedModal(true)
-    setServiceBookingForm(prev => ({ ...prev, packageId: '' }))
+    setServiceBookingForm(prev => ({ ...prev, packageId: '', petType: '' }))
 
     // 1. Immediate optimistic UI update with full booking details
     setCustomerActiveBookings((prev) => [newB, ...prev.filter((b) => b.id !== newB.id)])
@@ -1563,7 +1588,11 @@ const CustomerDashboard = () => {
                       return (
                         <div
                           key={catItem.id}
-                          onClick={() => setServiceBookingForm(prev => ({ ...prev, packageId: catItem.id }))}
+                          onClick={() => setServiceBookingForm(prev => ({
+                            ...prev,
+                            packageId: catItem.id,
+                            petType: catItem.id === 'pet' ? prev.petType : '',
+                          }))}
                           role="button"
                           tabIndex={0}
                           style={{
@@ -1595,6 +1624,39 @@ const CustomerDashboard = () => {
                       )
                     })}
                   </div>
+
+                  {serviceBookingForm.packageId === 'pet' && (
+                    <div className="cd-pet-type-picker">
+                      <div className="cd-pet-type-picker__heading">
+                        <span>2</span>
+                        <div>
+                          <strong>CHOOSE PET CARE</strong>
+                          <small>Select the pet that needs care before scheduling.</small>
+                        </div>
+                      </div>
+                      <div className="cd-pet-type-grid" role="group" aria-label="Pet care type">
+                        {PET_TYPE_OPTIONS.map((petType) => {
+                          const isSelected = serviceBookingForm.petType === petType.id
+                          return (
+                            <button
+                              type="button"
+                              key={petType.id}
+                              className={`cd-pet-type-card${isSelected ? ' is-selected' : ''}`}
+                              aria-pressed={isSelected}
+                              onClick={() => setServiceBookingForm((prev) => ({ ...prev, petType: petType.id }))}
+                            >
+                              <span className="cd-pet-type-card__icon" aria-hidden="true">{petType.icon}</span>
+                              <span>
+                                <strong>{petType.title}</strong>
+                                <small>{petType.detail}</small>
+                              </span>
+                              {isSelected && <b aria-label="Selected">✓</b>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── STEP 2 & 3: DATE & TIME SELECTION ── */}
