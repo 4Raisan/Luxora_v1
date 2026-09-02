@@ -24,6 +24,11 @@ const STATUS_COLORS = {
   CANCELLED: '#ef4444',
 }
 
+const cancellationRequestBookingId = (ticket) => {
+  const match = String(ticket?.subject || '').match(/^Booking #(\d+) cancellation request$/i)
+  return match ? Number(match[1]) : null
+}
+
 const formatMobileNumber = (val) => {
   if (!val) return '—'
   let cleaned = String(val).replace(/\D/g, '')
@@ -138,6 +143,9 @@ const ProviderDashboard = () => {
       setCancellationRequests((current) => ({ ...current, [selectedDetailsBooking.apiId]: result.request_id || true }))
       alert(result.message || 'Cancellation request sent to the admin.')
     } catch (error) {
+      if (/already awaiting admin review/i.test(error.message || '')) {
+        setCancellationRequests((current) => ({ ...current, [selectedDetailsBooking.apiId]: true }))
+      }
       alert(error.message || 'Could not send the cancellation request.')
     } finally {
       setBusy(false)
@@ -187,10 +195,11 @@ const ProviderDashboard = () => {
         return
       }
 
-      const [avail, bookingRows, earningsRow] = await Promise.all([
+      const [avail, bookingRows, earningsRow, supportRows] = await Promise.all([
         apiRequest('/provider/availability', 'GET', null, token),
         apiRequest('/bookings/assigned', 'GET', null, token),
         apiRequest('/provider/earnings', 'GET', null, token),
+        apiRequest('/support/my', 'GET', null, token).catch(() => []),
       ])
       setAvailability(avail.availability_status)
       const categories = Array.isArray(avail.categories)
@@ -202,6 +211,11 @@ const ProviderDashboard = () => {
       setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
       setEarnings(earningsRow)
       setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
+      setCancellationRequests(Object.fromEntries(
+        (Array.isArray(supportRows) ? supportRows : [])
+          .filter((ticket) => cancellationRequestBookingId(ticket) && ['OPEN', 'IN_PROGRESS'].includes(String(ticket.status || '').toUpperCase()))
+          .map((ticket) => [cancellationRequestBookingId(ticket), ticket.id || true]),
+      ))
       setLoadError('')
     } catch (error) {
       setLoadError(error.message || 'Could not load your dashboard.')
