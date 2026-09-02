@@ -455,24 +455,26 @@ function generateOutput() {
       --border-color: #1e293b;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    body { background: var(--bg-color); color: var(--text-color); height: 100vh; display: flex; overflow: hidden; }
-    #sidebar { width: 380px; min-width: 380px; background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; transition: width 0.22s ease, min-width 0.22s ease, opacity 0.22s ease; }
-    #sidebar.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: 0; }
-    #graph-container { flex: 1; height: 100vh; position: relative; overflow: hidden; isolation: isolate; }
-    #network { position: absolute; inset: 0; z-index: 0; }
-    .header { padding: 18px 20px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.25); }
-    .header h1 { font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
-    .header p { font-size: 0.78rem; color: #94a3b8; margin-top: 4px; }
-    .search-box { padding: 12px 20px; border-bottom: 1px solid var(--border-color); position: relative; }
-    .search-box input { width: 100%; padding: 10px 32px 10px 14px; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 6px; color: #fff; outline: none; font-size: 0.85rem; }
+    body { background: var(--bg-color); color: var(--text-color); height: 100vh; width: 100vw; margin: 0; padding: 0; position: relative; overflow: hidden; }
+    #graph-container { position: absolute; inset: 0; width: 100vw; height: 100vh; overflow: hidden; isolation: isolate; z-index: 0; }
+    #network { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+    #sidebar { position: absolute; top: 20px; left: 20px; width: 360px; max-height: calc(100vh - 40px); background: rgba(21, 29, 48, 0.96); backdrop-filter: blur(14px); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; z-index: 22; overflow: hidden; transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease; }
+    #sidebar.collapsed { transform: translateX(calc(-100% - 30px)); opacity: 0; pointer-events: none; }
+    .header { padding: 14px 18px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 1.05rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .header p { font-size: 0.74rem; color: #94a3b8; margin-top: 2px; }
+    .sidebar-close-btn { background: none; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 4px; transition: color 0.15s, background 0.15s; }
+    .sidebar-close-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+    .search-box { padding: 10px 18px; border-bottom: 1px solid var(--border-color); position: relative; }
+    .search-box input { width: 100%; padding: 8px 30px 8px 12px; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 6px; color: #fff; outline: none; font-size: 0.82rem; }
     .search-box input:focus { border-color: var(--accent); }
-    .search-clear { position: absolute; right: 28px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.9rem; padding: 4px; display: none; line-height: 1; }
+    .search-clear { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.9rem; padding: 4px; display: none; line-height: 1; }
     .search-clear:hover { color: #cbd5e1; }
-    .controls { padding: 12px 20px; border-bottom: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 6px; }
-    .filter-btn { padding: 5px 11px; font-size: 0.75rem; border-radius: 14px; border: 1px solid var(--border-color); background: #0b0f19; color: #cbd5e1; cursor: pointer; transition: 0.2s; }
+    .controls { padding: 10px 18px; border-bottom: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 5px; }
+    .filter-btn { padding: 4px 9px; font-size: 0.72rem; border-radius: 12px; border: 1px solid var(--border-color); background: #0b0f19; color: #cbd5e1; cursor: pointer; transition: 0.2s; }
     .filter-btn.active { background: var(--accent); color: #0b0f19; font-weight: bold; border-color: var(--accent); }
-    #details-panel { flex: 1; padding: 20px; overflow-y: auto; font-size: 0.85rem; }
-    .sidebar-status { padding: 12px 20px; border-top: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.5); color: #94a3b8; font-size: 0.72rem; line-height: 1.45; }
+    #details-panel { flex: 1; padding: 16px 18px; overflow-y: auto; font-size: 0.82rem; }
+    .sidebar-status { padding: 10px 18px; border-top: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.5); color: #94a3b8; font-size: 0.7rem; line-height: 1.45; }
     .stat-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; margin-right: 4px; }
     .legend { position: absolute; bottom: 20px; right: 20px; width: 235px; background: rgba(21, 29, 48, 0.94); backdrop-filter: blur(12px); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155; font-size: 0.76rem; z-index: 20; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
     .legend.dragging { cursor: grabbing; box-shadow: 0 12px 40px rgba(0,0,0,0.7); }
@@ -497,8 +499,8 @@ function generateOutput() {
     .settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 14px; }
     .settings-action { min-height: 31px; border: 1px solid var(--border-color); border-radius: 5px; background: #0b0f19; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; transition: border-color 0.15s, color 0.15s; }
     .settings-action:hover, .settings-action:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
-    .sidebar-toggle { position: absolute; top: 14px; left: 14px; z-index: 22; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 5px; background: #151d30; color: #cbd5e1; cursor: pointer; font-size: 0.72rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
-    .sidebar-toggle:hover, .sidebar-toggle:focus-visible { border-color: var(--accent); color: #fff; outline: none; }
+    .sidebar-toggle { position: absolute; top: 20px; left: 20px; z-index: 21; min-height: 38px; padding: 0 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(21, 29, 48, 0.96); backdrop-filter: blur(12px); color: #fff; cursor: pointer; font-size: 0.8rem; font-weight: 600; box-shadow: 0 4px 18px rgba(0,0,0,0.45); display: none; align-items: center; gap: 8px; transition: border-color 0.15s, color 0.15s; }
+    .sidebar-toggle:hover, .sidebar-toggle:focus-visible { border-color: var(--accent); color: #38bdf8; outline: none; }
     .more-settings { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color); }
     .more-settings summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #cbd5e1; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; list-style: none; }
     .more-settings summary::-webkit-details-marker { display: none; }
@@ -515,47 +517,51 @@ function generateOutput() {
     .clickable-node { color: #38bdf8; text-decoration: underline; text-decoration-color: transparent; transition: text-decoration-color 0.15s ease; }
     .conn-item:hover .clickable-node { text-decoration-color: #38bdf8; }
     @media (max-width: 760px) {
-      #sidebar { width: min(320px, 80vw); min-width: 0; position: absolute; top: 0; bottom: 0; left: 0; z-index: 30; }
+      #sidebar { width: min(320px, calc(100vw - 24px)); top: 12px; left: 12px; max-height: calc(100vh - 24px); }
       .settings-dock { top: 12px; right: 12px; width: 218px; max-height: calc(100vh - 24px); }
       .legend { bottom: 12px; right: 12px; max-width: calc(100vw - 24px); }
     }
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <div class="header">
-      <h1>🕸️ Luxora Codebase Graph</h1>
-      <p>Living Architecture & Dependency Knowledge Graph</p>
-    </div>
-    <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search node, file, route, model (Enter to focus)..." />
-      <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">✕</button>
-    </div>
-    <div class="controls" id="filterControls">
-      <button class="filter-btn active" data-group="all">All</button>
-      <button class="filter-btn" data-group="frontend">Frontend</button>
-      <button class="filter-btn" data-group="routes">Routes</button>
-      <button class="filter-btn" data-group="api">Endpoints</button>
-      <button class="filter-btn" data-group="service">Services</button>
-      <button class="filter-btn" data-group="database">Database</button>
-      <button class="filter-btn" data-group="middleware">Auth/MW</button>
-    </div>
-    <div id="details-panel">
-      <h3 style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 10px;">🔍 Node Inspector</h3>
-      <p style="color: #64748b; line-height: 1.5;">Click on any node in the interactive graph to analyze its file path, API routes, database models, and impact blast radius.</p>
-    </div>
-    <div class="sidebar-status" id="graphStatus" aria-live="polite"></div>
-  </div>
-
   <div id="graph-container">
     <div id="network" style="width: 100%; height: 100%;"></div>
-    <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="sidebar" aria-expanded="true">Hide panel</button>
+    <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="sidebar" aria-expanded="true">🕸️ Inspector & Search</button>
+    
+    <div id="sidebar">
+      <div class="header">
+        <div>
+          <h1>🕸️ Luxora Graph</h1>
+          <p>Architecture & Dependency Explorer</p>
+        </div>
+        <button class="sidebar-close-btn" id="sidebarCloseBtn" type="button" aria-label="Close panel">✕</button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search node, file, route, model (Enter to focus)..." />
+        <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">✕</button>
+      </div>
+      <div class="controls" id="filterControls">
+        <button class="filter-btn active" data-group="all">All</button>
+        <button class="filter-btn" data-group="frontend">Frontend</button>
+        <button class="filter-btn" data-group="routes">Routes</button>
+        <button class="filter-btn" data-group="api">Endpoints</button>
+        <button class="filter-btn" data-group="service">Services</button>
+        <button class="filter-btn" data-group="database">Database</button>
+        <button class="filter-btn" data-group="middleware">Auth/MW</button>
+      </div>
+      <div id="details-panel">
+        <h3 style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 10px;">🔍 Node Inspector</h3>
+        <p style="color: #64748b; line-height: 1.5;">Click on any node in the interactive graph to analyze its file path, API routes, database models, and impact blast radius.</p>
+      </div>
+      <div class="sidebar-status" id="graphStatus" aria-live="polite"></div>
+    </div>
+
     <details class="settings-dock">
       <summary>Graph Settings</summary>
       <div class="settings-content">
         <div class="settings-section">
           <div class="settings-label">Physics & Orbit</div>
-          <label class="settings-row"><span>Live physics & orbit</span><input id="motionToggle" type="checkbox"></label>
+          <label class="settings-row"><span>Live physics & orbit</span><input id="motionToggle" type="checkbox" checked></label>
           <label class="settings-row"><span>Edge labels</span><select id="edgeLabelMode"><option value="always">Always</option><option value="selected">Selected node</option><option value="light" selected>Light</option><option value="none">Off</option></select></label>
         </div>
         <div class="settings-section">
@@ -821,25 +827,7 @@ function generateOutput() {
     const data = { nodes: visNodes, edges: visEdges };
     const options = {
       physics: {
-        enabled: true,
-        solver: 'forceAtlas2Based',
-        forceAtlas2Based: {
-          gravitationalConstant: -35,
-          centralGravity: 0.002,
-          springLength: 130,
-          springConstant: 0.04,
-          damping: 0.9,
-          avoidOverlap: 0.9
-        },
-        maxVelocity: 35,
-        minVelocity: 0.1,
-        stabilization: {
-          enabled: true,
-          iterations: 80,
-          updateInterval: 25,
-          onlyDynamicEdges: false,
-          fit: true
-        }
+        enabled: false
       },
       interaction: {
         dragNodes: true,
@@ -855,30 +843,28 @@ function generateOutput() {
     };
 
     const network = new window.vis.Network(container, data, options);
-    network.once('stabilizationIterationsDone', () => {
-      network.setOptions({ physics: { enabled: false } });
-      fitGraph();
-    });
-    network.once('stabilized', () => {
-      network.setOptions({ physics: { enabled: false } });
+    window.requestAnimationFrame(() => {
       fitGraph();
     });
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
 
     function setSidebarCollapsed(collapsed) {
       sidebar.classList.toggle('collapsed', collapsed);
+      sidebarToggle.style.display = collapsed ? 'flex' : 'none';
       sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
-      sidebarToggle.textContent = collapsed ? 'Show panel' : 'Hide panel';
-      window.requestAnimationFrame(() => {
-        network.redraw();
-        fitGraph();
-      });
     }
 
     sidebarToggle.addEventListener('click', () => {
-      setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
+      setSidebarCollapsed(false);
     });
+
+    if (sidebarCloseBtn) {
+      sidebarCloseBtn.addEventListener('click', () => {
+        setSidebarCollapsed(true);
+      });
+    }
 
     const uiState = {
       group: 'all',
@@ -893,7 +879,7 @@ function generateOutput() {
       physicsStrength: 1,
       rotationSpeed: 1,
       horizontalVibe: 0,
-      motionEnabled: false,
+      motionEnabled: true,
       backgroundColor: '#0b0f19'
     };
 
@@ -976,26 +962,30 @@ function generateOutput() {
         if (!uiState.motionEnabled) return;
         const dt = Math.min(0.1, (now - lastAnimTime) / 1000);
         lastAnimTime = now;
-        if (uiState.rotationSpeed > 0 && !uiState.selectedNodeId) {
+        if (uiState.rotationSpeed > 0 && !uiState.selectedNodeId && network.body && network.body.nodes) {
           orbitTime += dt * uiState.rotationSpeed;
           const stretch = 1 + (uiState.horizontalVibe / 100) * 3;
+          const bodyNodes = network.body.nodes;
           nodeOrbitInfo.forEach((info, id) => {
             if (id === activeDragNodeId) return;
             const currentAngle = info.baseAngle + orbitTime * info.speedMultiplier;
             const r = info.radius;
             const x = Math.round(r * stretch * Math.cos(currentAngle));
             const y = Math.round(r * Math.sin(currentAngle));
-            network.moveNode(id, x, y);
+            const nodeObj = bodyNodes[id];
+            if (nodeObj) {
+              nodeObj.x = x;
+              nodeObj.y = y;
+            }
           });
+          network.redraw();
         }
         orbitAnimFrame = window.requestAnimationFrame(orbitLoop);
       };
       orbitAnimFrame = window.requestAnimationFrame(orbitLoop);
     }
 
-    if (uiState.motionEnabled) {
-      startCosmicOrbit();
-    }
+    startCosmicOrbit();
 
     function applyConcentricLayout(repositionAll = true) {
       const spacingMultiplier = uiState.innerSpacing / 120;
@@ -1007,14 +997,20 @@ function generateOutput() {
         uiState.horizontalVibe
       );
 
-      if (repositionAll) {
+      if (repositionAll && network.body && network.body.nodes) {
         const stretch = 1 + (uiState.horizontalVibe / 100) * 3;
+        const bodyNodes = network.body.nodes;
         nodeOrbitInfo.forEach((info, id) => {
           const currentAngle = info.baseAngle + orbitTime * info.speedMultiplier;
           const x = Math.round(info.radius * stretch * Math.cos(currentAngle));
           const y = Math.round(info.radius * Math.sin(currentAngle));
-          network.moveNode(id, x, y);
+          const nodeObj = bodyNodes[id];
+          if (nodeObj) {
+            nodeObj.x = x;
+            nodeObj.y = y;
+          }
         });
+        network.redraw();
       }
     }
 
@@ -1185,16 +1181,25 @@ function generateOutput() {
       visEdges.update(updates);
     }
 
-    function fitGraph() {
-      network.fit({
-        animation: { duration: 350, easingFunction: 'easeInOutQuad' },
-        offset: { x: 0, y: 0 }
+    function fitGraph(duration = 350) {
+      const container = document.getElementById('graph-container');
+      if (!container || !network) return;
+      const w = container.clientWidth || window.innerWidth;
+      const h = container.clientHeight || window.innerHeight;
+      const outerRadius = 1500 * (uiState.innerSpacing / 120);
+      const targetScale = Math.min(0.95, (Math.min(w, h) * 0.92) / (outerRadius * 2));
+
+      network.moveTo({
+        position: { x: 0, y: 0 },
+        scale: Math.max(0.18, targetScale),
+        animation: duration > 0 ? { duration, easingFunction: 'easeInOutQuad' } : false
       });
     }
 
     function selectAndFocusNode(nodeId) {
       const node = graphData.nodes.find(n => n.id === nodeId);
       if (!node) return;
+      setSidebarCollapsed(false);
       uiState.selectedNodeId = nodeId;
       network.selectNodes([nodeId]);
       network.focus(nodeId, {
@@ -1460,15 +1465,16 @@ function generateOutput() {
       setDiagramBackground(event.target.value);
     });
 
-    document.getElementById('fitGraph').addEventListener('click', fitGraph);
+    document.getElementById('fitGraph').addEventListener('click', () => fitGraph(350));
     document.getElementById('resetGraph').addEventListener('click', resetGraph);
     document.getElementById('exportGraph').addEventListener('click', exportFullDiagram);
+    window.addEventListener('resize', () => fitGraph(0));
 
     updateGraphVisibility();
     updateEdgeAppearance();
     updateLabelVisibility();
     setDiagramBackground(uiState.backgroundColor);
-    fitGraph();
+    fitGraph(0);
   </script>
 </body>
 </html>`;
