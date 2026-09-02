@@ -182,29 +182,6 @@
   z-index: 10;
 }
 
-.pd-topbar__search {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: #141414;
-  border: 1px solid #222;
-  border-radius: 50px;
-  padding: 0.55rem 1.25rem;
-  flex: 1;
-  max-width: 420px;
-  color: #555;
-}
-
-.pd-topbar__input {
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--white);
-  font-family: var(--font-primary);
-  font-size: 0.875rem;
-  flex: 1;
-}
-
 .pd-topbar__actions {
   display: flex;
   align-items: center;
@@ -1772,22 +1749,13 @@
     gap: 1.25rem;
   }
 
-  /* Topbar: search on its own row, actions below */
+  /* Topbar actions stay compact on narrow screens. */
   .pd-topbar {
-    flex-wrap: wrap;
     gap: 0.6rem;
     padding: 0.7rem 1rem;
   }
 
-  .pd-topbar__search {
-    order: 1;
-    flex: 1 1 100%;
-  }
-
-  .pd-topbar__input { font-size: 0.85rem; }
-
   .pd-topbar__actions {
-    order: 2;
     flex: 1;
     justify-content: space-between;
   }

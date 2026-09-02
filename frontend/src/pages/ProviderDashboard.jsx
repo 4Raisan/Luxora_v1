@@ -12,7 +12,6 @@ function CalIcon()   { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function HistIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/></svg> }
 function BellIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function GearIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5"/></svg> }
-function SearchIcon(){ return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function UserIcon()  { return <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function LogOutIcon(){ return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
 function DotsIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg> }
@@ -83,7 +82,6 @@ const ProviderDashboard = () => {
   const navigate = useNavigate()
   const token = sessionStorage.getItem('token')
   const [activeNav, setActiveNav] = useState('overview')
-  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -406,10 +404,7 @@ const ProviderDashboard = () => {
   }
 
   /* ── Derived data ── */
-  const searchLower = search.trim().toLowerCase()
-  const visibleBookings = searchLower
-    ? bookingsList.filter((b) => `${b.title} ${b.sub} ${b.customerName} ${b.town}`.toLowerCase().includes(searchLower))
-    : bookingsList
+  const visibleBookings = bookingsList
 
   const activeRows = visibleBookings.filter((b) => ['ASSIGNED', 'IN_PROGRESS'].includes(b.status))
   const requestRows = visibleBookings.filter((b) => b.claimable)
@@ -492,18 +487,6 @@ const ProviderDashboard = () => {
       <div className="pd-main">
         {/* Top Bar */}
         <header className="pd-topbar">
-          <div className="pd-topbar__search">
-            <SearchIcon />
-            <input
-              id="pd-search"
-              type="text"
-              placeholder="Search bookings, customers, towns..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pd-topbar__input"
-            />
-          </div>
-
           <div className="pd-topbar__actions">
             <button
               type="button"
