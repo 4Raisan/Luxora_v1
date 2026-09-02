@@ -7,7 +7,7 @@
   },
   "stats": {
     "totalNodes": 189,
-    "totalEdges": 401,
+    "totalEdges": 403,
     "nodesByGroup": {
       "api": 93,
       "database": 33,
@@ -1114,14 +1114,14 @@
       }
     },
     {
-      "id": "endpoint:PUT_/api/admin/session-payouts/:id",
-      "label": "PUT /api/admin/session-payouts/:id",
+      "id": "endpoint:PUT_/api/admin/session-payouts/:categoryId",
+      "label": "PUT /api/admin/session-payouts/:categoryId",
       "type": "ApiEndpoint",
       "group": "api",
       "file": "backend/src/routes/admin.js",
       "metadata": {
         "method": "PUT",
-        "path": "/api/admin/session-payouts/:id",
+        "path": "/api/admin/session-payouts/:categoryId",
         "routeFile": "admin.js"
       },
       "source": {
@@ -2114,6 +2114,10 @@
           {
             "name": "payments",
             "type": "Payment[]"
+          },
+          {
+            "name": "petType",
+            "type": "String?"
           },
           {
             "name": "photos",
@@ -4231,13 +4235,13 @@
       }
     },
     {
-      "id": "frontend:AdminDashboard->endpoint:PUT_/api/admin/session-payouts/:id:FETCHES_API",
+      "id": "frontend:AdminDashboard->endpoint:PUT_/api/admin/session-payouts/:categoryId:FETCHES_API",
       "from": "frontend:AdminDashboard",
-      "to": "endpoint:PUT_/api/admin/session-payouts/:id",
+      "to": "endpoint:PUT_/api/admin/session-payouts/:categoryId",
       "type": "FETCHES_API",
       "label": "PUT",
       "source": "frontend:AdminDashboard",
-      "target": "endpoint:PUT_/api/admin/session-payouts/:id",
+      "target": "endpoint:PUT_/api/admin/session-payouts/:categoryId",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -6821,13 +6825,13 @@
       }
     },
     {
-      "id": "routefile:admin->endpoint:PUT_/api/admin/session-payouts/:id:EXPOSES_ENDPOINT",
+      "id": "routefile:admin->endpoint:PUT_/api/admin/session-payouts/:categoryId:EXPOSES_ENDPOINT",
       "from": "routefile:admin",
-      "to": "endpoint:PUT_/api/admin/session-payouts/:id",
+      "to": "endpoint:PUT_/api/admin/session-payouts/:categoryId",
       "type": "EXPOSES_ENDPOINT",
       "label": "PUT",
       "source": "routefile:admin",
-      "target": "endpoint:PUT_/api/admin/session-payouts/:id",
+      "target": "endpoint:PUT_/api/admin/session-payouts/:categoryId",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/admin.js",
@@ -6940,6 +6944,20 @@
       "label": "prisma.booking",
       "source": "routefile:admin",
       "target": "model:Booking",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:admin->model:Category:QUERIES_DB",
+      "from": "routefile:admin",
+      "to": "model:Category",
+      "type": "QUERIES_DB",
+      "label": "prisma.category",
+      "source": "routefile:admin",
+      "target": "model:Category",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/admin.js",
@@ -8809,14 +8827,28 @@
       }
     },
     {
-      "id": "routefile:provider->model:Service:QUERIES_DB",
+      "id": "routefile:provider->service:notify:CALLS_SERVICE",
       "from": "routefile:provider",
-      "to": "model:Service",
-      "type": "QUERIES_DB",
-      "label": "prisma.service",
+      "to": "service:notify",
+      "type": "CALLS_SERVICE",
+      "label": "",
       "source": "routefile:provider",
-      "target": "model:Service",
-      "kind": "QUERIES_DB",
+      "target": "service:notify",
+      "kind": "CALLS_SERVICE",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:provider->service:scheduling:CALLS_SERVICE",
+      "from": "routefile:provider",
+      "to": "service:scheduling",
+      "type": "CALLS_SERVICE",
+      "label": "",
+      "source": "routefile:provider",
+      "target": "service:scheduling",
+      "kind": "CALLS_SERVICE",
       "evidence": {
         "path": "backend/src/routes/provider.js",
         "extractor": "generate-graph.js:static-analysis"

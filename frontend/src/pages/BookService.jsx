@@ -12,6 +12,7 @@ export default function BookService() {
   const [services, setServices] = useState([])
   const [categories, setCategories] = useState([])
   const [serviceId, setServiceId] = useState('')
+  const [petType, setPetType] = useState('dog')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('09:00')
   const [result, setResult] = useState(null)
@@ -46,11 +47,20 @@ export default function BookService() {
     apiRequest('/categories').then(setCategories).catch(() => {})
   }, [token, navigate])
 
+  const selectedService = services.find(s => s.id === Number(serviceId))
+  const selectedCatName = (selectedService?.category_name || '').toLowerCase()
+  const detectedCategory = selectedCatName.includes('auto') ? 'auto' : selectedCatName.includes('garden') ? 'garden' : selectedCatName.includes('pet') ? 'pet' : 'auto'
+
   const submit = async (e) => {
     e.preventDefault()
     setError(''); setResult(null); setLoading(true)
     try {
-      let r = await apiRequest('/bookings', 'POST', { service_id: Number(serviceId), booking_date: date, booking_time: time }, token)
+      let r = await apiRequest('/bookings', 'POST', {
+        service_id: Number(serviceId),
+        booking_date: date,
+        booking_time: time,
+        pet_type: detectedCategory === 'pet' ? petType : null,
+      }, token)
       if (r && !r.pin_code && !r.start_pin && r.booking_id) {
         try {
           const pins = await apiRequest('/bookings/' + r.booking_id + '/pins', 'GET', null, token)
@@ -72,10 +82,6 @@ export default function BookService() {
     items: services.filter((s) => s.category_id === c.id),
   }))
 
-  const selectedService = services.find(s => s.id === Number(serviceId))
-  const selectedCatName = (selectedService?.category_name || '').toLowerCase()
-  const detectedCategory = selectedCatName.includes('auto') ? 'auto' : selectedCatName.includes('garden') ? 'garden' : selectedCatName.includes('pet') ? 'pet' : 'auto'
-
   return (
     <motion.div className="bs" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <div className="bs-card">
@@ -88,7 +94,7 @@ export default function BookService() {
             <div style={{ marginBottom: '1.25rem' }}>
               <SessionConfirmationAnimation
                 category={detectedCategory}
-                petType="dog"
+                petType={petType || 'dog'}
                 compact={false}
                 replayable={true}
               />
@@ -122,6 +128,52 @@ export default function BookService() {
                 </optgroup>
               ))}
             </select>
+
+            {detectedCategory === 'pet' && (
+              <div style={{ marginBottom: '1.25rem', marginTop: '0.5rem' }}>
+                <label className="bs-label">Pet Care Mode</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.4rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPetType('dog')}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      border: petType === 'dog' ? '2px solid var(--gold, #c9a84c)' : '1px solid #333',
+                      background: petType === 'dog' ? 'rgba(201,168,76,0.15)' : '#18181c',
+                      color: petType === 'dog' ? 'var(--gold, #c9a84c)' : '#aaa',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <span>🐕</span> Dog Care
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPetType('cat')}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: '10px',
+                      border: petType === 'cat' ? '2px solid var(--gold, #c9a84c)' : '1px solid #333',
+                      background: petType === 'cat' ? 'rgba(201,168,76,0.15)' : '#18181c',
+                      color: petType === 'cat' ? 'var(--gold, #c9a84c)' : '#aaa',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <span>🐈</span> Cat Care
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="bs-row">
               <div className="bs-field">

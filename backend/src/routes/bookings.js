@@ -99,8 +99,9 @@ async function pickProvider(client, categoryName, town, addressDistrict, booking
 // Create booking
 router.post('/', async (req, res) => {
   if (req.user.role !== 'CUSTOMER') return res.status(403).json({ error: 'Only customers can create bookings' });
-  const { service_id, booking_date, booking_time } = req.body;
+  const { service_id, booking_date, booking_time, pet_type, petType } = req.body;
   const userId = req.user.id;
+  const resolvedPetType = String(pet_type || petType || '').trim().toLowerCase() || null;
 
   const serviceId = toPositiveInt(service_id);
   if (!serviceId) return res.status(400).json({ error: 'service_id is required' });
@@ -194,6 +195,7 @@ router.post('/', async (req, res) => {
             subscriptionId: lockedEntitlement.subscriptionId,
             bookingDate: booking_date,
             bookingTime: normalizedTime,
+            petType: resolvedPetType,
             town,
             addressStreet: customer?.addressStreet || null,
             addressDistrict: customer?.addressDistrict || null,
@@ -638,6 +640,7 @@ router.put('/:id/reschedule', async (req, res) => {
           subscriptionId: oldBooking.subscriptionId,
           bookingDate: booking_date,
           bookingTime: normalizedTime,
+          petType: oldBooking.petType,
           town,
           addressStreet: customer?.addressStreet || oldBooking.addressStreet,
           addressDistrict: customer?.addressDistrict || oldBooking.addressDistrict,

@@ -143,10 +143,10 @@ const ProviderDashboard = () => {
       setBusy(false)
     }
   }
-
   const mapBookingRow = useCallback((booking) => {
     const date = new Date(`${booking.bookingDate}T00:00:00`)
     const status = String(booking.status).toUpperCase()
+    const petLabel = (booking.petType || booking.pet_type) === 'dog' ? '🐕 Dog Care' : (booking.petType || booking.pet_type) === 'cat' ? '🐈 Cat Care' : ''
     return {
       apiId: booking.id,
       month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
@@ -154,7 +154,7 @@ const ProviderDashboard = () => {
       bookingDate: booking.bookingDate,
       bookingTime: booking.bookingTime,
       title: booking.service_title || 'Service booking',
-      sub: `${booking.customer_name || 'Customer'}${booking.customer_phone ? ` • 📞 ${formatMobileNumber(booking.customer_phone)}` : ''}${booking.town ? ` • 📍 ${booking.town}` : ''}`,
+      sub: `${booking.customer_name || 'Customer'}${petLabel ? ` • ${petLabel}` : ''}${booking.customer_phone ? ` • 📞 ${formatMobileNumber(booking.customer_phone)}` : ''}${booking.town ? ` • 📍 ${booking.town}` : ''}`,
       status,
       color: STATUS_COLORS[status] || '#C9A84C',
       claimable: false,
@@ -167,6 +167,7 @@ const ProviderDashboard = () => {
       price: booking.totalPrice,
       category: booking.category_name || '',
       serviceDesc: booking.service_desc || '',
+      petType: booking.petType || booking.pet_type || '',
     }
   }, [])
 
@@ -592,7 +593,7 @@ const ProviderDashboard = () => {
                       </div>
                       <div style={{ flex: 1 }}>
                         <h3 className="pd-all-booking-title">{h.service_title || 'Service booking'}</h3>
-                        <p className="pd-all-booking-sub">{h.customer_name || 'Customer'}{h.customer_phone ? ` • 📞 ${formatMobileNumber(h.customer_phone)}` : ''} • {String(h.booking_time || '').slice(0, 5)}</p>
+                        <p className="pd-all-booking-sub">{h.customer_name || 'Customer'}{(h.petType || h.pet_type) ? ` • ${(h.petType || h.pet_type) === 'dog' ? '🐕 Dog Care' : '🐈 Cat Care'}` : ''}{h.customer_phone ? ` • 📞 ${formatMobileNumber(h.customer_phone)}` : ''} • {String(h.booking_time || '').slice(0, 5)}</p>
                       </div>
                       <span className="pd-booking__status" style={{ borderColor: STATUS_COLORS[String(h.status).toUpperCase()] || '#888', color: STATUS_COLORS[String(h.status).toUpperCase()] || '#888' }}>
                         {String(h.status).toUpperCase()}
@@ -793,7 +794,11 @@ const ProviderDashboard = () => {
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                 <span className="pd-cr-client">👤 {b.customerName}</span>
-                                {b.customerPhone && <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>📞 {formatMobileNumber(b.customerPhone)}</a>}
+                                {b.customerPhone && (
+                                  <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>
+                                    📞 {formatMobileNumber(b.customerPhone)}
+                                  </a>
+                                )}
                               </div>
                               <h3 className="pd-cr-service">{b.title}</h3>
                             </div>
@@ -846,7 +851,11 @@ const ProviderDashboard = () => {
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             <span className="pd-cr-client">👤 {b.customerName}</span>
-                            {b.customerPhone && <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>📞 {formatMobileNumber(b.customerPhone)}</a>}
+                            {b.customerPhone && (
+                              <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>
+                                📞 {formatMobileNumber(b.customerPhone)}
+                              </a>
+                            )}
                           </div>
                           <h3 className="pd-cr-service">{b.title}</h3>
                         </div>
@@ -980,7 +989,6 @@ const ProviderDashboard = () => {
                   )}
                 </div>
               )}
-
               <div className="pd-profile-field">
                 <label>BOOKING STATUS</label>
                 <span className="pd-booking__status" style={{ borderColor: selectedDetailsBooking.color, color: selectedDetailsBooking.color, display: 'inline-block', marginTop: '0.25rem' }}>

@@ -44,10 +44,16 @@ const NAV_ITEMS = [
 const fmtMoney = (v) => 'LKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 const fmtDateTime = (v) => (v ? new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
-const bookingCareLabel = (booking) => booking?.category_name || booking?.service_title || '—'
 const cancellationRequestBookingId = (ticket) => {
   const match = String(ticket?.subject || '').match(/^Booking #(\d+) cancellation request$/i)
   return match ? Number(match[1]) : null
+}
+const bookingCareLabel = (booking) => {
+  const base = booking?.category_name || booking?.service_title || '—'
+  const pet = (booking?.petType || booking?.pet_type)
+  if (pet === 'dog') return `${base} (🐕 Dog)`
+  if (pet === 'cat') return `${base} (🐈 Cat)`
+  return base
 }
 const statusColor = (s) => ({
   completed: '#4ade80', confirmed: '#4ade80', approved: '#4ade80', active: '#4ade80', resolved: '#4ade80', refunded: '#4ade80',
