@@ -859,16 +859,6 @@ const ProviderDashboard = () => {
                   <Calendar bookings={upcomingRows} selectedDay={selectedCalendarDay} onSelectDay={setSelectedCalendarDay} />
                 </div>
 
-                {/* Service profile */}
-                <div className="pd-widget pd-avail-widget">
-                  <div className="pd-section-header" style={{ marginBottom: '0.75rem' }}>
-                    <h2 className="pd-section-title" style={{ fontSize: '1rem' }}>Service Profile</h2>
-                  </div>
-                  <div className="pd-kv"><span className="pd-kv__key">CATEGORIES</span><span className="pd-kv__val">{providerCategories.join(', ') || '—'}</span></div>
-                  <div className="pd-kv"><span className="pd-kv__key">TOWNS SERVED</span><span className="pd-kv__val">{serviceTowns || '—'}</span></div>
-                  <div className="pd-kv"><span className="pd-kv__key">COMPLETED JOBS</span><span className="pd-kv__val pd-kv__val--gold">{earnings?.completedJobs ?? '—'}</span></div>
-                </div>
-
                 {/* Session payout rates */}
                 <div className="pd-widget pd-avail-widget">
                   <div className="pd-section-header" style={{ marginBottom: '0.75rem' }}>
