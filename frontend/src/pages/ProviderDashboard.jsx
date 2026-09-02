@@ -742,7 +742,7 @@ const ProviderDashboard = () => {
                           <span className="pd-booking__day">{b.day}</span>
                         </div>
                         <div className="pd-booking__info">
-                          <p className="pd-booking__title">Care type: {b.category || 'Not available'}</p>
+                          <p className="pd-booking__title">{b.category || 'Not available'}</p>
                           <p className="pd-booking__sub">{b.sub}</p>
                         </div>
                         <span className="pd-booking__status" style={{ borderColor: b.color, color: b.color }}>
