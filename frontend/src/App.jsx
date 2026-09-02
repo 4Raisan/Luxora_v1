@@ -7,6 +7,7 @@ import Services from './components/Services'
 import Plans from './components/Plans'
 import About from './components/About'
 import HowItWorks from './components/HowItWorks'
+import TrustSection from './components/TrustSection'
 import Footer from './components/Footer'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -41,6 +42,7 @@ const HomePage = () => (
       <Plans />
       <About />
       <HowItWorks />
+      <TrustSection />
     </main>
     <Footer />
   </>
