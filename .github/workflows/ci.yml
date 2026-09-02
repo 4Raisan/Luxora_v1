@@ -96,7 +96,7 @@ jobs:
         if: needs.classify.outputs.frontend == 'true'
         run: npm --prefix frontend run build
 
-  knowledge-graph:
+  knowledge_graph:
     name: 02b - Knowledge Graph verify and build
     needs: classify
     if: needs.classify.outputs.knowledge_graph == 'true'
@@ -297,7 +297,7 @@ jobs:
   validate-and-test:
     name: 06 - Required gate
     if: always()
-    needs: [classify, quality, knowledge-graph, backend, audit, docker]
+    needs: [classify, quality, knowledge_graph, backend, audit, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -305,7 +305,7 @@ jobs:
         env:
           CLASSIFY_RESULT: ${{ needs.classify.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
-          KG_RESULT: ${{ needs.knowledge-graph.result }}
+          KG_RESULT: ${{ needs.knowledge_graph.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
