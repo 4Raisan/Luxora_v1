@@ -5,8 +5,6 @@ import './HowItWorks.css'
 
 const MOTION = {
   desktopPerspective: 1400,
-  desktopScroll: 2600,
-  mobileScroll: 3200,
   desktopDepth: 125,
   mobileDepth: 48,
   desktopStagger: 0.13,
@@ -22,8 +20,8 @@ const steps = [
     description: 'Build a care experience around your home and lifestyle.',
     services: ['Auto Care', 'Garden Care', 'Pet Care', 'Combo packages'],
     note: 'Flexible care categories',
-    backTitle: 'Everything in one place',
-    backText: 'Compare services and packages from your customer portal before choosing the care that suits you.',
+    backTitle: 'Create Account',
+    backText: 'Sign up securely and access your personal Luxora customer portal.',
   },
   {
     number: '02',
@@ -31,8 +29,8 @@ const steps = [
     description: 'Reserve your preferred service in a few clear steps.',
     services: ['Choose a package', 'Select date and time', 'Confirm your address', 'Pay or use credits'],
     note: 'Verified booking confirmation',
-    backTitle: 'A booking that fits your day',
-    backText: 'Your booking details, payment state, and assigned provider remain visible from the customer dashboard.',
+    backTitle: 'Purchase a Package',
+    backText: 'Choose the care package that matches your needs and complete your secure purchase.',
   },
   {
     number: '03',
@@ -40,8 +38,8 @@ const steps = [
     description: 'A verified provider arrives for your confirmed appointment.',
     services: ['Automatic assignment', 'Provider details', 'Before-service photos', 'Secure Start PIN'],
     note: 'Protected service handover',
-    backTitle: 'You control the start',
-    backText: 'Share the Start PIN only when the provider is present and you are ready for the service to begin.',
+    backTitle: 'Book Your Service',
+    backText: 'Select your service, preferred date and time, and confirm the booking from your portal.',
   },
   {
     number: '04',
@@ -49,27 +47,15 @@ const steps = [
     description: 'Stay informed until the final service confirmation.',
     services: ['Track service status', 'Review after photos', 'Completion PIN', 'Rate your experience'],
     note: 'Complete portal visibility',
-    backTitle: 'Finished on your approval',
-    backText: 'Review the completed work and release the final confirmation only when you are satisfied.',
+    backTitle: 'Enjoy',
+    backText: 'Relax while Luxora coordinates your assigned provider and keeps every service detail visible.',
   },
 ]
 
 export const Card = ({ step }) => (
-  <article className="journey-card" aria-label={`${step.number}. ${step.category}`}>
-    <div className="journey-card__face journey-card__face--front">
-      <header className="journey-card__topline">
-        <span className="journey-card__logo" aria-hidden="true">L</span>
-        <span className="journey-card__number">{step.number}</span>
-      </header>
-      <div className="journey-card__body">
-        <p className="journey-card__label">CUSTOMER JOURNEY</p>
-        <h3>{step.category}</h3>
-        <p className="journey-card__description">{step.description}</p>
-        <ul>
-          {step.services.map((service) => <li key={service}>{service}</li>)}
-        </ul>
-      </div>
-      <footer className="journey-card__footer"><span />{step.note}</footer>
+  <article className="journey-card" aria-label={`${step.number}. ${step.backTitle}`}>
+    <div className="journey-card__face journey-card__face--front" aria-hidden="true">
+      <img className="journey-card__artwork" src="/luxora-journey-card.jpg" alt="" draggable="false" />
     </div>
 
     <div className="journey-card__face journey-card__face--back" aria-hidden="true">
@@ -109,7 +95,6 @@ export const CardSection = () => {
       const buildTimeline = ({ mobile }) => {
         const depth = mobile ? MOTION.mobileDepth : MOTION.desktopDepth
         const stagger = mobile ? MOTION.mobileStagger : MOTION.desktopStagger
-        const scrollDistance = mobile ? MOTION.mobileScroll : MOTION.desktopScroll
 
         gsap.set(cards, {
           force3D: true,
@@ -123,17 +108,8 @@ export const CardSection = () => {
         })
 
         const timeline = gsap.timeline({
-          defaults: { ease: 'none' },
-          scrollTrigger: {
-            trigger: section,
-            start: 'top top',
-            end: `+=${scrollDistance}`,
-            pin: true,
-            pinSpacing: true,
-            scrub: 1.05,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-          },
+          defaults: { ease: 'power2.inOut' },
+          paused: true,
         })
 
         if (mobile) {
@@ -167,7 +143,18 @@ export const CardSection = () => {
             }, start + 0.72)
         })
 
-        return () => timeline.kill()
+        const trigger = ScrollTrigger.create({
+          trigger: section,
+          start: 'top 65%',
+          onEnter: () => timeline.play(),
+          onEnterBack: () => timeline.reverse(),
+          onLeaveBack: () => timeline.reverse(),
+        })
+
+        return () => {
+          trigger.kill()
+          timeline.kill()
+        }
       }
 
       media.add('(min-width: 769px)', () => buildTimeline({ mobile: false }))
@@ -208,7 +195,6 @@ export const CardSection = () => {
             {steps.map((step) => <Card key={step.number} step={step} />)}
           </div>
         </div>
-        <p className="how-it-works__scroll-hint"><span /> SCROLL TO TURN THE CARDS <span /></p>
       </div>
     </section>
   )

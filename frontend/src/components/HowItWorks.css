@@ -1,6 +1,6 @@
 .how-it-works {
   align-items: center;
-  background: #2525f5;
+  background: #070809;
   color: #fff;
   display: flex;
   min-height: 100vh;
@@ -10,7 +10,7 @@
 }
 
 .how-it-works::before {
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 65%);
+  background: radial-gradient(circle, rgba(201, 168, 76, 0.12), transparent 65%);
   content: '';
   height: 620px;
   left: 50%;
@@ -30,7 +30,7 @@
 .how-it-works__journey { display: block; height: 100%; overflow: visible; width: 100%; }
 .how-it-works__journey-glow { fill: none; filter: url(#journey-glow); opacity: 0.36; stroke: #f7dc88; stroke-width: 4; }
 .how-it-works__journey-path { fill: none; stroke: url(#journey-gold); stroke-width: 2.5; }
-.how-it-works__journey-points circle { fill: #2525f5; filter: drop-shadow(0 0 5px rgba(247, 220, 136, 0.76)); stroke: #f4d57e; stroke-width: 2.25; }
+.how-it-works__journey-points circle { fill: #070809; filter: drop-shadow(0 0 5px rgba(247, 220, 136, 0.76)); stroke: #f4d57e; stroke-width: 2.25; }
 
 .how-it-works__stage { perspective: var(--journey-perspective, 1400px); perspective-origin: 50% 45%; width: 100%; }
 .how-it-works__steps { display: grid; gap: clamp(0.8rem, 1.5vw, 1.35rem); grid-template-columns: repeat(4, minmax(0, 1fr)); transform-style: preserve-3d; will-change: transform; }
@@ -62,6 +62,8 @@
 }
 
 .journey-card__face::after { border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 12px; content: ''; inset: 9px; pointer-events: none; position: absolute; }
+.journey-card__face--front { background: #080808; padding: 0; }
+.journey-card__artwork { height: 100%; object-fit: cover; object-position: center; pointer-events: none; user-select: none; width: 100%; }
 .journey-card__face--back { background: #111118; border-color: rgba(255, 255, 255, 0.16); color: #f7f4ec; transform: rotateY(180deg); }
 .journey-card__topline { align-items: center; display: flex; justify-content: space-between; position: relative; z-index: 1; }
 .journey-card__logo { align-items: center; background: #111118; border-radius: 50%; color: #f5f2e9; display: inline-flex; font-family: var(--font-display); font-size: 0.8rem; font-weight: 700; height: 30px; justify-content: center; width: 30px; }
@@ -73,7 +75,7 @@
 .journey-card__description { font-size: 0.76rem; line-height: 1.5; margin: 0.65rem 0 1rem; opacity: 0.62; }
 .journey-card ul { border-top: 1px solid rgba(0, 0, 0, 0.13); list-style: none; margin: auto 0 0; padding: 0.85rem 0 0; }
 .journey-card li { align-items: center; display: flex; font-size: 0.72rem; font-weight: 650; gap: 0.5rem; line-height: 1.35; padding: 0.25rem 0; }
-.journey-card li::before { background: #2525f5; border-radius: 50%; content: ''; flex: 0 0 auto; height: 5px; width: 5px; }
+.journey-card li::before { background: var(--gold); border-radius: 50%; content: ''; flex: 0 0 auto; height: 5px; width: 5px; }
 .journey-card__footer { align-items: center; display: flex; font-size: 0.55rem; font-weight: 800; gap: 0.45rem; letter-spacing: 0.12em; margin-top: 0.85rem; opacity: 0.65; position: relative; text-transform: uppercase; z-index: 1; }
 .journey-card__footer span { background: currentColor; border-radius: 50%; height: 4px; width: 4px; }
 .journey-card__back-content { align-items: center; display: flex; flex: 1; flex-direction: column; justify-content: center; padding: 1rem 0.35rem; position: relative; text-align: center; z-index: 1; }
@@ -81,9 +83,6 @@
 .journey-card__back-content h3 { color: #fff; font-size: clamp(1.3rem, 1.8vw, 1.75rem); }
 .journey-card__back-content p { color: rgba(255, 255, 255, 0.65); font-size: 0.77rem; line-height: 1.62; margin: 0.8rem 0 0; max-width: 250px; }
 .journey-card__face--back .journey-card__footer { color: #d9ba67; }
-
-.how-it-works__scroll-hint { align-items: center; color: rgba(255, 255, 255, 0.55); display: flex; font-size: 0.58rem; font-weight: 700; gap: 0.7rem; justify-content: center; letter-spacing: 0.16em; margin: 1.4rem 0 0; }
-.how-it-works__scroll-hint span { background: rgba(255, 255, 255, 0.38); height: 1px; width: 38px; }
 
 @media (max-width: 1050px) {
   .journey-card { min-height: 320px; }
