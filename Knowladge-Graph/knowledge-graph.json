@@ -7,7 +7,7 @@
   },
   "stats": {
     "totalNodes": 190,
-    "totalEdges": 405,
+    "totalEdges": 407,
     "nodesByGroup": {
       "api": 94,
       "database": 33,
@@ -5104,6 +5104,20 @@
       }
     },
     {
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/provider/bookings/:id/cancellation-request:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:ProviderDashboard->endpoint:POST_/api/provider/kyc-documents:FETCHES_API",
       "from": "frontend:ProviderDashboard",
       "to": "endpoint:POST_/api/provider/kyc-documents",
@@ -8849,6 +8863,20 @@
       "label": "prisma.providerPayout",
       "source": "routefile:provider",
       "target": "model:ProviderPayout",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:provider->model:SupportTicket:QUERIES_DB",
+      "from": "routefile:provider",
+      "to": "model:SupportTicket",
+      "type": "QUERIES_DB",
+      "label": "prisma.supportTicket",
+      "source": "routefile:provider",
+      "target": "model:SupportTicket",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/provider.js",
