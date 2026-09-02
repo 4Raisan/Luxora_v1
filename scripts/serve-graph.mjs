@@ -28,7 +28,7 @@ const server = http.createServer((req, res) => {
     'Access-Control-Allow-Origin': '*'
   });
   const stream = fs.createReadStream(file);
-  stream.on('error', (err) => {
+  stream.on('error', (_err) => {
     if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
     res.end('Error loading file');
   });

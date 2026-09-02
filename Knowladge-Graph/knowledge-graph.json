@@ -7,7 +7,7 @@
   },
   "stats": {
     "totalNodes": 190,
-    "totalEdges": 407,
+    "totalEdges": 408,
     "nodesByGroup": {
       "api": 94,
       "database": 33,
@@ -5083,6 +5083,20 @@
       "label": "GET",
       "source": "frontend:ProviderDashboard",
       "target": "endpoint:GET_/api/provider/earnings",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->endpoint:GET_/api/support/my:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:GET_/api/support/my",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:GET_/api/support/my",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",

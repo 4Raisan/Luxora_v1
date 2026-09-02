@@ -85,6 +85,9 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Verify Knowledge Graph
+        run: npm run graph:verify
+
       - name: Install frontend dependencies
         if: needs.classify.outputs.frontend == 'true'
         run: npm --prefix frontend ci

@@ -92,7 +92,8 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
     }
     if (file.startsWith('Knowladge-Graph/')) {
       plan.knowledgeGraph = true;
-      documentationCount += 1;
+      plan.quality = true;
+      plan.reasons.push(file + ' changes Knowledge Graph definition or artifacts.');
       continue;
     }
     if (isTextDocumentation(file)) {
