@@ -114,7 +114,32 @@ export default function BookService() {
           </motion.div>
         ) : (
           <form className="bs-form" onSubmit={submit}>
-            {error && <div className="bs-error">{error}</div>}
+            {error && (
+              <div className="bs-error">
+                {error}
+                {/entitlement|package|subscription/i.test(error) && (
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/customer-dashboard')}
+                      style={{
+                        background: 'var(--gold, #c9a84c)',
+                        color: '#000',
+                        border: 'none',
+                        padding: '0.45rem 0.9rem',
+                        borderRadius: '6px',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      View Packages & Subscriptions
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <label className="bs-label">Service Category</label>
             <select className="bs-select" value={serviceId} onChange={(e) => setServiceId(e.target.value)} required>
               <option value="">— Choose a service —</option>
@@ -178,7 +203,7 @@ export default function BookService() {
             <div className="bs-row">
               <div className="bs-field">
                 <label className="bs-label">Date</label>
-                <input className="bs-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                <input className="bs-input" type="date" value={date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setDate(e.target.value)} required />
               </div>
               <div className="bs-field">
                 <label className="bs-label">Time</label>
