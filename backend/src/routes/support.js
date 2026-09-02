@@ -52,8 +52,9 @@ router.put('/:id', requireRole('ADMIN'), async (req, res) => {
   if (!id || (req.body.status !== undefined && !status)) return res.status(400).json({ error: 'Invalid ticket id or status' });
   const adminResponse = req.body.admin_response === undefined ? undefined : String(req.body.admin_response).trim();
   if (adminResponse !== undefined && (adminResponse.length < 1 || adminResponse.length > 4000)) return res.status(400).json({ error: 'admin_response must be 1-4000 characters' });
-  const ticket = await prisma.supportTicket.update({ where: { id }, data: { status, adminResponse } });
-  await notify(ticket.userId, `Support ticket #${ticket.id} has been updated${adminResponse ? ' with a response' : ''}.`, '/customer-dashboard');
+  const ticket = await prisma.supportTicket.update({ where: { id }, data: { status, adminResponse }, include: { user: { select: { role: true } } } });
+  const destination = ticket.user.role === 'PROVIDER' ? '/provider-dashboard' : '/customer-dashboard';
+  await notify(ticket.userId, `Support ticket #${ticket.id} has been updated${adminResponse ? ' with a response' : ''}.`, destination);
   res.json(ticket);
 });
 

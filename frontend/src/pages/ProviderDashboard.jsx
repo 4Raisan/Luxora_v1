@@ -106,6 +106,8 @@ const ProviderDashboard = () => {
   const [photosByBooking, setPhotosByBooking] = useState({})
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [cancellationRequests, setCancellationRequests] = useState({})
   /* Settings form */
   const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', categories: [], towns: [], provinces: [] })
   const [townSearch, setTownSearch] = useState('')
@@ -125,6 +127,22 @@ const ProviderDashboard = () => {
   const [kycDocBusy, setKycDocBusy] = useState(false)
   const [kycDocMsg, setKycDocMsg] = useState('')
 
+  const requestBookingCancellation = async () => {
+    if (!selectedDetailsBooking) return
+    const reason = cancellationReason.trim()
+    if (reason.length < 3) return alert('Please enter a short cancellation reason.')
+    setBusy(true)
+    try {
+      const result = await apiRequest(`/provider/bookings/${selectedDetailsBooking.apiId}/cancellation-request`, 'POST', { reason }, token)
+      setCancellationReason('')
+      setCancellationRequests((current) => ({ ...current, [selectedDetailsBooking.apiId]: result.request_id || true }))
+      alert(result.message || 'Cancellation request sent to the admin.')
+    } catch (error) {
+      alert(error.message || 'Could not send the cancellation request.')
+    } finally {
+      setBusy(false)
+    }
+  }
   const mapBookingRow = useCallback((booking) => {
     const date = new Date(`${booking.bookingDate}T00:00:00`)
     const status = String(booking.status).toUpperCase()
@@ -221,6 +239,7 @@ const ProviderDashboard = () => {
 
   useEffect(() => { void loadAll() }, [loadAll])
   useEffect(() => { void loadNotifications() }, [loadNotifications])
+  useEffect(() => { setCancellationReason('') }, [selectedDetailsBooking?.apiId])
 
   /* ── Availability (Manage service availability) ── */
   const saveAvailability = async (value) => {
@@ -946,6 +965,30 @@ const ProviderDashboard = () => {
                 </div>
               )}
 
+              {selectedDetailsBooking.status === 'ASSIGNED' && (
+                <div className="pd-profile-field">
+                  <label>REQUEST CANCELLATION</label>
+                  {cancellationRequests[selectedDetailsBooking.apiId] ? (
+                    <p style={{ fontSize: '0.82rem', color: '#9fd0ac', margin: 0 }}>✓ Request submitted to the Admin Support Desk. This booking remains assigned while it is reviewed.</p>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>Send a reason to the admin for review. The booking remains assigned until the admin decides.</p>
+                      <textarea
+                        className="pd-edit-input"
+                        rows="3"
+                        maxLength="500"
+                        placeholder="Reason for cancellation request"
+                        value={cancellationReason}
+                        onChange={(e) => setCancellationReason(e.target.value)}
+                        style={{ resize: 'vertical' }}
+                      />
+                      <button type="button" className="pd-cr-btn-decline" disabled={busy || cancellationReason.trim().length < 3} style={{ marginTop: '0.65rem' }} onClick={requestBookingCancellation}>
+                        {busy ? 'SENDING…' : 'REQUEST CANCELLATION'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
               <div className="pd-profile-field">
                 <label>BOOKING STATUS</label>
                 <span className="pd-booking__status" style={{ borderColor: selectedDetailsBooking.color, color: selectedDetailsBooking.color, display: 'inline-block', marginTop: '0.25rem' }}>
