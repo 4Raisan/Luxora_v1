@@ -81,7 +81,6 @@ const MapPinIcon = () => (
 const PET_TYPE_OPTIONS = [
   { id: 'dog', title: 'Dog Care', detail: 'Walking & playtime', icon: '🐕', servicePattern: /dog|walk/i },
   { id: 'cat', title: 'Cat Care', detail: 'Bathing & grooming', icon: '🐈', servicePattern: /cat|bath|groom/i },
-  { id: 'fish', title: 'Fish Care', detail: 'Aquarium cleaning', icon: '🐠', servicePattern: /fish|tank|aquarium/i },
 ]
 
 const SubscriptionPlanCard = ({ plan, onSelect }) => {
@@ -700,7 +699,7 @@ const CustomerDashboard = () => {
     const selectedPetType = PET_TYPE_OPTIONS.find((item) => item.id === serviceBookingForm.petType)
 
     if (cat === 'pet' && !selectedPetType) {
-      alert('Please choose Dog Care, Cat Care, or Fish Care.')
+      alert('Please choose Dog Care or Cat Care.')
       return
     }
 
