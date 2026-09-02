@@ -27,7 +27,16 @@ const server = http.createServer((req, res) => {
     'Content-Type': mime[ext] || 'text/plain',
     'Access-Control-Allow-Origin': '*'
   });
-  fs.createReadStream(file).pipe(res);
+  const stream = fs.createReadStream(file);
+  stream.on('error', (err) => {
+    if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('Error loading file');
+  });
+  stream.pipe(res);
+});
+
+server.on('error', (err) => {
+  console.error('Server error:', err.message);
 });
 
 server.listen(port, '127.0.0.1', () => {
