@@ -86,6 +86,40 @@ router.post('/settings/scheduling/restore-defaults', async (req, res) => {
   res.json(setting);
 });
 
+// Provider session earnings are configured per service.  Booking creation copies
+// this value to the booking record, so later price changes never alter earnings
+// already agreed for an existing job.
+router.get('/session-payouts', async (_req, res) => {
+  const services = await prisma.service.findMany({
+    include: { category: { select: { name: true } } },
+    orderBy: [{ category: { name: 'asc' } }, { title: 'asc' }],
+  });
+  res.json(services.map((service) => ({
+    id: service.id,
+    category_name: service.category.name,
+    service_title: service.title,
+    provider_earning: Number(service.providerEarning),
+  })));
+});
+
+router.put('/session-payouts/:id', async (req, res) => {
+  const serviceId = toPositiveInt(req.params.id);
+  const rawEarning = String(req.body.provider_earning ?? '').trim();
+  const providerEarning = Number(rawEarning);
+  if (!serviceId || !rawEarning || !Number.isFinite(providerEarning) || providerEarning < 0 || providerEarning > 10000000) {
+    return res.status(400).json({ error: 'Enter a valid provider payout from 0 to 10,000,000.' });
+  }
+  const existingService = await prisma.service.findUnique({ where: { id: serviceId }, select: { id: true } });
+  if (!existingService) return res.status(404).json({ error: 'Service not found.' });
+  const service = await prisma.service.update({
+    where: { id: serviceId },
+    data: { providerEarning },
+    include: { category: { select: { name: true } } },
+  });
+  logAdminAction({ adminId: req.user.id, action: 'UPDATE_SERVICE_PAYOUT', targetType: 'Service', targetId: String(service.id), details: { providerEarning }, ipAddress: req.ip }).catch(() => {});
+  res.json({ id: service.id, category_name: service.category.name, service_title: service.title, provider_earning: Number(service.providerEarning) });
+});
+
 router.get('/providers', async (_req, res) => {
   const providers = await prisma.provider.findMany({ include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } } } });
   res.json(providers.map((p) => ({

@@ -55,12 +55,6 @@ const AVAILABILITY_OPTIONS = [
   { value: 'offline', label: 'OFFLINE', hint: 'Not offering services right now' },
 ]
 
-const SESSION_PAYOUTS = [
-  { category: 'Auto Care', amount: 2500 },
-  { category: 'Garden Care', amount: 3000 },
-  { category: 'Pet Care', amount: 3300 },
-]
-
 const SERVICE_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care']
 
 /* Sri Lankan service areas: 9 provinces and their major towns */
@@ -99,6 +93,7 @@ const ProviderDashboard = () => {
   const [providerCategories, setProviderCategories] = useState([])
   const [serviceTowns, setServiceTowns] = useState('')
   const [earnings, setEarnings] = useState(null)
+  const [sessionPayouts, setSessionPayouts] = useState([])
   const [notificationsList, setNotificationsList] = useState([])
   /* UI modals */
   const [showNotifModal, setShowNotifModal] = useState(false)
@@ -188,6 +183,7 @@ const ProviderDashboard = () => {
       setServiceTowns(avail.service_towns || '')
       setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
       setEarnings(earningsRow)
+      setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
       setLoadError('')
     } catch (error) {
       setLoadError(error.message || 'Could not load your dashboard.')
@@ -864,17 +860,18 @@ const ProviderDashboard = () => {
                   <div className="pd-section-header" style={{ marginBottom: '0.75rem' }}>
                     <h2 className="pd-section-title" style={{ fontSize: '1rem' }}>Session Payout</h2>
                   </div>
-                  {SESSION_PAYOUTS.map((p) => (
-                    <div className="pd-kv" key={p.category}>
+                  {sessionPayouts.map((p) => (
+                    <div className="pd-kv" key={p.id}>
                       <span className="pd-kv__key">
-                        {p.category.toUpperCase()}{providerCategories.includes(p.category) ? ' ★' : ''}
+                        {p.category_name.toUpperCase()} — {p.service_title}
                       </span>
-                      <span className={`pd-kv__val${providerCategories.includes(p.category) ? ' pd-kv__val--gold' : ''}`}>
-                        Rs. {p.amount.toLocaleString('en-US')}
+                      <span className="pd-kv__val pd-kv__val--gold">
+                        Rs. {Number(p.provider_earning || 0).toLocaleString('en-US')}
                       </span>
                     </div>
                   ))}
-                  <p className="pd-avail__hint">Provider pay per completed service session. ★ marks each active category.</p>
+                  {sessionPayouts.length === 0 && <p className="pd-avail__hint">No payout rates are configured for your active categories yet.</p>}
+                  <p className="pd-avail__hint">Provider pay per completed service session. Rates are set by the admin.</p>
                 </div>
               </div>
             </>

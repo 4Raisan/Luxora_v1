@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { id: 'providers', label: 'Providers', icon: Icons.Building },
   { id: 'approvals', label: 'Approvals', icon: Icons.Approvals },
   { id: 'subscriptions', label: 'Packages', icon: Icons.Subscriptions },
+  { id: 'session_payouts', label: 'Session Payouts', icon: Icons.Subscriptions },
   { id: 'bookings', label: 'Bookings', icon: Icons.Bookings },
   { id: 'complaints', label: 'Complaints', icon: Icons.Complaints },
   { id: 'support', label: 'Support Desk', icon: Icons.Support },
@@ -116,6 +117,7 @@ const AdminDashboard = () => {
   const [reports, setReports] = useState(null)
   const [scheduling, setScheduling] = useState(null)
   const [schedulingForbidden, setSchedulingForbidden] = useState(false)
+  const [sessionPayouts, setSessionPayouts] = useState([])
 
   /* UI state */
   const [showNotifModal, setShowNotifModal] = useState(false)
@@ -135,6 +137,7 @@ const AdminDashboard = () => {
   const [promotionRemoval, setPromotionRemoval] = useState(null)
   const [promoForm, setPromoForm] = useState({ title: '', description: '', code: '', discount_pct: '', starts_at: '', ends_at: '', plan_ids: [] })
   const [reportRange, setReportRange] = useState({ from: '', to: '' })
+  const [payoutEdits, setPayoutEdits] = useState({})
   const activePromotionPlans = plans.filter((plan) => plan.active)
 
   const token = sessionStorage.getItem('token')
@@ -143,7 +146,7 @@ const AdminDashboard = () => {
     if (!token) return
     setLoadError('')
     try {
-      const [s, p, b, c, t, subs, cats, promos, notes, u] = await Promise.all([
+      const [s, p, b, c, t, subs, cats, promos, notes, u, payoutRows] = await Promise.all([
         apiRequest('/admin/stats', 'GET', null, token),
         apiRequest('/admin/providers', 'GET', null, token),
         apiRequest('/admin/bookings', 'GET', null, token),
@@ -154,6 +157,7 @@ const AdminDashboard = () => {
         apiRequest('/promotions/all', 'GET', null, token),
         apiRequest('/notifications', 'GET', null, token),
         apiRequest('/admin/users', 'GET', null, token),
+        apiRequest('/admin/session-payouts', 'GET', null, token),
       ])
       setStats(s)
       setProviders(Array.isArray(p) ? p : [])
@@ -168,6 +172,7 @@ const AdminDashboard = () => {
       setPromotions(Array.isArray(promos) ? promos : [])
       setNotifications(Array.isArray(notes) ? notes : [])
       setUsers(Array.isArray(u) ? u : [])
+      setSessionPayouts(Array.isArray(payoutRows) ? payoutRows : [])
     } catch (err) {
       setLoadError(err.message || 'Could not load admin data. Please refresh.')
     }
@@ -363,6 +368,15 @@ const AdminDashboard = () => {
     const s = await apiRequest('/admin/settings/scheduling/restore-defaults', 'POST', null, token)
     setScheduling(s)
   }, 'Defaults restored.')
+
+  const saveSessionPayout = (service) => {
+    const providerEarning = Number(payoutEdits[service.id] ?? service.provider_earning)
+    if (!Number.isFinite(providerEarning) || providerEarning < 0) { alert('Enter a valid payout amount.'); return }
+    runAction(async () => {
+      await apiRequest(`/admin/session-payouts/${service.id}`, 'PUT', { provider_earning: providerEarning }, token)
+      setPayoutEdits((current) => { const next = { ...current }; delete next[service.id]; return next })
+    }, 'Session payout saved.')
+  }
 
   const markNotifRead = async (id) => {
     try {
@@ -779,6 +793,42 @@ const AdminDashboard = () => {
                 </table>
               </div>
             </>
+          )}
+
+          {/* SESSION PAYOUTS */}
+          {activeNav === 'session_payouts' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">SESSION PAYOUT PRICING</h3>
+              <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem' }}>
+                Set the provider’s earnings for each completed service. These rates apply to new bookings; existing bookings keep their saved payout.
+              </p>
+              <div className="ad-table-scroll">
+                <table className="ad-data-table">
+                  <thead><tr><th>CATEGORY</th><th>SERVICE</th><th>PROVIDER PAYOUT (LKR)</th><th>ACTION</th></tr></thead>
+                  <tbody>
+                    {sessionPayouts.map((service) => (
+                      <tr key={service.id}>
+                        <td>{service.category_name}</td>
+                        <td>{service.service_title}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            aria-label={`Provider payout for ${service.service_title}`}
+                            style={{ ...fieldStyle, minWidth: '145px' }}
+                            value={payoutEdits[service.id] ?? service.provider_earning}
+                            onChange={(e) => setPayoutEdits((current) => ({ ...current, [service.id]: e.target.value }))}
+                          />
+                        </td>
+                        <td><button style={goldBtn} disabled={busy} onClick={() => saveSessionPayout(service)}>Save</button></td>
+                      </tr>
+                    ))}
+                    {sessionPayouts.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No services are configured yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
 
           {/* REPORTS */}
