@@ -103,6 +103,7 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
     if (file.startsWith('frontend/')) {
       plan.quality = true;
       plan.frontend = true;
+      plan.knowledgeGraph = true;
       if (/^frontend\/package(?:-lock)?\.json$/.test(file)) plan.audit = true;
       plan.reasons.push(file + ' requires frontend validation.');
       continue;
@@ -110,6 +111,7 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
     if (file.startsWith('backend/')) {
       plan.quality = true;
       plan.backend = true;
+      plan.knowledgeGraph = true;
       if (/^backend\/package(?:-lock)?\.json$/.test(file)) {
         plan.audit = true;
         plan.docker = true;
@@ -199,6 +201,7 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
     plan.database = true;
     plan.docker = true;
     plan.audit = true;
+    plan.knowledgeGraph = true;
     plan.backendSuites.clear();
     plan.backendSuites.add('full');
   }

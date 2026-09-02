@@ -6,12 +6,12 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 190,
+    "totalNodes": 191,
     "totalEdges": 408,
     "nodesByGroup": {
       "api": 94,
       "database": 33,
-      "frontend": 32,
+      "frontend": 33,
       "middleware": 3,
       "routes": 16,
       "service": 12
@@ -1745,6 +1745,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/Hero.jsx"
+      }
+    },
+    {
+      "id": "frontend:HowItWorks",
+      "label": "HowItWorks.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/HowItWorks.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/HowItWorks.jsx"
       }
     },
     {

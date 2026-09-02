@@ -96,6 +96,47 @@ jobs:
         if: needs.classify.outputs.frontend == 'true'
         run: npm --prefix frontend run build
 
+  knowledge_graph:
+    name: 02b - Knowledge Graph verify and build
+    needs: classify
+    if: needs.classify.outputs.knowledge_graph == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Generate Knowledge Graph
+        run: npm run graph
+
+      - name: Validate generated graph
+        run: npm run graph:validate
+
+      - name: Verify deterministic generation
+        run: |
+          cp Knowladge-Graph/knowledge-graph.json /tmp/knowledge-graph.json
+          cp Knowladge-Graph/index.html /tmp/knowledge-graph.html
+          npm run graph
+          cmp --silent /tmp/knowledge-graph.json Knowladge-Graph/knowledge-graph.json
+          cmp --silent /tmp/knowledge-graph.html Knowladge-Graph/index.html
+
+      - name: Upload Knowledge Graph artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-graph-preview
+          path: Knowladge-Graph
+          retention-days: 7
+
   backend:
     name: 03 - Backend tests
     needs: classify
@@ -256,7 +297,7 @@ jobs:
   validate-and-test:
     name: 06 - Required gate
     if: always()
-    needs: [classify, quality, backend, audit, docker]
+    needs: [classify, quality, knowledge_graph, backend, audit, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -264,11 +305,12 @@ jobs:
         env:
           CLASSIFY_RESULT: ${{ needs.classify.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
+          KG_RESULT: ${{ needs.knowledge_graph.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
         run: |
-          for result in "$CLASSIFY_RESULT" "$QUALITY_RESULT" "$BACKEND_RESULT" "$AUDIT_RESULT" "$DOCKER_RESULT"; do
+          for result in "$CLASSIFY_RESULT" "$QUALITY_RESULT" "$KG_RESULT" "$BACKEND_RESULT" "$AUDIT_RESULT" "$DOCKER_RESULT"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "A required CI job did not pass: $result"
               exit 1
