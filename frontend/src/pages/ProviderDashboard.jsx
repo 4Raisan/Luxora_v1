@@ -866,16 +866,12 @@ const ProviderDashboard = () => {
                         {p.category_name.toUpperCase()}{providerCategories.includes(p.category_name) ? ' ★' : ''}
                       </span>
                       <span className={`pd-kv__val${providerCategories.includes(p.category_name) ? ' pd-kv__val--gold' : ''}`}>
-                        {p.payout_min === null
-                          ? 'Not set'
-                          : p.payout_min === p.payout_max
-                            ? `Rs. ${Number(p.payout_min).toLocaleString('en-US')}`
-                            : `Rs. ${Number(p.payout_min).toLocaleString('en-US')} – ${Number(p.payout_max).toLocaleString('en-US')}`}
+                        {p.provider_earning === null ? 'Set in admin' : `Rs. ${Number(p.provider_earning).toLocaleString('en-US')}`}
                       </span>
                     </div>
                   ))}
                   {sessionPayouts.length === 0 && <p className="pd-avail__hint">No payout rates are configured for your active categories yet.</p>}
-                  <p className="pd-avail__hint">Provider pay per completed service session. A range means the payout differs by service.</p>
+                  <p className="pd-avail__hint">Provider pay per completed session. Rates are set by the admin.</p>
                 </div>
               </div>
             </>

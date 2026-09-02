@@ -370,11 +370,11 @@ const AdminDashboard = () => {
   }, 'Defaults restored.')
 
   const saveSessionPayout = (service) => {
-    const providerEarning = Number(payoutEdits[service.id] ?? service.provider_earning)
+    const providerEarning = Number(payoutEdits[service.category_id] ?? service.provider_earning)
     if (!Number.isFinite(providerEarning) || providerEarning < 0) { alert('Enter a valid payout amount.'); return }
     runAction(async () => {
-      await apiRequest(`/admin/session-payouts/${service.id}`, 'PUT', { provider_earning: providerEarning }, token)
-      setPayoutEdits((current) => { const next = { ...current }; delete next[service.id]; return next })
+      await apiRequest(`/admin/session-payouts/${service.category_id}`, 'PUT', { provider_earning: providerEarning }, token)
+      setPayoutEdits((current) => { const next = { ...current }; delete next[service.category_id]; return next })
     }, 'Session payout saved.')
   }
 
@@ -800,31 +800,31 @@ const AdminDashboard = () => {
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <h3 className="ad-table-title">SESSION PAYOUT PRICING</h3>
               <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem' }}>
-                Set the provider’s earnings for each completed service. These rates apply to new bookings; existing bookings keep their saved payout.
+                Set one provider payout for each care type. Saving a value updates every service in that category; existing bookings keep their saved payout.
               </p>
               <div className="ad-table-scroll">
                 <table className="ad-data-table">
-                  <thead><tr><th>CATEGORY</th><th>SERVICE</th><th>PROVIDER PAYOUT (LKR)</th><th>ACTION</th></tr></thead>
+                  <thead><tr><th>CARE TYPE</th><th>PROVIDER PAYOUT (LKR)</th><th>ACTION</th></tr></thead>
                   <tbody>
                     {sessionPayouts.map((service) => (
-                      <tr key={service.id}>
+                      <tr key={service.category_id}>
                         <td>{service.category_name}</td>
-                        <td>{service.service_title}</td>
                         <td>
                           <input
                             type="number"
                             min="0"
                             step="1"
-                            aria-label={`Provider payout for ${service.service_title}`}
+                            aria-label={`Provider payout for ${service.category_name}`}
+                            placeholder={service.has_mixed_rates ? 'Set one payout' : ''}
                             style={{ ...fieldStyle, minWidth: '145px' }}
-                            value={payoutEdits[service.id] ?? service.provider_earning}
-                            onChange={(e) => setPayoutEdits((current) => ({ ...current, [service.id]: e.target.value }))}
+                            value={payoutEdits[service.category_id] ?? service.provider_earning ?? ''}
+                            onChange={(e) => setPayoutEdits((current) => ({ ...current, [service.category_id]: e.target.value }))}
                           />
                         </td>
                         <td><button style={goldBtn} disabled={busy} onClick={() => saveSessionPayout(service)}>Save</button></td>
                       </tr>
                     ))}
-                    {sessionPayouts.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No services are configured yet.</td></tr>}
+                    {sessionPayouts.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No care categories are configured yet.</td></tr>}
                   </tbody>
                 </table>
               </div>

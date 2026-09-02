@@ -69,23 +69,20 @@ router.get('/earnings', async (req, res) => {
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
-  const [bankAccounts, payouts, services] = await Promise.all([
+  const [bankAccounts, payouts, categories] = await Promise.all([
     prisma.providerBankAccount.findMany({ where: { providerId: provider.id }, orderBy: [{ selected: 'desc' }, { id: 'desc' }] }),
     prisma.providerPayout.findMany({ where: { providerId: provider.id }, include: { bankAccount: true }, orderBy: { createdAt: 'desc' }, take: 24 }),
-    prisma.service.findMany({
-      where: { category: { name: { in: ['Auto Care', 'Garden Care', 'Pet Care'] } } },
-      include: { category: { select: { name: true } } },
-      orderBy: [{ category: { name: 'asc' } }, { title: 'asc' }],
+    prisma.category.findMany({
+      where: { name: { in: ['Auto Care', 'Garden Care', 'Pet Care'] } },
+      include: { services: { select: { providerEarning: true } } },
     }),
   ]);
   const sessionPayouts = ['Auto Care', 'Garden Care', 'Pet Care'].map((categoryName) => {
-    const payoutsForCategory = services
-      .filter((service) => service.category.name === categoryName)
-      .map((service) => Number(service.providerEarning));
+    const payoutsForCategory = categories.find((category) => category.name === categoryName)?.services.map((service) => Number(service.providerEarning)) || [];
+    const uniqueAmounts = [...new Set(payoutsForCategory)];
     return {
       category_name: categoryName,
-      payout_min: payoutsForCategory.length ? Math.min(...payoutsForCategory) : null,
-      payout_max: payoutsForCategory.length ? Math.max(...payoutsForCategory) : null,
+      provider_earning: uniqueAmounts.length === 1 ? uniqueAmounts[0] : null,
     };
   });
   res.json({

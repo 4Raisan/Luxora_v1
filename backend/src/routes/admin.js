@@ -46,6 +46,7 @@ const CATEGORY_BY_PACKAGE_TYPE = {
   'Garden Care': 'Garden Care',
   'Pet Care': 'Pet Care',
 };
+const SESSION_PAYOUT_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care'];
 
 async function validatePackageEntitlements(client, packageType, entitlements) {
   if (!Array.isArray(entitlements) || !entitlements.length) {
@@ -86,38 +87,38 @@ router.post('/settings/scheduling/restore-defaults', async (req, res) => {
   res.json(setting);
 });
 
-// Provider session earnings are configured per service.  Booking creation copies
-// this value to the booking record, so later price changes never alter earnings
-// already agreed for an existing job.
+// One provider payout is configured for each care category. Booking creation
+// copies that value to the booking, so later changes never alter existing jobs.
 router.get('/session-payouts', async (_req, res) => {
-  const services = await prisma.service.findMany({
-    include: { category: { select: { name: true } } },
-    orderBy: [{ category: { name: 'asc' } }, { title: 'asc' }],
+  const categories = await prisma.category.findMany({
+    where: { name: { in: SESSION_PAYOUT_CATEGORIES } },
+    include: { services: { select: { providerEarning: true } } },
   });
-  res.json(services.map((service) => ({
-    id: service.id,
-    category_name: service.category.name,
-    service_title: service.title,
-    provider_earning: Number(service.providerEarning),
-  })));
+  res.json(SESSION_PAYOUT_CATEGORIES.map((categoryName) => {
+    const category = categories.find((item) => item.name === categoryName);
+    const amounts = category?.services.map((service) => Number(service.providerEarning)) || [];
+    const uniqueAmounts = [...new Set(amounts)];
+    return category && {
+      category_id: category.id,
+      category_name: category.name,
+      provider_earning: uniqueAmounts.length === 1 ? uniqueAmounts[0] : null,
+      has_mixed_rates: uniqueAmounts.length > 1,
+    };
+  }).filter(Boolean));
 });
 
-router.put('/session-payouts/:id', async (req, res) => {
-  const serviceId = toPositiveInt(req.params.id);
+router.put('/session-payouts/:categoryId', async (req, res) => {
+  const categoryId = toPositiveInt(req.params.categoryId);
   const rawEarning = String(req.body.provider_earning ?? '').trim();
   const providerEarning = Number(rawEarning);
-  if (!serviceId || !rawEarning || !Number.isFinite(providerEarning) || providerEarning < 0 || providerEarning > 10000000) {
+  if (!categoryId || !rawEarning || !Number.isFinite(providerEarning) || providerEarning < 0 || providerEarning > 10000000) {
     return res.status(400).json({ error: 'Enter a valid provider payout from 0 to 10,000,000.' });
   }
-  const existingService = await prisma.service.findUnique({ where: { id: serviceId }, select: { id: true } });
-  if (!existingService) return res.status(404).json({ error: 'Service not found.' });
-  const service = await prisma.service.update({
-    where: { id: serviceId },
-    data: { providerEarning },
-    include: { category: { select: { name: true } } },
-  });
-  logAdminAction({ adminId: req.user.id, action: 'UPDATE_SERVICE_PAYOUT', targetType: 'Service', targetId: String(service.id), details: { providerEarning }, ipAddress: req.ip }).catch(() => {});
-  res.json({ id: service.id, category_name: service.category.name, service_title: service.title, provider_earning: Number(service.providerEarning) });
+  const category = await prisma.category.findFirst({ where: { id: categoryId, name: { in: SESSION_PAYOUT_CATEGORIES } }, select: { id: true, name: true } });
+  if (!category) return res.status(404).json({ error: 'Payout category not found.' });
+  await prisma.service.updateMany({ where: { categoryId: category.id }, data: { providerEarning } });
+  logAdminAction({ adminId: req.user.id, action: 'UPDATE_CATEGORY_PAYOUT', targetType: 'Category', targetId: String(category.id), details: { categoryName: category.name, providerEarning }, ipAddress: req.ip }).catch(() => {});
+  res.json({ category_id: category.id, category_name: category.name, provider_earning: providerEarning, has_mixed_rates: false });
 });
 
 router.get('/providers', async (_req, res) => {
