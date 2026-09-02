@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { encryptAccountNumber, decryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
+import { bookingStart, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { notify } from '../services/notify.js';
 
 const router = Router();
@@ -52,12 +53,35 @@ router.put('/service-towns', async (req, res) => {
 
 router.put('/availability', async (req, res) => {
   const { availability_status } = req.body;
-  const allowed = ['available', 'busy', 'offline'];
-  if (!allowed.includes(availability_status)) return res.status(400).json({ error: 'Invalid availability status' });
+  const normalized = String(availability_status || '').trim().toLowerCase();
+  if (!['available', 'online', 'offline'].includes(normalized)) {
+    return res.status(400).json({ error: 'Invalid availability status. Supported statuses are online and offline.' });
+  }
+  const targetStatus = (normalized === 'online' || normalized === 'available') ? 'available' : 'offline';
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
-  await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: availability_status } });
-  res.json({ message: `Availability set to ${availability_status}`, availability_status });
+
+  if (targetStatus === 'offline') {
+    const activeBookings = await prisma.booking.findMany({
+      where: { providerId: provider.id, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
+      include: { service: { select: { title: true } } },
+    });
+    if (activeBookings.some((booking) => booking.status === 'IN_PROGRESS')) {
+      return res.status(400).json({ error: 'Cannot go offline while a service is currently in progress. Please complete the active service first.' });
+    }
+    const now = new Date();
+    const nearBooking = activeBookings.find((booking) => {
+      const start = bookingStart(booking.bookingDate, booking.bookingTime);
+      return start && (start.getTime() - now.getTime()) / 3600000 < 6;
+    });
+    if (nearBooking) {
+      return res.status(400).json({ error: `Cannot go offline: you have an assigned booking (#${nearBooking.id} for ${nearBooking.service?.title || 'Service'}) scheduled within 6 hours (${nearBooking.bookingDate} at ${nearBooking.bookingTime}). Please complete this booking or request cancellation from its details.` });
+    }
+  }
+
+  await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: targetStatus } });
+  if (targetStatus === 'offline') await reassignOrUnassignProviderBookings(prisma, provider.id, notify).catch(() => {});
+  res.json({ message: `Availability set to ${targetStatus}`, availability_status: targetStatus });
 });
 
 // Providers may ask an admin to cancel an assigned job, but cannot cancel it
@@ -73,10 +97,28 @@ router.post('/bookings/:id/cancellation-request', async (req, res) => {
   const booking = await prisma.booking.findFirst({ where: { id: bookingId, providerId: provider.id, status: 'ASSIGNED' }, include: { service: { include: { category: true } } } });
   if (!booking) return res.status(404).json({ error: 'Only an assigned upcoming booking can be submitted for cancellation review.' });
 
+  const scheduledStart = bookingStart(booking.bookingDate, booking.bookingTime);
+  if (!scheduledStart || scheduledStart <= new Date()) return res.status(409).json({ error: 'Cancellation review can only be requested for an upcoming booking.' });
+
+  const subject = `Booking #${booking.id} cancellation request`;
+  const existingRequest = await prisma.supportTicket.findFirst({
+    where: { userId: req.user.id, subject, status: { in: ['OPEN', 'IN_PROGRESS'] } },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (existingRequest) return res.status(409).json({ error: `A cancellation request for booking #${booking.id} is already awaiting admin review.`, request_id: existingRequest.id });
+
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
-  const message = `Cancellation request for booking #${booking.id} (${booking.service?.category?.name || booking.service?.title || 'Service'}) from ${provider.user?.name || 'provider'}: ${reason}`;
-  await Promise.all(admins.map((admin) => notify(admin.id, message, '/admin-dashboard')));
-  res.status(201).json({ message: 'Cancellation request sent to the admin for review.' });
+  const serviceName = booking.service?.title || booking.service?.category?.name || 'Service';
+  const ticket = await prisma.supportTicket.create({
+    data: {
+      userId: req.user.id,
+      subject,
+      message: `Provider: ${provider.user?.name || 'Provider'}\nBooking: #${booking.id}\nService: ${serviceName}\nScheduled: ${booking.bookingDate} at ${booking.bookingTime}\nReason: ${reason}`,
+      priority: 'HIGH',
+    },
+  });
+  await Promise.all(admins.map((admin) => notify(admin.id, `Provider cancellation request #${ticket.id} for booking #${booking.id}.`, '/admin-dashboard')));
+  res.status(201).json({ message: 'Cancellation request sent to the admin for review.', request_id: ticket.id });
 });
 
 router.get('/earnings', async (req, res) => {
@@ -85,7 +127,7 @@ router.get('/earnings', async (req, res) => {
   const completedJobs = await prisma.booking.count({ where: { providerId: provider.id, status: 'COMPLETED' } });
   const history = await prisma.booking.findMany({
     where: { providerId: provider.id },
-    include: { service: true, user: { select: { name: true } }, payments: { where: { status: 'COMPLETED' }, select: { status: true } } },
+    include: { service: true, user: { select: { name: true, phone: true } }, payments: { where: { status: 'COMPLETED' }, select: { status: true } } },
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
@@ -110,7 +152,7 @@ router.get('/earnings', async (req, res) => {
     completedJobs,
     history: history.map((h) => ({
       id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
-      service_title: h.service?.title, customer_name: h.user?.name, total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
+      service_title: h.service?.title, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
     })),
     bank_accounts: bankAccounts.map((account) => ({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: account.selected })),
     payouts: payouts.map((payout) => ({ id: payout.id, period: payout.period, amount: payout.amount, status: payout.status.toLowerCase(), paid_at: payout.paidAt, bank_name: payout.bankAccount.bankName, account_number: maskAccountNumber(payout.bankAccount.accountNumber) })),
