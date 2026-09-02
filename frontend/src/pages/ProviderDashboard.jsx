@@ -14,7 +14,6 @@ function BellIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function GearIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5"/></svg> }
 function UserIcon()  { return <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function LogOutIcon(){ return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
-function DotsIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg> }
 
 /* ── Helpers ───────────────────────────────────────── */
 const STATUS_COLORS = {
@@ -735,7 +734,7 @@ const ProviderDashboard = () => {
                           background: isSelected ? 'rgba(201, 168, 76, 0.08)' : 'rgba(20, 20, 20, 0.5)',
                           transition: 'all 0.2s ease'
                         }}
-                        onClick={() => handleBookingClick(b.day)}
+                        onClick={() => { handleBookingClick(b.day); setSelectedDetailsBooking(b) }}
                       >
                         <div className="pd-booking__date">
                           <span className="pd-booking__month">{b.month}</span>
@@ -744,12 +743,13 @@ const ProviderDashboard = () => {
                         <div className="pd-booking__info">
                           <p className="pd-booking__title">{b.category || 'Not available'}</p>
                           <p className="pd-booking__sub">{b.sub}</p>
+                          {b.customerPhone && <p className="pd-booking__sub">{formatMobileNumber(b.customerPhone)}</p>}
                         </div>
                         <span className="pd-booking__status" style={{ borderColor: b.color, color: b.color }}>
                           {b.status}
                         </span>
-                        <button className="pd-booking__dots" aria-label="Booking details" title="View booking details" onClick={(e) => { e.stopPropagation(); setSelectedDetailsBooking(b) }}>
-                          <DotsIcon />
+                        <button type="button" className="pd-booking__details" onClick={(e) => { e.stopPropagation(); setSelectedDetailsBooking(b) }}>
+                          VIEW DETAILS
                         </button>
                       </div>
                     )
@@ -904,10 +904,15 @@ const ProviderDashboard = () => {
 
               <div className="pd-profile-field">
                 <label>CUSTOMER DETAILS</label>
-                <p>{selectedDetailsBooking.customerName}{selectedDetailsBooking.customerPhone ? ` • ${formatMobileNumber(selectedDetailsBooking.customerPhone)}` : ''}</p>
+                <p>{selectedDetailsBooking.customerName}</p>
                 <p style={{ fontSize: '0.82rem', color: '#aaa' }}>
                   {selectedDetailsBooking.address || selectedDetailsBooking.town || 'Location not specified'}
                 </p>
+              </div>
+
+              <div className="pd-profile-field">
+                <label>CUSTOMER MOBILE NUMBER</label>
+                <p>{formatMobileNumber(selectedDetailsBooking.customerPhone)}</p>
               </div>
 
               {selectedDetailsBooking.serviceDesc && (

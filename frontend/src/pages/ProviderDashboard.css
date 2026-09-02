@@ -571,17 +571,22 @@
   flex-shrink: 0;
 }
 
-.pd-booking__dots {
-  background: none;
-  border: none;
-  color: #555;
+.pd-booking__details {
+  background: transparent;
+  border: 1px solid rgba(201, 168, 76, 0.7);
+  border-radius: 4px;
+  color: var(--gold);
   cursor: pointer;
-  display: flex;
-  transition: color 0.2s;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.35rem 0.5rem;
+  transition: background 0.2s, color 0.2s;
   flex-shrink: 0;
 }
 
-.pd-booking__dots:hover { color: var(--gold); }
+.pd-booking__details:hover { background: rgba(201, 168, 76, 0.12); color: #f3d77d; }
 
 /* ─── Right Panel ────────────────────────────────── */
 .pd-panel-right {
@@ -1798,7 +1803,7 @@
 
   .pd-booking__status { font-size: 0.6rem; padding: 0.25rem 0.5rem; }
 
-  .pd-booking__dots { padding: 0.4rem; }
+  .pd-booking__details { padding: 0.3rem 0.4rem; }
 
   /* Filter chips scroll horizontally instead of wrapping tall */
   .pd-bookings-filter-bar {
