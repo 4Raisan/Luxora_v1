@@ -3,6 +3,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { encryptAccountNumber, decryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
 import { notify } from '../services/notify.js';
+import { reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('PROVIDER'));
@@ -52,12 +53,53 @@ router.put('/service-towns', async (req, res) => {
 
 router.put('/availability', async (req, res) => {
   const { availability_status } = req.body;
-  const allowed = ['available', 'busy', 'offline'];
-  if (!allowed.includes(availability_status)) return res.status(400).json({ error: 'Invalid availability status' });
+  let normalized = String(availability_status || '').toLowerCase().trim();
+  if (normalized === 'online') normalized = 'available';
+
+  if (!['available', 'offline'].includes(normalized)) {
+    return res.status(400).json({ error: 'Invalid availability status. Supported statuses are online and offline.' });
+  }
+
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
-  await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: availability_status } });
-  res.json({ message: `Availability set to ${availability_status}`, availability_status });
+
+  if (normalized === 'offline') {
+    const now = new Date();
+    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+
+    const activeOrNearBooking = await prisma.booking.findFirst({
+      where: {
+        providerId: provider.id,
+        status: { in: ['IN_PROGRESS', 'ASSIGNED'] },
+      },
+      include: { service: true },
+    });
+
+    if (activeOrNearBooking) {
+      if (activeOrNearBooking.status === 'IN_PROGRESS') {
+        return res.status(400).json({
+          error: 'Cannot go offline while a service is in progress. Please complete or report the active session first.',
+        });
+      }
+
+      const [startHour = '0', startMin = '0'] = String(activeOrNearBooking.bookingTime || '00:00').split(':');
+      const bookingStart = new Date(`${activeOrNearBooking.bookingDate}T00:00:00`);
+      bookingStart.setHours(Number(startHour), Number(startMin), 0, 0);
+
+      if (bookingStart.getTime() <= sixHoursLater.getTime()) {
+        return res.status(400).json({
+          error: 'Cannot go offline within 6 hours of an assigned job. Please complete your scheduled appointment or request cancellation review.',
+        });
+      }
+    }
+
+    await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: 'offline' } });
+    await reassignOrUnassignProviderBookings(prisma, provider.id, notify);
+    return res.json({ message: 'Availability set to offline. Future jobs have been reassigned.', availability_status: 'offline' });
+  }
+
+  await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: 'available' } });
+  res.json({ message: 'Availability set to available', availability_status: 'available' });
 });
 
 // Providers may ask an admin to cancel an assigned job, but cannot cancel it
@@ -85,7 +127,7 @@ router.get('/earnings', async (req, res) => {
   const completedJobs = await prisma.booking.count({ where: { providerId: provider.id, status: 'COMPLETED' } });
   const history = await prisma.booking.findMany({
     where: { providerId: provider.id },
-    include: { service: true, user: { select: { name: true } }, payments: { where: { status: 'COMPLETED' }, select: { status: true } } },
+    include: { service: true, user: { select: { name: true, phone: true } }, payments: { where: { status: 'COMPLETED' }, select: { status: true } } },
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
@@ -110,7 +152,7 @@ router.get('/earnings', async (req, res) => {
     completedJobs,
     history: history.map((h) => ({
       id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
-      service_title: h.service?.title, customer_name: h.user?.name, total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
+      service_title: h.service?.title, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
     })),
     bank_accounts: bankAccounts.map((account) => ({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: account.selected })),
     payouts: payouts.map((payout) => ({ id: payout.id, period: payout.period, amount: payout.amount, status: payout.status.toLowerCase(), paid_at: payout.paidAt, bank_name: payout.bankAccount.bankName, account_number: maskAccountNumber(payout.bankAccount.accountNumber) })),

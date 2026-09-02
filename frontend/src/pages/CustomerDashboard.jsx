@@ -726,13 +726,13 @@ const CustomerDashboard = () => {
         address_district: userAddress.district,
       }, token)
       const services = await apiRequest('/services', 'GET', null, token)
-      const categoryServices = services.filter((item) => item.category_name === categoryName)
+      const categoryServices = (Array.isArray(services) ? services : []).filter((item) => item.category_name === categoryName)
       const service = cat === 'pet'
-        ? categoryServices.find((item) => selectedPetType.servicePattern.test(item.title))
+        ? (categoryServices.find((item) => selectedPetType?.servicePattern?.test(item.title)) || categoryServices[0])
         : categoryServices[0]
       if (!service) {
         throw new Error(cat === 'pet'
-          ? `${selectedPetType.title} is not currently available.`
+          ? `${selectedPetType?.title || 'Pet Care'} is not currently available.`
           : `No ${categoryName} service is currently available.`)
       }
       created = await apiRequest('/bookings', 'POST', {

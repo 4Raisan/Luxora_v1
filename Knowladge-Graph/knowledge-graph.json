@@ -6,10 +6,10 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 189,
-    "totalEdges": 403,
+    "totalNodes": 190,
+    "totalEdges": 405,
     "nodesByGroup": {
-      "api": 93,
+      "api": 94,
       "database": 33,
       "frontend": 32,
       "middleware": 3,
@@ -987,6 +987,21 @@
       "metadata": {
         "method": "POST",
         "path": "/api/provider/bank-accounts",
+        "routeFile": "provider.js"
+      },
+      "source": {
+        "path": "backend/src/routes/provider.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "label": "POST /api/provider/bookings/:id/cancellation-request",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/provider.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/provider/bookings/:id/cancellation-request",
         "routeFile": "provider.js"
       },
       "source": {
@@ -8673,6 +8688,20 @@
       }
     },
     {
+      "id": "routefile:provider->endpoint:POST_/api/provider/bookings/:id/cancellation-request:EXPOSES_ENDPOINT",
+      "from": "routefile:provider",
+      "to": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:provider",
+      "target": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:provider->endpoint:PUT_/api/provider/availability:EXPOSES_ENDPOINT",
       "from": "routefile:provider",
       "to": "endpoint:PUT_/api/provider/availability",
@@ -8820,6 +8849,20 @@
       "label": "prisma.providerPayout",
       "source": "routefile:provider",
       "target": "model:ProviderPayout",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:provider->model:User:QUERIES_DB",
+      "from": "routefile:provider",
+      "to": "model:User",
+      "type": "QUERIES_DB",
+      "label": "prisma.user",
+      "source": "routefile:provider",
+      "target": "model:User",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/provider.js",
