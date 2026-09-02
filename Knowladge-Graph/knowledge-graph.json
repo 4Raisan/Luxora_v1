@@ -6,10 +6,10 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 187,
-    "totalEdges": 396,
+    "totalNodes": 189,
+    "totalEdges": 401,
     "nodesByGroup": {
-      "api": 91,
+      "api": 93,
       "database": 33,
       "frontend": 32,
       "middleware": 3,
@@ -162,6 +162,21 @@
       "metadata": {
         "method": "GET",
         "path": "/api/admin/reports",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/session-payouts",
+      "label": "GET /api/admin/session-payouts",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/session-payouts",
         "routeFile": "admin.js"
       },
       "source": {
@@ -1092,6 +1107,21 @@
       "metadata": {
         "method": "PUT",
         "path": "/api/admin/providers/:id/kyc",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:PUT_/api/admin/session-payouts/:id",
+      "label": "PUT /api/admin/session-payouts/:id",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "PUT",
+        "path": "/api/admin/session-payouts/:id",
         "routeFile": "admin.js"
       },
       "source": {
@@ -3963,6 +3993,20 @@
       }
     },
     {
+      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/session-payouts:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/session-payouts",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:GET_/api/admin/session-payouts",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/settings/scheduling:FETCHES_API",
       "from": "frontend:AdminDashboard",
       "to": "endpoint:GET_/api/admin/settings/scheduling",
@@ -4180,6 +4224,20 @@
       "label": "PUT",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:PUT_/api/admin/providers/:id/kyc",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->endpoint:PUT_/api/admin/session-payouts/:id:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:PUT_/api/admin/session-payouts/:id",
+      "type": "FETCHES_API",
+      "label": "PUT",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:PUT_/api/admin/session-payouts/:id",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -6595,6 +6653,20 @@
       }
     },
     {
+      "id": "routefile:admin->endpoint:GET_/api/admin/session-payouts:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/session-payouts",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:admin",
+      "target": "endpoint:GET_/api/admin/session-payouts",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:admin->endpoint:GET_/api/admin/settings/scheduling:EXPOSES_ENDPOINT",
       "from": "routefile:admin",
       "to": "endpoint:GET_/api/admin/settings/scheduling",
@@ -6742,6 +6814,20 @@
       "label": "PUT",
       "source": "routefile:admin",
       "target": "endpoint:PUT_/api/admin/providers/:id/kyc",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:admin->endpoint:PUT_/api/admin/session-payouts/:id:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:PUT_/api/admin/session-payouts/:id",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "PUT",
+      "source": "routefile:admin",
+      "target": "endpoint:PUT_/api/admin/session-payouts/:id",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/admin.js",
@@ -8716,6 +8802,20 @@
       "label": "prisma.providerPayout",
       "source": "routefile:provider",
       "target": "model:ProviderPayout",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:provider->model:Service:QUERIES_DB",
+      "from": "routefile:provider",
+      "to": "model:Service",
+      "type": "QUERIES_DB",
+      "label": "prisma.service",
+      "source": "routefile:provider",
+      "target": "model:Service",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/provider.js",
