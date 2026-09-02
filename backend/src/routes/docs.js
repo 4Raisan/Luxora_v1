@@ -93,7 +93,7 @@ const spec = {
     '/customer/dashboard': { get: { tags: ['Customer'], summary: 'Profile, subscriptions, bookings, reviews', security: bearer, responses: { '200': { description: 'Dashboard data' } } } },
     '/provider/availability': {
       put: { tags: ['Provider'], summary: 'Set availability', security: bearer,
-        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { availability_status: { type: 'string', enum: ['available', 'busy', 'offline'] } } } } } },
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { availability_status: { type: 'string', enum: ['available', 'offline'] } } } } } },
         responses: { '200': { description: 'Updated' } } },
     },
     '/provider/earnings': { get: { tags: ['Provider'], summary: 'Fixed service earnings, bank accounts, and payout history', security: bearer, responses: { '200': { description: 'Earnings' } } } },

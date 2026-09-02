@@ -477,3 +477,106 @@ test('Audit Fix 4: Customer registration and town update enforce canonical Sri L
   assert.equal(goodUpdate.body.town, 'Galle');
   assert.equal(goodUpdate.body.address_district, 'Southern');
 });
+
+test('Rule 11: Provider availability online/offline workflow, 6-hour safeguard, automatic reassignment, and customer phone visibility', async () => {
+  const testId = Date.now() + Math.floor(Math.random() * 1000);
+  const custUser = await prisma.user.create({
+    data: { name: `Phone Cust ${testId}`, email: `phonecust.${testId}@test.luxora`, phone: '0771234567', passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Colombo', addressDistrict: 'Western' },
+  });
+  const provUser1 = await prisma.user.create({
+    data: { name: `Online Prov 1 ${testId}`, email: `prov1.${testId}@test.luxora`, phone: '0779998881', passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Colombo', addressDistrict: 'Western', active: true },
+  });
+  const prov1 = await prisma.provider.create({
+    data: { userId: provUser1.id, category: 'Auto Care', serviceTowns: 'Colombo', kycStatus: 'APPROVED', availabilityStatus: 'available' },
+  });
+
+  const provUser2 = await prisma.user.create({
+    data: { name: `Online Prov 2 ${testId}`, email: `prov2.${testId}@test.luxora`, phone: '0779998882', passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Colombo', addressDistrict: 'Western', active: true },
+  });
+  const prov2 = await prisma.provider.create({
+    data: { userId: provUser2.id, category: 'Auto Care', serviceTowns: 'Colombo', kycStatus: 'APPROVED', availabilityStatus: 'available' },
+  });
+
+  const token1 = jwt.sign({ id: provUser1.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
+  const token2 = jwt.sign({ id: provUser2.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
+
+  // 1. Invalid status (e.g. 'busy') is rejected
+  const busyRes = await authJson(token1, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'busy' }) });
+  assert.equal(busyRes.status, 400);
+  assert.match(busyRes.body.error, /supported statuses are online and offline/i);
+
+  // 2. Provider with NO bookings can toggle to offline and online cleanly
+  const offRes = await authJson(token1, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'offline' }) });
+  assert.equal(offRes.status, 200);
+  assert.equal(offRes.body.availability_status, 'offline');
+
+  const onRes = await authJson(token1, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'online' }) });
+  assert.equal(onRes.status, 200);
+  assert.equal(onRes.body.availability_status, 'available');
+
+  // Create a service
+  const service = await prisma.service.findFirst({ where: { category: { name: 'Auto Care' } } });
+
+  // 3. Create a booking scheduled 2 hours from now (within 6h window) assigned to prov1
+  const today = new Date();
+  const twoHoursLater = new Date(Date.now() + 2 * 3600 * 1000);
+  const hourStr = String(twoHoursLater.getHours()).padStart(2, '0');
+  const minuteStr = String(twoHoursLater.getMinutes()).padStart(2, '0');
+  const nearDateStr = twoHoursLater.toISOString().slice(0, 10);
+  const nearTimeStr = `${hourStr}:${minuteStr}`;
+
+  const nearBooking = await prisma.booking.create({
+    data: {
+      userId: custUser.id,
+      providerId: prov1.id,
+      serviceId: service.id,
+      bookingDate: nearDateStr,
+      bookingTime: nearTimeStr,
+      town: 'Colombo',
+      addressDistrict: 'Western',
+      status: 'ASSIGNED',
+      totalPrice: 2500,
+    },
+  });
+
+  // Attempting to go offline must be blocked due to 6-hour rule
+  const blockedOff = await authJson(token1, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'offline' }) });
+  assert.equal(blockedOff.status, 400);
+  assert.match(blockedOff.body.error, /within 6 hours/i);
+
+  // Verify /bookings/assigned returns customer_phone
+  const assignedList = await authJson(token1, '/bookings/assigned');
+  assert.equal(assignedList.status, 200);
+  const foundBooking = assignedList.body.find((b) => b.id === nearBooking.id);
+  assert.ok(foundBooking);
+  assert.equal(foundBooking.customer_phone, '0771234567');
+  assert.equal(foundBooking.customer_name, `Phone Cust ${testId}`);
+
+  // 4. Update booking to be 2 days in the future (>= 6 hours away)
+  const futureDate = new Date(Date.now() + 48 * 3600 * 1000).toISOString().slice(0, 10);
+  await prisma.booking.update({
+    where: { id: nearBooking.id },
+    data: { bookingDate: futureDate, bookingTime: '10:00' },
+  });
+
+  // Now going offline succeeds
+  const allowedOff = await authJson(token1, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'offline' }) });
+  assert.equal(allowedOff.status, 200);
+  assert.equal(allowedOff.body.availability_status, 'offline');
+
+  // Verify the booking was automatically reassigned to prov2 (who is online)
+  const reassignedBooking = await prisma.booking.findUnique({ where: { id: nearBooking.id } });
+  assert.equal(reassignedBooking.providerId, prov2.id, 'Booking should be reassigned to available online provider');
+  assert.equal(reassignedBooking.status, 'ASSIGNED');
+
+  // 5. Verify /provider/earnings returns customer_phone in history
+  await prisma.booking.update({
+    where: { id: nearBooking.id },
+    data: { status: 'COMPLETED' },
+  });
+  const earningsRes = await authJson(token2, '/provider/earnings');
+  assert.equal(earningsRes.status, 200);
+  const historyItem = earningsRes.body.history.find((h) => h.id === nearBooking.id);
+  assert.ok(historyItem);
+  assert.equal(historyItem.customer_phone, '0771234567');
+});

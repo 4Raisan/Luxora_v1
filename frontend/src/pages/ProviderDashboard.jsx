@@ -49,9 +49,8 @@ const relTime = (iso) => {
 const formatRupees = (val) => `Rs. ${Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const AVAILABILITY_OPTIONS = [
-  { value: 'available', label: 'AVAILABLE', hint: 'Accepting new job assignments' },
-  { value: 'busy', label: 'BUSY', hint: 'Temporarily not taking new jobs' },
-  { value: 'offline', label: 'OFFLINE', hint: 'Not offering services right now' },
+  { value: 'available', label: 'ONLINE', hint: 'Online & accepting new job assignments' },
+  { value: 'offline', label: 'OFFLINE', hint: 'Offline — not accepting new job assignments' },
 ]
 
 const SERVICE_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care']
@@ -136,7 +135,7 @@ const ProviderDashboard = () => {
       bookingDate: booking.bookingDate,
       bookingTime: booking.bookingTime,
       title: booking.service_title || 'Service booking',
-      sub: `${booking.customer_name || 'Customer'}${booking.town ? ` • ${booking.town}` : ''}`,
+      sub: `${booking.customer_name || 'Customer'}${booking.customer_phone ? ` • 📞 ${formatMobileNumber(booking.customer_phone)}` : ''}${booking.town ? ` • 📍 ${booking.town}` : ''}`,
       status,
       color: STATUS_COLORS[status] || '#C9A84C',
       claimable: false,
@@ -228,9 +227,11 @@ const ProviderDashboard = () => {
     setBusy(true)
     try {
       await apiRequest('/provider/availability', 'PUT', { availability_status: value }, token)
+      await loadAll()
     } catch (error) {
       setAvailability(previous)
       setLoadError(error.message)
+      alert(error.message || 'Could not update availability')
     } finally {
       setBusy(false)
     }
@@ -571,7 +572,7 @@ const ProviderDashboard = () => {
                       </div>
                       <div style={{ flex: 1 }}>
                         <h3 className="pd-all-booking-title">{h.service_title || 'Service booking'}</h3>
-                        <p className="pd-all-booking-sub">{h.customer_name || 'Customer'} • {String(h.booking_time || '').slice(0, 5)}</p>
+                        <p className="pd-all-booking-sub">{h.customer_name || 'Customer'}{h.customer_phone ? ` • 📞 ${formatMobileNumber(h.customer_phone)}` : ''} • {String(h.booking_time || '').slice(0, 5)}</p>
                       </div>
                       <span className="pd-booking__status" style={{ borderColor: STATUS_COLORS[String(h.status).toUpperCase()] || '#888', color: STATUS_COLORS[String(h.status).toUpperCase()] || '#888' }}>
                         {String(h.status).toUpperCase()}
@@ -770,7 +771,14 @@ const ProviderDashboard = () => {
                         <div key={b.apiId} className="pd-cr-card">
                           <div className="pd-cr-header">
                             <div>
-                              <span className="pd-cr-client">👤 {b.customerName}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span className="pd-cr-client">👤 {b.customerName}</span>
+                                {b.customerPhone && (
+                                  <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>
+                                    📞 {formatMobileNumber(b.customerPhone)}
+                                  </a>
+                                )}
+                              </div>
                               <h3 className="pd-cr-service">{b.title}</h3>
                             </div>
                             <span className="pd-cr-status" style={{ borderColor: STATUS_COLORS.IN_PROGRESS, color: STATUS_COLORS.IN_PROGRESS }}>
@@ -820,7 +828,14 @@ const ProviderDashboard = () => {
                     <div key={b.apiId} className="pd-cr-card">
                       <div className="pd-cr-header">
                         <div>
-                          <span className="pd-cr-client">👤 {b.customerName}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span className="pd-cr-client">👤 {b.customerName}</span>
+                            {b.customerPhone && (
+                              <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>
+                                📞 {formatMobileNumber(b.customerPhone)}
+                              </a>
+                            )}
+                          </div>
                           <h3 className="pd-cr-service">{b.title}</h3>
                         </div>
                         <span className="pd-cr-status pd-cr-status--new">NEW REQUEST</span>

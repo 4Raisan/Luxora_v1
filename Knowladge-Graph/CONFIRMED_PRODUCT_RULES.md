@@ -10,6 +10,8 @@ Confirmed with the product owner on 2026-08-23. These rules override older notes
 - Customers can buy subscription plans and book services.
 - Providers fulfil automatically assigned customer bookings.
 - Providers must keep an approved KYC record to access operational work.
+- **Provider Availability**: Providers have two availability states: `ONLINE` (`available`) and `OFFLINE` (`offline`). When `OFFLINE`, no new jobs are auto-assigned. Providers cannot switch to `OFFLINE` if they have a service in progress or an assigned booking scheduled within 6 hours. When switching to `OFFLINE` (at least 6 hours before any assigned job), all future assigned bookings are automatically reassigned to other eligible online providers.
+- **Customer Contact Information**: Customer phone numbers are visible on assigned booking cards across the Provider Dashboard so providers can coordinate service delivery.
 
 ## Booking flow
 

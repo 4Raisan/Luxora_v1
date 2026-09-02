@@ -148,10 +148,8 @@ export async function reassignOrUnassignProviderBookings(client, providerId, not
     const isFuture = scheduledStart && scheduledStart > now;
     if (!isFuture) continue;
 
-    const hoursUntilStart = (scheduledStart.getTime() - now.getTime()) / (1000 * 60 * 60);
-
     let newProvider = null;
-    if (hoursUntilStart <= 24 && booking.service) {
+    if (booking.service) {
       newProvider = await pickProvider(
         client,
         booking.service.category?.name,
