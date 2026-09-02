@@ -69,16 +69,25 @@ router.get('/earnings', async (req, res) => {
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
-  const providerCategories = String(provider.category || '').split(',').map((category) => category.trim()).filter(Boolean);
   const [bankAccounts, payouts, services] = await Promise.all([
     prisma.providerBankAccount.findMany({ where: { providerId: provider.id }, orderBy: [{ selected: 'desc' }, { id: 'desc' }] }),
     prisma.providerPayout.findMany({ where: { providerId: provider.id }, include: { bankAccount: true }, orderBy: { createdAt: 'desc' }, take: 24 }),
     prisma.service.findMany({
-      where: providerCategories.length ? { category: { name: { in: providerCategories } } } : undefined,
+      where: { category: { name: { in: ['Auto Care', 'Garden Care', 'Pet Care'] } } },
       include: { category: { select: { name: true } } },
       orderBy: [{ category: { name: 'asc' } }, { title: 'asc' }],
     }),
   ]);
+  const sessionPayouts = ['Auto Care', 'Garden Care', 'Pet Care'].map((categoryName) => {
+    const payoutsForCategory = services
+      .filter((service) => service.category.name === categoryName)
+      .map((service) => Number(service.providerEarning));
+    return {
+      category_name: categoryName,
+      payout_min: payoutsForCategory.length ? Math.min(...payoutsForCategory) : null,
+      payout_max: payoutsForCategory.length ? Math.max(...payoutsForCategory) : null,
+    };
+  });
   res.json({
     earnings: provider.earnings,
     completedJobs,
@@ -88,7 +97,7 @@ router.get('/earnings', async (req, res) => {
     })),
     bank_accounts: bankAccounts.map((account) => ({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: account.selected })),
     payouts: payouts.map((payout) => ({ id: payout.id, period: payout.period, amount: payout.amount, status: payout.status.toLowerCase(), paid_at: payout.paidAt, bank_name: payout.bankAccount.bankName, account_number: maskAccountNumber(payout.bankAccount.accountNumber) })),
-    session_payouts: services.map((service) => ({ id: service.id, category_name: service.category.name, service_title: service.title, provider_earning: Number(service.providerEarning) })),
+    session_payouts: sessionPayouts,
   });
 });
 
