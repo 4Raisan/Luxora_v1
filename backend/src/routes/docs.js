@@ -56,7 +56,7 @@ const spec = {
     '/bookings': {
       post: { tags: ['Bookings'], summary: 'Create a booking (auto-assigns least-loaded approved provider; returns PIN)', security: bearer,
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: {
-          service_id: { type: 'integer' }, booking_date: { type: 'string', format: 'date', example: '2026-08-20' }, booking_time: { type: 'string', example: '09:00' },
+          service_id: { type: 'integer' }, booking_date: { type: 'string', format: 'date', example: '2026-08-20' }, booking_time: { type: 'string', example: '09:00' }, pet_type: { type: 'string', enum: ['dog', 'cat'] },
         } } } } },
         responses: { '201': { description: 'Booking created (booking_id, pin_code, status, total_price)' }, '400': { description: 'Validation error' } } },
     },

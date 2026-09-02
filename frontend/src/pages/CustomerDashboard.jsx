@@ -354,6 +354,8 @@ const CustomerDashboard = () => {
       // Booking tables represent the purchased care category. The detailed
       // service stays server-side for fulfilment, pricing, and assignment.
       service: booking?.category_name || booking?.service_title || 'Concierge Service',
+      serviceTitle: booking?.service_title,
+      petType: booking?.petType || booking?.pet_type,
       status: (booking?.status || '').toUpperCase(),
       color: booking?.status === 'cancelled' ? '#ef4444' : '#4ade80',
       date: booking?.bookingDate,
@@ -737,6 +739,7 @@ const CustomerDashboard = () => {
         service_id: service.id,
         booking_date: serviceBookingForm.date,
         booking_time: selectedTimeFormatted,
+        pet_type: cat === 'pet' ? serviceBookingForm.petType : null,
       }, token)
     } catch (error) {
       alert(error.message || 'Could not create this booking.')
@@ -759,10 +762,14 @@ const CustomerDashboard = () => {
       }
     }
 
+    const chosenPetType = cat === 'pet' ? serviceBookingForm.petType : null
+
     const newB = {
       id: created.booking_id,
       customer: currentUser?.name || 'Customer',
       service: serviceTitle,
+      serviceTitle: service.title,
+      petType: chosenPetType,
       status: String(created.status).toUpperCase(),
       color: '#4ade80',
       date: serviceBookingForm.date,
@@ -785,6 +792,7 @@ const CustomerDashboard = () => {
     setSessionBookingSuccessModal({
       ...newB,
       categoryName,
+      petType: chosenPetType,
       remainingTokens: Math.max(0, Number(created.entitlement?.remaining_units) || 0)
     })
     setServiceBookingForm(prev => ({ ...prev, packageId: '', petType: '' }))
@@ -1869,15 +1877,22 @@ const CustomerDashboard = () => {
                             >
                               <td data-label="Booking" style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.85rem' }}>{b.id}</td>
                               <td data-label="Category" style={{ color: '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
-                                {b.service === 'Auto Care' || b.service === 'Garden Care' || b.service === 'Pet Care'
-                                  ? b.service
-                                  : ((b.service || b.cat || '').toLowerCase().includes('auto') || (b.service || b.cat || '').toLowerCase().includes('car')
-                                      ? 'Auto Care'
-                                      : ((b.service || b.cat || '').toLowerCase().includes('garden') || (b.service || b.cat || '').toLowerCase().includes('lawn')
-                                          ? 'Garden Care'
-                                          : ((b.service || b.cat || '').toLowerCase().includes('pet')
-                                              ? 'Pet Care'
-                                              : (b.service || 'Service'))))}
+                                <span>
+                                  {b.service === 'Auto Care' || b.service === 'Garden Care' || b.service === 'Pet Care'
+                                    ? b.service
+                                    : ((b.service || b.cat || '').toLowerCase().includes('auto') || (b.service || b.cat || '').toLowerCase().includes('car')
+                                        ? 'Auto Care'
+                                        : ((b.service || b.cat || '').toLowerCase().includes('garden') || (b.service || b.cat || '').toLowerCase().includes('lawn')
+                                            ? 'Garden Care'
+                                            : ((b.service || b.cat || '').toLowerCase().includes('pet')
+                                                ? 'Pet Care'
+                                                : (b.service || 'Service'))))}
+                                </span>
+                                {b.petType && (
+                                  <span style={{ marginLeft: '6px', fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(201,168,76,0.15)', color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>
+                                    {b.petType === 'dog' ? '🐕 Dog' : b.petType === 'cat' ? '🐈 Cat' : b.petType}
+                                  </span>
+                                )}
                               </td>
                               <td data-label="Provider">
                                 <span style={{ color: '#eee', fontSize: '0.82rem', fontWeight: 700 }}>{b.providerName || 'Awaiting assignment'}</span>
@@ -2309,7 +2324,14 @@ const CustomerDashboard = () => {
                           title={b.status === 'CANCELLED' ? 'Booking cancelled - details disabled' : 'Click row to view location, working end PIN, or make changes'}
                         >
                           <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800, fontSize: '0.9rem' }}>{b.id}</td>
-                          <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem' }}>{b.service}</td>
+                          <td style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem' }}>
+                            <span>{b.service}</span>
+                            {b.petType && (
+                              <span style={{ marginLeft: '6px', fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(201,168,76,0.15)', color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>
+                                {b.petType === 'dog' ? '🐕 Dog' : b.petType === 'cat' ? '🐈 Cat' : b.petType}
+                              </span>
+                            )}
+                          </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                               <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gold, #c9a84c)', color: '#000', fontWeight: 900, fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -3266,6 +3288,11 @@ const CustomerDashboard = () => {
                 </span>
                 <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>
                   {sessionBookingSuccessModal.service}
+                  {sessionBookingSuccessModal.petType && (
+                    <span style={{ marginLeft: '6px', fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(201,168,76,0.15)', color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>
+                      {sessionBookingSuccessModal.petType === 'dog' ? '🐕 Dog' : sessionBookingSuccessModal.petType === 'cat' ? '🐈 Cat' : sessionBookingSuccessModal.petType}
+                    </span>
+                  )}
                 </span>
               </div>
 

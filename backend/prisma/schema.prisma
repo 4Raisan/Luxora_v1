@@ -195,6 +195,7 @@ model Booking {
   status                      BookingStatus     @default(PENDING)
   cancellationReason          String?
   rescheduleReason            String?
+  petType                     String?
   autoAssigned                Boolean           @default(false)
   expectedEndTime             DateTime?
   pinCode                     String?

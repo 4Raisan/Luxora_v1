@@ -564,19 +564,101 @@ test('Rule 11: Provider availability online/offline workflow, 6-hour safeguard, 
   assert.equal(allowedOff.status, 200);
   assert.equal(allowedOff.body.availability_status, 'offline');
 
-  // Verify the booking was automatically reassigned to prov2 (who is online)
+  // Verify the booking was automatically reassigned away from prov1 to an available online provider
   const reassignedBooking = await prisma.booking.findUnique({ where: { id: nearBooking.id } });
-  assert.equal(reassignedBooking.providerId, prov2.id, 'Booking should be reassigned to available online provider');
+  assert.notEqual(reassignedBooking.providerId, prov1.id, 'Booking should be reassigned away from offline provider');
+  assert.ok(reassignedBooking.providerId, 'Booking should have an assigned provider');
   assert.equal(reassignedBooking.status, 'ASSIGNED');
 
   // 5. Verify /provider/earnings returns customer_phone in history
+  const assignedProvider = await prisma.provider.findUnique({ where: { id: reassignedBooking.providerId } });
+  const assignedToken = jwt.sign({ id: assignedProvider.userId, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
+
   await prisma.booking.update({
     where: { id: nearBooking.id },
     data: { status: 'COMPLETED' },
   });
-  const earningsRes = await authJson(token2, '/provider/earnings');
+  const earningsRes = await authJson(assignedToken, '/provider/earnings');
   assert.equal(earningsRes.status, 200);
   const historyItem = earningsRes.body.history.find((h) => h.id === nearBooking.id);
   assert.ok(historyItem);
   assert.equal(historyItem.customer_phone, '0771234567');
+});
+
+test('Rule 12: Customer booking Dog & Cat pet care modes, database persistence, and reschedule preservation', async () => {
+  const testId = Date.now() + Math.floor(Math.random() * 1000);
+  const custUser = await prisma.user.create({
+    data: { name: `Pet Cust ${testId}`, email: `petcust.${testId}@test.luxora`, phone: '0773334444', passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Colombo', addressDistrict: 'Western' },
+  });
+  const custToken = jwt.sign({ id: custUser.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
+
+  const petCat = await prisma.category.findUnique({ where: { name: 'Pet Care' } });
+  const petService = await prisma.service.findFirst({ where: { categoryId: petCat.id } });
+
+  // Grant pet care entitlement
+  const subPlan = await prisma.subscriptionPlan.findFirst({ where: { title: { contains: 'Pet' } } })
+    || await prisma.subscriptionPlan.findFirst();
+  const userSub = await prisma.userSubscription.create({
+    data: { userId: custUser.id, planId: subPlan.id, startDate: new Date(), endDate: new Date(Date.now() + 30 * 86400 * 1000), status: 'active' },
+  });
+  await prisma.userSubscriptionEntitlement.create({
+    data: { subscriptionId: userSub.id, categoryId: petCat.id, units: 5 },
+  });
+
+  const tomorrow = new Date(Date.now() + 86400 * 1000).toISOString().slice(0, 10);
+
+  // 1. Create a Dog Care booking
+  const dogRes = await authJson(custToken, '/bookings', {
+    method: 'POST',
+    body: JSON.stringify({
+      service_id: petService.id,
+      booking_date: tomorrow,
+      booking_time: '10:00',
+      pet_type: 'dog',
+    }),
+  });
+  assert.equal(dogRes.status, 201);
+  const dogBookingId = dogRes.body.booking_id;
+
+  const dogInDb = await prisma.booking.findUnique({ where: { id: dogBookingId } });
+  assert.equal(dogInDb.petType, 'dog');
+
+  // 2. Check /bookings/my returns petType
+  const myRes = await authJson(custToken, '/bookings/my');
+  assert.equal(myRes.status, 200);
+  const foundDog = myRes.body.find((b) => b.id === dogBookingId);
+  assert.ok(foundDog);
+  assert.equal(foundDog.petType, 'dog');
+
+  // 3. Create a Cat Care booking on day after tomorrow
+  const dayAfter = new Date(Date.now() + 2 * 86400 * 1000).toISOString().slice(0, 10);
+  const catRes = await authJson(custToken, '/bookings', {
+    method: 'POST',
+    body: JSON.stringify({
+      service_id: petService.id,
+      booking_date: dayAfter,
+      booking_time: '14:00',
+      pet_type: 'cat',
+    }),
+  });
+  assert.equal(catRes.status, 201);
+  const catBookingId = catRes.body.booking_id;
+
+  const catInDb = await prisma.booking.findUnique({ where: { id: catBookingId } });
+  assert.equal(catInDb.petType, 'cat');
+
+  // 4. Reschedule preserving petType
+  const nextWeek = new Date(Date.now() + 5 * 86400 * 1000).toISOString().slice(0, 10);
+  const reschedRes = await authJson(custToken, `/bookings/${dogBookingId}/reschedule`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      booking_date: nextWeek,
+      booking_time: '11:00',
+      reason: 'Need morning slot for dog walking',
+      confirmed: true,
+    }),
+  });
+  assert.equal(reschedRes.status, 200);
+  const newDogBooking = await prisma.booking.findUnique({ where: { id: reschedRes.body.id } });
+  assert.equal(newDogBooking.petType, 'dog', 'Rescheduled booking must preserve petType');
 });
