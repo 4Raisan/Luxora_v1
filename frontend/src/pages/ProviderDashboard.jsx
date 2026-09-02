@@ -49,9 +49,8 @@ const relTime = (iso) => {
 const formatRupees = (val) => `Rs. ${Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const AVAILABILITY_OPTIONS = [
-  { value: 'available', label: 'AVAILABLE', hint: 'Accepting new job assignments' },
-  { value: 'busy', label: 'BUSY', hint: 'Temporarily not taking new jobs' },
-  { value: 'offline', label: 'OFFLINE', hint: 'Not offering services right now' },
+  { value: 'available', label: 'ONLINE', hint: 'Online & accepting new job assignments' },
+  { value: 'offline', label: 'OFFLINE', hint: 'Offline — not accepting new job assignments' },
 ]
 
 const SERVICE_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care']
@@ -107,7 +106,6 @@ const ProviderDashboard = () => {
   const [photosByBooking, setPhotosByBooking] = useState({})
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
-  const [cancellationReason, setCancellationReason] = useState('')
   /* Settings form */
   const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', categories: [], towns: [], provinces: [] })
   const [townSearch, setTownSearch] = useState('')
@@ -127,25 +125,10 @@ const ProviderDashboard = () => {
   const [kycDocBusy, setKycDocBusy] = useState(false)
   const [kycDocMsg, setKycDocMsg] = useState('')
 
-  const requestBookingCancellation = async () => {
-    if (!selectedDetailsBooking) return
-    const reason = cancellationReason.trim()
-    if (reason.length < 3) return alert('Please enter a short cancellation reason.')
-    setBusy(true)
-    try {
-      const result = await apiRequest(`/provider/bookings/${selectedDetailsBooking.apiId}/cancellation-request`, 'POST', { reason }, token)
-      setCancellationReason('')
-      alert(result.message || 'Cancellation request sent to the admin.')
-    } catch (error) {
-      alert(error.message || 'Could not send the cancellation request.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const mapBookingRow = useCallback((booking) => {
     const date = new Date(`${booking.bookingDate}T00:00:00`)
     const status = String(booking.status).toUpperCase()
+    const petLabel = (booking.petType || booking.pet_type) === 'dog' ? '🐕 Dog Care' : (booking.petType || booking.pet_type) === 'cat' ? '🐈 Cat Care' : ''
     return {
       apiId: booking.id,
       month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
@@ -153,7 +136,7 @@ const ProviderDashboard = () => {
       bookingDate: booking.bookingDate,
       bookingTime: booking.bookingTime,
       title: booking.service_title || 'Service booking',
-      sub: `${booking.customer_name || 'Customer'}${booking.town ? ` • ${booking.town}` : ''}`,
+      sub: `${booking.customer_name || 'Customer'}${petLabel ? ` • ${petLabel}` : ''}${booking.customer_phone ? ` • 📞 ${formatMobileNumber(booking.customer_phone)}` : ''}${booking.town ? ` • 📍 ${booking.town}` : ''}`,
       status,
       color: STATUS_COLORS[status] || '#C9A84C',
       claimable: false,
@@ -166,6 +149,7 @@ const ProviderDashboard = () => {
       price: booking.totalPrice,
       category: booking.category_name || '',
       serviceDesc: booking.service_desc || '',
+      petType: booking.petType || booking.pet_type || '',
     }
   }, [])
 
@@ -245,9 +229,11 @@ const ProviderDashboard = () => {
     setBusy(true)
     try {
       await apiRequest('/provider/availability', 'PUT', { availability_status: value }, token)
+      await loadAll()
     } catch (error) {
       setAvailability(previous)
       setLoadError(error.message)
+      alert(error.message || 'Could not update availability')
     } finally {
       setBusy(false)
     }
@@ -588,7 +574,7 @@ const ProviderDashboard = () => {
                       </div>
                       <div style={{ flex: 1 }}>
                         <h3 className="pd-all-booking-title">{h.service_title || 'Service booking'}</h3>
-                        <p className="pd-all-booking-sub">{h.customer_name || 'Customer'} • {String(h.booking_time || '').slice(0, 5)}</p>
+                        <p className="pd-all-booking-sub">{h.customer_name || 'Customer'}{(h.petType || h.pet_type) ? ` • ${(h.petType || h.pet_type) === 'dog' ? '🐕 Dog Care' : '🐈 Cat Care'}` : ''}{h.customer_phone ? ` • 📞 ${formatMobileNumber(h.customer_phone)}` : ''} • {String(h.booking_time || '').slice(0, 5)}</p>
                       </div>
                       <span className="pd-booking__status" style={{ borderColor: STATUS_COLORS[String(h.status).toUpperCase()] || '#888', color: STATUS_COLORS[String(h.status).toUpperCase()] || '#888' }}>
                         {String(h.status).toUpperCase()}
@@ -787,7 +773,14 @@ const ProviderDashboard = () => {
                         <div key={b.apiId} className="pd-cr-card">
                           <div className="pd-cr-header">
                             <div>
-                              <span className="pd-cr-client">👤 {b.customerName}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span className="pd-cr-client">👤 {b.customerName}</span>
+                                {b.customerPhone && (
+                                  <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>
+                                    📞 {formatMobileNumber(b.customerPhone)}
+                                  </a>
+                                )}
+                              </div>
                               <h3 className="pd-cr-service">{b.title}</h3>
                             </div>
                             <span className="pd-cr-status" style={{ borderColor: STATUS_COLORS.IN_PROGRESS, color: STATUS_COLORS.IN_PROGRESS }}>
@@ -837,7 +830,14 @@ const ProviderDashboard = () => {
                     <div key={b.apiId} className="pd-cr-card">
                       <div className="pd-cr-header">
                         <div>
-                          <span className="pd-cr-client">👤 {b.customerName}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span className="pd-cr-client">👤 {b.customerName}</span>
+                            {b.customerPhone && (
+                              <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>
+                                📞 {formatMobileNumber(b.customerPhone)}
+                              </a>
+                            )}
+                          </div>
                           <h3 className="pd-cr-service">{b.title}</h3>
                         </div>
                         <span className="pd-cr-status pd-cr-status--new">NEW REQUEST</span>
@@ -943,25 +943,6 @@ const ProviderDashboard = () => {
                 <div className="pd-profile-field">
                   <label>SPECIAL INSTRUCTIONS</label>
                   <p style={{ fontStyle: 'italic', color: '#aaa' }}>{selectedDetailsBooking.notes}</p>
-                </div>
-              )}
-
-              {selectedDetailsBooking.status === 'ASSIGNED' && (
-                <div className="pd-profile-field">
-                  <label>REQUEST CANCELLATION</label>
-                  <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>Send a reason to the admin for review. The booking remains assigned until the admin decides.</p>
-                  <textarea
-                    className="pd-edit-input"
-                    rows="3"
-                    maxLength="500"
-                    placeholder="Reason for cancellation request"
-                    value={cancellationReason}
-                    onChange={(e) => setCancellationReason(e.target.value)}
-                    style={{ resize: 'vertical' }}
-                  />
-                  <button type="button" className="pd-cr-btn-decline" disabled={busy} style={{ marginTop: '0.65rem' }} onClick={requestBookingCancellation}>
-                    REQUEST CANCELLATION
-                  </button>
                 </div>
               )}
 
