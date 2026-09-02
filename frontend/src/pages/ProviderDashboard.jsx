@@ -743,7 +743,7 @@ const ProviderDashboard = () => {
                         <div className="pd-booking__info">
                           <p className="pd-booking__title">{b.category || 'Not available'}</p>
                           <p className="pd-booking__sub">{b.sub}</p>
-                          {b.customerPhone && <p className="pd-booking__sub">{formatMobileNumber(b.customerPhone)}</p>}
+                          <p className="pd-booking__sub">Mobile: {formatMobileNumber(b.customerPhone)}</p>
                         </div>
                         <span className="pd-booking__status" style={{ borderColor: b.color, color: b.color }}>
                           {b.status}
