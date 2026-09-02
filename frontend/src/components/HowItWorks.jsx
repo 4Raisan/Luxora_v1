@@ -39,8 +39,25 @@ const HowItWorks = () => (
       <p className="how-it-works__intro">From choosing a service to verified completion, every step is designed around your time and peace of mind.</p>
 
       <div className="how-it-works__timeline" aria-hidden="true">
-        <span className="how-it-works__line" />
-        {steps.map((step) => <span key={step.number} className="how-it-works__point" />)}
+        <svg className="how-it-works__journey" viewBox="0 0 1200 130" preserveAspectRatio="none" focusable="false">
+          <defs>
+            <linearGradient id="journey-gold" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stopColor="#b9964a" />
+              <stop offset="0.32" stopColor="#f4dfaa" />
+              <stop offset="0.67" stopColor="#c8a458" />
+              <stop offset="1" stopColor="#edd59b" />
+            </linearGradient>
+            <filter id="journey-glow" x="-10%" y="-100%" width="120%" height="300%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <path className="how-it-works__journey-glow" d="M 8 76 C 245 13, 510 28, 720 62 S 1012 108, 1192 46" />
+          <path className="how-it-works__journey-path" d="M 8 76 C 245 13, 510 28, 720 62 S 1012 108, 1192 46" />
+          <g className="how-it-works__journey-points">
+            <circle cx="8" cy="76" r="7" /><circle cx="395" cy="31" r="7" /><circle cx="760" cy="69" r="7" /><circle cx="1192" cy="46" r="7" />
+          </g>
+        </svg>
       </div>
 
       <div className="how-it-works__steps">

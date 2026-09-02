@@ -27,15 +27,15 @@
 
 .how-it-works__title {
   color: #f4f0e9;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(2.5rem, 5.3vw, 5.3rem);
+  font-family: 'Cormorant Garamond', var(--font-display);
+  font-size: clamp(3.1rem, 6.25vw, 6.45rem);
   font-weight: 400;
-  letter-spacing: -0.055em;
-  line-height: 1;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
   margin: 0;
 }
 
-.how-it-works__title em { font-weight: 400; }
+.how-it-works__title em { font-style: italic; font-weight: 400; }
 
 .how-it-works__intro {
   color: #aaa8a2;
@@ -46,38 +46,28 @@
 }
 
 .how-it-works__timeline {
-  height: 92px;
+  height: clamp(72px, 9vw, 124px);
   margin: 2.3rem 4.8% 2rem;
   position: relative;
 }
 
-.how-it-works__line {
-  background: linear-gradient(90deg, #c6a95e, #f0ddb0 30%, #c6a95e 72%, #ead49a);
-  box-shadow: 0 0 12px rgba(226, 190, 109, 0.5);
-  height: 2px;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 47px;
-  transform: rotate(-0.5deg);
-  transform-origin: center;
+.how-it-works__journey {
+  display: block;
+  height: 100%;
+  overflow: visible;
+  width: 100%;
 }
 
-.how-it-works__point {
-  background: #0a0b0c;
-  border: 2px solid #cdb777;
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px rgba(205, 183, 119, 0.11), 0 0 15px rgba(222, 187, 106, 0.45);
-  height: 10px;
-  position: absolute;
-  top: 43px;
-  width: 10px;
+.how-it-works__journey-glow {
+  fill: none;
+  filter: url(#journey-glow);
+  opacity: 0.38;
+  stroke: #ebce84;
+  stroke-width: 4;
 }
 
-.how-it-works__point:nth-of-type(2) { left: 0; }
-.how-it-works__point:nth-of-type(3) { left: 33.33%; }
-.how-it-works__point:nth-of-type(4) { left: 66.66%; }
-.how-it-works__point:nth-of-type(5) { right: 0; }
+.how-it-works__journey-path { fill: none; stroke: url(#journey-gold); stroke-width: 2.5; }
+.how-it-works__journey-points circle { fill: #0a0b0c; stroke: #d4b46b; stroke-width: 2.25; filter: drop-shadow(0 0 5px rgba(226, 190, 109, 0.72)); }
 
 .how-it-works__steps {
   display: grid;
@@ -118,8 +108,8 @@
 
 .how-it-works__step h3 {
   color: #f0ede6;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(1.18rem, 1.7vw, 1.48rem);
+  font-family: 'Cormorant Garamond', var(--font-display);
+  font-size: clamp(1.5rem, 2.05vw, 1.9rem);
   font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.18;
@@ -143,12 +133,12 @@
 
 @media (max-width: 960px) {
   .how-it-works__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .how-it-works__timeline { margin-inline: 9%; }
+  .how-it-works__timeline { margin-inline: 4%; }
 }
 
 @media (max-width: 600px) {
   .how-it-works { padding: 4.25rem 1.2rem; }
-  .how-it-works__title { font-size: clamp(2.45rem, 13vw, 3.8rem); }
+  .how-it-works__title { font-size: clamp(3rem, 15vw, 4.3rem); }
   .how-it-works__timeline { display: none; }
   .how-it-works__steps { gap: 0.9rem; grid-template-columns: 1fr; margin-top: 2.6rem; }
   .how-it-works__step { min-height: 0; padding: 1.35rem; }
