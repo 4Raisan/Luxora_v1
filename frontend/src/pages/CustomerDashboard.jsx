@@ -1708,7 +1708,8 @@ const CustomerDashboard = () => {
                         borderRadius: '10px',
                         fontSize: '0.82rem',
                         fontWeight: 600,
-                        outline: 'none'
+                        outline: 'none',
+                        colorScheme: 'dark',
                       }}
                     />
                   </div>
