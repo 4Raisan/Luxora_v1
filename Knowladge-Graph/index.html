@@ -114,7 +114,7 @@
       <div class="settings-content">
         <div class="settings-section">
           <div class="settings-label">Physics & Orbit</div>
-          <label class="settings-row"><span>Live physics & orbit</span><input id="motionToggle" type="checkbox" checked></label>
+          <label class="settings-row"><span>Live physics & orbit</span><input id="motionToggle" type="checkbox"></label>
           <label class="settings-row"><span>Edge labels</span><select id="edgeLabelMode"><option value="always">Always</option><option value="selected">Selected node</option><option value="light" selected>Light</option><option value="none">Off</option></select></label>
         </div>
         <div class="settings-section">
@@ -383,18 +383,18 @@
         enabled: true,
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
-          gravitationalConstant: -40,
-          centralGravity: 0.003,
-          springLength: 120,
-          springConstant: 0.05,
-          damping: 0.88,
-          avoidOverlap: 0.95
+          gravitationalConstant: -35,
+          centralGravity: 0.002,
+          springLength: 130,
+          springConstant: 0.04,
+          damping: 0.9,
+          avoidOverlap: 0.9
         },
-        maxVelocity: 40,
+        maxVelocity: 35,
         minVelocity: 0.1,
         stabilization: {
           enabled: true,
-          iterations: 120,
+          iterations: 80,
           updateInterval: 25,
           onlyDynamicEdges: false,
           fit: true
@@ -407,13 +407,21 @@
         hover: true,
         tooltipDelay: 100,
         selectable: true,
-        selectConnectedEdges: true
+        selectConnectedEdges: true,
+        hideEdgesOnDrag: false,
+        hideEdgesOnZoom: false
       }
     };
 
     const network = new window.vis.Network(container, data, options);
-    network.once('stabilizationIterationsDone', () => { fitGraph(); });
-    network.once('stabilized', () => { fitGraph(); });
+    network.once('stabilizationIterationsDone', () => {
+      network.setOptions({ physics: { enabled: false } });
+      fitGraph();
+    });
+    network.once('stabilized', () => {
+      network.setOptions({ physics: { enabled: false } });
+      fitGraph();
+    });
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
 
@@ -444,12 +452,12 @@
       physicsStrength: 1,
       rotationSpeed: 1,
       horizontalVibe: 0,
-      motionEnabled: true,
+      motionEnabled: false,
       backgroundColor: '#0b0f19'
     };
 
     let orbitTime = 0;
-    let orbitAnimFrame;
+    let orbitAnimFrame = null;
     let activeDragNodeId = null;
     let lastAnimTime = performance.now();
     const legend = document.querySelector('.legend');
@@ -517,12 +525,17 @@
     });
 
     function startCosmicOrbit() {
-      if (orbitAnimFrame) window.cancelAnimationFrame(orbitAnimFrame);
+      if (orbitAnimFrame) {
+        window.cancelAnimationFrame(orbitAnimFrame);
+        orbitAnimFrame = null;
+      }
+      if (!uiState.motionEnabled) return;
       lastAnimTime = performance.now();
       const orbitLoop = (now) => {
+        if (!uiState.motionEnabled) return;
         const dt = Math.min(0.1, (now - lastAnimTime) / 1000);
         lastAnimTime = now;
-        if (uiState.motionEnabled && uiState.rotationSpeed > 0 && !uiState.selectedNodeId) {
+        if (uiState.rotationSpeed > 0 && !uiState.selectedNodeId) {
           orbitTime += dt * uiState.rotationSpeed;
           const stretch = 1 + (uiState.horizontalVibe / 100) * 3;
           nodeOrbitInfo.forEach((info, id) => {
@@ -539,7 +552,9 @@
       orbitAnimFrame = window.requestAnimationFrame(orbitLoop);
     }
 
-    startCosmicOrbit();
+    if (uiState.motionEnabled) {
+      startCosmicOrbit();
+    }
 
     function applyConcentricLayout(repositionAll = true) {
       const spacingMultiplier = uiState.innerSpacing / 120;
@@ -573,35 +588,49 @@
 
     function updateGraphVisibility() {
       const visibleNodeIds = matchingNodeIds();
-      visNodes.forEach(node => visNodes.update({ id: node.id, hidden: !visibleNodeIds.has(node.id) }));
-      visEdges.forEach(edge => visEdges.update({
-        id: edge.id,
-        hidden: !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)
-      }));
+      const nodeUpdates = [];
+      const edgeUpdates = [];
+      visNodes.forEach(node => {
+        nodeUpdates.push({ id: node.id, hidden: !visibleNodeIds.has(node.id) });
+      });
+      visEdges.forEach(edge => {
+        edgeUpdates.push({
+          id: edge.id,
+          hidden: !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)
+        });
+      });
+      visNodes.update(nodeUpdates);
+      visEdges.update(edgeUpdates);
       updateLabelVisibility();
       const visibleLinkedNodes = [...visibleNodeIds].filter(id => (degreeById.get(id) || 0) > 0).length;
       document.getElementById('graphStatus').textContent = 'Showing ' + visibleNodeIds.size + ' of ' + graphData.nodes.length + ' nodes • ' + visibleLinkedNodes + ' linked • ' + (visibleNodeIds.size - visibleLinkedNodes) + ' unlinked evidence';
     }
 
     function updateNodeScale() {
-      visNodes.forEach(node => visNodes.update({ id: node.id, size: Math.round(node.baseSize * uiState.nodeScale) }));
+      const updates = [];
+      visNodes.forEach(node => updates.push({ id: node.id, size: Math.round(node.baseSize * uiState.nodeScale) }));
+      visNodes.update(updates);
     }
 
     function updateLabelScale() {
-      visNodes.forEach(node => visNodes.update({
+      const updates = [];
+      visNodes.forEach(node => updates.push({
         id: node.id,
         font: { ...node.font, size: Math.round(node.baseFontSize * uiState.labelScale) }
       }));
+      visNodes.update(updates);
     }
 
     function updateLabelVisibility() {
+      const updates = [];
       visNodes.forEach(node => {
-        visNodes.update({
+        updates.push({
           id: node.id,
           label: node.baseLabel,
           font: { ...node.font, color: node.baseFontColor, size: Math.round(node.baseFontSize * uiState.labelScale) }
         });
       });
+      visNodes.update(updates);
     }
 
     function setDiagramBackground(color) {
@@ -696,6 +725,7 @@
     }
 
     function updateEdgeAppearance() {
+      const updates = [];
       visEdges.forEach(edge => {
         const isSelectedEdge = uiState.selectedNodeId && (edge.from === uiState.selectedNodeId || edge.to === uiState.selectedNodeId);
         const labelColor = uiState.edgeLabelMode === 'always'
@@ -704,13 +734,14 @@
             ? '#e2e8f0'
             : (uiState.edgeLabelMode === 'light' ? 'rgba(226, 232, 240, 0.38)' : 'rgba(148, 163, 184, 0)'));
         const labelsOff = uiState.edgeLabelMode === 'none';
-        visEdges.update({
+        updates.push({
           id: edge.id,
           label: labelsOff ? '' : edge.baseLabel,
           color: { color: 'rgba(148, 163, 184, ' + uiState.edgeOpacity + ')', highlight: '#38bdf8' },
           font: { color: labelColor, size: 8, align: 'middle', strokeWidth: labelsOff ? 0 : 2, strokeColor: labelsOff ? 'rgba(0,0,0,0)' : uiState.backgroundColor }
         });
       });
+      visEdges.update(updates);
     }
 
     function fitGraph() {
@@ -923,6 +954,12 @@
     document.getElementById('motionToggle').addEventListener('change', (event) => {
       uiState.motionEnabled = event.target.checked;
       network.setOptions({ physics: { enabled: event.target.checked } });
+      if (event.target.checked) {
+        startCosmicOrbit();
+      } else if (orbitAnimFrame) {
+        window.cancelAnimationFrame(orbitAnimFrame);
+        orbitAnimFrame = null;
+      }
     });
 
     document.getElementById('edgeLabelMode').addEventListener('change', (event) => {

@@ -14,11 +14,12 @@ permissions:
 
 concurrency:
   group: knowledge-graph-pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     name: Validate and deploy
+    timeout-minutes: 10
     environment:
       name: ${{ github.event_name == 'pull_request' && 'knowledge-graph-validation' || 'github-pages' }}
       url: ${{ steps.deployment.outputs.page_url }}
@@ -52,18 +53,15 @@ jobs:
 
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'
-        continue-on-error: true
         uses: actions/configure-pages@v5
 
       - name: Upload Knowledge Graph artifact
         if: github.event_name != 'pull_request'
-        continue-on-error: true
         uses: actions/upload-pages-artifact@v3
         with:
           path: Knowladge-Graph
 
       - name: Deploy Knowledge Graph to GitHub Pages
         if: github.event_name != 'pull_request'
-        continue-on-error: true
         id: deployment
         uses: actions/deploy-pages@v4
