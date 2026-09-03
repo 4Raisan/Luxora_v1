@@ -4,6 +4,7 @@ import Calendar from '../components/Calendar'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
+import { useRealtime } from '../hooks/useRealtime'
 import { SRI_LANKA_PROVINCES, SRI_LANKA_TOWNS } from '../data/sriLankaLocations'
 import { SRI_LANKAN_BANKS } from '../data/sriLankaBanks'
 import './ProviderDashboard.css'
@@ -81,6 +82,9 @@ const ProviderDashboard = () => {
 
   /* Bookings assigned by the server scheduling flow */
   const [bookingsList, setBookingsList] = useState([])
+  /* Pending unassigned bookings available for manual claim */
+  const [pendingBookingsList, setPendingBookingsList] = useState([])
+  const [claimingId, setClaimingId] = useState(null)
   /* Availability / earnings / notifications */
   const [availability, setAvailability] = useState('available')
   const [providerCategory, setProviderCategory] = useState('')
@@ -161,7 +165,8 @@ const ProviderDashboard = () => {
       sub: `${booking.customer_name || 'Customer'}${petLabel ? ` • ${petLabel}` : ''}${booking.customer_phone ? ` • 📞 ${formatMobileNumber(booking.customer_phone)}` : ''}${booking.town ? ` • 📍 ${booking.town}` : ''}`,
       status,
       color: STATUS_COLORS[status] || '#C9A84C',
-      claimable: false,
+      claimable: status === 'PENDING',
+      providerEarning: booking.providerEarning,
       customerName: booking.customer_name || 'Customer',
       customerPhone: booking.customer_phone || '',
       customerEmail: booking.user?.email || '',
@@ -191,9 +196,10 @@ const ProviderDashboard = () => {
         return
       }
 
-      const [avail, bookingRows, earningsRow, supportRows] = await Promise.all([
+      const [avail, bookingRows, pendingRows, earningsRow, supportRows] = await Promise.all([
         apiRequest('/provider/availability', 'GET', null, token),
         apiRequest('/bookings/assigned', 'GET', null, token),
+        apiRequest('/bookings/pending', 'GET', null, token).catch(() => []),
         apiRequest('/provider/earnings', 'GET', null, token),
         apiRequest('/support/my', 'GET', null, token).catch(() => []),
       ])
@@ -205,6 +211,7 @@ const ProviderDashboard = () => {
       setProviderCategory(categories[0] || '')
       setServiceTowns(avail.service_towns || '')
       setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
+      setPendingBookingsList((Array.isArray(pendingRows) ? pendingRows : []).map(mapBookingRow))
       setEarnings(earningsRow)
       setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
       const bank = (earningsRow.bank_accounts || []).find((account) => account.selected) || earningsRow.bank_accounts?.[0]
@@ -249,9 +256,39 @@ const ProviderDashboard = () => {
     } catch { /* notifications are non-critical */ }
   }, [token])
 
+  const handleClaimBooking = useCallback(async (bookingId) => {
+    if (!token) return
+    setClaimingId(bookingId)
+    setBusy(true)
+    try {
+      await apiRequest(`/bookings/${bookingId}/claim`, 'POST', null, token)
+      await loadAll()
+      await loadNotifications()
+    } catch (error) {
+      alert(error.message || 'Could not claim this booking.')
+      await loadAll()
+    } finally {
+      setClaimingId(null)
+      setBusy(false)
+    }
+  }, [token, loadAll, loadNotifications])
+
   useEffect(() => { void loadAll() }, [loadAll])
   useEffect(() => { void loadNotifications() }, [loadNotifications])
   useEffect(() => { setCancellationReason('') }, [selectedDetailsBooking?.apiId])
+
+  useRealtime({
+    onEvent: (type) => {
+      if (['BOOKING_CREATED', 'BOOKING_ASSIGNED', 'BOOKING_CLAIMED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED'].includes(type)) {
+        void loadAll()
+        void loadNotifications()
+      }
+    },
+    onSync: () => {
+      void loadAll()
+      void loadNotifications()
+    },
+  })
 
   /* ── Availability (Manage service availability) ── */
   const saveAvailability = async (value) => {
@@ -486,7 +523,9 @@ const ProviderDashboard = () => {
     .filter((h) => String(h.status).toLowerCase() === 'completed')
     .slice().sort((a, b) => String(b.booking_date).localeCompare(String(a.booking_date)))
 
-  const filteredBookings = visibleBookings.filter((b) => b.status === bookingFilter)
+  const filteredBookings = bookingFilter === 'PENDING'
+    ? pendingBookingsList
+    : visibleBookings.filter((b) => b.status === bookingFilter)
 
   const unreadCount = notificationsList.filter((n) => !n.read).length
   const activeAvailability = AVAILABILITY_OPTIONS.find((o) => o.value === availability)
@@ -497,9 +536,15 @@ const ProviderDashboard = () => {
   /* Action buttons for a booking row (used in cards + modal) */
   const renderBookingActions = (row, compact = false) => (
     <>
-      {row.claimable && (
-        <button type="button" className="pd-cr-btn-accept" disabled={busy} onClick={() => alert('Bookings are assigned automatically by Luxora.')}>
-          ACCEPT BOOKING
+      {(row.claimable || row.status === 'PENDING') && (
+        <button
+          type="button"
+          className="pd-cr-btn-accept"
+          disabled={busy || claimingId === row.apiId}
+          onClick={() => handleClaimBooking(row.apiId)}
+          style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 800 }}
+        >
+          {claimingId === row.apiId ? 'CLAIMING...' : 'ACCEPT JOB ✨'}
         </button>
       )}
       {row.status === 'ASSIGNED' && (
@@ -738,14 +783,19 @@ const ProviderDashboard = () => {
               </div>
 
               <div className="pd-bookings-filter-bar">
-                {['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
+                {[
+                  { id: 'ASSIGNED', label: `ASSIGNED (${visibleBookings.filter((b) => b.status === 'ASSIGNED').length})` },
+                  { id: 'PENDING', label: `PENDING (${pendingBookingsList.length})` },
+                  { id: 'IN_PROGRESS', label: `IN PROGRESS (${visibleBookings.filter((b) => b.status === 'IN_PROGRESS').length})` },
+                  { id: 'COMPLETED', label: `COMPLETED (${visibleBookings.filter((b) => b.status === 'COMPLETED').length})` },
+                ].map(({ id, label }) => (
                   <button
-                    key={f}
+                    key={id}
                     type="button"
-                    className={`pd-filter-btn ${bookingFilter === f ? 'pd-filter-btn--active' : ''}`}
-                    onClick={() => setBookingFilter(f)}
+                    className={`pd-filter-btn ${bookingFilter === id ? 'pd-filter-btn--active' : ''}`}
+                    onClick={() => setBookingFilter(id)}
                   >
-                    {`${f} (${visibleBookings.filter((b) => b.status === f).length})`}
+                    {label}
                   </button>
                 ))}
               </div>
@@ -753,7 +803,11 @@ const ProviderDashboard = () => {
               <div className="pd-all-bookings-grid">
                 {loading && <p style={{ color: '#888' }}>Loading bookings…</p>}
                 {!loading && filteredBookings.length === 0 && (
-                  <p style={{ color: '#888', fontStyle: 'italic' }}>No bookings match this filter.</p>
+                  <p style={{ color: '#888', fontStyle: 'italic', padding: '1.5rem 0' }}>
+                    {bookingFilter === 'PENDING'
+                      ? 'No unassigned bookings currently available to claim in your service area. Real-time notifications will alert you when new requests arrive!'
+                      : `No ${bookingFilter.replace('_', ' ').toLowerCase()} bookings found.`}
+                  </p>
                 )}
                 {filteredBookings.map((b, i) => (
                   <div key={b.apiId || i} className="pd-all-booking-card">
