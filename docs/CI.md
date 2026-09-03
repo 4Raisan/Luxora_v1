@@ -6,7 +6,36 @@ The selector lives in `scripts/ci/plan-checks.mjs`. Its unit tests live beside i
 
 ## Always-run checks
 
-Every run checks out full Git history, classifies the change, and runs Gitleaks. The final job, `Luxora CI / 06 - Required gate`, succeeds only when every selected job passes. Use this final gate as the stable branch-protection check.
+Every run checks out full Git history, runs the **Protected Files Guard** (`scripts/ci/guard-protected-files.mjs`), classifies the change, and runs Gitleaks.
+
+The final job, `Luxora CI / 06 - Required gate`, succeeds only when the Protected Files Guard, secret scanning, and every selected job passes. Use this final gate as the stable branch-protection check.
+
+## Protected Files Security Guard
+
+Direct commits to `main` are enabled for all contributors to support rapid feature delivery without requiring pull requests. However, sensitive repository paths are guarded:
+
+- `.github/workflows/**`
+- `.github/CODEOWNERS`
+- `.github/dependabot.yml`
+- `.gitleaks.toml`
+- `Dockerfile`
+- `docker-compose.yml`
+- `docker-compose.yaml`
+- `vercel.json`
+
+### Guard Rules & Behavior:
+- **Direct Commits**: Allowed to land directly on `main` for all contributors. No automatic commit reverts or history rewrites occur in CI.
+- **Vercel Deployment**: Vercel deploys normally from `main`. No Vercel deployment gates, build-step cancellations, or blockers are attached to the guard.
+- **Maintainer Changes**: When `@4Raisan` modifies protected files, the guard passes.
+- **Unauthorized Changes**: When any contributor other than `@4Raisan` modifies, renames, or deletes any protected file, the `Protected Files Guard` job FAILS with clear log annotations and summary output detailing the exact modified files and stating that only `@4Raisan` is authorized.
+- **Normal Commits**: Normal commits modifying application code (frontend, backend, documentation, prisma schema) pass the guard cleanly.
+
+## Manual Rollback Utilities
+
+Two manual operator batch files are provided in the repository root for manual emergency rollbacks:
+
+- `REVERSE_1_COMMIT.bat`: Interactive script that hard-resets the local `main` branch by 1 commit (`git reset --hard HEAD~1`) and updates the remote with `git push origin main --force-with-lease`.
+- `REVERSE_2_COMMITS.bat`: Interactive script that hard-resets the local `main` branch by 2 commits (`git reset --hard HEAD~2`) and updates the remote with `git push origin main --force-with-lease`.
 
 ## Check selection
 
