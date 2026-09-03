@@ -13,6 +13,7 @@ import './ProviderDashboard.css'
 function GridIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/></svg> }
 function CalIcon()   { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function HistIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/></svg> }
+function PaymentIcon(){ return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 9h18M7 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function BellIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function GearIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5"/></svg> }
 function UserIcon()  { return <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
@@ -551,7 +552,10 @@ const ProviderDashboard = () => {
   const requestRedemption = async (e) => {
     e.preventDefault()
     const amount = Number(redeemAmount)
+    if (!selectedBankAccount) return setPaymentMessage('Add and save your bank account before requesting a redemption.')
+    if (availableBalance < 5000) return setPaymentMessage('Your available balance must reach LKR 5,000 before you can request a redemption.')
     if (!Number.isFinite(amount) || amount < 5000) return setPaymentMessage('Enter a redemption amount of at least LKR 5,000.')
+    if (amount > availableBalance) return setPaymentMessage(`The amount cannot exceed your available balance of ${formatRupees(availableBalance)}.`)
     setPaymentBusy(true)
     setPaymentMessage('Submitting your redemption request…')
     try {
@@ -663,7 +667,7 @@ const ProviderDashboard = () => {
             { id: 'overview', icon: <GridIcon />, label: 'Overview' },
             { id: 'bookings', icon: <CalIcon />, label: 'Bookings' },
             { id: 'history',  icon: <HistIcon />, label: 'History' },
-            { id: 'payments', icon: <span>💳</span>, label: 'Payments' },
+            { id: 'payments', icon: <PaymentIcon />, label: 'Payments' },
           ].map((item) => (
             <button
               key={item.id}
@@ -782,10 +786,11 @@ const ProviderDashboard = () => {
               <div className="pd-all-booking-card" style={{ marginBottom: '1.25rem' }}>
                 <h2 className="pd-section-title" style={{ fontSize: '1.1rem' }}>Request Redemption</h2>
                 <p className="pd-avail__hint">A minimum available balance of LKR 5,000 is required. The amount is reserved while the admin processes your request.</p>
-                <form onSubmit={requestRedemption} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input type="number" className="pd-edit-input" min="5000" step="0.01" max={availableBalance} value={redeemAmount} onChange={(e) => setRedeemAmount(e.target.value)} placeholder="Amount (minimum 5,000)" style={{ maxWidth: '260px' }} disabled={availableBalance < 5000 || !selectedBankAccount || paymentBusy} required />
-                  <button type="submit" className="pd-cr-btn-accept" disabled={availableBalance < 5000 || !selectedBankAccount || paymentBusy}>{paymentBusy ? 'SUBMITTING…' : 'REQUEST REDEMPTION'}</button>
+                <form noValidate onSubmit={requestRedemption} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input type="number" inputMode="decimal" className="pd-edit-input" min="5000" step="0.01" value={redeemAmount} onChange={(e) => { setRedeemAmount(e.target.value); setPaymentMessage('') }} placeholder="Amount (minimum 5,000)" aria-label="Redemption amount in Sri Lankan Rupees" style={{ maxWidth: '260px' }} disabled={paymentBusy} required />
+                  <button type="submit" className="pd-cr-btn-accept" disabled={paymentBusy}>{paymentBusy ? 'SUBMITTING…' : 'REQUEST REDEMPTION'}</button>
                 </form>
+                {!selectedBankAccount && <p style={{ color: '#eab308', fontSize: '0.78rem' }}>Save your bank account above before submitting a redemption request.</p>}
                 {availableBalance < 5000 && <p style={{ color: '#eab308', fontSize: '0.78rem' }}>You can request redemption after your available balance reaches LKR 5,000.</p>}
                 {paymentMessage && <p role="status" style={{ color: /success|sent/i.test(paymentMessage) ? '#4ade80' : 'var(--gold)', fontSize: '0.8rem', fontWeight: 700 }}>{paymentMessage}</p>}
               </div>
@@ -1696,7 +1701,7 @@ const ProviderDashboard = () => {
           { id: 'overview', icon: <GridIcon />, label: 'OVERVIEW' },
           { id: 'bookings', icon: <CalIcon />, label: 'BOOKINGS' },
           { id: 'history', icon: <HistIcon />, label: 'HISTORY' },
-          { id: 'payments', icon: <span>💳</span>, label: 'PAYMENTS' },
+          { id: 'payments', icon: <PaymentIcon />, label: 'PAYMENTS' },
         ].map((item) => (
           <button
             key={item.id}
