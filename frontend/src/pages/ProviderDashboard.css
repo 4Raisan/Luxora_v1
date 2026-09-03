@@ -1166,6 +1166,37 @@
   border-color: var(--gold);
 }
 
+.pd-redemption-input {
+  color-scheme: dark;
+}
+
+.pd-redemption-help {
+  margin: 0.7rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pd-redemption-help--warning {
+  color: #eab308;
+}
+
+.pd-redemption-help--ready {
+  color: #4ade80;
+}
+
+.pd-cr-btn-accept:disabled {
+  background: #3a3424;
+  color: #88806b;
+  cursor: not-allowed;
+  opacity: 0.72;
+  transform: none;
+}
+
+.pd-cr-btn-accept:disabled:hover {
+  background: #3a3424;
+  transform: none;
+}
+
 .pd-btn-cancel-edit {
   flex: 1;
   background: transparent;
