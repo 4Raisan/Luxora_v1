@@ -1,0 +1,2707 @@
+{
+  "schemaVersion": "1.0.0",
+  "stats": {
+    "totalNodes": 81,
+    "totalEdges": 98,
+    "totalViews": 12
+  },
+  "views": [
+    {
+      "id": "system",
+      "name": "System Overview",
+      "icon": "🌐",
+      "description": "End-to-end multi-tier production architecture: Users, Vercel Frontend, Northflank Express Gateway, PostgreSQL Database, External Services, CI/CD, and Cloud Deployments."
+    },
+    {
+      "id": "frontend",
+      "name": "Frontend Architecture",
+      "icon": "💻",
+      "description": "React 19 Single Page Application architecture: Dashboard portals, Booking Wizard, API Client layer (apiRequest), useRealtime SSE subscriber, and Auth guards."
+    },
+    {
+      "id": "backend",
+      "name": "Backend & API Gateway",
+      "icon": "⚡",
+      "description": "Express 5 REST API gateway: Mounted route routers, middleware authentication/role/KYC gates, domain services, and automated background schedulers."
+    },
+    {
+      "id": "database",
+      "name": "Database Architecture",
+      "icon": "🗄️",
+      "description": "PostgreSQL 15 Prisma schema models, foreign keys, 1:1 and 1:N relations, exact Decimal(12,2) money fields, and transactional advisory locks."
+    },
+    {
+      "id": "booking",
+      "name": "Booking Lifecycle",
+      "icon": "📅",
+      "description": "Complete service fulfillment flow: Booking creation -> Auto-dispatch vs Pending claim -> Start PIN + BEFORE photo -> Completion PIN + AFTER photo -> Earnings accrual."
+    },
+    {
+      "id": "realtime",
+      "name": "Realtime / SSE",
+      "icon": "📡",
+      "description": "Server-Sent Events architecture: /api/realtime endpoint, in-memory connection registry, 25s keep-alive ping, broadcastBookingEvent(), 7 named events, and frontend sync."
+    },
+    {
+      "id": "payments",
+      "name": "Payments Engine",
+      "icon": "💳",
+      "description": "Tri-gateway payment processing: PayHere LKR MD5 signatures, NOWPayments Crypto HMAC-SHA512 IPN, Demo mode, atomic subscription activation, and non-refundable coin policy."
+    },
+    {
+      "id": "email",
+      "name": "Email & External Services",
+      "icon": "☁️",
+      "description": "External cloud infrastructure: Resend transactional email API, S3 durable object storage, Google OAuth 2.0, PayHere, NOWPayments, Vercel, and Northflank."
+    },
+    {
+      "id": "cicd",
+      "name": "CI/CD Pipeline",
+      "icon": "🚀",
+      "description": "8-job GitHub Actions CI pipeline: Selective execution classifier (plan-checks.mjs), Protected Files Guard, 01-06 quality checks, and hardened gate."
+    },
+    {
+      "id": "deployment",
+      "name": "Production Deployments",
+      "icon": "🚢",
+      "description": "Decoupled production hosting: Vercel Global Edge (Frontend), Northflank Alpine Container (Backend), and GitHub Pages (Knowledge Graph)."
+    },
+    {
+      "id": "kg",
+      "name": "Knowledge Graph",
+      "icon": "📊",
+      "description": "Living codebase knowledge graph subsystem: Static analysis AST extractor, deterministic drift validator, and interactive visual network explorer."
+    },
+    {
+      "id": "security",
+      "name": "Security Architecture",
+      "icon": "🔒",
+      "description": "Defense-in-depth security engineering: JWT tokenVersion revocation, Bcrypt 10 salt rounds, AES-256-GCM bank account encryption, magic-byte sniffers, and CSP headers."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cicd:audit",
+      "label": "📦 04 - Dependency Audit",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "cicd"
+      ],
+      "file": ".github/workflows/ci.yml",
+      "description": "Runs npm audit with high-severity threshold across root, frontend, and backend packages.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:backend",
+      "label": "🐘 03 - Backend Postgres",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "cicd"
+      ],
+      "file": ".github/workflows/ci.yml",
+      "description": "Spins up isolated PostgreSQL test service container, runs Prisma migrations, and executes test suites against luxora_test.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:classifier",
+      "label": "🔍 01 - Plan & Secrets",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "system",
+        "cicd"
+      ],
+      "file": "scripts/ci/plan-checks.mjs",
+      "description": "Parses git commit diffs to plan selective CI execution and runs Gitleaks to block exposed credentials.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:docker",
+      "label": "🐳 05 - Docker Smoke",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "cicd"
+      ],
+      "file": ".github/workflows/ci.yml",
+      "description": "Builds production multi-stage Alpine container, spins up isolated database, and executes health probe validation.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:gate",
+      "label": "🚪 06 - Required Gate",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "system",
+        "cicd"
+      ],
+      "file": ".github/workflows/ci.yml",
+      "description": "Strict gate executing via if: always(); verifies that all scheduled jobs completed with status success and rejects unexpected skips.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:github-repo",
+      "label": "🐙 GitHub Repository",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_trigger",
+      "views": [
+        "system",
+        "cicd",
+        "deployment"
+      ],
+      "file": ".github/workflows/ci.yml",
+      "description": "Git version control root triggering automated GitHub Actions workflows, Vercel edge builds, and Northflank container deployments upon push.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:guard",
+      "label": "🛡️ Protected Files Guard",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "system",
+        "cicd",
+        "security"
+      ],
+      "file": "scripts/ci/guard-protected-files.mjs",
+      "description": "Automated security check that verifies only authorized maintainer @4Raisan can modify workflow files, Dockerfiles, and security configs. Fails immediately for unauthorized actors.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:kg",
+      "label": "📊 02b - KG Verification",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "cicd",
+        "kg"
+      ],
+      "file": ".github/workflows/ci.yml",
+      "description": "Runs Knowledge Graph extraction, validates node/edge integrity, and asserts deterministic zero-drift output.",
+      "metadata": {}
+    },
+    {
+      "id": "cicd:quality",
+      "label": "🧪 02 - Quality & SPA",
+      "layer": "CI/CD & DevOps",
+      "type": "cicd_check",
+      "views": [
+        "cicd"
+      ],
+      "file": ".github/workflows/ci.yml",
+      "description": "Executes Oxlint static analysis, tests the CI classifier, and builds the React SPA with Vite.",
+      "metadata": {}
+    },
+    {
+      "id": "component:active-booking-cards",
+      "label": "🪪 Active Booking Cards",
+      "layer": "Frontend Presentation",
+      "type": "frontend_component",
+      "views": [
+        "frontend",
+        "booking",
+        "realtime"
+      ],
+      "file": "frontend/src/components/ActiveBookingCards.jsx",
+      "description": "Real-time card displaying assigned provider contact number, Start PIN & Completion PIN reveal buttons, status badge, and cancel dialog.",
+      "metadata": {}
+    },
+    {
+      "id": "component:require-auth",
+      "label": "🛡️ RequireAuth Guard",
+      "layer": "Frontend Presentation",
+      "type": "frontend_component",
+      "views": [
+        "frontend",
+        "security"
+      ],
+      "file": "frontend/src/components/RequireAuth.jsx",
+      "description": "Route-level client security component that validates token existence and user role before granting dashboard access.",
+      "metadata": {}
+    },
+    {
+      "id": "component:session-animation",
+      "label": "✨ Session Animation",
+      "layer": "Frontend Presentation",
+      "type": "frontend_component",
+      "views": [
+        "frontend",
+        "booking"
+      ],
+      "file": "frontend/src/components/SessionConfirmationAnimation.jsx",
+      "description": "Luxury SVG completion celebration modal rendered upon successful booking confirmation.",
+      "metadata": {}
+    },
+    {
+      "id": "deploy:github-pages",
+      "label": "🌐 GitHub Pages (Docs & KG)",
+      "layer": "Deployment Infrastructure",
+      "type": "deployment_target",
+      "views": [
+        "system",
+        "deployment",
+        "kg"
+      ],
+      "file": ".github/workflows/knowledge-graph-pages.yml",
+      "description": "Independent static deployment hosting the interactive Knowledge Graph and Architecture Explorer at 4raisan.github.io/Luxora_v1/.",
+      "metadata": {
+        "url": "https://4raisan.github.io/Luxora_v1/"
+      }
+    },
+    {
+      "id": "deploy:northflank",
+      "label": "🚢 Northflank (Backend)",
+      "layer": "Deployment Infrastructure",
+      "type": "deployment_target",
+      "views": [
+        "system",
+        "deployment"
+      ],
+      "file": "Dockerfile",
+      "description": "Multi-stage Dockerized Node.js 22 Alpine container cluster hosting the Express 5 API gateway, running automated health checks on /api/health and executing prisma migrate deploy on startup.",
+      "metadata": {
+        "url": "https://site--luxora-backend--6kb9tg67ytl4.code.run",
+        "healthEndpoint": "/api/health",
+        "baseImage": "node:22-alpine"
+      }
+    },
+    {
+      "id": "deploy:vercel",
+      "label": "▲ Vercel Edge (Frontend)",
+      "layer": "Deployment Infrastructure",
+      "type": "deployment_target",
+      "views": [
+        "system",
+        "deployment"
+      ],
+      "file": "vercel.json",
+      "description": "Hosts the React 19 SPA on a global edge CDN (luxora.bond:443); manages SSL termination, asset compression, and single-page routing via vercel.json rewrites.",
+      "metadata": {
+        "domain": "https://luxora.bond",
+        "platform": "Vercel Edge Network",
+        "rewrite": "/(.*) -> /index.html"
+      }
+    },
+    {
+      "id": "ext:google-oauth",
+      "label": "🔑 Google OAuth 2.0",
+      "layer": "External Cloud Services",
+      "type": "external_service",
+      "views": [
+        "security",
+        "email"
+      ],
+      "file": "backend/src/routes/auth.js",
+      "description": "Federated Google Sign-In validating client tokens via Google tokeninfo API to streamline customer onboarding.",
+      "metadata": {}
+    },
+    {
+      "id": "ext:nowpayments",
+      "label": "🪙 NOWPayments (Crypto)",
+      "layer": "External Cloud Services",
+      "type": "external_service",
+      "views": [
+        "system",
+        "payments",
+        "email"
+      ],
+      "file": "backend/src/services/paymentContracts.js",
+      "description": "Global cryptocurrency gateway supporting non-custodial crypto payments (BTC, ETH, USDT) with USD conversion and HMAC-SHA512 IPN signatures.",
+      "metadata": {}
+    },
+    {
+      "id": "ext:payhere",
+      "label": "💳 PayHere (LKR)",
+      "layer": "External Cloud Services",
+      "type": "external_service",
+      "views": [
+        "system",
+        "payments",
+        "email"
+      ],
+      "file": "backend/src/services/integrations.js",
+      "description": "Central Bank of Sri Lanka (CBSL) approved payment aggregator handling domestic credit/debit cards and mobile wallets in LKR with MD5 server-to-server IPN verification.",
+      "metadata": {}
+    },
+    {
+      "id": "ext:postgresql",
+      "label": "🗄️ PostgreSQL 15",
+      "layer": "External Cloud Services",
+      "type": "external_service",
+      "views": [
+        "system",
+        "database",
+        "deployment"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "ACID relational database engine hosting all business entities, transactional advisory locks, and decimal financial balances.",
+      "metadata": {}
+    },
+    {
+      "id": "ext:resend",
+      "label": "✉️ Resend Email API",
+      "layer": "External Cloud Services",
+      "type": "external_service",
+      "views": [
+        "system",
+        "email"
+      ],
+      "file": "backend/src/services/integrations.js",
+      "description": "Modern transactional email platform dispatched via direct HTTPS REST API (https://api.resend.com/emails) with HTML-escaped templates.",
+      "metadata": {}
+    },
+    {
+      "id": "ext:s3",
+      "label": "☁️ S3 Cloud Bucket",
+      "layer": "External Cloud Services",
+      "type": "external_service",
+      "views": [
+        "system",
+        "security",
+        "email",
+        "deployment"
+      ],
+      "file": "backend/src/services/storage.js",
+      "description": "Durable private cloud object storage (Cloudflare R2 or AWS S3) storing encrypted provider KYC identity documents and booking photographic evidence.",
+      "metadata": {}
+    },
+    {
+      "id": "hook:use-realtime",
+      "label": "📡 useRealtime Hook",
+      "layer": "Frontend Presentation",
+      "type": "frontend_hook",
+      "views": [
+        "system",
+        "frontend",
+        "booking",
+        "realtime"
+      ],
+      "file": "frontend/src/hooks/useRealtime.js",
+      "description": "Frontend EventSource subscription to /api/realtime; listens for 7 named events (BOOKING_CREATED, ASSIGNED, CLAIMED, etc.) and triggers onSync state recovery on reconnect.",
+      "metadata": {}
+    },
+    {
+      "id": "kg:explorer",
+      "label": "📊 KG Visual Explorer",
+      "layer": "Knowledge Graph Subsystem",
+      "type": "kg_component",
+      "views": [
+        "kg",
+        "system"
+      ],
+      "file": "Knowladge-Graph/index.html",
+      "description": "Vis-network interactive visualizer rendering multi-track concentric layout for developers and coding agents.",
+      "metadata": {}
+    },
+    {
+      "id": "kg:generator",
+      "label": "📊 KG AST Generator",
+      "layer": "Knowledge Graph Subsystem",
+      "type": "kg_component",
+      "views": [
+        "kg",
+        "system"
+      ],
+      "file": "Knowladge-Graph/generate-graph.js",
+      "description": "Static analysis parser scanning Prisma schemas, routes, services, middleware, and frontend components to construct 192 nodes and 408 edges.",
+      "metadata": {}
+    },
+    {
+      "id": "kg:validator",
+      "label": "📊 KG Integrity Validator",
+      "layer": "Knowledge Graph Subsystem",
+      "type": "kg_component",
+      "views": [
+        "kg"
+      ],
+      "file": "Knowladge-Graph/validate-graph.js",
+      "description": "Deterministic test script checking node/edge stability, absence of secrets, source path validity, and relative asset loading.",
+      "metadata": {}
+    },
+    {
+      "id": "middleware:auth",
+      "label": "🛡️ Auth Gate (Token)",
+      "layer": "API Gateway & Middleware",
+      "type": "middleware",
+      "views": [
+        "system",
+        "backend",
+        "security"
+      ],
+      "file": "backend/src/middleware/auth.js",
+      "description": "Verifies Bearer JWT signature, asserts active account status, and compares tokenVersion against PostgreSQL to enforce instantaneous global session revocation on password resets.",
+      "metadata": {
+        "tokenType": "JWT Bearer",
+        "revocationMechanism": "tokenVersion integer comparison"
+      }
+    },
+    {
+      "id": "middleware:kyc-guard",
+      "label": "🛡️ Provider KYC Gate",
+      "layer": "API Gateway & Middleware",
+      "type": "middleware",
+      "views": [
+        "backend",
+        "booking",
+        "security"
+      ],
+      "file": "backend/src/routes/provider.js",
+      "description": "Enforces that providers must have kycStatus === APPROVED before they can claim bookings, receive auto-assignments, reveal addresses, or submit PINs.",
+      "metadata": {}
+    },
+    {
+      "id": "middleware:rate-limit",
+      "label": "🛡️ Rate Limiter",
+      "layer": "API Gateway & Middleware",
+      "type": "middleware",
+      "views": [
+        "backend",
+        "security"
+      ],
+      "file": "backend/src/middleware/rateLimit.js",
+      "description": "In-memory sliding window rate limiter defending authentication, payment webhooks, and email dispatch endpoints against brute-force and DoS attacks.",
+      "metadata": {}
+    },
+    {
+      "id": "middleware:require-role",
+      "label": "🛡️ Role Gate (RBAC)",
+      "layer": "API Gateway & Middleware",
+      "type": "middleware",
+      "views": [
+        "backend",
+        "security"
+      ],
+      "file": "backend/src/middleware/auth.js",
+      "description": "Restricts endpoint access to specific roles (CUSTOMER, PROVIDER, ADMIN). Blocks unauthorized cross-role attempts with HTTP 403 Forbidden.",
+      "metadata": {}
+    },
+    {
+      "id": "model:adminauditlog",
+      "label": "🗄️ Model: AdminAuditLog",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "security"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Identity record holding bcrypt password hashes, tokenVersion for session invalidation, and administrative governance audit logs.",
+      "metadata": {
+        "fieldsCount": 9,
+        "fields": [
+          "id",
+          "adminId",
+          "action",
+          "targetType",
+          "targetId",
+          "details",
+          "ipAddress",
+          "createdAt",
+          "admin"
+        ]
+      }
+    },
+    {
+      "id": "model:booking",
+      "label": "🗄️ Model: Booking",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "system",
+        "booking"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Core fulfillment record managing status lifecycle, dual-PIN bcrypt hashes, AES customer PIN display ciphers, and photo evidence.",
+      "metadata": {
+        "fieldsCount": 40,
+        "fields": [
+          "id",
+          "userId",
+          "providerId",
+          "serviceId",
+          "subscriptionId",
+          "bookingDate",
+          "bookingTime",
+          "town",
+          "addressStreet",
+          "addressDistrict"
+        ]
+      }
+    },
+    {
+      "id": "model:category",
+      "label": "🗄️ Model: Category",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing Category records.",
+      "metadata": {
+        "fieldsCount": 7,
+        "fields": [
+          "id",
+          "name",
+          "description",
+          "icon",
+          "services",
+          "subscriptionEntitlements",
+          "userSubscriptionEntitlements"
+        ]
+      }
+    },
+    {
+      "id": "model:complaint",
+      "label": "🗄️ Model: Complaint",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing Complaint records.",
+      "metadata": {
+        "fieldsCount": 11,
+        "fields": [
+          "id",
+          "userId",
+          "bookingId",
+          "subject",
+          "description",
+          "status",
+          "adminNote",
+          "createdAt",
+          "updatedAt",
+          "booking"
+        ]
+      }
+    },
+    {
+      "id": "model:kycdocument",
+      "label": "🗄️ Model: KycDocument",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "security",
+        "booking"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Provider operational record tracking KYC approval, coverage towns, AES-256-GCM encrypted bank accounts, and monthly payout ledgers.",
+      "metadata": {
+        "fieldsCount": 9,
+        "fields": [
+          "id",
+          "providerId",
+          "documentType",
+          "filePath",
+          "originalName",
+          "mimeType",
+          "sizeBytes",
+          "createdAt",
+          "provider"
+        ]
+      }
+    },
+    {
+      "id": "model:notification",
+      "label": "🗄️ Model: Notification",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing Notification records.",
+      "metadata": {
+        "fieldsCount": 7,
+        "fields": [
+          "id",
+          "userId",
+          "message",
+          "link",
+          "read",
+          "createdAt",
+          "user"
+        ]
+      }
+    },
+    {
+      "id": "model:passwordresettoken",
+      "label": "🗄️ Model: PasswordResetToken",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "security"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Identity record holding bcrypt password hashes, tokenVersion for session invalidation, and administrative governance audit logs.",
+      "metadata": {
+        "fieldsCount": 7,
+        "fields": [
+          "id",
+          "userId",
+          "tokenHash",
+          "expiresAt",
+          "usedAt",
+          "createdAt",
+          "user"
+        ]
+      }
+    },
+    {
+      "id": "model:payment",
+      "label": "🗄️ Model: Payment",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "system",
+        "payments"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Financial ledger record maintaining 30-day billing cycles, PayHere/NOWPayments transaction tokens, and exact token coin wallet balances.",
+      "metadata": {
+        "fieldsCount": 24,
+        "fields": [
+          "id",
+          "userId",
+          "planId",
+          "bookingId",
+          "subscriptionId",
+          "promotionId",
+          "originalAmount",
+          "discountAmount",
+          "gateway",
+          "gatewayOrderId"
+        ]
+      }
+    },
+    {
+      "id": "model:platformsetting",
+      "label": "🗄️ Model: PlatformSetting",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing PlatformSetting records.",
+      "metadata": {
+        "fieldsCount": 6,
+        "fields": [
+          "id",
+          "autoAssignmentCooldownHours",
+          "autoAssignmentStartHour",
+          "autoAssignmentEndHour",
+          "paymentMode",
+          "updatedAt"
+        ]
+      }
+    },
+    {
+      "id": "model:promotion",
+      "label": "🗄️ Model: Promotion",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing Promotion records.",
+      "metadata": {
+        "fieldsCount": 11,
+        "fields": [
+          "id",
+          "title",
+          "description",
+          "code",
+          "discountPct",
+          "active",
+          "startsAt",
+          "endsAt",
+          "createdAt",
+          "planAssignments"
+        ]
+      }
+    },
+    {
+      "id": "model:promotionplan",
+      "label": "🗄️ Model: PromotionPlan",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing PromotionPlan records.",
+      "metadata": {
+        "fieldsCount": 4,
+        "fields": [
+          "promotionId",
+          "planId",
+          "promotion",
+          "plan"
+        ]
+      }
+    },
+    {
+      "id": "model:provider",
+      "label": "🗄️ Model: Provider",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "system",
+        "security",
+        "booking"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Provider operational record tracking KYC approval, coverage towns, AES-256-GCM encrypted bank accounts, and monthly payout ledgers.",
+      "metadata": {
+        "fieldsCount": 17,
+        "fields": [
+          "id",
+          "userId",
+          "nic",
+          "kycStatus",
+          "kycRejectionReason",
+          "category",
+          "serviceTowns",
+          "availabilityStatus",
+          "earnings",
+          "createdAt"
+        ]
+      }
+    },
+    {
+      "id": "model:providerbankaccount",
+      "label": "🗄️ Model: ProviderBankAccount",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "security",
+        "booking"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Provider operational record tracking KYC approval, coverage towns, AES-256-GCM encrypted bank accounts, and monthly payout ledgers.",
+      "metadata": {
+        "fieldsCount": 13,
+        "fields": [
+          "id",
+          "providerId",
+          "bankName",
+          "accountHolder",
+          "accountNumber",
+          "branch",
+          "accountMask",
+          "accountHash",
+          "selected",
+          "createdAt"
+        ]
+      }
+    },
+    {
+      "id": "model:providerpayout",
+      "label": "🗄️ Model: ProviderPayout",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "security",
+        "booking"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Provider operational record tracking KYC approval, coverage towns, AES-256-GCM encrypted bank accounts, and monthly payout ledgers.",
+      "metadata": {
+        "fieldsCount": 16,
+        "fields": [
+          "id",
+          "providerId",
+          "bankAccountId",
+          "period",
+          "amount",
+          "kind",
+          "status",
+          "idempotencyKey",
+          "bankNameSnapshot",
+          "accountHolderSnapshot"
+        ]
+      }
+    },
+    {
+      "id": "model:review",
+      "label": "🗄️ Model: Review",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing Review records.",
+      "metadata": {
+        "fieldsCount": 10,
+        "fields": [
+          "id",
+          "bookingId",
+          "userId",
+          "providerId",
+          "rating",
+          "comment",
+          "createdAt",
+          "booking",
+          "provider",
+          "user"
+        ]
+      }
+    },
+    {
+      "id": "model:service",
+      "label": "🗄️ Model: Service",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "system"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing Service records.",
+      "metadata": {
+        "fieldsCount": 9,
+        "fields": [
+          "id",
+          "categoryId",
+          "title",
+          "description",
+          "price",
+          "providerEarning",
+          "durationMins",
+          "bookings",
+          "category"
+        ]
+      }
+    },
+    {
+      "id": "model:servicephoto",
+      "label": "🗄️ Model: ServicePhoto",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "booking"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Core fulfillment record managing status lifecycle, dual-PIN bcrypt hashes, AES customer PIN display ciphers, and photo evidence.",
+      "metadata": {
+        "fieldsCount": 9,
+        "fields": [
+          "id",
+          "bookingId",
+          "kind",
+          "filePath",
+          "originalName",
+          "mimeType",
+          "sizeBytes",
+          "createdAt",
+          "booking"
+        ]
+      }
+    },
+    {
+      "id": "model:subscriptionentitlement",
+      "label": "🗄️ Model: SubscriptionEntitlement",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "payments"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Financial ledger record maintaining 30-day billing cycles, PayHere/NOWPayments transaction tokens, and exact token coin wallet balances.",
+      "metadata": {
+        "fieldsCount": 6,
+        "fields": [
+          "id",
+          "planId",
+          "categoryId",
+          "units",
+          "plan",
+          "category"
+        ]
+      }
+    },
+    {
+      "id": "model:subscriptionplan",
+      "label": "🗄️ Model: SubscriptionPlan",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "payments"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Financial ledger record maintaining 30-day billing cycles, PayHere/NOWPayments transaction tokens, and exact token coin wallet balances.",
+      "metadata": {
+        "fieldsCount": 14,
+        "fields": [
+          "id",
+          "title",
+          "type",
+          "priceMonthly",
+          "durationDays",
+          "active",
+          "recommended",
+          "description",
+          "features",
+          "displayOrder"
+        ]
+      }
+    },
+    {
+      "id": "model:supportticket",
+      "label": "🗄️ Model: SupportTicket",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing SupportTicket records.",
+      "metadata": {
+        "fieldsCount": 10,
+        "fields": [
+          "id",
+          "userId",
+          "subject",
+          "message",
+          "status",
+          "priority",
+          "adminResponse",
+          "createdAt",
+          "updatedAt",
+          "user"
+        ]
+      }
+    },
+    {
+      "id": "model:user",
+      "label": "🗄️ Model: User",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "system",
+        "security"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Identity record holding bcrypt password hashes, tokenVersion for session invalidation, and administrative governance audit logs.",
+      "metadata": {
+        "fieldsCount": 24,
+        "fields": [
+          "id",
+          "name",
+          "email",
+          "passwordHash",
+          "phone",
+          "phoneVerified",
+          "town",
+          "addressStreet",
+          "addressDistrict",
+          "role"
+        ]
+      }
+    },
+    {
+      "id": "model:usersubscription",
+      "label": "🗄️ Model: UserSubscription",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "system",
+        "payments"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Financial ledger record maintaining 30-day billing cycles, PayHere/NOWPayments transaction tokens, and exact token coin wallet balances.",
+      "metadata": {
+        "fieldsCount": 19,
+        "fields": [
+          "id",
+          "userId",
+          "planId",
+          "planTitle",
+          "planType",
+          "pricePaid",
+          "currency",
+          "durationDays",
+          "startDate",
+          "endDate"
+        ]
+      }
+    },
+    {
+      "id": "model:usersubscriptionentitlement",
+      "label": "🗄️ Model: UserSubscriptionEntitlement",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database",
+        "payments"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Financial ledger record maintaining 30-day billing cycles, PayHere/NOWPayments transaction tokens, and exact token coin wallet balances.",
+      "metadata": {
+        "fieldsCount": 6,
+        "fields": [
+          "id",
+          "subscriptionId",
+          "categoryId",
+          "units",
+          "subscription",
+          "category"
+        ]
+      }
+    },
+    {
+      "id": "page:admin-dashboard",
+      "label": "💻 Admin Dashboard",
+      "layer": "Frontend Presentation",
+      "type": "frontend_page",
+      "views": [
+        "system",
+        "frontend",
+        "backend",
+        "security"
+      ],
+      "file": "frontend/src/pages/AdminDashboard.jsx",
+      "description": "13-module administrative suite: User activation, KYC document approvals/rejections, 30-day package creation, booking oversight, complaint resolution, and monthly payout execution.",
+      "metadata": {}
+    },
+    {
+      "id": "page:book-service",
+      "label": "📅 Booking Wizard",
+      "layer": "Frontend Presentation",
+      "type": "frontend_page",
+      "views": [
+        "frontend",
+        "booking"
+      ],
+      "file": "frontend/src/pages/BookService.jsx",
+      "description": "Multi-step service booking wizard: category selector (Auto, Garden, Pet Care), town/district selection, date picker, and 15-minute slot validation.",
+      "metadata": {}
+    },
+    {
+      "id": "page:customer-dashboard",
+      "label": "💻 Customer Dashboard",
+      "layer": "Frontend Presentation",
+      "type": "frontend_page",
+      "views": [
+        "system",
+        "frontend",
+        "booking",
+        "payments",
+        "realtime"
+      ],
+      "file": "frontend/src/pages/CustomerDashboard.jsx",
+      "description": "Customer portal featuring 4 core tabs: Overview (token wallet balance), Booking Wizard, Active Bookings (PIN reveal cards), and Invoices with client-side jsPDF downloads.",
+      "metadata": {}
+    },
+    {
+      "id": "page:login-signup",
+      "label": "🔐 Auth & Onboarding",
+      "layer": "Frontend Presentation",
+      "type": "frontend_page",
+      "views": [
+        "system",
+        "frontend",
+        "security"
+      ],
+      "file": "frontend/src/pages/Login.jsx",
+      "description": "Authentication entry point handling email/password login, Google OAuth 2.0 Web Client Sign-In, and role-specific registration.",
+      "metadata": {}
+    },
+    {
+      "id": "page:provider-dashboard",
+      "label": "💻 Provider Dashboard",
+      "layer": "Frontend Presentation",
+      "type": "frontend_page",
+      "views": [
+        "system",
+        "frontend",
+        "booking",
+        "realtime"
+      ],
+      "file": "frontend/src/pages/ProviderDashboard.jsx",
+      "description": "Provider operational desk: Availability toggle (ONLINE/OFFLINE), calendar appointments, pending booking claims, dual-PIN verification dialogs, and earnings summaries.",
+      "metadata": {}
+    },
+    {
+      "id": "route:admin",
+      "label": "🚦 /api/admin Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "security",
+        "payments"
+      ],
+      "file": "backend/src/routes/admin.js",
+      "description": "Platform oversight: KYC approvals/rejections with reason notes, 30-day package definitions, manual booking reassignment, complaint resolutions, and monthly payout execution.",
+      "metadata": {}
+    },
+    {
+      "id": "route:auth",
+      "label": "🚦 /api/auth Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "security"
+      ],
+      "file": "backend/src/routes/auth.js",
+      "description": "Customer/provider registration, login, Google Sign-In, password reset token issuance and revocation.",
+      "metadata": {}
+    },
+    {
+      "id": "route:bookings",
+      "label": "🚦 /api/bookings Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "system",
+        "backend",
+        "booking",
+        "realtime"
+      ],
+      "file": "backend/src/routes/bookings.js",
+      "description": "Fulfillment engine: POST booking creation, auto-assignment, pending booking claiming, Start PIN + BEFORE photo verification, Completion PIN + AFTER photo verification, and cancellation requests.",
+      "metadata": {}
+    },
+    {
+      "id": "route:customer",
+      "label": "🚦 /api/customer Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "booking"
+      ],
+      "file": "backend/src/routes/customer.js",
+      "description": "Customer dashboard data aggregations, active subscription coins snapshot, booking histories, and profile updates.",
+      "metadata": {}
+    },
+    {
+      "id": "route:integrations",
+      "label": "🚦 /api/integrations Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "payments",
+        "email"
+      ],
+      "file": "backend/src/routes/integrations.js",
+      "description": "Webhook receivers: PayHere MD5 signature verified IPN, NOWPayments HMAC-SHA512 IPN, and Resend transactional email client.",
+      "metadata": {}
+    },
+    {
+      "id": "route:provider",
+      "label": "🚦 /api/provider Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "booking",
+        "security"
+      ],
+      "file": "backend/src/routes/provider.js",
+      "description": "Provider operations: availability toggle (ONLINE/OFFLINE), coverage town selection, AES-256-GCM bank account registration, and earnings aggregation.",
+      "metadata": {}
+    },
+    {
+      "id": "route:services",
+      "label": "🚦 /api/services Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "payments"
+      ],
+      "file": "backend/src/routes/services.js",
+      "description": "Public service catalog, category definitions, 30-day package listings, and subscription checkout session creation.",
+      "metadata": {}
+    },
+    {
+      "id": "route:uploads",
+      "label": "🚦 /api/uploads Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "security",
+        "email"
+      ],
+      "file": "backend/src/routes/uploads.js",
+      "description": "Multipart memory-buffered upload processor performing magic-byte content sniffing for genuine JPEG/PNG/PDF files before streaming to S3.",
+      "metadata": {}
+    },
+    {
+      "id": "sec:bcrypt",
+      "label": "🔒 Bcrypt (10 Rounds)",
+      "layer": "Security Controls",
+      "type": "security_control",
+      "views": [
+        "security",
+        "booking"
+      ],
+      "file": "backend/src/routes/auth.js",
+      "description": "Adaptive cryptographic key derivation protecting user passwords and 4-digit start/completion PIN codes against brute-force and dictionary attacks.",
+      "metadata": {}
+    },
+    {
+      "id": "sec:jwt-revocation",
+      "label": "🔑 Token Revocation",
+      "layer": "Security Controls",
+      "type": "security_control",
+      "views": [
+        "security"
+      ],
+      "file": "backend/src/middleware/auth.js",
+      "description": "Stateful invalidation pattern: JWT carries tokenVersion integer. When user resets password or admin deactivates account, tokenVersion increments in PostgreSQL, instantly revoking all active client sessions across all devices.",
+      "metadata": {}
+    },
+    {
+      "id": "sec:magic-bytes",
+      "label": "🔍 Magic-Bytes Sniffer",
+      "layer": "Security Controls",
+      "type": "security_control",
+      "views": [
+        "security"
+      ],
+      "file": "backend/src/routes/uploads.js",
+      "description": "Content-based file sniffer checking raw buffer headers (FF D8 FF for JPEG, 89 50 4E 47 for PNG, 25 50 44 46 for PDF) to reject spoofed executable extensions.",
+      "metadata": {}
+    },
+    {
+      "id": "sec:security-headers",
+      "label": "🛡️ CSP & Security Headers",
+      "layer": "Security Controls",
+      "type": "security_control",
+      "views": [
+        "security"
+      ],
+      "file": "backend/src/index.js",
+      "description": "Defense-in-depth HTTP headers enforcing X-Content-Type-Options: nosniff, X-Frame-Options: SAMEORIGIN, HSTS, and strict Content-Security-Policy.",
+      "metadata": {}
+    },
+    {
+      "id": "server:express-app",
+      "label": "⚡ Express 5 API Gateway",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_server",
+      "views": [
+        "system",
+        "backend",
+        "security",
+        "deployment"
+      ],
+      "file": "backend/src/index.js",
+      "description": "Central HTTP server configuring security headers (CSP, HSTS, X-Frame-Options), strict CORS origins, reverse proxy trust, central Prisma error handling, and background schedulers.",
+      "metadata": {
+        "port": 5000,
+        "framework": "Express 5.2.1",
+        "runtime": "Node.js 22 LTS"
+      }
+    },
+    {
+      "id": "service:banking-crypto",
+      "label": "🔒 AES-256 Banking Crypto",
+      "layer": "Security Controls",
+      "type": "security_service",
+      "views": [
+        "backend",
+        "security",
+        "payments"
+      ],
+      "file": "backend/src/services/bankingCrypto.js",
+      "description": "Cryptographic security module encrypting provider bank account numbers at rest using AES-256-GCM (enc:v1:<iv+ciphertext+tag>), paired with non-reversible SHA-256 search hashes and display masking (****1234).",
+      "metadata": {
+        "algorithm": "AES-256-GCM",
+        "hashAlgorithm": "SHA-256",
+        "keyDerivation": "SHA-256(BANK_ENCRYPTION_KEY)"
+      }
+    },
+    {
+      "id": "service:booking-timeouts",
+      "label": "⏱️ Timeout Background Worker",
+      "layer": "Domain Services",
+      "type": "backend_service",
+      "views": [
+        "backend",
+        "booking"
+      ],
+      "file": "backend/src/services/bookingTimeouts.js",
+      "description": "Continuous background scheduler asserting transactional advisory locks (pg_advisory_xact_lock) to auto-cancel unassigned bookings after 30 min or unstarted bookings after 2h, immediately restoring customer coin entitlements.",
+      "metadata": {
+        "unassignedTimeoutMins": 30,
+        "unstartedTimeoutHours": 2,
+        "lockStrategy": "pg_advisory_xact_lock"
+      }
+    },
+    {
+      "id": "service:frontend-api",
+      "label": "🔌 API Client (apiRequest)",
+      "layer": "Frontend Presentation",
+      "type": "frontend_component",
+      "views": [
+        "system",
+        "frontend",
+        "backend",
+        "security"
+      ],
+      "file": "frontend/src/services/api.js",
+      "description": "Central HTTP client that injects Authorization Bearer tokens, enforces a 30s AbortController timeout, and purges sessionStorage on 401/403 session revocations.",
+      "metadata": {}
+    },
+    {
+      "id": "service:integrations",
+      "label": "🔌 Gateway Integrations",
+      "layer": "Domain Services",
+      "type": "backend_service",
+      "views": [
+        "backend",
+        "payments",
+        "email"
+      ],
+      "file": "backend/src/services/integrations.js",
+      "description": "PayHere MD5 signature token generation and timingSafeEqual IPN verification, NOWPayments HMAC-SHA512 verification over sorted JSON keys, and Resend REST email dispatch.",
+      "metadata": {}
+    },
+    {
+      "id": "service:payouts",
+      "label": "💰 Monthly Payouts Manager",
+      "layer": "Domain Services",
+      "type": "backend_service",
+      "views": [
+        "backend",
+        "payments"
+      ],
+      "file": "backend/src/services/payouts.js",
+      "description": "Gathers all COMPLETED bookings within the calendar month, calculates fixed provider service earnings, and queues idempotent monthly payout records for admin review and bank settlement.",
+      "metadata": {
+        "cycle": "monthly",
+        "payoutStatus": [
+          "PENDING",
+          "PAID",
+          "FAILED"
+        ]
+      }
+    },
+    {
+      "id": "service:realtime",
+      "label": "📡 Realtime SSE Engine",
+      "layer": "Realtime & SSE",
+      "type": "realtime_service",
+      "views": [
+        "system",
+        "backend",
+        "booking",
+        "realtime"
+      ],
+      "file": "backend/src/services/realtime.js",
+      "description": "Server-Sent Events manager keeping an in-memory map of authenticated active connections, a 25-second keep-alive ping loop, and targeted role/user event broadcasting via broadcastBookingEvent().",
+      "metadata": {
+        "endpoint": "GET /api/realtime",
+        "heartbeatIntervalMs": 25000,
+        "events": [
+          "connected",
+          "BOOKING_CREATED",
+          "BOOKING_ASSIGNED",
+          "BOOKING_CLAIMED",
+          "BOOKING_STATUS_CHANGED",
+          "BOOKING_CANCELLED",
+          "PAYMENT_UPDATED"
+        ]
+      }
+    },
+    {
+      "id": "service:scheduling",
+      "label": "⚙️ Scheduling & Dispatch",
+      "layer": "Domain Services",
+      "type": "backend_service",
+      "views": [
+        "system",
+        "backend",
+        "booking"
+      ],
+      "file": "backend/src/services/scheduling.js",
+      "description": "Autonomous provider auto-assignment algorithm; evaluates category capability, geographic service town match, KYC=APPROVED status, ONLINE availability, 2-hour schedule non-overlap, and 6-hour safety windows.",
+      "metadata": {
+        "strategy": "least-loaded-provider",
+        "safetyWindowHours": 6
+      }
+    },
+    {
+      "id": "service:storage",
+      "label": "📦 S3 Storage Client",
+      "layer": "Domain Services",
+      "type": "backend_service",
+      "views": [
+        "backend",
+        "security",
+        "email",
+        "deployment"
+      ],
+      "file": "backend/src/services/storage.js",
+      "description": "Multi-cloud object storage wrapper integrating @aws-sdk/client-s3 with local fallback. Enforces assertStorageConfigured() on production startup to prevent container ephemeral data loss.",
+      "metadata": {
+        "supportedProviders": [
+          "AWS S3",
+          "Cloudflare R2",
+          "Local Disk Fallback"
+        ]
+      }
+    },
+    {
+      "id": "user:admin",
+      "label": "👤 Admin (Platform)",
+      "layer": "Users & Roles",
+      "type": "user_actor",
+      "views": [
+        "system",
+        "frontend",
+        "backend",
+        "security",
+        "deployment"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Oversees platform operations, evaluates provider KYC submissions, defines 30-day service packages, resolves complaints, replies to support tickets, and queues monthly provider bank payouts. There is no Super Admin.",
+      "metadata": {
+        "role": "ADMIN",
+        "capabilities": [
+          "kyc_decision",
+          "package_crud",
+          "payout_settlement",
+          "audit_logging"
+        ]
+      }
+    },
+    {
+      "id": "user:customer",
+      "label": "👤 Customer",
+      "layer": "Users & Roles",
+      "type": "user_actor",
+      "views": [
+        "system",
+        "frontend",
+        "booking",
+        "payments",
+        "security",
+        "deployment"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Purchases 30-day packages, books home services with active category coins, reveals 4-digit start and completion PINs, submits reviews, complaints, and support tickets.",
+      "metadata": {
+        "role": "CUSTOMER",
+        "capabilities": [
+          "package_purchase",
+          "coin_booking",
+          "pin_access",
+          "complaints"
+        ]
+      }
+    },
+    {
+      "id": "user:provider",
+      "label": "👤 Provider (Technician)",
+      "layer": "Users & Roles",
+      "type": "user_actor",
+      "views": [
+        "system",
+        "frontend",
+        "booking",
+        "realtime",
+        "security",
+        "deployment"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Submits KYC identity proofs, manages coverage towns and live availability, receives auto-assigned bookings, claims pending jobs, verifies Start and Completion PINs with photographic evidence, and tracks earnings.",
+      "metadata": {
+        "role": "PROVIDER",
+        "capabilities": [
+          "kyc_submission",
+          "availability_toggle",
+          "booking_fulfillment",
+          "double_pin_verification"
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "cicd:backend->cicd:gate:reports_to",
+      "from": "cicd:backend",
+      "to": "cicd:gate",
+      "type": "reports_to",
+      "label": "Passes Result",
+      "description": "Gate verifies backend test outcome.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:docker->cicd:gate:reports_to",
+      "from": "cicd:docker",
+      "to": "cicd:gate",
+      "type": "reports_to",
+      "label": "Passes Result",
+      "description": "Gate verifies docker smoke outcome.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:github-repo->cicd:classifier:triggers",
+      "from": "cicd:github-repo",
+      "to": "cicd:classifier",
+      "type": "triggers",
+      "label": "Push / PR Event",
+      "description": "Classifies changed files to plan selective jobs.",
+      "views": [
+        "system",
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:github-repo->cicd:guard:triggers",
+      "from": "cicd:github-repo",
+      "to": "cicd:guard",
+      "type": "triggers",
+      "label": "Push / PR Event",
+      "description": "Starts security guard in parallel with plan check.",
+      "views": [
+        "system",
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:github-repo->deploy:github-pages:deploys_via_workflow",
+      "from": "cicd:github-repo",
+      "to": "deploy:github-pages",
+      "type": "deploys_via_workflow",
+      "label": "knowledge-graph-pages.yml",
+      "description": "GitHub Actions workflow validates graph and publishes to GitHub Pages.",
+      "views": [
+        "system",
+        "deployment",
+        "kg"
+      ]
+    },
+    {
+      "id": "cicd:github-repo->deploy:northflank:deploys_via_webhook",
+      "from": "cicd:github-repo",
+      "to": "deploy:northflank",
+      "type": "deploys_via_webhook",
+      "label": "Git Push to main",
+      "description": "Northflank pulls commit, builds Docker container, runs migrations, and boots API.",
+      "views": [
+        "system",
+        "deployment"
+      ]
+    },
+    {
+      "id": "cicd:github-repo->deploy:vercel:deploys_via_webhook",
+      "from": "cicd:github-repo",
+      "to": "deploy:vercel",
+      "type": "deploys_via_webhook",
+      "label": "Git Push to main",
+      "description": "Vercel pulls commit, builds Vite SPA, and deploys to edge CDN.",
+      "views": [
+        "system",
+        "deployment"
+      ]
+    },
+    {
+      "id": "cicd:guard->cicd:audit:gates",
+      "from": "cicd:guard",
+      "to": "cicd:audit",
+      "type": "gates",
+      "label": "requires guard success",
+      "description": "Dependency audit runs only after guard passes.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:guard->cicd:backend:gates",
+      "from": "cicd:guard",
+      "to": "cicd:backend",
+      "type": "gates",
+      "label": "requires guard success",
+      "description": "Backend tests run only after guard passes.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:guard->cicd:docker:gates",
+      "from": "cicd:guard",
+      "to": "cicd:docker",
+      "type": "gates",
+      "label": "requires guard success",
+      "description": "Docker smoke runs only after guard passes.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:guard->cicd:gate:reports_to",
+      "from": "cicd:guard",
+      "to": "cicd:gate",
+      "type": "reports_to",
+      "label": "Must Pass",
+      "description": "Gate strictly asserts GUARD_RESULT === success.",
+      "views": [
+        "system",
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:guard->cicd:kg:gates",
+      "from": "cicd:guard",
+      "to": "cicd:kg",
+      "type": "gates",
+      "label": "requires guard success",
+      "description": "Knowledge Graph verify runs only after guard passes.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:guard->cicd:quality:gates",
+      "from": "cicd:guard",
+      "to": "cicd:quality",
+      "type": "gates",
+      "label": "requires guard success",
+      "description": "Quality check runs only after guard passes.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:kg->cicd:gate:reports_to",
+      "from": "cicd:kg",
+      "to": "cicd:gate",
+      "type": "reports_to",
+      "label": "Passes Result",
+      "description": "Gate verifies knowledge graph job outcome.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "cicd:quality->cicd:gate:reports_to",
+      "from": "cicd:quality",
+      "to": "cicd:gate",
+      "type": "reports_to",
+      "label": "Passes Result",
+      "description": "Gate verifies quality job outcome.",
+      "views": [
+        "cicd"
+      ]
+    },
+    {
+      "id": "deploy:northflank->ext:postgresql:pools_connections",
+      "from": "deploy:northflank",
+      "to": "ext:postgresql",
+      "type": "pools_connections",
+      "label": "Prisma Connection Pool",
+      "description": "Northflank API communicates with PostgreSQL instance.",
+      "views": [
+        "deployment",
+        "database"
+      ]
+    },
+    {
+      "id": "deploy:northflank->ext:s3:object_storage",
+      "from": "deploy:northflank",
+      "to": "ext:s3",
+      "type": "object_storage",
+      "label": "S3 API Over HTTPS",
+      "description": "Northflank API streams photos and documents to S3.",
+      "views": [
+        "deployment",
+        "email"
+      ]
+    },
+    {
+      "id": "deploy:vercel->deploy:northflank:cors_requests",
+      "from": "deploy:vercel",
+      "to": "deploy:northflank",
+      "type": "cors_requests",
+      "label": "HTTPS REST API Calls",
+      "description": "Vercel SPA communicates with Northflank API with whitelisted CORS headers.",
+      "views": [
+        "system",
+        "deployment"
+      ]
+    },
+    {
+      "id": "ext:nowpayments->route:integrations:dispatches_ipn",
+      "from": "ext:nowpayments",
+      "to": "route:integrations",
+      "type": "dispatches_ipn",
+      "label": "NOWPayments IPN",
+      "description": "NOWPayments posts crypto status to /api/payments/nowpayments/ipn.",
+      "views": [
+        "payments"
+      ]
+    },
+    {
+      "id": "ext:payhere->route:integrations:dispatches_ipn",
+      "from": "ext:payhere",
+      "to": "route:integrations",
+      "type": "dispatches_ipn",
+      "label": "PayHere Webhook IPN",
+      "description": "PayHere posts payment status to /api/payments/payhere/webhook.",
+      "views": [
+        "payments"
+      ]
+    },
+    {
+      "id": "hook:use-realtime->component:active-booking-cards:triggers_sync",
+      "from": "hook:use-realtime",
+      "to": "component:active-booking-cards",
+      "type": "triggers_sync",
+      "label": "Refreshes Live Cards",
+      "description": "Updates card statuses and triggers onSync recovery.",
+      "views": [
+        "realtime",
+        "booking"
+      ]
+    },
+    {
+      "id": "hook:use-realtime->service:realtime:connects",
+      "from": "hook:use-realtime",
+      "to": "service:realtime",
+      "type": "connects",
+      "label": "Persistent SSE Connection",
+      "description": "Browser establishes EventSource stream to receive real-time notifications.",
+      "views": [
+        "system",
+        "frontend",
+        "realtime"
+      ]
+    },
+    {
+      "id": "kg:generator->kg:explorer:populates",
+      "from": "kg:generator",
+      "to": "kg:explorer",
+      "type": "populates",
+      "label": "Compiles index.html",
+      "description": "Generates visual explorer with embedded graph data.",
+      "views": [
+        "kg"
+      ]
+    },
+    {
+      "id": "kg:generator->kg:validator:validated_by",
+      "from": "kg:generator",
+      "to": "kg:validator",
+      "type": "validated_by",
+      "label": "npm run graph:validate",
+      "description": "Validator verifies newly generated graph against strict invariants.",
+      "views": [
+        "kg"
+      ]
+    },
+    {
+      "id": "middleware:auth->model:user:verifies",
+      "from": "middleware:auth",
+      "to": "model:user",
+      "type": "verifies",
+      "label": "Checks tokenVersion & Active",
+      "description": "Queries PostgreSQL to ensure account active and token not revoked.",
+      "views": [
+        "backend",
+        "security"
+      ]
+    },
+    {
+      "id": "model:booking->model:review:rates",
+      "from": "model:booking",
+      "to": "model:review",
+      "type": "rates",
+      "label": "1:1 Rating",
+      "description": "Customer rates completed service with 1-5 stars and comments.",
+      "views": [
+        "database"
+      ]
+    },
+    {
+      "id": "model:booking->model:servicephoto:evidence",
+      "from": "model:booking",
+      "to": "model:servicephoto",
+      "type": "evidence",
+      "label": "1:N Photos",
+      "description": "Service execution stores mandatory BEFORE and AFTER photos.",
+      "views": [
+        "database",
+        "booking"
+      ]
+    },
+    {
+      "id": "model:provider->model:booking:fulfills",
+      "from": "model:provider",
+      "to": "model:booking",
+      "type": "fulfills",
+      "label": "1:N Assigned Bookings",
+      "description": "An approved provider is assigned to fulfill scheduled bookings.",
+      "views": [
+        "database",
+        "booking",
+        "system"
+      ]
+    },
+    {
+      "id": "model:provider->model:kycdocument:verifies",
+      "from": "model:provider",
+      "to": "model:kycdocument",
+      "type": "verifies",
+      "label": "1:N Identity Proofs",
+      "description": "Provider submits NIC, Passport, or Driving License documents.",
+      "views": [
+        "database",
+        "security"
+      ]
+    },
+    {
+      "id": "model:provider->model:providerbankaccount:payout_dest",
+      "from": "model:provider",
+      "to": "model:providerbankaccount",
+      "type": "payout_dest",
+      "label": "1:N Bank Accounts",
+      "description": "Provider registers AES-256-GCM encrypted bank accounts.",
+      "views": [
+        "database",
+        "security",
+        "payments"
+      ]
+    },
+    {
+      "id": "model:providerbankaccount->model:providerpayout:settles",
+      "from": "model:providerbankaccount",
+      "to": "model:providerpayout",
+      "type": "settles",
+      "label": "1:N Payouts",
+      "description": "Monthly earnings are disbursed to the selected verified bank account.",
+      "views": [
+        "database",
+        "payments"
+      ]
+    },
+    {
+      "id": "model:user->model:booking:books",
+      "from": "model:user",
+      "to": "model:booking",
+      "type": "books",
+      "label": "1:N Bookings",
+      "description": "A customer creates bookings consuming active category entitlements.",
+      "views": [
+        "database",
+        "booking",
+        "system"
+      ]
+    },
+    {
+      "id": "model:user->model:provider:relates",
+      "from": "model:user",
+      "to": "model:provider",
+      "type": "relates",
+      "label": "1:1 Provider Record",
+      "description": "A user account with role PROVIDER is linked 1:1 to a Provider profile.",
+      "views": [
+        "database"
+      ]
+    },
+    {
+      "id": "model:user->model:usersubscription:owns",
+      "from": "model:user",
+      "to": "model:usersubscription",
+      "type": "owns",
+      "label": "1:N Subscriptions",
+      "description": "A customer owns 0 or more 30-day active or expired subscriptions.",
+      "views": [
+        "database",
+        "payments",
+        "system"
+      ]
+    },
+    {
+      "id": "model:usersubscription->model:payment:settled_by",
+      "from": "model:usersubscription",
+      "to": "model:payment",
+      "type": "settled_by",
+      "label": "1:1 Payment",
+      "description": "Subscription activation requires verified payment record.",
+      "views": [
+        "database",
+        "payments",
+        "system"
+      ]
+    },
+    {
+      "id": "model:usersubscription->model:usersubscriptionentitlement:allocates",
+      "from": "model:usersubscription",
+      "to": "model:usersubscriptionentitlement",
+      "type": "allocates",
+      "label": "1:N Coins",
+      "description": "Active subscription holds live remaining token coin balances per category.",
+      "views": [
+        "database",
+        "payments"
+      ]
+    },
+    {
+      "id": "page:admin-dashboard->hook:use-realtime:subscribes",
+      "from": "page:admin-dashboard",
+      "to": "hook:use-realtime",
+      "type": "subscribes",
+      "label": "Listens for All System Events",
+      "description": "Admin dashboard receives real-time operational stream across all bookings.",
+      "views": [
+        "frontend",
+        "realtime"
+      ]
+    },
+    {
+      "id": "page:admin-dashboard->service:frontend-api:invokes",
+      "from": "page:admin-dashboard",
+      "to": "service:frontend-api",
+      "type": "invokes",
+      "label": "Dispatches REST Calls",
+      "description": "Admin updates (KYC, packages, payouts) routed through apiRequest().",
+      "views": [
+        "frontend",
+        "backend"
+      ]
+    },
+    {
+      "id": "page:book-service->route:services:initiates_checkout",
+      "from": "page:book-service",
+      "to": "route:services",
+      "type": "initiates_checkout",
+      "label": "POST /checkout",
+      "description": "Initiates checkout and creates pending payment record.",
+      "views": [
+        "payments"
+      ]
+    },
+    {
+      "id": "page:customer-dashboard->component:active-booking-cards:renders",
+      "from": "page:customer-dashboard",
+      "to": "component:active-booking-cards",
+      "type": "renders",
+      "label": "Visualizes Active Jobs",
+      "description": "Overview tab embeds live booking cards with PIN reveal dialogs.",
+      "views": [
+        "frontend",
+        "booking"
+      ]
+    },
+    {
+      "id": "page:customer-dashboard->hook:use-realtime:subscribes",
+      "from": "page:customer-dashboard",
+      "to": "hook:use-realtime",
+      "type": "subscribes",
+      "label": "Listens for Booking Events",
+      "description": "Customer dashboard auto-refreshes when booking status updates via SSE.",
+      "views": [
+        "frontend",
+        "booking",
+        "realtime"
+      ]
+    },
+    {
+      "id": "page:customer-dashboard->service:frontend-api:invokes",
+      "from": "page:customer-dashboard",
+      "to": "service:frontend-api",
+      "type": "invokes",
+      "label": "Dispatches REST Calls",
+      "description": "All dashboard data fetching is routed through apiRequest().",
+      "views": [
+        "frontend",
+        "backend"
+      ]
+    },
+    {
+      "id": "page:login-signup->route:auth:authenticates",
+      "from": "page:login-signup",
+      "to": "route:auth",
+      "type": "authenticates",
+      "label": "POST /api/auth/login",
+      "description": "Submits credentials to auth router.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "page:provider-dashboard->hook:use-realtime:subscribes",
+      "from": "page:provider-dashboard",
+      "to": "hook:use-realtime",
+      "type": "subscribes",
+      "label": "Listens for New & Claimable Jobs",
+      "description": "Provider dashboard auto-refreshes on new auto-assignments or pending claim notifications.",
+      "views": [
+        "frontend",
+        "booking",
+        "realtime"
+      ]
+    },
+    {
+      "id": "page:provider-dashboard->service:frontend-api:invokes",
+      "from": "page:provider-dashboard",
+      "to": "service:frontend-api",
+      "type": "invokes",
+      "label": "Dispatches REST Calls",
+      "description": "Provider actions (availability, PINs, banking) routed through apiRequest().",
+      "views": [
+        "frontend",
+        "backend"
+      ]
+    },
+    {
+      "id": "route:auth->sec:bcrypt:hashes_password",
+      "from": "route:auth",
+      "to": "sec:bcrypt",
+      "type": "hashes_password",
+      "label": "bcrypt.compare()",
+      "description": "Compares password against stored bcrypt hash (10 salt rounds).",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "route:auth->sec:jwt-revocation:signs_jwt",
+      "from": "route:auth",
+      "to": "sec:jwt-revocation",
+      "type": "signs_jwt",
+      "label": "jwt.sign(tokenVersion)",
+      "description": "Issues JWT containing current database tokenVersion.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "route:auth->service:integrations:sends_welcome",
+      "from": "route:auth",
+      "to": "service:integrations",
+      "type": "sends_welcome",
+      "label": "Triggers Welcome Email",
+      "description": "Dispatches welcome email on customer or provider signup.",
+      "views": [
+        "email"
+      ]
+    },
+    {
+      "id": "route:bookings->model:booking:mutates",
+      "from": "route:bookings",
+      "to": "model:booking",
+      "type": "mutates",
+      "label": "Persists Booking States",
+      "description": "Creates and updates booking status from PENDING to COMPLETED.",
+      "views": [
+        "booking",
+        "database",
+        "system"
+      ]
+    },
+    {
+      "id": "route:bookings->model:usersubscriptionentitlement:deducts",
+      "from": "route:bookings",
+      "to": "model:usersubscriptionentitlement",
+      "type": "deducts",
+      "label": "Consumes 1 Coin Unit",
+      "description": "Deducts 1 service coin from the active category wallet.",
+      "views": [
+        "booking",
+        "payments",
+        "database"
+      ]
+    },
+    {
+      "id": "route:bookings->service:integrations:sends_assignment",
+      "from": "route:bookings",
+      "to": "service:integrations",
+      "type": "sends_assignment",
+      "label": "Triggers Booking Email",
+      "description": "Dispatches email notification when provider is assigned.",
+      "views": [
+        "email",
+        "booking"
+      ]
+    },
+    {
+      "id": "route:bookings->service:realtime:broadcasts",
+      "from": "route:bookings",
+      "to": "service:realtime",
+      "type": "broadcasts",
+      "label": "broadcastBookingEvent()",
+      "description": "Dispatches BOOKING_CREATED, ASSIGNED, CLAIMED, and STATUS_CHANGED events.",
+      "views": [
+        "booking",
+        "realtime"
+      ]
+    },
+    {
+      "id": "route:bookings->service:realtime:triggers_broadcast",
+      "from": "route:bookings",
+      "to": "service:realtime",
+      "type": "triggers_broadcast",
+      "label": "broadcastBookingEvent()",
+      "description": "Dispatches booking state change events to target users.",
+      "views": [
+        "realtime",
+        "booking"
+      ]
+    },
+    {
+      "id": "route:bookings->service:scheduling:delegates",
+      "from": "route:bookings",
+      "to": "service:scheduling",
+      "type": "delegates",
+      "label": "Auto-Assigns Provider",
+      "description": "Assigns eligible technician matching town, category, and KYC.",
+      "views": [
+        "backend",
+        "booking",
+        "system"
+      ]
+    },
+    {
+      "id": "route:integrations->ext:nowpayments:verifies_ipn",
+      "from": "route:integrations",
+      "to": "ext:nowpayments",
+      "type": "verifies_ipn",
+      "label": "HMAC-SHA512 IPN",
+      "description": "Validates HMAC-SHA512 signature over sorted JSON payload.",
+      "views": [
+        "payments",
+        "email"
+      ]
+    },
+    {
+      "id": "route:integrations->ext:payhere:verifies_ipn",
+      "from": "route:integrations",
+      "to": "ext:payhere",
+      "type": "verifies_ipn",
+      "label": "MD5 IPN Verification",
+      "description": "Validates timing-safe MD5 signature hash for PayHere webhook.",
+      "views": [
+        "payments",
+        "email"
+      ]
+    },
+    {
+      "id": "route:integrations->model:payment:settles_payment",
+      "from": "route:integrations",
+      "to": "model:payment",
+      "type": "settles_payment",
+      "label": "Updates Payment (COMPLETED)",
+      "description": "Verifies signature and transitions payment to COMPLETED.",
+      "views": [
+        "payments",
+        "database"
+      ]
+    },
+    {
+      "id": "route:integrations->model:usersubscription:activates_sub",
+      "from": "route:integrations",
+      "to": "model:usersubscription",
+      "type": "activates_sub",
+      "label": "Activates UserSubscription",
+      "description": "Creates 30-day active user subscription.",
+      "views": [
+        "payments",
+        "database"
+      ]
+    },
+    {
+      "id": "route:integrations->model:usersubscriptionentitlement:allocates_coins",
+      "from": "route:integrations",
+      "to": "model:usersubscriptionentitlement",
+      "type": "allocates_coins",
+      "label": "Allocates Coins",
+      "description": "Clones package units into active category token wallet.",
+      "views": [
+        "payments",
+        "database"
+      ]
+    },
+    {
+      "id": "route:provider->service:banking-crypto:encrypts_bank",
+      "from": "route:provider",
+      "to": "service:banking-crypto",
+      "type": "encrypts_bank",
+      "label": "AES-256-GCM Encryption",
+      "description": "Encrypts bank account number at rest with auth tag.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "route:services->ext:nowpayments:creates_invoice",
+      "from": "route:services",
+      "to": "ext:nowpayments",
+      "type": "creates_invoice",
+      "label": "Creates Crypto Invoice",
+      "description": "Requests NOWPayments crypto checkout invoice in USD.",
+      "views": [
+        "payments"
+      ]
+    },
+    {
+      "id": "route:services->ext:payhere:generates_hash",
+      "from": "route:services",
+      "to": "ext:payhere",
+      "type": "generates_hash",
+      "label": "Generates MD5 Hash",
+      "description": "Creates PayHere checkout form payload with MD5 signature.",
+      "views": [
+        "payments"
+      ]
+    },
+    {
+      "id": "route:services->model:payment:creates_pending",
+      "from": "route:services",
+      "to": "model:payment",
+      "type": "creates_pending",
+      "label": "Creates Payment (PENDING)",
+      "description": "Persists expected amount, currency, and gateway order ID.",
+      "views": [
+        "payments",
+        "database"
+      ]
+    },
+    {
+      "id": "route:uploads->sec:magic-bytes:validates_signature",
+      "from": "route:uploads",
+      "to": "sec:magic-bytes",
+      "type": "validates_signature",
+      "label": "detectFileSignature()",
+      "description": "Sniffs raw magic bytes (JPEG/PNG/PDF) to block exploits.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "route:uploads->service:storage:persists_buffer",
+      "from": "route:uploads",
+      "to": "service:storage",
+      "type": "persists_buffer",
+      "label": "Stores File Buffer",
+      "description": "Upload router passes memory buffer to S3 storage client.",
+      "views": [
+        "email",
+        "security"
+      ]
+    },
+    {
+      "id": "sec:jwt-revocation->middleware:auth:powers",
+      "from": "sec:jwt-revocation",
+      "to": "middleware:auth",
+      "type": "powers",
+      "label": "Session Revocation Check",
+      "description": "authenticateToken compares tokenVersion against PostgreSQL User table.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "sec:magic-bytes->route:uploads:safeguards",
+      "from": "sec:magic-bytes",
+      "to": "route:uploads",
+      "type": "safeguards",
+      "label": "Sniffs Ingested Buffers",
+      "description": "Prevents malicious script uploads masquerading as photos.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "server:express-app->ext:postgresql:acid_transactions",
+      "from": "server:express-app",
+      "to": "ext:postgresql",
+      "type": "acid_transactions",
+      "label": "Prisma Connection Pool",
+      "description": "Executes type-safe SQL queries, migrations, and row locks.",
+      "views": [
+        "system",
+        "database"
+      ]
+    },
+    {
+      "id": "server:express-app->middleware:auth:applies",
+      "from": "server:express-app",
+      "to": "middleware:auth",
+      "type": "applies",
+      "label": "Token & Session Gate",
+      "description": "Every protected API route executes authenticateToken middleware.",
+      "views": [
+        "system",
+        "backend",
+        "security"
+      ]
+    },
+    {
+      "id": "server:express-app->route:admin:mounts",
+      "from": "server:express-app",
+      "to": "route:admin",
+      "type": "mounts",
+      "label": "Mounts /api/admin",
+      "description": "Mounts system administration router.",
+      "views": [
+        "backend",
+        "security"
+      ]
+    },
+    {
+      "id": "server:express-app->route:auth:mounts",
+      "from": "server:express-app",
+      "to": "route:auth",
+      "type": "mounts",
+      "label": "Mounts /api/auth",
+      "description": "Mounts customer and provider auth routers.",
+      "views": [
+        "backend",
+        "security"
+      ]
+    },
+    {
+      "id": "server:express-app->route:bookings:mounts",
+      "from": "server:express-app",
+      "to": "route:bookings",
+      "type": "mounts",
+      "label": "Mounts /api/bookings",
+      "description": "Mounts bookings lifecycle controller.",
+      "views": [
+        "backend",
+        "booking",
+        "system"
+      ]
+    },
+    {
+      "id": "server:express-app->route:customer:mounts",
+      "from": "server:express-app",
+      "to": "route:customer",
+      "type": "mounts",
+      "label": "Mounts /api/customer",
+      "description": "Mounts customer dashboard aggregator.",
+      "views": [
+        "backend"
+      ]
+    },
+    {
+      "id": "server:express-app->route:integrations:mounts",
+      "from": "server:express-app",
+      "to": "route:integrations",
+      "type": "mounts",
+      "label": "Mounts /api/integrations",
+      "description": "Mounts payment and email webhook receiver.",
+      "views": [
+        "backend",
+        "payments",
+        "email"
+      ]
+    },
+    {
+      "id": "server:express-app->route:provider:mounts",
+      "from": "server:express-app",
+      "to": "route:provider",
+      "type": "mounts",
+      "label": "Mounts /api/provider",
+      "description": "Mounts provider operations controller.",
+      "views": [
+        "backend",
+        "booking"
+      ]
+    },
+    {
+      "id": "server:express-app->route:services:mounts",
+      "from": "server:express-app",
+      "to": "route:services",
+      "type": "mounts",
+      "label": "Mounts /api/services",
+      "description": "Mounts catalog and subscription purchase router.",
+      "views": [
+        "backend",
+        "payments"
+      ]
+    },
+    {
+      "id": "server:express-app->route:uploads:mounts",
+      "from": "server:express-app",
+      "to": "route:uploads",
+      "type": "mounts",
+      "label": "Mounts /api/uploads",
+      "description": "Mounts multipart file upload router.",
+      "views": [
+        "backend",
+        "security"
+      ]
+    },
+    {
+      "id": "server:express-app->sec:security-headers:enforces_headers",
+      "from": "server:express-app",
+      "to": "sec:security-headers",
+      "type": "enforces_headers",
+      "label": "Nosniff, CSP, HSTS",
+      "description": "Injects HTTP security headers on all incoming responses.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "server:express-app->service:realtime:mounts",
+      "from": "server:express-app",
+      "to": "service:realtime",
+      "type": "mounts",
+      "label": "Mounts /api/realtime",
+      "description": "Exposes SSE endpoint for persistent client connections.",
+      "views": [
+        "backend",
+        "realtime",
+        "system"
+      ]
+    },
+    {
+      "id": "service:booking-timeouts->model:booking:auto_cancels",
+      "from": "service:booking-timeouts",
+      "to": "model:booking",
+      "type": "auto_cancels",
+      "label": "Cancels Stale Bookings",
+      "description": "Cancels unassigned (30m) or unstarted (2h) bookings and restores coins.",
+      "views": [
+        "booking",
+        "database"
+      ]
+    },
+    {
+      "id": "service:booking-timeouts->service:integrations:sends_timeout",
+      "from": "service:booking-timeouts",
+      "to": "service:integrations",
+      "type": "sends_timeout",
+      "label": "Triggers Timeout Email",
+      "description": "Notifies customer if booking unassigned or unstarted.",
+      "views": [
+        "email",
+        "booking"
+      ]
+    },
+    {
+      "id": "service:frontend-api->server:express-app:http_request",
+      "from": "service:frontend-api",
+      "to": "server:express-app",
+      "type": "http_request",
+      "label": "REST JSON Calls",
+      "description": "Frontend dispatches all HTTP requests to Express 5 gateway.",
+      "views": [
+        "system",
+        "frontend",
+        "backend"
+      ]
+    },
+    {
+      "id": "service:integrations->ext:resend:dispatches",
+      "from": "service:integrations",
+      "to": "ext:resend",
+      "type": "dispatches",
+      "label": "HTTPS POST /emails",
+      "description": "Sends transactional email alerts for bookings, welcomes, and resets.",
+      "views": [
+        "email"
+      ]
+    },
+    {
+      "id": "service:realtime->hook:use-realtime:pushes_events",
+      "from": "service:realtime",
+      "to": "hook:use-realtime",
+      "type": "pushes_events",
+      "label": "SSE Event Stream",
+      "description": "Pushes 7 named event types to connected browser clients.",
+      "views": [
+        "realtime"
+      ]
+    },
+    {
+      "id": "service:scheduling->model:provider:queries",
+      "from": "service:scheduling",
+      "to": "model:provider",
+      "type": "queries",
+      "label": "Evaluates Eligibility",
+      "description": "Finds providers with kycStatus=APPROVED, town match, and availability.",
+      "views": [
+        "booking",
+        "system"
+      ]
+    },
+    {
+      "id": "service:storage->ext:s3:puts_object",
+      "from": "service:storage",
+      "to": "ext:s3",
+      "type": "puts_object",
+      "label": "Streams Document Buffers",
+      "description": "Stores validated multipart file buffers in cloud bucket.",
+      "views": [
+        "security",
+        "email"
+      ]
+    },
+    {
+      "id": "user:admin->deploy:vercel:accesses_spa",
+      "from": "user:admin",
+      "to": "deploy:vercel",
+      "type": "accesses_spa",
+      "label": "HTTPS luxora.bond",
+      "description": "Administrator accesses control desk through Vercel Edge CDN.",
+      "views": [
+        "deployment"
+      ]
+    },
+    {
+      "id": "user:admin->hook:use-realtime:opens_stream",
+      "from": "user:admin",
+      "to": "hook:use-realtime",
+      "type": "opens_stream",
+      "label": "Subscribes to SSE",
+      "description": "Admin opens EventSource stream to /api/realtime.",
+      "views": [
+        "realtime"
+      ]
+    },
+    {
+      "id": "user:admin->page:admin-dashboard:administers",
+      "from": "user:admin",
+      "to": "page:admin-dashboard",
+      "type": "administers",
+      "label": "Oversees Platform & Payouts",
+      "description": "Administrator approves KYC, defines packages, and manages payouts.",
+      "views": [
+        "system",
+        "frontend"
+      ]
+    },
+    {
+      "id": "user:customer->deploy:vercel:accesses_spa",
+      "from": "user:customer",
+      "to": "deploy:vercel",
+      "type": "accesses_spa",
+      "label": "HTTPS luxora.bond",
+      "description": "Customer accesses React SPA through Vercel Edge CDN.",
+      "views": [
+        "deployment",
+        "system"
+      ]
+    },
+    {
+      "id": "user:customer->hook:use-realtime:opens_stream",
+      "from": "user:customer",
+      "to": "hook:use-realtime",
+      "type": "opens_stream",
+      "label": "Subscribes to SSE",
+      "description": "Customer opens EventSource stream to /api/realtime.",
+      "views": [
+        "realtime"
+      ]
+    },
+    {
+      "id": "user:customer->page:book-service:books",
+      "from": "user:customer",
+      "to": "page:book-service",
+      "type": "books",
+      "label": "Selects Service & Slot",
+      "description": "Customer chooses domestic service discipline and schedule.",
+      "views": [
+        "frontend",
+        "booking"
+      ]
+    },
+    {
+      "id": "user:customer->page:book-service:selects_plan",
+      "from": "user:customer",
+      "to": "page:book-service",
+      "type": "selects_plan",
+      "label": "Selects 30-Day Plan",
+      "description": "Customer selects individual or combo subscription package.",
+      "views": [
+        "payments"
+      ]
+    },
+    {
+      "id": "user:customer->page:customer-dashboard:interacts",
+      "from": "user:customer",
+      "to": "page:customer-dashboard",
+      "type": "interacts",
+      "label": "Manages Bookings & Wallet",
+      "description": "Customer uses portal to check coin balances and track services.",
+      "views": [
+        "system",
+        "frontend",
+        "booking"
+      ]
+    },
+    {
+      "id": "user:customer->page:login-signup:submits_credentials",
+      "from": "user:customer",
+      "to": "page:login-signup",
+      "type": "submits_credentials",
+      "label": "Enters Password",
+      "description": "User enters email and plaintext password.",
+      "views": [
+        "security"
+      ]
+    },
+    {
+      "id": "user:provider->deploy:vercel:accesses_spa",
+      "from": "user:provider",
+      "to": "deploy:vercel",
+      "type": "accesses_spa",
+      "label": "HTTPS luxora.bond",
+      "description": "Provider accesses portal through Vercel Edge CDN.",
+      "views": [
+        "deployment"
+      ]
+    },
+    {
+      "id": "user:provider->hook:use-realtime:opens_stream",
+      "from": "user:provider",
+      "to": "hook:use-realtime",
+      "type": "opens_stream",
+      "label": "Subscribes to SSE",
+      "description": "Provider opens EventSource stream to /api/realtime.",
+      "views": [
+        "realtime"
+      ]
+    },
+    {
+      "id": "user:provider->page:provider-dashboard:operates",
+      "from": "user:provider",
+      "to": "page:provider-dashboard",
+      "type": "operates",
+      "label": "Fulfills Assigned Jobs",
+      "description": "Provider reviews schedule, claims pending bookings, and enters PINs.",
+      "views": [
+        "system",
+        "frontend",
+        "booking"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luxora Live System Architecture Explorer</title>
+  <script type="text/javascript" src="./vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #070b14;
+      --bg-secondary: #0d1424;
+      --bg-panel: #111a2f;
+      --bg-card: #15223c;
+      --accent-gold: #c9a84c;
+      --accent-gold-light: #e5c76b;
+      --accent-blue: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #1e2d4d;
+      --border-highlight: #2e4472;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top Navigation Header */
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      font-weight: 900;
+      font-size: 14pt;
+      letter-spacing: 1.5px;
+      color: var(--accent-gold);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-tag {
+      background: rgba(201, 168, 76, 0.15);
+      border: 1px solid var(--accent-gold);
+      color: var(--accent-gold-light);
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stat-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 8pt;
+      color: var(--text-secondary);
+    }
+    .stat-pill strong { color: var(--text-primary); }
+
+    .nav-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 8.5pt;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .nav-btn:hover {
+      background: var(--border-color);
+      border-color: var(--accent-gold);
+      color: var(--accent-gold-light);
+    }
+
+    /* Views Ribbon */
+    .view-ribbon {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      padding: 6px 16px;
+      gap: 6px;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .view-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 8.5pt;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .view-tab:hover {
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .view-tab.active {
+      background: rgba(201, 168, 76, 0.15);
+      border-color: var(--accent-gold);
+      color: var(--accent-gold-light);
+    }
+
+    /* Main Explorer Workspace */
+    .main-layout {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Left Control Sidebar */
+    .control-sidebar {
+      width: 320px;
+      flex-shrink: 0;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 14px;
+      z-index: 15;
+    }
+
+    .sidebar-section-title {
+      font-size: 8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent-gold);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .view-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 8.5pt;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+    .view-card strong { color: var(--text-primary); display: block; margin-bottom: 4px; font-size: 9.5pt; }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 8.5pt;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus {
+      border-color: var(--accent-gold);
+    }
+
+    .layer-filter-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .layer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      background: var(--bg-panel);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      font-size: 8pt;
+      cursor: pointer;
+      user-select: none;
+    }
+    .layer-item:hover { border-color: var(--border-color); }
+    .layer-item.active { background: var(--bg-card); border-color: var(--border-highlight); }
+
+    .layer-label-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .layer-badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .layer-count {
+      background: var(--bg-primary);
+      color: var(--text-muted);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 7.5pt;
+      font-weight: 600;
+    }
+
+    .canvas-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn-action {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 7px 10px;
+      border-radius: 4px;
+      font-size: 8pt;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-action:hover { background: var(--border-color); border-color: var(--accent-gold); }
+
+    /* Center Network Canvas */
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #0d1424 0%, #070b14 100%);
+      overflow: hidden;
+    }
+
+    #network {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .canvas-overlay-stats {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: rgba(13, 20, 36, 0.9);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(8px);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 8pt;
+      color: var(--text-secondary);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Right Slide-Over Inspector */
+    .inspector-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 380px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      box-shadow: -8px 0 32px rgba(0,0,0,0.6);
+      transform: translateX(100%);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 20px;
+      gap: 16px;
+    }
+
+    .inspector-panel.open {
+      transform: translateX(0);
+    }
+
+    .inspector-close-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      border-radius: 4px;
+    }
+    .inspector-close-btn:hover { color: #fff; background: var(--border-color); }
+
+    .node-header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+      padding-right: 24px;
+    }
+
+    .node-type-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .node-title {
+      font-size: 12.5pt;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .node-file {
+      font-family: 'Consolas', monospace;
+      font-size: 7.5pt;
+      color: var(--accent-gold-light);
+      background: var(--bg-primary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      word-break: break-all;
+      border: 1px solid var(--border-color);
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .node-desc {
+      font-size: 8.5pt;
+      line-height: 1.45;
+      color: var(--text-secondary);
+      background: var(--bg-panel);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .dependency-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .dependency-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 8pt;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .dependency-card:hover { border-color: var(--accent-gold); }
+
+    .trace-btn {
+      width: 100%;
+      background: var(--accent-gold);
+      color: #070b14;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .trace-btn:hover { background: var(--accent-gold-light); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">LUXORA <span style="color:#f8fafc;font-weight:400;">ARCHITECTURE</span></div>
+      <div class="brand-tag">Live System Explorer</div>
+    </div>
+    <div class="header-actions">
+      <div class="stat-pill">Nodes: <strong id="statNodes">0</strong></div>
+      <div class="stat-pill">Edges: <strong id="statEdges">0</strong></div>
+      <div class="stat-pill">Views: <strong id="statViews">12</strong></div>
+      <a href="./index.html" class="nav-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM9 3v18M3 9h18"/></svg>
+        Codebase Knowledge Graph
+      </a>
+    </div>
+  </header>
+
+  <!-- Views Ribbon -->
+  <div class="view-ribbon" id="viewRibbon">
+    <!-- Injected dynamically -->
+  </div>
+
+  <!-- Main Workspace -->
+  <div class="main-layout">
+    
+    <!-- Left Sidebar: Controls & Filters -->
+    <aside class="control-sidebar">
+      <div>
+        <div class="sidebar-section-title">Active View Information</div>
+        <div class="view-card" id="viewCard">
+          <strong id="viewCardTitle">System Overview</strong>
+          <span id="viewCardDesc">End-to-end multi-tier production architecture.</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">Search Architecture</div>
+        <input type="text" id="searchInput" class="search-input" placeholder="Filter by component, file, route...">
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">
+          <span>Architectural Layers</span>
+          <span id="layerCountTotal" style="color:var(--text-muted);"></span>
+        </div>
+        <div class="layer-filter-list" id="layerFilterList">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">Canvas Controls</div>
+        <div class="canvas-actions">
+          <button class="btn-action" id="btnFit">Fit to Screen</button>
+          <button class="btn-action" id="btnReset">Reset View</button>
+          <button class="btn-action" id="btnPhysics" style="grid-column: span 2;">Toggle Force Physics</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Canvas: Vis Network -->
+    <main class="canvas-container">
+      <div class="canvas-overlay-stats" id="canvasOverlayStats">Rendering view...</div>
+      <div id="network"></div>
+    </main>
+
+    <!-- Right Slide-Over Inspector -->
+    <aside class="inspector-panel" id="inspectorPanel">
+      <button class="inspector-close-btn" id="btnCloseInspector">✕</button>
+
+      <div id="inspectorContent" style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="node-header">
+          <div class="node-type-badge" id="inspLayerBadge">Layer</div>
+          <div class="node-title" id="inspTitle">Node Name</div>
+          <div class="node-file" id="inspFile">path/to/file</div>
+        </div>
+
+        <button class="trace-btn" id="btnTracePath">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Trace Dependency Flow
+        </button>
+
+        <div>
+          <div class="sidebar-section-title">Architectural Responsibility</div>
+          <div class="node-desc" id="inspDesc">Description...</div>
+        </div>
+
+        <div id="inspInboundSection">
+          <div class="sidebar-section-title">Inbound Dependencies (Called By)</div>
+          <div class="dependency-list" id="inspInboundList"></div>
+        </div>
+
+        <div id="inspOutboundSection">
+          <div class="sidebar-section-title">Outbound Dependencies (Calls / Uses)</div>
+          <div class="dependency-list" id="inspOutboundList"></div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Interactive Explorer Logic -->
+  <script type="module">
+    let graphData;
+    try {
+      const response = await fetch('./architecture-graph.json', { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      graphData = await response.json();
+    } catch (error) {
+      document.body.innerHTML = '<main style="padding:2rem;color:#fff;background:#070b14;font-family:system-ui"><h1>Architecture Graph Unavailable</h1><p>The architecture graph JSON could not be loaded via ./architecture-graph.json.</p></main>';
+      throw error;
+    }
+
+    // Expose for browser console inspection & testing
+    window.graphData = graphData;
+
+    // Layer Color Palette
+    const layerColors = {
+      'Users & Roles': { bg: '#818cf8', border: '#a5b4fc', text: '#ffffff' },
+      'Frontend Presentation': { bg: '#38bdf8', border: '#7dd3fc', text: '#020617' },
+      'API Gateway & Middleware': { bg: '#c9a84c', border: '#e5c76b', text: '#020617' },
+      'Domain Services': { bg: '#fb923c', border: '#fdba74', text: '#020617' },
+      'Database & Models': { bg: '#facc15', border: '#fef08a', text: '#020617' },
+      'Realtime & SSE': { bg: '#34d399', border: '#6ee7b7', text: '#020617' },
+      'External Cloud Services': { bg: '#a78bfa', border: '#c4b5fd', text: '#020617' },
+      'CI/CD & DevOps': { bg: '#f472b6', border: '#f9a8d4', text: '#020617' },
+      'Deployment Infrastructure': { bg: '#2dd4bf', border: '#5eead4', text: '#020617' },
+      'Security Controls': { bg: '#f87171', border: '#fca5a5', text: '#020617' },
+      'Knowledge Graph Subsystem': { bg: '#94a3b8', border: '#cbd5e1', text: '#020617' },
+    };
+
+    let activeView = 'system';
+    let physicsActive = false;
+    let selectedNodeId = null;
+    let activeSearchTerm = '';
+    const activeLayers = new Set(Object.keys(layerColors));
+
+    // Stats
+    document.getElementById('statNodes').textContent = graphData.stats.totalNodes;
+    document.getElementById('statEdges').textContent = graphData.stats.totalEdges;
+    document.getElementById('statViews').textContent = graphData.stats.totalViews;
+
+    // View Ribbon Injection
+    const viewRibbon = document.getElementById('viewRibbon');
+    graphData.views.forEach(v => {
+      const btn = document.createElement('button');
+      btn.className = 'view-tab' + (v.id === activeView ? ' active' : '');
+      btn.innerHTML = '<span>' + v.icon + '</span><span>' + v.name + '</span>';
+      btn.onclick = () => switchView(v.id);
+      viewRibbon.appendChild(btn);
+    });
+
+    // Layer Filter List Injection
+    const layerFilterList = document.getElementById('layerFilterList');
+    Object.keys(layerColors).forEach(layerName => {
+      const count = graphData.nodes.filter(n => n.layer === layerName).length;
+      if (count === 0) return;
+
+      const item = document.createElement('div');
+      item.className = 'layer-item active';
+      item.innerHTML = `
+        <div class="layer-label-group">
+          <div class="layer-badge-dot" style="background: ${layerColors[layerName].bg}"></div>
+          <span>${layerName}</span>
+        </div>
+        <span class="layer-count">${count}</span>
+      `;
+      item.onclick = () => {
+        if (activeLayers.has(layerName)) {
+          activeLayers.delete(layerName);
+          item.classList.remove('active');
+        } else {
+          activeLayers.add(layerName);
+          item.classList.add('active');
+        }
+        updateFilterVisibility();
+      };
+      layerFilterList.appendChild(item);
+    });
+
+    // Filter nodes and edges by active view
+    function getActiveViewElements() {
+      const currentViewDef = graphData.views.find(v => v.id === activeView) || graphData.views[0];
+      const viewNodes = graphData.nodes.filter(n => n.views.includes(activeView));
+      const viewNodeIds = new Set(viewNodes.map(n => n.id));
+      const viewEdges = graphData.edges.filter(e => viewNodeIds.has(e.from) && viewNodeIds.has(e.to));
+      return { currentViewDef, viewNodes, viewEdges };
+    }
+
+    // =========================================================================
+    // DETERMINISTIC ARCHITECTURAL HIERARCHY LAYOUT ENGINE
+    // =========================================================================
+    function computeArchitectureLayout(viewId, viewNodes) {
+      const positions = {};
+
+      if (viewId === 'system') {
+        // Multi-tier layered layout with side columns for DevOps and Deployment
+        const tiers = {
+          'Users & Roles': { y: -320, spacing: 240, nodes: [] },
+          'Frontend Presentation': { y: -160, spacing: 180, nodes: [] },
+          'API Gateway & Middleware': { y: 0, spacing: 190, nodes: [] },
+          'Domain Services': { y: 160, spacing: 190, nodes: [] },
+          'Realtime & SSE': { y: 160, spacing: 190, nodes: [] },
+          'Database & Models': { y: 320, spacing: 180, nodes: [] },
+          'External Cloud Services': { y: 480, spacing: 180, nodes: [] },
+        };
+
+        const sideColumns = {
+          'CI/CD & DevOps': { x: 720, startY: -320, stepY: 100, nodes: [] },
+          'Deployment Infrastructure': { x: 720, startY: 180, stepY: 110, nodes: [] },
+          'Security Controls': { x: -750, startY: -100, stepY: 120, nodes: [] },
+          'Knowledge Graph Subsystem': { x: -750, startY: 340, stepY: 110, nodes: [] },
+        };
+
+        viewNodes.forEach(node => {
+          if (sideColumns[node.layer]) {
+            sideColumns[node.layer].nodes.push(node);
+          } else if (tiers[node.layer]) {
+            tiers[node.layer].nodes.push(node);
+          } else {
+            tiers['Domain Services'].nodes.push(node);
+          }
+        });
+
+        // Center tier nodes horizontally
+        Object.keys(tiers).forEach(tKey => {
+          const tier = tiers[tKey];
+          const count = tier.nodes.length;
+          if (count === 0) return;
+          const totalWidth = (count - 1) * tier.spacing;
+          const startX = -totalWidth / 2;
+          tier.nodes.forEach((n, idx) => {
+            positions[n.id] = {
+              x: Math.round(startX + idx * tier.spacing),
+              y: tier.y
+            };
+          });
+        });
+
+        // Position side column nodes vertically
+        Object.keys(sideColumns).forEach(cKey => {
+          const col = sideColumns[cKey];
+          col.nodes.forEach((n, idx) => {
+            positions[n.id] = {
+              x: col.x,
+              y: col.startY + idx * col.stepY
+            };
+          });
+        });
+
+        return positions;
+      }
+
+      if (viewId === 'booking') {
+        // Chronological fulfillment workflow layout (left to right)
+        const workflowOrder = [
+          { id: 'user:customer', x: -620, y: -60 },
+          { id: 'page:book-service', x: -440, y: -60 },
+          { id: 'route:bookings', x: -260, y: -60 },
+          { id: 'model:usersubscriptionentitlement', x: -260, y: 140 },
+          { id: 'service:scheduling', x: -70, y: -60 },
+          { id: 'model:provider', x: -70, y: 140 },
+          { id: 'model:booking', x: 130, y: -60 },
+          { id: 'service:booking-timeouts', x: 130, y: -220 },
+          { id: 'user:provider', x: 130, y: 140 },
+          { id: 'page:provider-dashboard', x: 330, y: -60 },
+          { id: 'model:servicephoto', x: 330, y: 140 },
+          { id: 'service:realtime', x: 330, y: -220 },
+          { id: 'page:customer-dashboard', x: 520, y: -60 },
+          { id: 'component:active-booking-cards', x: 520, y: 140 },
+          { id: 'service:payouts', x: 710, y: -60 },
+          { id: 'model:review', x: 710, y: 140 },
+        ];
+
+        workflowOrder.forEach(w => {
+          positions[w.id] = { x: w.x, y: w.y };
+        });
+
+        let remIdx = 0;
+        viewNodes.forEach(n => {
+          if (!positions[n.id]) {
+            positions[n.id] = { x: -400 + remIdx * 180, y: 280 };
+            remIdx++;
+          }
+        });
+
+        return positions;
+      }
+
+      if (viewId === 'realtime') {
+        // Central hub broadcaster layout
+        positions['service:realtime'] = { x: 0, y: 0 };
+        positions['server:express-app'] = { x: 0, y: -180 };
+        positions['route:bookings'] = { x: -260, y: -180 };
+
+        positions['hook:use-realtime'] = { x: 0, y: 160 };
+        positions['page:customer-dashboard'] = { x: -280, y: 290 };
+        positions['page:provider-dashboard'] = { x: 0, y: 290 };
+        positions['page:admin-dashboard'] = { x: 280, y: 290 };
+        positions['component:active-booking-cards'] = { x: -280, y: 420 };
+
+        let unassigned = viewNodes.filter(n => !positions[n.id]);
+        unassigned.forEach((n, idx) => {
+          positions[n.id] = { x: -200 + idx * 200, y: 540 };
+        });
+
+        return positions;
+      }
+
+      if (viewId === 'payments') {
+        // Payment transaction flow layout
+        positions['user:customer'] = { x: -300, y: -240 };
+        positions['page:customer-dashboard'] = { x: -100, y: -240 };
+        positions['page:book-service'] = { x: 100, y: -240 };
+
+        positions['route:services'] = { x: 0, y: -90 };
+        positions['model:payment'] = { x: -260, y: 60 };
+        positions['ext:payhere'] = { x: -260, y: 200 };
+        positions['ext:nowpayments'] = { x: 260, y: 200 };
+
+        positions['route:integrations'] = { x: 0, y: 300 };
+        positions['model:usersubscription'] = { x: 0, y: 440 };
+        positions['model:usersubscriptionentitlement'] = { x: 0, y: 580 };
+
+        let remIdx = 0;
+        viewNodes.forEach(n => {
+          if (!positions[n.id]) {
+            positions[n.id] = { x: 450, y: -150 + remIdx * 110 };
+            remIdx++;
+          }
+        });
+
+        return positions;
+      }
+
+      if (viewId === 'cicd') {
+        // Vertical pipeline layout
+        positions['cicd:github-repo'] = { x: 0, y: -240 };
+        positions['cicd:guard'] = { x: -240, y: -100 };
+        positions['cicd:classifier'] = { x: 240, y: -100 };
+
+        const checks = ['cicd:quality', 'cicd:kg', 'cicd:backend', 'cicd:audit', 'cicd:docker'];
+        checks.forEach((id, idx) => {
+          positions[id] = { x: -360 + idx * 180, y: 70 };
+        });
+
+        positions['cicd:gate'] = { x: 0, y: 240 };
+
+        return positions;
+      }
+
+      // Default Clean Tiered Grid Layout for other views (database, frontend, backend, security, etc.)
+      const layerGroups = {};
+      viewNodes.forEach(n => {
+        layerGroups[n.layer] = layerGroups[n.layer] || [];
+        layerGroups[n.layer].push(n);
+      });
+
+      let currentY = -((Object.keys(layerGroups).length - 1) * 160) / 2;
+      Object.keys(layerGroups).forEach(lKey => {
+        const group = layerGroups[lKey];
+        const count = group.length;
+        const spacing = Math.min(220, Math.max(140, 950 / Math.max(count, 1)));
+        const totalW = (count - 1) * spacing;
+        const startX = -totalW / 2;
+
+        group.forEach((node, idx) => {
+          positions[node.id] = {
+            x: Math.round(startX + idx * spacing),
+            y: Math.round(currentY)
+          };
+        });
+
+        currentY += 160;
+      });
+
+      return positions;
+    }
+
+    // Initialize Vis Network Datasets
+    const visNodes = new vis.DataSet();
+    const visEdges = new vis.DataSet();
+    const container = document.getElementById('network');
+    const data = { nodes: visNodes, edges: visEdges };
+
+    const options = {
+      physics: {
+        enabled: false, // Default: clean deterministic hierarchical layout
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          gravitationalConstant: -50,
+          centralGravity: 0.01,
+          springLength: 120,
+          springConstant: 0.08,
+          damping: 0.7,
+        },
+      },
+      interaction: {
+        dragNodes: true,
+        dragView: true,
+        zoomView: true,
+        hover: true,
+        selectable: true,
+        selectConnectedEdges: true,
+      },
+    };
+
+    const network = new vis.Network(container, data, options);
+
+    // Expose for browser console & testing
+    window.network = network;
+    window.visNodes = visNodes;
+    window.visEdges = visEdges;
+
+    function fitGraphToView(duration = 350) {
+      const containerEl = document.getElementById('network');
+      if (!containerEl || !network) return;
+      const w = containerEl.clientWidth || 1100;
+      const h = containerEl.clientHeight || 700;
+
+      const currentNodes = visNodes.get().filter(n => !n.hidden);
+      if (currentNodes.length === 0) return;
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      currentNodes.forEach(n => {
+        const x = n.x || 0;
+        const y = n.y || 0;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      });
+
+      const padding = 100;
+      const spanX = Math.max(100, (maxX - minX) + padding * 2);
+      const spanY = Math.max(100, (maxY - minY) + padding * 2);
+
+      const scaleX = w / spanX;
+      const scaleY = h / spanY;
+      const targetScale = Math.min(1.0, Math.max(0.25, Math.min(scaleX, scaleY) * 0.95));
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      network.moveTo({
+        position: { x: centerX, y: centerY },
+        scale: targetScale,
+        animation: duration > 0 ? { duration, easingFunction: 'easeInOutQuad' } : false
+      });
+    }
+
+    function populateView() {
+      const { currentViewDef, viewNodes, viewEdges } = getActiveViewElements();
+      
+      document.getElementById('viewCardTitle').textContent = currentViewDef.name;
+      document.getElementById('viewCardDesc').textContent = currentViewDef.description;
+
+      const positions = computeArchitectureLayout(activeView, viewNodes);
+
+      visNodes.clear();
+      visEdges.clear();
+
+      const formattedNodes = viewNodes.map(n => {
+        const color = layerColors[n.layer] || { bg: '#475569', border: '#94a3b8', text: '#ffffff' };
+        const pos = positions[n.id] || { x: 0, y: 0 };
+        const isHidden = !activeLayers.has(n.layer) || Boolean(activeSearchTerm && !matchesSearch(n, activeSearchTerm));
+        return {
+          id: n.id,
+          label: n.label,
+          x: pos.x,
+          y: pos.y,
+          fixed: false,
+          shape: 'box',
+          margin: { top: 8, bottom: 8, left: 12, right: 12 },
+          borderWidth: 1.5,
+          color: {
+            background: color.bg,
+            border: color.border,
+            highlight: { background: color.border, border: '#ffffff' }
+          },
+          font: { color: color.text, face: 'system-ui', size: 10, bold: true },
+          shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 6, x: 2, y: 3 },
+          hidden: isHidden ? true : false,
+        };
+      });
+
+      const formattedEdges = viewEdges.map((e, idx) => ({
+        id: e.id || 'e_' + idx,
+        from: e.from,
+        to: e.to,
+        label: e.label,
+        arrows: 'to',
+        color: { color: 'rgba(148, 163, 184, 0.4)', highlight: '#c9a84c' },
+        font: { size: 9, color: '#e2e8f0', strokeWidth: 3, strokeColor: '#070b14', align: 'middle' },
+        smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.3 },
+      }));
+
+      visNodes.add(formattedNodes);
+      visEdges.add(formattedEdges);
+
+      document.getElementById('canvasOverlayStats').textContent = 
+        `Showing ${viewNodes.length} nodes & ${viewEdges.length} connections in ${currentViewDef.name}`;
+
+      window.requestAnimationFrame(() => {
+        fitGraphToView(0);
+      });
+    }
+
+    function switchView(viewId) {
+      activeView = viewId;
+      document.querySelectorAll('.view-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.textContent.includes(
+          (graphData.views.find(v => v.id === viewId) || {}).name
+        ));
+      });
+      selectedNodeId = null;
+      hideInspector();
+      populateView();
+    }
+
+    // Expose for testing
+    window.switchView = switchView;
+    window.fitGraphToView = fitGraphToView;
+
+    function matchesSearch(node, term) {
+      const q = term.toLowerCase();
+      return (node.label && node.label.toLowerCase().includes(q)) ||
+             (node.description && node.description.toLowerCase().includes(q)) ||
+             (node.file && node.file.toLowerCase().includes(q)) ||
+             (node.layer && node.layer.toLowerCase().includes(q));
+    }
+
+    function updateFilterVisibility() {
+      const updates = [];
+      visNodes.forEach(node => {
+        const rawNode = graphData.nodes.find(n => n.id === node.id);
+        if (!rawNode) return;
+        const matchesLayer = activeLayers.has(rawNode.layer);
+        const matchesQuery = !activeSearchTerm || matchesSearch(rawNode, activeSearchTerm);
+        const shouldHide = !(matchesLayer && matchesQuery);
+        updates.push({ id: node.id, hidden: shouldHide ? true : false });
+      });
+      visNodes.update(updates);
+      fitGraphToView(250);
+    }
+
+    // Search Input Listener
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      activeSearchTerm = e.target.value.trim();
+      updateFilterVisibility();
+    });
+
+    // Canvas Buttons
+    document.getElementById('btnFit').addEventListener('click', () => {
+      fitGraphToView(350);
+    });
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      activeSearchTerm = '';
+      document.getElementById('searchInput').value = '';
+      activeLayers.clear();
+      Object.keys(layerColors).forEach(l => activeLayers.add(l));
+      document.querySelectorAll('.layer-item').forEach(i => i.classList.add('active'));
+      populateView();
+    });
+
+    document.getElementById('btnPhysics').addEventListener('click', () => {
+      physicsActive = !physicsActive;
+      network.setOptions({ physics: { enabled: physicsActive } });
+      document.getElementById('btnPhysics').textContent = physicsActive ? 'Disable Force Physics' : 'Toggle Force Physics';
+      if (!physicsActive) {
+        populateView();
+      }
+    });
+
+    // Inspector Logic (Slide-Over Panel)
+    const inspectorPanel = document.getElementById('inspectorPanel');
+    document.getElementById('btnCloseInspector').addEventListener('click', hideInspector);
+
+    function showNodeInspector(nodeId) {
+      const node = graphData.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      selectedNodeId = nodeId;
+      inspectorPanel.classList.add('open');
+
+      const color = layerColors[node.layer] || { bg: '#475569', border: '#94a3b8' };
+      const badge = document.getElementById('inspLayerBadge');
+      badge.textContent = node.layer;
+      badge.style.background = color.bg;
+      badge.style.color = color.text || '#ffffff';
+
+      document.getElementById('inspTitle').textContent = node.label;
+      document.getElementById('inspFile').textContent = node.file || 'Configuration / Abstract Module';
+      document.getElementById('inspDesc').textContent = node.description || 'No detailed description available.';
+
+      // Inbound
+      const inbound = graphData.edges.filter(e => e.to === nodeId);
+      const inList = document.getElementById('inspInboundList');
+      inList.innerHTML = '';
+      if (inbound.length) {
+        document.getElementById('inspInboundSection').style.display = 'block';
+        inbound.forEach(e => {
+          const fromNode = graphData.nodes.find(n => n.id === e.from);
+          const card = document.createElement('div');
+          card.className = 'dependency-card';
+          card.innerHTML = '<strong>' + (fromNode ? fromNode.label : e.from) + '</strong><span style="color:var(--text-muted);font-size:7pt;">' + e.label + '</span>';
+          card.onclick = () => { network.selectNodes([e.from]); showNodeInspector(e.from); };
+          inList.appendChild(card);
+        });
+      } else {
+        document.getElementById('inspInboundSection').style.display = 'none';
+      }
+
+      // Outbound
+      const outbound = graphData.edges.filter(e => e.from === nodeId);
+      const outList = document.getElementById('inspOutboundList');
+      outList.innerHTML = '';
+      if (outbound.length) {
+        document.getElementById('inspOutboundSection').style.display = 'block';
+        outbound.forEach(e => {
+          const toNode = graphData.nodes.find(n => n.id === e.to);
+          const card = document.createElement('div');
+          card.className = 'dependency-card';
+          card.innerHTML = '<strong>' + (toNode ? toNode.label : e.to) + '</strong><span style="color:var(--text-muted);font-size:7pt;">' + e.label + '</span>';
+          card.onclick = () => { network.selectNodes([e.to]); showNodeInspector(e.to); };
+          outList.appendChild(card);
+        });
+      } else {
+        document.getElementById('inspOutboundSection').style.display = 'none';
+      }
+    }
+
+    function showEdgeInspector(edgeId) {
+      const edge = graphData.edges.find(e => e.id === edgeId);
+      if (!edge) return;
+
+      inspectorPanel.classList.add('open');
+
+      const badge = document.getElementById('inspLayerBadge');
+      badge.textContent = 'Relationship Link';
+      badge.style.background = '#c9a84c';
+      badge.style.color = '#070b14';
+
+      const fromNode = graphData.nodes.find(n => n.id === edge.from);
+      const toNode = graphData.nodes.find(n => n.id === edge.to);
+
+      document.getElementById('inspTitle').textContent = (fromNode ? fromNode.label : edge.from) + ' ➔ ' + (toNode ? toNode.label : edge.to);
+      document.getElementById('inspFile').textContent = 'Link Kind: ' + edge.type;
+      document.getElementById('inspDesc').textContent = edge.description;
+      document.getElementById('inspInboundSection').style.display = 'none';
+      document.getElementById('inspOutboundSection').style.display = 'none';
+    }
+
+    function hideInspector() {
+      inspectorPanel.classList.remove('open');
+      selectedNodeId = null;
+    }
+
+    // Node & Edge Click Events
+    network.on('click', (params) => {
+      if (params.nodes.length > 0) {
+        showNodeInspector(params.nodes[0]);
+      } else if (params.edges.length > 0) {
+        showEdgeInspector(params.edges[0]);
+      } else {
+        hideInspector();
+      }
+    });
+
+    // Path Tracing
+    document.getElementById('btnTracePath').addEventListener('click', () => {
+      if (!selectedNodeId) return;
+      const connectedNodeIds = new Set([selectedNodeId, ...network.getConnectedNodes(selectedNodeId)]);
+      const updates = [];
+      visNodes.forEach(node => {
+        updates.push({
+          id: node.id,
+          opacity: connectedNodeIds.has(node.id) ? 1.0 : 0.15,
+        });
+      });
+      visNodes.update(updates);
+    });
+
+    window.addEventListener('resize', () => {
+      fitGraphToView(0);
+    });
+
+    // Initial Mount
+    populateView();
+  </script>
+</body>
+</html>
