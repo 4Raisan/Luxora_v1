@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
-import { encryptAccountNumber, decryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
+import { encryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
 import { bookingStart, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { notify } from '../services/notify.js';
 import { getSriLankaLocation, SRI_LANKA_TOWNS } from '../services/sriLankaLocations.js';
+import { getSriLankanBank } from '../services/sriLankaBanks.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('PROVIDER'));
@@ -141,13 +144,15 @@ router.get('/earnings', async (req, res) => {
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
-  const [bankAccounts, payouts, categories] = await Promise.all([
+  const [bankAccounts, payouts, categories, overallEarnings, redeemedPayouts] = await Promise.all([
     prisma.providerBankAccount.findMany({ where: { providerId: provider.id }, orderBy: [{ selected: 'desc' }, { id: 'desc' }] }),
     prisma.providerPayout.findMany({ where: { providerId: provider.id }, include: { bankAccount: true }, orderBy: { createdAt: 'desc' }, take: 24 }),
     prisma.category.findMany({
       where: { name: { in: ['Auto Care', 'Garden Care', 'Pet Care'] } },
       include: { services: { select: { providerEarning: true } } },
     }),
+    prisma.booking.aggregate({ where: { providerId: provider.id, status: 'COMPLETED' }, _sum: { providerEarning: true } }),
+    prisma.providerPayout.aggregate({ where: { providerId: provider.id, status: 'PAID' }, _sum: { amount: true } }),
   ]);
   const sessionPayouts = ['Auto Care', 'Garden Care', 'Pet Care'].map((categoryName) => {
     const payoutsForCategory = categories.find((category) => category.name === categoryName)?.services.map((service) => Number(service.providerEarning)) || [];
@@ -159,22 +164,40 @@ router.get('/earnings', async (req, res) => {
   });
   res.json({
     earnings: provider.earnings,
+    overall_earnings: overallEarnings._sum.providerEarning || 0,
+    redeemed: redeemedPayouts._sum.amount || 0,
+    balance: provider.earnings,
     completedJobs,
     history: history.map((h) => ({
       id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
       service_title: h.service?.title, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
     })),
-    bank_accounts: bankAccounts.map((account) => ({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: account.selected })),
-    payouts: payouts.map((payout) => ({ id: payout.id, period: payout.period, amount: payout.amount, status: payout.status.toLowerCase(), paid_at: payout.paidAt, bank_name: payout.bankAccount.bankName, account_number: maskAccountNumber(payout.bankAccount.accountNumber) })),
+    bank_accounts: bankAccounts.map((account) => ({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), branch: account.branch, selected: account.selected })),
+    payouts: payouts.map((payout) => ({
+      id: payout.id,
+      period: payout.period,
+      kind: payout.kind.toLowerCase(),
+      amount: payout.amount,
+      status: payout.status.toLowerCase(),
+      paid_at: payout.paidAt,
+      created_at: payout.createdAt,
+      bank_name: payout.bankNameSnapshot || payout.bankAccount.bankName,
+      account_holder: payout.accountHolderSnapshot || payout.bankAccount.accountHolder,
+      account_number: maskAccountNumber(payout.accountNumberSnapshot || payout.bankAccount.accountNumber),
+      branch: payout.branchSnapshot || payout.bankAccount.branch,
+    })),
     session_payouts: sessionPayouts,
   });
 });
 
 router.post('/bank-accounts', async (req, res) => {
-  const bankName = String(req.body.bank_name || '').trim();
+  const bankName = getSriLankanBank(req.body.bank_name);
   const accountHolder = String(req.body.account_holder || '').trim();
   const accountNumber = String(req.body.account_number || '').replace(/\s+/g, '');
-  if (!bankName || !accountHolder || accountNumber.length < 4 || accountNumber.length > 40) return res.status(400).json({ error: 'bank_name, account_holder, and a valid account_number are required' });
+  const branch = String(req.body.branch || '').trim().replace(/\s+/g, ' ');
+  if (!bankName || !accountHolder || accountHolder.length > 100 || !/^[0-9A-Za-z-]{4,40}$/.test(accountNumber) || !branch || branch.length > 100) {
+    return res.status(400).json({ error: 'Select a supported bank and provide a valid account holder, account number, and branch' });
+  }
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
 
@@ -182,46 +205,68 @@ router.post('/bank-accounts', async (req, res) => {
   const mask = maskAccountNumber(accountNumber);
   const accountHash = hashAccountNumber(accountNumber);
 
-  const account = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(provider.id)})`;
-    const allAccounts = await tx.providerBankAccount.findMany({ where: { providerId: provider.id } });
-    const existing = allAccounts.find((a) => {
-      if (a.accountHash && a.accountHash === accountHash) return true;
-      try {
-        return decryptAccountNumber(a.accountNumber) === accountNumber;
-      } catch {
-        return a.accountNumber === accountNumber;
-      }
-    });
-
+    const existing = await tx.providerBankAccount.findFirst({ where: { providerId: provider.id }, orderBy: [{ selected: 'desc' }, { id: 'asc' }] });
     await tx.providerBankAccount.updateMany({ where: { providerId: provider.id }, data: { selected: false } });
     if (existing) {
-      return tx.providerBankAccount.update({
+      const account = await tx.providerBankAccount.update({
         where: { id: existing.id },
-        data: {
-          bankName,
-          accountHolder,
-          accountNumber: encryptedNumber,
-          accountMask: mask,
-          accountHash,
-          selected: true,
-        },
+        data: { bankName, accountHolder, accountNumber: encryptedNumber, accountMask: mask, accountHash, branch, selected: true },
       });
+      return { account, created: false };
     }
-    return tx.providerBankAccount.create({
-      data: {
-        providerId: provider.id,
-        bankName,
-        accountHolder,
-        accountNumber: encryptedNumber,
-        accountMask: mask,
-        accountHash,
-        selected: true,
-      },
+    const account = await tx.providerBankAccount.create({
+      data: { providerId: provider.id, bankName, accountHolder, accountNumber: encryptedNumber, accountMask: mask, accountHash, branch, selected: true },
     });
+    return { account, created: true };
   }, { isolationLevel: 'Serializable' });
 
-  res.status(201).json({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), selected: true });
+  res.status(result.created ? 201 : 200).json({ id: result.account.id, bank_name: result.account.bankName, account_holder: result.account.accountHolder, account_number: maskAccountNumber(result.account.accountNumber), branch: result.account.branch, selected: true });
+});
+
+router.post('/payouts/redeem', async (req, res) => {
+  const rawAmount = String(req.body.amount ?? '').trim();
+  if (!/^\d+(?:\.\d{1,2})?$/.test(rawAmount)) {
+    return res.status(400).json({ error: 'Redemption amount must be at least LKR 5,000 with no more than two decimal places' });
+  }
+  const requestedAmount = new Prisma.Decimal(rawAmount);
+  if (requestedAmount.lt(5000)) return res.status(400).json({ error: 'Redemption amount must be at least LKR 5,000' });
+  const provider = await prisma.provider.findUnique({ where: { userId: req.user.id }, select: { id: true } });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+
+  let payout;
+  try {
+    payout = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(provider.id)})`;
+      const fresh = await tx.provider.findUnique({ where: { id: provider.id }, include: { bankAccounts: { where: { selected: true }, take: 1 } } });
+      const bankAccount = fresh?.bankAccounts[0];
+      if (!bankAccount) { const error = new Error('Add your bank account before requesting a redemption'); error.statusCode = 400; throw error; }
+      if (new Prisma.Decimal(fresh.earnings || 0).lt(requestedAmount)) { const error = new Error('Redemption amount exceeds your available balance'); error.statusCode = 400; throw error; }
+      await tx.provider.update({ where: { id: provider.id }, data: { earnings: { decrement: requestedAmount } } });
+      return tx.providerPayout.create({
+        data: {
+          providerId: provider.id,
+          bankAccountId: bankAccount.id,
+          period: `redeem-${Date.now()}-${crypto.randomUUID()}`,
+          amount: requestedAmount,
+          kind: 'REDEMPTION',
+          idempotencyKey: `redemption-${provider.id}-${crypto.randomUUID()}`,
+          bankNameSnapshot: bankAccount.bankName,
+          accountHolderSnapshot: bankAccount.accountHolder,
+          accountNumberSnapshot: bankAccount.accountNumber,
+          branchSnapshot: bankAccount.branch,
+        },
+      });
+    }, { isolationLevel: 'Serializable' });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    if (error.code === 'P2034') return res.status(409).json({ error: 'Your balance changed while the request was submitted. Please try again.' });
+    throw error;
+  }
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
+  await Promise.all(admins.map((admin) => notify(admin.id, `New provider redemption request #${payout.id} for LKR ${requestedAmount.toFixed(2)}.`, '/admin-dashboard')));
+  res.status(201).json({ id: payout.id, amount: payout.amount, status: 'pending', message: 'Redemption request sent to the admin.' });
 });
 
 router.put('/bank-accounts/:id/select', async (req, res) => {

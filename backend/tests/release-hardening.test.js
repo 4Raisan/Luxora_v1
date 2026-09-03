@@ -172,6 +172,7 @@ test('Release Hardening 2: Banking encryption at rest & masking in APIs', async 
       bank_name: 'Commercial Bank of Ceylon',
       account_holder: 'A. B. Perera',
       account_number: rawAccountNumber,
+      branch: 'Galle Fort',
     }),
   });
   assert.equal(addRes.status, 201);
@@ -191,7 +192,7 @@ test('Release Hardening 2: Banking encryption at rest & masking in APIs', async 
   assert.equal(maskAccountNumber(dbRecord.accountNumber), '••••••••9012');
 });
 
-test('Release Hardening 3: Single selected bank account under concurrent selection', async () => {
+test('Release Hardening 3: Provider has one editable payout bank account', async () => {
   const rnd = Math.random().toString(36).slice(2, 8);
   const provUser = await prisma.user.create({
     data: { name: `Conc Bank ${rnd}`, email: `conc.bank.${rnd}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Kandy', addressDistrict: 'Central', active: true },
@@ -201,34 +202,67 @@ test('Release Hardening 3: Single selected bank account under concurrent selecti
   });
   const provToken = jwt.sign({ id: provUser.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
 
-  // Add 3 bank accounts for provider
+  // The first save creates the account; the second save edits the same row.
   const acc1Res = await authJson(provToken, '/provider/bank-accounts', {
     method: 'POST',
-    body: JSON.stringify({ bank_name: 'Bank A', account_holder: 'Holder 1', account_number: '1111222233334444' }),
+    body: JSON.stringify({ bank_name: 'Bank of Ceylon', account_holder: 'Holder 1', account_number: '1111222233334444', branch: 'Kandy' }),
   });
   const acc2Res = await authJson(provToken, '/provider/bank-accounts', {
     method: 'POST',
-    body: JSON.stringify({ bank_name: 'Bank B', account_holder: 'Holder 2', account_number: '5555666677778888' }),
+    body: JSON.stringify({ bank_name: 'Sampath Bank', account_holder: 'Holder 2', account_number: '5555666677778888', branch: 'Peradeniya' }),
   });
-  const acc3Res = await authJson(provToken, '/provider/bank-accounts', {
+  assert.equal(acc1Res.status, 201);
+  assert.equal(acc2Res.status, 200);
+  assert.equal(acc2Res.body.id, acc1Res.body.id);
+  assert.equal(await prisma.providerBankAccount.count({ where: { providerId: prov.id } }), 1);
+  const account = await prisma.providerBankAccount.findFirst({ where: { providerId: prov.id } });
+  assert.equal(account.bankName, 'Sampath Bank');
+  assert.equal(account.accountHolder, 'Holder 2');
+  assert.equal(account.branch, 'Peradeniya');
+  assert.equal(account.selected, true);
+});
+
+test('Provider redemption reserves balance and admin settlement updates the ledger', async () => {
+  const rnd = Math.random().toString(36).slice(2, 8);
+  const providerUser = await prisma.user.create({
+    data: { name: `Redeem Provider ${rnd}`, email: `redeem.${rnd}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', active: true },
+  });
+  const provider = await prisma.provider.create({
+    data: { userId: providerUser.id, category: 'Auto Care', kycStatus: 'APPROVED', earnings: 6500 },
+  });
+  const providerToken = jwt.sign({ id: providerUser.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
+  const accountNumber = '123456789012';
+  const bankResponse = await authJson(providerToken, '/provider/bank-accounts', {
     method: 'POST',
-    body: JSON.stringify({ bank_name: 'Bank C', account_holder: 'Holder 3', account_number: '9999000011112222' }),
+    body: JSON.stringify({ bank_name: 'Bank of Ceylon', account_holder: providerUser.name, account_number: accountNumber, branch: 'Colombo Fort' }),
   });
+  assert.equal(bankResponse.status, 201);
 
-  const ids = [acc1Res.body.id, acc2Res.body.id, acc3Res.body.id];
+  const belowMinimum = await authJson(providerToken, '/provider/payouts/redeem', { method: 'POST', body: JSON.stringify({ amount: 4999.99 }) });
+  assert.equal(belowMinimum.status, 400);
+  const request = await authJson(providerToken, '/provider/payouts/redeem', { method: 'POST', body: JSON.stringify({ amount: 5000 }) });
+  assert.equal(request.status, 201);
+  const reservedProvider = await prisma.provider.findUnique({ where: { id: provider.id } });
+  assert.equal(Number(reservedProvider.earnings), 1500);
 
-  // Fire concurrent select requests in parallel
-  await Promise.all([
-    authJson(provToken, `/provider/bank-accounts/${ids[0]}/select`, { method: 'PUT' }),
-    authJson(provToken, `/provider/bank-accounts/${ids[1]}/select`, { method: 'PUT' }),
-    authJson(provToken, `/provider/bank-accounts/${ids[2]}/select`, { method: 'PUT' }),
-  ]);
+  const payout = await prisma.providerPayout.findUnique({ where: { id: request.body.id } });
+  assert.equal(payout.kind, 'REDEMPTION');
+  assert.equal(payout.status, 'PENDING');
+  assert.ok(payout.accountNumberSnapshot.startsWith('enc:v1:'));
 
-  // Query database: exactly ONE account must be selected
-  const selectedAccounts = await prisma.providerBankAccount.findMany({
-    where: { providerId: prov.id, selected: true },
-  });
-  assert.equal(selectedAccounts.length, 1, 'Exactly one bank account must be selected even under concurrent selection');
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', active: true } });
+  const adminToken = jwt.sign({ id: admin.id, role: 'ADMIN', tokenVersion: admin.tokenVersion }, JWT_SECRET);
+  const adminRows = await authJson(adminToken, '/admin/payouts');
+  const adminRow = adminRows.body.find((row) => row.id === payout.id);
+  assert.equal(adminRow.account_number, accountNumber);
+  assert.equal(adminRow.branch, 'Colombo Fort');
+
+  const settled = await authJson(adminToken, `/admin/payouts/${payout.id}`, { method: 'PUT', body: JSON.stringify({ status: 'paid' }) });
+  assert.equal(settled.status, 200);
+  const providerSummary = await authJson(providerToken, '/provider/earnings');
+  assert.equal(Number(providerSummary.body.redeemed), 5000);
+  assert.equal(Number(providerSummary.body.balance), 1500);
+  assert.ok(await prisma.notification.findFirst({ where: { userId: providerUser.id, message: { contains: `#${payout.id}` } } }));
 });
 
 test('Release Hardening 4: Production upload durability and banking key assertions', () => {
