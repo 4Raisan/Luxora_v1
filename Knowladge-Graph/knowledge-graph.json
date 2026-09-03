@@ -6,10 +6,10 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 197,
-    "totalEdges": 417,
+    "totalNodes": 198,
+    "totalEdges": 421,
     "nodesByGroup": {
-      "api": 97,
+      "api": 98,
       "database": 33,
       "frontend": 34,
       "middleware": 3,
@@ -162,6 +162,21 @@
       "metadata": {
         "method": "GET",
         "path": "/api/admin/reports",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/reviews",
+      "label": "GET /api/admin/reviews",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/reviews",
         "routeFile": "admin.js"
       },
       "source": {
@@ -2130,6 +2145,10 @@
             "type": "bookingDate])"
           },
           {
+            "name": "@@index([userId,",
+            "type": "subscriptionId,"
+          },
+          {
             "name": "addressDistrict",
             "type": "String?"
           },
@@ -2458,6 +2477,10 @@
       "metadata": {
         "fields": [
           {
+            "name": "@@index([userId,",
+            "type": "createdAt])"
+          },
+          {
             "name": "createdAt",
             "type": "DateTime"
           },
@@ -2550,6 +2573,10 @@
           {
             "name": "@@index([userId,",
             "type": "status])"
+          },
+          {
+            "name": "@@index([userId,",
+            "type": "createdAt])"
           },
           {
             "name": "booking",
@@ -3486,6 +3513,10 @@
       "metadata": {
         "fields": [
           {
+            "name": "@@index([userId,",
+            "type": "status,"
+          },
+          {
             "name": "autoRenew",
             "type": "Boolean"
           },
@@ -4140,6 +4171,20 @@
       "label": "GET",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:GET_/api/admin/reports",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/reviews:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/reviews",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:GET_/api/admin/reviews",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -6905,6 +6950,20 @@
       }
     },
     {
+      "id": "routefile:admin->endpoint:GET_/api/admin/reviews:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/reviews",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:admin",
+      "target": "endpoint:GET_/api/admin/reviews",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:admin->endpoint:GET_/api/admin/session-payouts:EXPOSES_ENDPOINT",
       "from": "routefile:admin",
       "to": "endpoint:GET_/api/admin/session-payouts",
@@ -9131,6 +9190,20 @@
       }
     },
     {
+      "id": "routefile:provider->model:Review:QUERIES_DB",
+      "from": "routefile:provider",
+      "to": "model:Review",
+      "type": "QUERIES_DB",
+      "label": "prisma.review",
+      "source": "routefile:provider",
+      "target": "model:Review",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:provider->model:SupportTicket:QUERIES_DB",
       "from": "routefile:provider",
       "to": "model:SupportTicket",
@@ -9265,6 +9338,20 @@
       "source": "routefile:reviews",
       "target": "model:Review",
       "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/reviews.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:reviews->service:notify:CALLS_SERVICE",
+      "from": "routefile:reviews",
+      "to": "service:notify",
+      "type": "CALLS_SERVICE",
+      "label": "",
+      "source": "routefile:reviews",
+      "target": "service:notify",
+      "kind": "CALLS_SERVICE",
       "evidence": {
         "path": "backend/src/routes/reviews.js",
         "extractor": "generate-graph.js:static-analysis"
