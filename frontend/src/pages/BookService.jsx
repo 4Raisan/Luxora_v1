@@ -207,7 +207,7 @@ export default function BookService() {
               </div>
               <div className="bs-field">
                 <label className="bs-label">Time</label>
-                <input className="bs-input" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+                <input className="bs-input" type="time" value={time} step="900" onChange={(e) => setTime(e.target.value)} required />
               </div>
             </div>
 

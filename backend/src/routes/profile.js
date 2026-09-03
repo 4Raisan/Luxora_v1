@@ -3,6 +3,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { normalizePhoneNumber } from '../services/integrations.js';
 import { isEmail, isNonEmptyString } from '../middleware/validators.js';
+import { getSriLankaLocation } from '../services/sriLankaLocations.js';
 
 const router = Router();
 
@@ -49,14 +50,17 @@ router.put('/', async (req, res) => {
   if (req.body.town !== undefined) {
     const town = typeof req.body.town === 'string' ? req.body.town.trim().replace(/\s+/g, ' ') : '';
     if (town.length > 100) return res.status(400).json({ error: 'town must be at most 100 characters' });
-    data.town = town || null;
+    const location = town ? getSriLankaLocation(town) : null;
+    if (town && !location) return res.status(400).json({ error: 'Select a town from the Sri Lanka location list' });
+    data.town = location?.name || null;
+    if (location) data.addressDistrict = location.province;
   }
   if (req.body.address_street !== undefined) {
     const value = typeof req.body.address_street === 'string' ? req.body.address_street.trim().replace(/\s+/g, ' ') : '';
     if (value.length > 200) return res.status(400).json({ error: 'address_street must be at most 200 characters' });
     data.addressStreet = value || null;
   }
-  if (req.body.address_district !== undefined) {
+  if (req.body.address_district !== undefined && req.body.town === undefined) {
     const value = typeof req.body.address_district === 'string' ? req.body.address_district.trim().replace(/\s+/g, ' ') : '';
     if (value.length > 100) return res.status(400).json({ error: 'address_district must be at most 100 characters' });
     data.addressDistrict = value || null;

@@ -16,7 +16,7 @@ const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
 
 // Register (customer or provider — admin accounts are seeded, never self-registered)
 router.post('/register', authLimiter, async (req, res) => {
-  const { name, email, password, phone, town, address_street, service_towns, role, nic, category } = req.body;
+  const { name, email, password, phone, town, address_street, service_towns, role, nic, category, categories } = req.body;
 
   if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Name is required' });
   if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
@@ -31,11 +31,17 @@ router.post('/register', authLimiter, async (req, res) => {
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) return res.status(400).json({ error: 'Email already registered' });
 
-    let providerCategory = 'Auto Care';
-    if (userRole === 'PROVIDER' && category) {
-      const cat = await prisma.category.findUnique({ where: { name: category } });
-      if (!cat) return res.status(400).json({ error: `Unknown service category: ${category}` });
-      providerCategory = category;
+    let providerCategories = ['Auto Care'];
+    if (userRole === 'PROVIDER') {
+      if (categories !== undefined && !Array.isArray(categories)) return res.status(400).json({ error: 'categories must be an array' });
+      const requested = (Array.isArray(categories) ? categories : [category || 'Auto Care'])
+        .map((value) => typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '').filter(Boolean);
+      const unique = [...new Map(requested.map((value) => [value.toLocaleLowerCase(), value])).values()];
+      if (unique.length === 0 || unique.length > 3) return res.status(400).json({ error: 'Select between one and three service categories' });
+      const known = await prisma.category.findMany({ where: { name: { in: unique } }, select: { name: true } });
+      if (known.length !== unique.length) return res.status(400).json({ error: 'One or more service categories are invalid' });
+      const canonical = new Map(known.map((item) => [item.name.toLocaleLowerCase(), item.name]));
+      providerCategories = unique.map((value) => canonical.get(value.toLocaleLowerCase()));
     }
 
     const providerLocation = userRole === 'PROVIDER' ? getSriLankaLocation(town) : null;
@@ -70,7 +76,7 @@ router.post('/register', authLimiter, async (req, res) => {
         data: {
           userId: user.id,
           nic: nic || '',
-          category: providerCategory,
+          category: providerCategories.join(', '),
           serviceTowns: providerTowns || '',
           kycStatus: 'PENDING',
         },

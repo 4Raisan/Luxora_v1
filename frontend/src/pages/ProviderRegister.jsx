@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import { generateProviderPDF } from '../utils/pdfGenerator'
+import { SRI_LANKA_PROVINCES, SRI_LANKA_TOWNS } from '../data/sriLankaLocations'
 import './ProviderRegister.css'
 
 const steps = [
@@ -156,6 +157,10 @@ const ProviderRegister = () => {
         return
       }
     }
+    if (step === 1 && !SRI_LANKA_TOWNS.some((location) => location.name === form.city)) {
+      alert('Please select a town from the Sri Lanka provider registration list.')
+      return
+    }
     if (step < steps.length - 1) setStep(step + 1)
   }
 
@@ -201,6 +206,9 @@ const ProviderRegister = () => {
         role: 'provider',
         nic: form.nicNumber,
         category: form.services[0],
+        categories: form.services,
+        town: form.city,
+        address_street: form.address,
         service_towns: form.city,
       })
 
@@ -225,6 +233,7 @@ const ProviderRegister = () => {
   }
 
   const progress = ((step) / (steps.length - 1)) * 100
+  const selectedLocation = SRI_LANKA_TOWNS.find((location) => location.name === form.city)
 
   if (submitted) {
     return (
@@ -451,13 +460,22 @@ const ProviderRegister = () => {
             </div>
 
             <div className="pr-row">
-              <input id="pr-city" name="city" type="text" className="pr-input"
-                placeholder="City / Region" value={form.city}
-                onChange={handleChange} required />
+              <select id="pr-city" name="city" className="pr-input pr-select" value={form.city} onChange={handleChange} required>
+                <option value="">Select your service town</option>
+                {SRI_LANKA_PROVINCES.map((province) => (
+                  <optgroup key={province} label={`${province} Province`}>
+                    {SRI_LANKA_TOWNS.filter((location) => location.province === province).map((location) => (
+                      <option key={location.name} value={location.name}>{location.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
               <input id="pr-website" name="website" type="url" className="pr-input"
                 placeholder="Website (optional)" value={form.website}
                 onChange={handleChange} />
             </div>
+
+            {selectedLocation && <p className="pr-town-confirmation">✓ {selectedLocation.name} is in the {selectedLocation.province} Province.</p>}
 
             <textarea id="pr-address" name="address" className="pr-input pr-textarea"
               placeholder="Full Business Address" value={form.address}
@@ -514,7 +532,7 @@ const ProviderRegister = () => {
               <div className="pr-review-section">
                 <h4>Business Info</h4>
                 <div className="pr-review-row"><span>Business</span><span>{form.businessName || '—'}</span></div>
-                <div className="pr-review-row"><span>City</span><span>{form.city || '—'}</span></div>
+                <div className="pr-review-row"><span>Town</span><span>{form.city || '—'}{selectedLocation ? `, ${selectedLocation.province} Province` : ''}</span></div>
               </div>
               <div className="pr-review-section">
                 <h4>Services</h4>

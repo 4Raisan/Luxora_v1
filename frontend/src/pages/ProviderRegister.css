@@ -288,6 +288,9 @@
   background: #1a1a1a;
 }
 
+.pr-select optgroup { background: #1a1a1a; color: var(--gold); font-style: normal; }
+.pr-town-confirmation { margin: -0.35rem 0 0; color: #9fc9a4; font-size: 0.78rem; }
+
 .pr-select-arrow {
   position: absolute;
   right: 0.9rem;

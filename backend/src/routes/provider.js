@@ -4,6 +4,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { encryptAccountNumber, decryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
 import { bookingStart, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { notify } from '../services/notify.js';
+import { getSriLankaLocation, SRI_LANKA_TOWNS } from '../services/sriLankaLocations.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('PROVIDER'));
@@ -44,9 +45,18 @@ router.put('/service-towns', async (req, res) => {
   if (uniqueTowns.length > 10 || uniqueTowns.some((town) => town.length > 100)) {
     return res.status(400).json({ error: 'service_towns may contain up to 10 towns, each at most 100 characters' });
   }
+  const provinceByName = new Map([...new Set(SRI_LANKA_TOWNS.map((location) => location.province))].map((province) => [province.toLowerCase(), province]));
+  const selectedAreas = uniqueTowns.map((area) => {
+    if (area.toLowerCase().startsWith('province:')) {
+      const province = provinceByName.get(area.slice('province:'.length).trim().toLowerCase());
+      return province ? `province:${province}` : null;
+    }
+    return getSriLankaLocation(area)?.name || null;
+  });
+  if (selectedAreas.some((area) => !area)) return res.status(400).json({ error: 'Select service towns or provinces from the Sri Lanka location list' });
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
-  const service_towns = uniqueTowns.join(', ');
+  const service_towns = selectedAreas.join(', ');
   await prisma.provider.update({ where: { id: provider.id }, data: { serviceTowns: service_towns } });
   res.json({ service_towns });
 });

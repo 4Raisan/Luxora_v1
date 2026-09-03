@@ -672,8 +672,8 @@ const CustomerDashboard = () => {
     packageId: '',
     petType: '',
     date: new Date().toISOString().split('T')[0],
-    hour: '10',
-    minute: '30',
+    hour: '09',
+    minute: '00',
     ampm: 'AM'
   })
   const [showInsufficientTokensModal, setShowInsufficientTokensModal] = useState(false)
@@ -1150,10 +1150,12 @@ const CustomerDashboard = () => {
   const handleSaveAddress = async (e) => {
     e.preventDefault()
     if (!addressForm.street || !addressForm.city) return
+    const selectedLocation = SRI_LANKA_TOWNS.find((location) => location.name.toLowerCase() === addressForm.city.trim().toLowerCase())
+    if (!selectedLocation) return alert('Please select a town from the Sri Lanka location suggestions.')
     const newAddr = {
       street: addressForm.street,
-      city: addressForm.city,
-      district: addressForm.district || 'Western'
+      city: selectedLocation.name,
+      district: selectedLocation.province
     }
     setUserAddress(newAddr)
     localStorage.setItem('userAddress_' + userKey, JSON.stringify(newAddr))
@@ -1751,7 +1753,7 @@ const CustomerDashboard = () => {
                           onChange={(e) => setServiceBookingForm(prev => ({ ...prev, minute: e.target.value }))}
                           style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.55rem 0.2rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
                         >
-                          {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
+                          {['00', '15', '30', '45'].map(m => (
                             <option key={m} value={m}>{m}</option>
                           ))}
                         </select>

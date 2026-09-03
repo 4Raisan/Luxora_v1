@@ -8,6 +8,11 @@ const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d(\s?(AM|PM))?$/i;
 export const isEmail = (v) => typeof v === 'string' && EMAIL_RE.test(v.trim());
 export const isDate = (v) => typeof v === 'string' && DATE_RE.test(v);
 export const isTime = (v) => typeof v === 'string' && TIME_RE.test(v.trim());
+export const isQuarterHourTime = (v) => {
+  if (!isTime(v)) return false;
+  const [, minutes] = v.trim().split(/\s+/)[0].split(':');
+  return Number(minutes) % 15 === 0;
+};
 export const isNonEmptyString = (v, max = 500) =>
   typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 

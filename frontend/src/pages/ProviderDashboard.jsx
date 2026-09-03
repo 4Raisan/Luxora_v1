@@ -4,6 +4,7 @@ import Calendar from '../components/Calendar'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
+import { SRI_LANKA_PROVINCES, SRI_LANKA_TOWNS } from '../data/sriLankaLocations'
 import './ProviderDashboard.css'
 
 /* ── SVG Icons ─────────────────────────────────────── */
@@ -60,19 +61,8 @@ const AVAILABILITY_OPTIONS = [
 
 const SERVICE_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care']
 
-/* Sri Lankan service areas: 9 provinces and their major towns */
-const SRI_LANKA_AREAS = {
-  'Western': ['Colombo', 'Nugegoda', 'Dehiwala', 'Moratuwa', 'Negombo', 'Gampaha', 'Kadawatha', 'Kelaniya', 'Horana', 'Panadura', 'Kalutara'],
-  'Central': ['Kandy', 'Nuwara Eliya', 'Matale', 'Gampola', 'Katugastota', 'Peradeniya', 'Hatton', 'Nawalapitiya'],
-  'Southern': ['Galle', 'Matara', 'Tangalle', 'Hikkaduwa', 'Ambalangoda', 'Weligama', 'Hambantota', 'Deniyaya'],
-  'Northern': ['Jaffna', 'Vavuniya', 'Kilinochchi', 'Mannar', 'Mullaitivu', 'Point Pedro', 'Chavakachcheri'],
-  'Eastern': ['Trincomalee', 'Batticaloa', 'Ampara', 'Kalmunai', 'Eravur', 'Valaichchenai'],
-  'North Western': ['Kurunegala', 'Puttalam', 'Chilaw', 'Kuliyapitiya', 'Nikaweratiya', 'Anamaduwa'],
-  'North Central': ['Anuradhapura', 'Polonnaruwa', 'Kekirawa', 'Medawachchiya', 'Thambuttegama'],
-  'Uva': ['Badulla', 'Bandarawela', 'Hali-Ela', 'Welimada', 'Monaragala', 'Ella', 'Mahiyangana'],
-  'Sabaragamuwa': ['Ratpanura', 'Kegalle', 'Embilipitiya', 'Balangoda', 'Kahawatta', 'Mawanella'],
-}
-const PROVINCE_NAMES = Object.keys(SRI_LANKA_AREAS)
+const SRI_LANKA_AREAS = Object.fromEntries(SRI_LANKA_PROVINCES.map((province) => [province, SRI_LANKA_TOWNS.filter((location) => location.province === province).map((location) => location.name)]))
+const PROVINCE_NAMES = SRI_LANKA_PROVINCES
 
 /* ── Component ─────────────────────────────────────── */
 const ProviderDashboard = () => {
@@ -115,6 +105,7 @@ const ProviderDashboard = () => {
   const [cancellationRequests, setCancellationRequests] = useState({})
   /* Settings form */
   const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', categories: [], towns: [], provinces: [] })
+  const [settingsSaving, setSettingsSaving] = useState(false)
   const [townSearch, setTownSearch] = useState('')
   const [areaMode, setAreaMode] = useState('towns')
   const switchToProvinceMode = () => {
@@ -137,6 +128,7 @@ const ProviderDashboard = () => {
     const reason = cancellationReason.trim()
     if (reason.length < 3) return alert('Please enter a short cancellation reason.')
     setBusy(true)
+    setSettingsSaving(true)
     try {
       const result = await apiRequest(`/provider/bookings/${selectedDetailsBooking.apiId}/cancellation-request`, 'POST', { reason }, token)
       setCancellationReason('')
@@ -149,6 +141,7 @@ const ProviderDashboard = () => {
       alert(error.message || 'Could not send the cancellation request.')
     } finally {
       setBusy(false)
+      setSettingsSaving(false)
     }
   }
   const mapBookingRow = useCallback((booking) => {
@@ -1254,17 +1247,18 @@ const ProviderDashboard = () => {
 
       {/* ── SETTINGS MODAL (profile name + towns served) ── */}
       {showSettingsModal && (
-        <div className="pd-drawer-overlay" onClick={() => setShowSettingsModal(false)}>
+        <div className="pd-drawer-overlay" onClick={() => !settingsSaving && setShowSettingsModal(false)}>
           <div className="pd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', width: '92%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #222', paddingBottom: '0.85rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                 <span style={{ fontSize: '1.2rem' }}>⚙️</span>
                 <h3 style={{ color: 'var(--gold)', margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Provider Settings</h3>
               </div>
-              <button onClick={() => setShowSettingsModal(false)} style={{ background: 'transparent', border: 'none', color: '#aaa', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+              <button type="button" disabled={settingsSaving} onClick={() => setShowSettingsModal(false)} style={{ background: 'transparent', border: 'none', color: '#aaa', fontSize: '1.1rem', cursor: settingsSaving ? 'wait' : 'pointer', fontWeight: 700 }}>✕</button>
             </div>
 
             <form onSubmit={saveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {settingsSaving && <div role="status" aria-live="polite" style={{ background: 'rgba(201,168,76,.12)', border: '1px solid rgba(201,168,76,.45)', borderRadius: '8px', color: 'var(--gold)', padding: '0.7rem 0.85rem', fontSize: '0.78rem', fontWeight: 700 }}>Saving your settings securely. Please wait…</div>}
               <div className="pd-edit-field">
                 <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>DISPLAY NAME *</label>
                 <input
@@ -1442,10 +1436,10 @@ const ProviderDashboard = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={busy}
-                  style={{ background: 'var(--gold)', border: 'none', color: '#000', padding: '0.6rem 1.4rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}
+                  disabled={settingsSaving}
+                  style={{ background: 'var(--gold)', border: 'none', color: '#000', padding: '0.6rem 1.4rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800, cursor: settingsSaving ? 'wait' : 'pointer', opacity: settingsSaving ? 0.75 : 1 }}
                 >
-                  ✓ SAVE SETTINGS
+                  {settingsSaving ? 'SAVING… PLEASE WAIT' : '✓ SAVE SETTINGS'}
                 </button>
               </div>
             </form>

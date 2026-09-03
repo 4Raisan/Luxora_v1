@@ -6,7 +6,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
 import { sendEmail, escapeHtml } from '../services/integrations.js';
-import { toPositiveInt, isDate, isTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
+import { toPositiveInt, isDate, isQuarterHourTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
 import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
@@ -106,7 +106,7 @@ router.post('/', async (req, res) => {
   const serviceId = toPositiveInt(service_id);
   if (!serviceId) return res.status(400).json({ error: 'service_id is required' });
   if (!isDate(booking_date)) return res.status(400).json({ error: 'booking_date must be YYYY-MM-DD' });
-  if (!isTime(booking_time)) return res.status(400).json({ error: 'booking_time must be HH:MM (e.g. 09:00 or 10:00 AM)' });
+  if (!isQuarterHourTime(booking_time)) return res.status(400).json({ error: 'booking_time must use a 15-minute interval (for example, 09:00, 09:15, 09:30, or 09:45)' });
   if (!isTodayOrFuture(booking_date)) return res.status(400).json({ error: 'booking_date cannot be in the past' });
 
   const service = await prisma.service.findUnique({
@@ -550,8 +550,8 @@ router.put('/:id/cancel', async (req, res) => {
 router.put('/:id/reschedule', async (req, res) => {
   if (req.body.confirmed !== true) return res.status(400).json({ error: 'Reschedule confirmation is required' });
   const { booking_date, booking_time } = req.body;
-  if (!isDate(booking_date) || !isTime(booking_time) || !isTodayOrFuture(booking_date)) {
-    return res.status(400).json({ error: 'Use a future valid date and time' });
+  if (!isDate(booking_date) || !isQuarterHourTime(booking_time) || !isTodayOrFuture(booking_date)) {
+    return res.status(400).json({ error: 'Use a future valid date and a 15-minute time interval' });
   }
   const normalizedTime = String(booking_time).trim().toUpperCase();
   const reason = String(req.body.reason || '').trim();
