@@ -85,6 +85,7 @@ export function useRealtime({ onEvent, onSync, enabled = true } = {}) {
         'BOOKING_STATUS_CHANGED',
         'BOOKING_CANCELLED',
         'PAYMENT_UPDATED',
+        'PAYOUT_UPDATED',
       ];
 
       eventNames.forEach((name) => {

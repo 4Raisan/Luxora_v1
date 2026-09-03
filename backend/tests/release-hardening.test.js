@@ -257,8 +257,35 @@ test('Provider redemption reserves balance and admin settlement updates the ledg
   assert.equal(adminRow.account_number, accountNumber);
   assert.equal(adminRow.branch, 'Colombo Fort');
 
+  const realtimeAbort = new AbortController();
+  const realtimeResponse = await fetch(`${BASE}/realtime?token=${encodeURIComponent(providerToken)}`, { signal: realtimeAbort.signal });
+  assert.equal(realtimeResponse.status, 200);
+  const realtimeReader = realtimeResponse.body.getReader();
+  const decoder = new TextDecoder();
+  const connectedChunk = await realtimeReader.read();
+  assert.match(decoder.decode(connectedChunk.value), /event: connected/);
+
+  let payoutEventTimeout;
+  const payoutEventPromise = Promise.race([
+    (async () => {
+      let output = '';
+      while (!output.includes('event: PAYOUT_UPDATED')) {
+        const chunk = await realtimeReader.read();
+        if (chunk.done) break;
+        output += decoder.decode(chunk.value, { stream: true });
+      }
+      return output;
+    })(),
+    new Promise((_, reject) => { payoutEventTimeout = setTimeout(() => reject(new Error('Timed out waiting for PAYOUT_UPDATED')), 5000); }),
+  ]);
   const settled = await authJson(adminToken, `/admin/payouts/${payout.id}`, { method: 'PUT', body: JSON.stringify({ status: 'paid' }) });
+  const realtimeOutput = await payoutEventPromise;
+  clearTimeout(payoutEventTimeout);
+  realtimeAbort.abort();
   assert.equal(settled.status, 200);
+  assert.match(realtimeOutput, /event: PAYOUT_UPDATED/);
+  assert.match(realtimeOutput, /"status":"paid"/);
+  assert.match(realtimeOutput, /"redeemed":5000/);
   const providerSummary = await authJson(providerToken, '/provider/earnings');
   assert.equal(Number(providerSummary.body.redeemed), 5000);
   assert.equal(Number(providerSummary.body.balance), 1500);
