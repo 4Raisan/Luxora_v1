@@ -871,7 +871,7 @@ const CustomerDashboard = () => {
       id: created.booking_id,
       customer: currentUser?.name || 'Customer',
       service: serviceTitle,
-      serviceTitle: service?.title,
+      serviceTitle: service?.title || serviceTitle,
       petType: chosenPetType,
       status: String(created.status || 'pending').toUpperCase(),
       color: '#4ade80',
@@ -3379,12 +3379,22 @@ const CustomerDashboard = () => {
                 color: '#ffffff',
                 fontSize: '1.4rem',
                 fontWeight: 800,
-                margin: '0.35rem 0 1.25rem 0',
+                margin: '0.35rem 0 0.5rem 0',
                 letterSpacing: '-0.01em',
               }}
             >
               Service Session Booked Successfully
             </h3>
+
+            <p
+              style={{
+                color: '#aaa',
+                fontSize: '0.88rem',
+                margin: '0 0 1.25rem 0',
+              }}
+            >
+              Your service session has been successfully booked.
+            </p>
 
             {/* Booking Summary Box */}
             <div
@@ -3405,7 +3415,7 @@ const CustomerDashboard = () => {
                   Service Style
                 </span>
                 <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>
-                  {sessionBookingSuccessModal.service}
+                  {sessionBookingSuccessModal.serviceTitle || sessionBookingSuccessModal.service}
                   {sessionBookingSuccessModal.petType && (
                     <span style={{ marginLeft: '6px', fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(201,168,76,0.15)', color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>
                       {sessionBookingSuccessModal.petType === 'dog' ? '🐕 Dog' : sessionBookingSuccessModal.petType === 'cat' ? '🐈 Cat' : sessionBookingSuccessModal.petType}
@@ -3462,7 +3472,7 @@ const CustomerDashboard = () => {
                 margin: '0 0 1.5rem 0',
               }}
             >
-              Your <strong style={{ color: '#fff' }}>{sessionBookingSuccessModal.service}</strong> service session has been successfully booked for <strong style={{ color: '#fff' }}>{sessionBookingSuccessModal.date}</strong> at <strong style={{ color: '#fff' }}>{sessionBookingSuccessModal.time}</strong>. A Luxora Concierge Specialist will contact you shortly.
+              A Luxora Concierge Specialist will contact you shortly.
             </p>
 
             <button
