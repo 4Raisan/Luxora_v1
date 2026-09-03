@@ -10,7 +10,6 @@ import './ProviderDashboard.css'
 
 /* ── SVG Icons ─────────────────────────────────────── */
 function GridIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/></svg> }
-function CalIcon()   { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function HistIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/></svg> }
 function BellIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function GearIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5"/></svg> }
@@ -62,6 +61,18 @@ const AVAILABILITY_OPTIONS = [
 
 const SERVICE_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care']
 
+const providerServiceCategory = (category, serviceTitle) => {
+  const suppliedCategory = String(category || '').trim()
+  const canonicalCategory = SERVICE_CATEGORIES.find((item) => item.toLowerCase() === suppliedCategory.toLowerCase())
+  if (canonicalCategory) return canonicalCategory
+
+  const serviceText = `${suppliedCategory} ${serviceTitle || ''}`.toLowerCase()
+  if (/pet|dog|cat|groom|aquarium/.test(serviceText)) return 'Pet Care'
+  if (/garden|lawn|landscape|hedge|plant|fertili/.test(serviceText)) return 'Garden Care'
+  if (/auto|car|vehicle|wash|detail|vacuum|tyre|tire/.test(serviceText)) return 'Auto Care'
+  return suppliedCategory || serviceTitle || 'Service'
+}
+
 const SRI_LANKA_AREAS = Object.fromEntries(SRI_LANKA_PROVINCES.map((province) => [province, SRI_LANKA_TOWNS.filter((location) => location.province === province).map((location) => location.name)]))
 const PROVINCE_NAMES = SRI_LANKA_PROVINCES
 
@@ -98,7 +109,6 @@ const ProviderDashboard = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showProfileDrawer, setShowProfileDrawer] = useState(false)
   const [selectedDetailsBooking, setSelectedDetailsBooking] = useState(null)
-  const [bookingFilter, setBookingFilter] = useState('ALL')
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date().getDate())
   /* PIN verification modal for start/complete */
   const [pinDialog, setPinDialog] = useState(null) // { row, next, pin, error }
@@ -151,13 +161,15 @@ const ProviderDashboard = () => {
     const date = new Date(`${booking.bookingDate}T00:00:00`)
     const status = String(booking.status).toUpperCase()
     const petLabel = (booking.petType || booking.pet_type) === 'dog' ? '🐕 Dog Care' : (booking.petType || booking.pet_type) === 'cat' ? '🐈 Cat Care' : ''
+    const category = providerServiceCategory(booking.category_name, booking.service_title)
     return {
       apiId: booking.id,
       month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
       day: String(date.getDate()),
       bookingDate: booking.bookingDate,
       bookingTime: booking.bookingTime,
-      title: booking.service_title || 'Service booking',
+      title: category,
+      serviceTitle: booking.service_title || '',
       sub: `${booking.customer_name || 'Customer'}${petLabel ? ` • ${petLabel}` : ''}${booking.customer_phone ? ` • 📞 ${formatMobileNumber(booking.customer_phone)}` : ''}${booking.town ? ` • 📍 ${booking.town}` : ''}`,
       status,
       color: STATUS_COLORS[status] || '#C9A84C',
@@ -169,7 +181,7 @@ const ProviderDashboard = () => {
       address: [booking.addressStreet, booking.town, booking.addressDistrict].filter(Boolean).join(', '),
       notes: booking.notes || '',
       price: booking.totalPrice,
-      category: booking.category_name || '',
+      category,
       serviceDesc: booking.service_desc || '',
       petType: booking.petType || booking.pet_type || '',
     }
@@ -486,10 +498,6 @@ const ProviderDashboard = () => {
     .filter((h) => String(h.status).toLowerCase() === 'completed')
     .slice().sort((a, b) => String(b.booking_date).localeCompare(String(a.booking_date)))
 
-  const filteredBookings = bookingFilter === 'ALL'
-    ? visibleBookings
-    : visibleBookings.filter((b) => b.status === bookingFilter)
-
   const unreadCount = notificationsList.filter((n) => !n.read).length
   const activeAvailability = AVAILABILITY_OPTIONS.find((o) => o.value === availability)
   const selectedBankAccount = (earnings?.bank_accounts || []).find((account) => account.selected) || earnings?.bank_accounts?.[0]
@@ -537,7 +545,6 @@ const ProviderDashboard = () => {
         <nav className="pd-nav">
           {[
             { id: 'overview', icon: <GridIcon />, label: 'Overview' },
-            { id: 'bookings', icon: <CalIcon />, label: 'Bookings' },
             { id: 'history',  icon: <HistIcon />, label: 'History' },
             { id: 'payments', icon: <span>💳</span>, label: 'Payments' },
           ].map((item) => (
@@ -711,7 +718,7 @@ const ProviderDashboard = () => {
                         <span className="pd-booking__day">{String(new Date(`${h.booking_date}T00:00:00`).getDate())}</span>
                       </div>
                       <div style={{ flex: 1 }}>
-                        <h3 className="pd-all-booking-title">{h.service_title || 'Service booking'}</h3>
+                        <h3 className="pd-all-booking-title">{providerServiceCategory(h.category_name, h.service_title)}</h3>
                         <p className="pd-all-booking-sub">{h.customer_name || 'Customer'}{(h.petType || h.pet_type) ? ` • ${(h.petType || h.pet_type) === 'dog' ? '🐕 Dog Care' : '🐈 Cat Care'}` : ''}{h.customer_phone ? ` • 📞 ${formatMobileNumber(h.customer_phone)}` : ''} • {String(h.booking_time || '').slice(0, 5)}</p>
                       </div>
                       <span className="pd-booking__status" style={{ borderColor: STATUS_COLORS[String(h.status).toUpperCase()] || '#888', color: STATUS_COLORS[String(h.status).toUpperCase()] || '#888' }}>
@@ -723,61 +730,6 @@ const ProviderDashboard = () => {
                       <span style={{ color: 'var(--gold)', fontWeight: 800, fontSize: '0.9rem', marginLeft: 'auto' }}>
                         {formatRupees(h.job_earnings)}
                       </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : activeNav === 'bookings' ? (
-            /* ══ ALL BOOKINGS ══ */
-            <div className="pd-all-bookings-view" style={{ gridColumn: '1 / -1' }}>
-              <div className="pd-section-header" style={{ marginBottom: '1.5rem' }}>
-                <div>
-                  <span className="pd-greeting__label">SCHEDULE & APPOINTMENTS</span>
-                  <h1 className="pd-section-title" style={{ fontSize: '1.6rem' }}>All Provider Bookings</h1>
-                </div>
-                <button className="pd-section-link" onClick={() => setActiveNav('overview')}>← Back to Overview</button>
-              </div>
-
-              <div className="pd-bookings-filter-bar">
-                {['ALL', 'PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={`pd-filter-btn ${bookingFilter === f ? 'pd-filter-btn--active' : ''}`}
-                    onClick={() => setBookingFilter(f)}
-                  >
-                    {f === 'ALL' ? `ALL BOOKINGS (${visibleBookings.length})` : `${f} (${visibleBookings.filter((b) => b.status === f).length})`}
-                  </button>
-                ))}
-              </div>
-
-              <div className="pd-all-bookings-grid">
-                {loading && <p style={{ color: '#888' }}>Loading bookings…</p>}
-                {!loading && filteredBookings.length === 0 && (
-                  <p style={{ color: '#888', fontStyle: 'italic' }}>No bookings match this filter.</p>
-                )}
-                {filteredBookings.map((b, i) => (
-                  <div key={b.apiId || i} className="pd-all-booking-card">
-                    <div className="pd-all-booking-header">
-                      <div className="pd-booking__date">
-                        <span className="pd-booking__month">{b.month}</span>
-                        <span className="pd-booking__day">{b.day}</span>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <h3 className="pd-all-booking-title">{b.title}</h3>
-                        <p className="pd-all-booking-sub">{b.sub}</p>
-                      </div>
-                      <span className="pd-booking__status" style={{ borderColor: b.color, color: b.color }}>
-                        {b.status}
-                      </span>
-                    </div>
-
-                    <div className="pd-all-booking-actions">
-                      {renderBookingActions(b)}
-                      <button type="button" className="pd-cr-btn-decline" onClick={() => setSelectedDetailsBooking(b)}>
-                        VIEW DETAILS
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -852,9 +804,6 @@ const ProviderDashboard = () => {
                 {/* Upcoming Bookings */}
                 <div className="pd-section-header">
                   <h2 className="pd-section-title">Upcoming Bookings</h2>
-                  <button className="pd-section-link" id="pd-view-archive-btn" onClick={() => setActiveNav('bookings')}>
-                    View All
-                  </button>
                 </div>
                 <div className="pd-bookings">
                   {loading && <p style={{ color: '#888' }}>Loading bookings…</p>}
@@ -1562,7 +1511,6 @@ const ProviderDashboard = () => {
       <nav className="pd-mobile-nav" aria-label="Sections">
         {[
           { id: 'overview', icon: <GridIcon />, label: 'OVERVIEW' },
-          { id: 'bookings', icon: <CalIcon />, label: 'BOOKINGS' },
           { id: 'history', icon: <HistIcon />, label: 'HISTORY' },
           { id: 'payments', icon: <span>💳</span>, label: 'PAYMENTS' },
         ].map((item) => (

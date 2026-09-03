@@ -583,6 +583,7 @@ test('Rule 11: Provider availability online/offline workflow, 6-hour safeguard, 
   const historyItem = earningsRes.body.history.find((h) => h.id === nearBooking.id);
   assert.ok(historyItem);
   assert.equal(historyItem.customer_phone, '0771234567');
+  assert.equal(historyItem.category_name, 'Auto Care');
 });
 
 test('Rule 12: Customer booking Dog & Cat pet care modes, database persistence, and reschedule preservation', async () => {
