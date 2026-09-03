@@ -98,7 +98,7 @@ const ProviderDashboard = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showProfileDrawer, setShowProfileDrawer] = useState(false)
   const [selectedDetailsBooking, setSelectedDetailsBooking] = useState(null)
-  const [bookingFilter, setBookingFilter] = useState('ALL')
+  const [bookingFilter, setBookingFilter] = useState('ASSIGNED')
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date().getDate())
   /* PIN verification modal for start/complete */
   const [pinDialog, setPinDialog] = useState(null) // { row, next, pin, error }
@@ -486,9 +486,7 @@ const ProviderDashboard = () => {
     .filter((h) => String(h.status).toLowerCase() === 'completed')
     .slice().sort((a, b) => String(b.booking_date).localeCompare(String(a.booking_date)))
 
-  const filteredBookings = bookingFilter === 'ALL'
-    ? visibleBookings
-    : visibleBookings.filter((b) => b.status === bookingFilter)
+  const filteredBookings = visibleBookings.filter((b) => b.status === bookingFilter)
 
   const unreadCount = notificationsList.filter((n) => !n.read).length
   const activeAvailability = AVAILABILITY_OPTIONS.find((o) => o.value === availability)
@@ -740,14 +738,14 @@ const ProviderDashboard = () => {
               </div>
 
               <div className="pd-bookings-filter-bar">
-                {['ALL', 'PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
+                {['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED'].map((f) => (
                   <button
                     key={f}
                     type="button"
                     className={`pd-filter-btn ${bookingFilter === f ? 'pd-filter-btn--active' : ''}`}
                     onClick={() => setBookingFilter(f)}
                   >
-                    {f === 'ALL' ? `ALL BOOKINGS (${visibleBookings.length})` : `${f} (${visibleBookings.filter((b) => b.status === f).length})`}
+                    {`${f} (${visibleBookings.filter((b) => b.status === f).length})`}
                   </button>
                 ))}
               </div>
