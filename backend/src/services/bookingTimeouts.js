@@ -134,6 +134,18 @@ export async function processExpiredBookings(client = prisma, now = new Date()) 
   return cancelledBookings;
 }
 
+let lastThrottledScan = 0;
+const THROTTLE_MS = 30000; // Run at most once every 30 seconds when called from HTTP read routes
+
+export async function processExpiredBookingsThrottled(client = prisma, now = new Date()) {
+  const nowMs = Date.now();
+  if (nowMs - lastThrottledScan < THROTTLE_MS) {
+    return [];
+  }
+  lastThrottledScan = nowMs;
+  return processExpiredBookings(client, now);
+}
+
 export function startBookingTimeoutScheduler() {
   const tick = async () => {
     try {

@@ -7,7 +7,7 @@ import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUS
 import { getPlatformSettings, providerCanTakeBooking, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
-import { processExpiredBookings } from '../services/bookingTimeouts.js';
+import { processExpiredBookingsThrottled } from '../services/bookingTimeouts.js';
 import { broadcastBookingEvent } from '../services/realtime.js';
 
 const router = Router();
@@ -406,7 +406,7 @@ router.get('/reports', async (req, res) => {
 });
 
 router.get('/bookings', async (_req, res) => {
-  await processExpiredBookings(prisma).catch(() => {});
+  await processExpiredBookingsThrottled(prisma).catch(() => {});
   const bookings = await prisma.booking.findMany({
     include: { service: { include: { category: true } }, user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } } } } },
     orderBy: { createdAt: 'desc' },

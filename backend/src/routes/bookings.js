@@ -10,7 +10,7 @@ import { toPositiveInt, isDate, isQuarterHourTime, isTodayOrFuture, toEnum, BOOK
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
 import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
-import { processExpiredBookings, getAssignedDeadline, getInProgressDeadline } from '../services/bookingTimeouts.js';
+import { processExpiredBookingsThrottled, getAssignedDeadline, getInProgressDeadline } from '../services/bookingTimeouts.js';
 import { broadcastBookingEvent } from '../services/realtime.js';
 
 const router = Router();
@@ -146,8 +146,8 @@ router.post('/', async (req, res) => {
   const startPin = crypto.randomInt(100000, 1000000).toString();
   const completionPin = crypto.randomInt(100000, 1000000).toString();
   const [startPinHash, completionPinHash] = await Promise.all([
-    bcrypt.hash(startPin, 12),
-    bcrypt.hash(completionPin, 12),
+    bcrypt.hash(startPin, 10),
+    bcrypt.hash(completionPin, 10),
   ]);
   const customerStartPinCipher = encryptPin(startPin);
   const customerCompletionPinCipher = encryptPin(completionPin);
@@ -244,6 +244,9 @@ router.post('/', async (req, res) => {
   }
   sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${escapeHtml(customer?.name || 'Customer')},</p><p>Your ${escapeHtml(service.title)} booking is scheduled for ${escapeHtml(booking_date)} at ${escapeHtml(booking_time)}.</p><p>Booking status: ${escapeHtml(booking.status.toLowerCase())}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
+  const isAssigned = booking.status === 'ASSIGNED';
+  const effectiveStartPin = isAssigned ? startPin : null;
+
   broadcastBookingEvent('BOOKING_CREATED', {
     id: booking.id,
     bookingId: booking.id,
@@ -256,14 +259,26 @@ router.post('/', async (req, res) => {
     bookingDate: booking.bookingDate,
     bookingTime: booking.bookingTime,
     town: booking.town,
+    addressStreet: customer?.addressStreet || '',
+    addressDistrict: customer?.addressDistrict || '',
     petType: booking.petType,
     serviceTitle: service.title,
     categoryName: service.category?.name,
+    service_title: service.title,
+    category_name: service.category?.name,
+    customerName: customer?.name || 'Customer',
+    customer_name: customer?.name || 'Customer',
+    customerPhone: customer?.phone || '',
+    customer_phone: customer?.phone || '',
     totalPrice: service.price,
+    total_price: service.price,
     providerEarning: service.providerEarning,
+    pin_code: effectiveStartPin,
+    start_pin: effectiveStartPin,
+    pinExpiresAt: booking.pinExpiresAt,
+    entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits - 1 },
   });
 
-  const isAssigned = booking.status === 'ASSIGNED';
   res.status(201).json({
     booking_id: booking.id,
     pin_code: isAssigned ? startPin : null,
@@ -280,7 +295,7 @@ router.post('/', async (req, res) => {
 // My bookings (customer). Generic booking list returns high-level status;
 // active service PINs are retrieved on demand via GET /bookings/:id/pins.
 router.get('/my', async (req, res) => {
-  await processExpiredBookings(prisma).catch(() => {});
+  await processExpiredBookingsThrottled(prisma).catch(() => {});
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
     include: { service: { include: { category: true } }, provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } } },
@@ -307,7 +322,7 @@ router.get('/my', async (req, res) => {
 
 // Providers fulfil only bookings assigned by the server scheduling flow.
 router.get('/assigned', async (req, res) => {
-  await processExpiredBookings(prisma).catch(() => {});
+  await processExpiredBookingsThrottled(prisma).catch(() => {});
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   if (provider.kycStatus !== 'APPROVED') {
@@ -341,7 +356,7 @@ router.get('/pending', async (req, res) => {
   if (req.user.role !== 'PROVIDER') {
     return res.status(403).json({ error: 'Only service providers can view pending bookings' });
   }
-  await processExpiredBookings(prisma).catch(() => {});
+  await processExpiredBookingsThrottled(prisma).catch(() => {});
   const provider = await prisma.provider.findUnique({
     where: { userId: req.user.id },
     include: { user: { select: { id: true, active: true } } },
