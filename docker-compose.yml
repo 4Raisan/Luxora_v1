@@ -1,4 +1,4 @@
-Aservices:
+services:
   backend:
     build: .
     ports:
