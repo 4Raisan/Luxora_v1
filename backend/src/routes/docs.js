@@ -97,6 +97,18 @@ const spec = {
         responses: { '200': { description: 'Updated' } } },
     },
     '/provider/earnings': { get: { tags: ['Provider'], summary: 'Fixed service earnings, bank accounts, and payout history', security: bearer, responses: { '200': { description: 'Earnings' } } } },
+    '/provider/bank-accounts': {
+      post: { tags: ['Provider'], summary: 'Create or replace the provider payout bank account', security: bearer,
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['bank_name', 'account_holder', 'account_number', 'branch'], properties: {
+          bank_name: { type: 'string' }, account_holder: { type: 'string' }, account_number: { type: 'string' }, branch: { type: 'string' },
+        } } } } },
+        responses: { '200': { description: 'Bank account replaced' }, '201': { description: 'Bank account created' } } },
+    },
+    '/provider/payouts/redeem': {
+      post: { tags: ['Provider'], summary: 'Request redemption from the available provider balance (minimum LKR 5,000)', security: bearer,
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['amount'], properties: { amount: { type: 'number', minimum: 5000 } } } } } },
+        responses: { '201': { description: 'Redemption request created and balance reserved' } } },
+    },
     '/promotions': { get: { tags: ['Promotions'], summary: 'Active promotions (discount_percent, is_active)', responses: { '200': { description: 'Promotions' } } } },
     '/promotions/{id}': {
       put: { tags: ['Promotions'], summary: 'Activate/deactivate (admin); body { active: 1|0 } or omit to toggle', security: bearer,
@@ -115,6 +127,13 @@ const spec = {
         responses: { '200': { description: 'Updated' } } },
     },
     '/admin/bookings': { get: { tags: ['Admin'], summary: 'All bookings', security: bearer, responses: { '200': { description: 'Bookings' } } } },
+    '/admin/payouts': { get: { tags: ['Admin'], summary: 'Provider payout and redemption request ledger', security: bearer, responses: { '200': { description: 'Payouts' } } } },
+    '/admin/payouts/{id}': {
+      put: { tags: ['Admin'], summary: 'Mark a pending payout as paid or failed', security: bearer,
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['paid', 'failed'] } } } } } },
+        responses: { '200': { description: 'Payout status updated' } } },
+    },
     '/admin/bookings/{id}': {
       put: { tags: ['Admin'], summary: 'Override status / reassign provider', security: bearer,
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],

@@ -5,6 +5,7 @@ import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
 import { SRI_LANKA_PROVINCES, SRI_LANKA_TOWNS } from '../data/sriLankaLocations'
+import { SRI_LANKAN_BANKS } from '../data/sriLankaBanks'
 import './ProviderDashboard.css'
 
 /* ── SVG Icons ─────────────────────────────────────── */
@@ -87,6 +88,10 @@ const ProviderDashboard = () => {
   const [serviceTowns, setServiceTowns] = useState('')
   const [earnings, setEarnings] = useState(null)
   const [sessionPayouts, setSessionPayouts] = useState([])
+  const [bankForm, setBankForm] = useState({ bank_name: '', account_holder: '', account_number: '', branch: '' })
+  const [redeemAmount, setRedeemAmount] = useState('')
+  const [paymentBusy, setPaymentBusy] = useState(false)
+  const [paymentMessage, setPaymentMessage] = useState('')
   const [notificationsList, setNotificationsList] = useState([])
   /* UI modals */
   const [showNotifModal, setShowNotifModal] = useState(false)
@@ -128,7 +133,6 @@ const ProviderDashboard = () => {
     const reason = cancellationReason.trim()
     if (reason.length < 3) return alert('Please enter a short cancellation reason.')
     setBusy(true)
-    setSettingsSaving(true)
     try {
       const result = await apiRequest(`/provider/bookings/${selectedDetailsBooking.apiId}/cancellation-request`, 'POST', { reason }, token)
       setCancellationReason('')
@@ -141,7 +145,6 @@ const ProviderDashboard = () => {
       alert(error.message || 'Could not send the cancellation request.')
     } finally {
       setBusy(false)
-      setSettingsSaving(false)
     }
   }
   const mapBookingRow = useCallback((booking) => {
@@ -204,6 +207,8 @@ const ProviderDashboard = () => {
       setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
       setEarnings(earningsRow)
       setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
+      const bank = (earningsRow.bank_accounts || []).find((account) => account.selected) || earningsRow.bank_accounts?.[0]
+      if (bank) setBankForm((current) => ({ ...current, bank_name: bank.bank_name || '', account_holder: bank.account_holder || '', branch: bank.branch || '', account_number: '' }))
       setCancellationRequests(Object.fromEntries(
         (Array.isArray(supportRows) ? supportRows : [])
           .filter((ticket) => cancellationRequestBookingId(ticket) && ['OPEN', 'IN_PROGRESS'].includes(String(ticket.status || '').toUpperCase()))
@@ -373,6 +378,7 @@ const ProviderDashboard = () => {
       return alert('A provider may serve at most 10 towns. To cover a wider area, switch to province selection.')
     }
     setBusy(true)
+    setSettingsSaving(true)
     try {
       const name = settingsForm.name.trim()
       if (name && name !== (currentProvider.name || '')) {
@@ -401,6 +407,44 @@ const ProviderDashboard = () => {
       alert(error.message || 'Could not save settings.')
     } finally {
       setBusy(false)
+      setSettingsSaving(false)
+    }
+  }
+
+  const saveBankAccount = async (e) => {
+    e.preventDefault()
+    if (!bankForm.bank_name || !bankForm.account_holder.trim() || !bankForm.account_number.trim() || !bankForm.branch.trim()) {
+      return setPaymentMessage('Complete the bank, account name, account number, and branch.')
+    }
+    setPaymentBusy(true)
+    setPaymentMessage('Saving bank account securely…')
+    try {
+      await apiRequest('/provider/bank-accounts', 'POST', bankForm, token)
+      setBankForm((current) => ({ ...current, account_number: '' }))
+      setPaymentMessage('Bank account saved successfully.')
+      await loadAll()
+    } catch (error) {
+      setPaymentMessage(error.message || 'Could not save the bank account.')
+    } finally {
+      setPaymentBusy(false)
+    }
+  }
+
+  const requestRedemption = async (e) => {
+    e.preventDefault()
+    const amount = Number(redeemAmount)
+    if (!Number.isFinite(amount) || amount < 5000) return setPaymentMessage('Enter a redemption amount of at least LKR 5,000.')
+    setPaymentBusy(true)
+    setPaymentMessage('Submitting your redemption request…')
+    try {
+      const result = await apiRequest('/provider/payouts/redeem', 'POST', { amount }, token)
+      setRedeemAmount('')
+      setPaymentMessage(result.message || 'Redemption request sent to the admin.')
+      await loadAll()
+    } catch (error) {
+      setPaymentMessage(error.message || 'Could not submit the redemption request.')
+    } finally {
+      setPaymentBusy(false)
     }
   }
 
@@ -448,6 +492,9 @@ const ProviderDashboard = () => {
 
   const unreadCount = notificationsList.filter((n) => !n.read).length
   const activeAvailability = AVAILABILITY_OPTIONS.find((o) => o.value === availability)
+  const selectedBankAccount = (earnings?.bank_accounts || []).find((account) => account.selected) || earnings?.bank_accounts?.[0]
+  const availableBalance = Number(earnings?.balance ?? earnings?.earnings ?? 0)
+  const redemptionRows = (earnings?.payouts || []).filter((payout) => payout.kind === 'redemption')
 
   /* Action buttons for a booking row (used in cards + modal) */
   const renderBookingActions = (row, compact = false) => (
@@ -492,6 +539,7 @@ const ProviderDashboard = () => {
             { id: 'overview', icon: <GridIcon />, label: 'Overview' },
             { id: 'bookings', icon: <CalIcon />, label: 'Bookings' },
             { id: 'history',  icon: <HistIcon />, label: 'History' },
+            { id: 'payments', icon: <span>💳</span>, label: 'Payments' },
           ].map((item) => (
             <button
               key={item.id}
@@ -565,7 +613,71 @@ const ProviderDashboard = () => {
             </div>
           )}
 
-          {activeNav === 'history' ? (
+          {activeNav === 'payments' ? (
+            <div className="pd-all-bookings-view" style={{ gridColumn: '1 / -1' }}>
+              <div className="pd-section-header" style={{ marginBottom: '1.5rem' }}>
+                <div>
+                  <span className="pd-greeting__label">PROVIDER PAYMENTS</span>
+                  <h1 className="pd-section-title" style={{ fontSize: '1.6rem' }}>Earnings & Redemptions</h1>
+                </div>
+                <button className="pd-section-link" onClick={() => setActiveNav('overview')}>← Back to Overview</button>
+              </div>
+
+              <div className="pd-all-booking-card" style={{ marginBottom: '1.25rem' }}>
+                <div className="pd-section-header" style={{ marginBottom: '1rem' }}>
+                  <div><span className="pd-greeting__label">PAYMENT DESTINATION</span><h2 className="pd-section-title" style={{ fontSize: '1.1rem' }}>Bank Account</h2></div>
+                  <span className="pd-booking__status" style={{ color: selectedBankAccount ? '#4ade80' : '#eab308', borderColor: selectedBankAccount ? '#4ade80' : '#eab308' }}>{selectedBankAccount ? 'SAVED' : 'REQUIRED'}</span>
+                </div>
+                {selectedBankAccount ? (
+                  <div className="pd-stats" style={{ marginBottom: '1rem' }}>
+                    <div className="pd-stat"><p className="pd-stat__label">BANK</p><p style={{ color: '#fff', margin: 0 }}>{selectedBankAccount.bank_name}</p></div>
+                    <div className="pd-stat"><p className="pd-stat__label">ACCOUNT NUMBER</p><p style={{ color: '#fff', margin: 0 }}>{selectedBankAccount.account_number}</p></div>
+                    <div className="pd-stat"><p className="pd-stat__label">ACCOUNT NAME</p><p style={{ color: '#fff', margin: 0 }}>{selectedBankAccount.account_holder}</p></div>
+                    <div className="pd-stat"><p className="pd-stat__label">BRANCH</p><p style={{ color: '#fff', margin: 0 }}>{selectedBankAccount.branch || '—'}</p></div>
+                  </div>
+                ) : <p className="pd-avail__hint">Add one Sri Lankan bank account before requesting a redemption.</p>}
+
+                <form onSubmit={saveBankAccount} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+                  <select className="pd-edit-input" value={bankForm.bank_name} onChange={(e) => setBankForm({ ...bankForm, bank_name: e.target.value })} required>
+                    <option value="">Select Sri Lankan bank</option>
+                    {SRI_LANKAN_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                  </select>
+                  <input className="pd-edit-input" value={bankForm.branch} onChange={(e) => setBankForm({ ...bankForm, branch: e.target.value })} placeholder="Branch" maxLength={100} required />
+                  <input className="pd-edit-input" value={bankForm.account_holder} onChange={(e) => setBankForm({ ...bankForm, account_holder: e.target.value })} placeholder="Account holder name" maxLength={100} required />
+                  <input className="pd-edit-input" value={bankForm.account_number} onChange={(e) => setBankForm({ ...bankForm, account_number: e.target.value.replace(/[^0-9A-Za-z-]/g, '') })} placeholder={selectedBankAccount ? `Re-enter to change (${selectedBankAccount.account_number})` : 'Account number'} maxLength={40} required />
+                  <button type="submit" className="pd-cr-btn-accept" disabled={paymentBusy} style={{ gridColumn: '1 / -1', justifySelf: 'start' }}>{paymentBusy ? 'SAVING…' : selectedBankAccount ? 'UPDATE BANK ACCOUNT' : 'ADD BANK ACCOUNT'}</button>
+                </form>
+              </div>
+
+              <div className="pd-stats" style={{ marginBottom: '1.25rem' }}>
+                <div className="pd-stat"><p className="pd-stat__label">OVERALL EARNINGS</p><p className="pd-stat__value">{formatRupees(earnings?.overall_earnings)}</p></div>
+                <div className="pd-stat"><p className="pd-stat__label">REDEEMED</p><p className="pd-stat__value">{formatRupees(earnings?.redeemed)}</p></div>
+                <div className="pd-stat"><p className="pd-stat__label">AVAILABLE BALANCE</p><p className="pd-stat__value pd-stat__value--gold">{formatRupees(availableBalance)}</p></div>
+              </div>
+
+              <div className="pd-all-booking-card" style={{ marginBottom: '1.25rem' }}>
+                <h2 className="pd-section-title" style={{ fontSize: '1.1rem' }}>Request Redemption</h2>
+                <p className="pd-avail__hint">A minimum available balance of LKR 5,000 is required. The amount is reserved while the admin processes your request.</p>
+                <form onSubmit={requestRedemption} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input type="number" className="pd-edit-input" min="5000" step="0.01" max={availableBalance} value={redeemAmount} onChange={(e) => setRedeemAmount(e.target.value)} placeholder="Amount (minimum 5,000)" style={{ maxWidth: '260px' }} disabled={availableBalance < 5000 || !selectedBankAccount || paymentBusy} required />
+                  <button type="submit" className="pd-cr-btn-accept" disabled={availableBalance < 5000 || !selectedBankAccount || paymentBusy}>{paymentBusy ? 'SUBMITTING…' : 'REQUEST REDEMPTION'}</button>
+                </form>
+                {availableBalance < 5000 && <p style={{ color: '#eab308', fontSize: '0.78rem' }}>You can request redemption after your available balance reaches LKR 5,000.</p>}
+                {paymentMessage && <p role="status" style={{ color: /success|sent/i.test(paymentMessage) ? '#4ade80' : 'var(--gold)', fontSize: '0.8rem', fontWeight: 700 }}>{paymentMessage}</p>}
+              </div>
+
+              <div className="pd-all-bookings-grid">
+                <h2 className="pd-section-title" style={{ fontSize: '1.1rem' }}>Redemption Requests</h2>
+                {redemptionRows.map((payout) => (
+                  <div key={payout.id} className="pd-all-booking-card">
+                    <div className="pd-all-booking-header"><div style={{ flex: 1 }}><h3 className="pd-all-booking-title">Request #{payout.id}</h3><p className="pd-all-booking-sub">{new Date(payout.created_at).toLocaleString()} • {payout.bank_name} • {payout.account_number}</p></div><span className="pd-booking__status" style={{ color: payout.status === 'paid' ? '#4ade80' : payout.status === 'failed' ? '#ef4444' : '#eab308', borderColor: 'currentColor' }}>{payout.status === 'paid' ? 'REDEEMED' : payout.status.toUpperCase()}</span></div>
+                    <strong style={{ color: 'var(--gold)', fontSize: '1rem' }}>{formatRupees(payout.amount)}</strong>
+                  </div>
+                ))}
+                {redemptionRows.length === 0 && <p className="pd-avail__hint">No redemption requests yet.</p>}
+              </div>
+            </div>
+          ) : activeNav === 'history' ? (
             /* ══ COMPLETED SERVICE HISTORY & EARNINGS ══ */
             <div className="pd-all-bookings-view" style={{ gridColumn: '1 / -1' }}>
               <div className="pd-section-header" style={{ marginBottom: '1.5rem' }}>
@@ -1452,6 +1564,7 @@ const ProviderDashboard = () => {
           { id: 'overview', icon: <GridIcon />, label: 'OVERVIEW' },
           { id: 'bookings', icon: <CalIcon />, label: 'BOOKINGS' },
           { id: 'history', icon: <HistIcon />, label: 'HISTORY' },
+          { id: 'payments', icon: <span>💳</span>, label: 'PAYMENTS' },
         ].map((item) => (
           <button
             key={item.id}

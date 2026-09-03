@@ -5,7 +5,8 @@ import { notify, logAdminAction } from '../services/notify.js';
 import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
 import { getPlatformSettings, providerCanTakeBooking, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
-import { maskAccountNumber, queueMonthlyPayouts } from '../services/payouts.js';
+import { queueMonthlyPayouts } from '../services/payouts.js';
+import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookings } from '../services/bookingTimeouts.js';
 
 const router = Router();
@@ -547,17 +548,27 @@ router.get('/payouts', async (_req, res) => {
     orderBy: { createdAt: 'desc' },
     take: 200,
   });
-  res.json(payouts.map((payout) => ({
+  res.json(payouts.map((payout) => {
+    const encryptedAccountNumber = payout.accountNumberSnapshot || payout.bankAccount.accountNumber;
+    let accountNumber;
+    try { accountNumber = decryptAccountNumber(encryptedAccountNumber); }
+    catch { accountNumber = maskAccountNumber(encryptedAccountNumber); }
+    return {
     id: payout.id,
     period: payout.period,
+    kind: payout.kind.toLowerCase(),
     amount: payout.amount,
     status: payout.status.toLowerCase(),
     paid_at: payout.paidAt,
     provider_name: payout.provider.user.name,
     provider_email: payout.provider.user.email,
-    bank_name: payout.bankAccount.bankName,
-    account_number: maskAccountNumber(payout.bankAccount.accountNumber),
-  })));
+    bank_name: payout.bankNameSnapshot || payout.bankAccount.bankName,
+    account_holder: payout.accountHolderSnapshot || payout.bankAccount.accountHolder,
+    account_number: accountNumber,
+    branch: payout.branchSnapshot || payout.bankAccount.branch,
+    requested_at: payout.createdAt,
+  };
+  }));
 });
 
 router.post('/payouts/run', async (req, res) => {
@@ -587,13 +598,18 @@ router.put('/payouts/:id', async (req, res) => {
       if (status === 'FAILED') {
         await tx.provider.update({ where: { id: payout.providerId }, data: { earnings: { increment: payout.amount } } });
       }
-      return tx.providerPayout.findUnique({ where: { id: payout.id } });
+      return tx.providerPayout.findUnique({
+        where: { id: payout.id },
+        include: { provider: { select: { userId: true } } },
+      });
     }, { isolationLevel: 'Serializable' });
   } catch (error) {
     if (error.code === 'P2034') return res.status(409).json({ error: 'Payout decision is already being processed' });
     throw error;
   }
   if (!updated) return res.status(404).json({ error: 'Pending payout not found' });
+  const payoutLabel = updated.kind === 'REDEMPTION' ? 'redemption request' : 'payout';
+  await notify(updated.provider.userId, status === 'PAID' ? `Your ${payoutLabel} #${updated.id} has been marked as redeemed.` : `Your ${payoutLabel} #${updated.id} was not completed and the amount has been returned to your balance.`);
   logAdminAction({ adminId: req.user.id, action: `PAYOUT_${status}`, targetType: 'ProviderPayout', targetId: String(updated.id), details: { status }, ipAddress: req.ip }).catch(() => {});
   res.json({ id: updated.id, status: updated.status.toLowerCase(), paid_at: updated.paidAt });
 });
