@@ -119,8 +119,13 @@ const ActiveBookingCards = ({
                   CANCEL BOOKING
                 </button>
               )}
-              {status === 'COMPLETED' && booking.providerName && booking.providerName !== 'Awaiting assignment' && (
+              {status === 'COMPLETED' && !booking.reviewRating && booking.providerName && booking.providerName !== 'Awaiting assignment' && (
                 <button type="button" className="cd-active-booking-action" onClick={() => onReview(booking)}>★ RATE SERVICE</button>
+              )}
+              {status === 'COMPLETED' && booking.reviewRating && (
+                <span className="cd-active-booking-action" aria-label={`Your rating: ${booking.reviewRating} out of 5 stars`} style={{ cursor: 'default' }}>
+                  {'★'.repeat(Number(booking.reviewRating))}{'☆'.repeat(5 - Number(booking.reviewRating))} YOUR RATING
+                </span>
               )}
             </div>
           </article>

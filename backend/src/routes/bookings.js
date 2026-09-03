@@ -298,7 +298,11 @@ router.get('/my', async (req, res) => {
   await processExpiredBookingsThrottled(prisma).catch(() => {});
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
-    include: { service: { include: { category: true } }, provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } } },
+    include: {
+      service: { include: { category: true } },
+      provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } },
+      review: { select: { rating: true, comment: true, createdAt: true } },
+    },
     orderBy: { id: 'desc' },
   });
   res.json(bookings.map((b) => ({
@@ -317,6 +321,9 @@ router.get('/my', async (req, res) => {
     category_name: b.service?.category?.name,
     provider_name: b.provider?.user?.name,
     provider_phone: b.provider?.user?.phone,
+    review_rating: b.review?.rating || null,
+    review_comment: b.review?.comment || null,
+    reviewed_at: b.review?.createdAt || null,
   })));
 });
 

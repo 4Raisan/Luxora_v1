@@ -279,6 +279,20 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   const review = await authJson(token, '/reviews', { method: 'POST', body: JSON.stringify({ booking_id: bookingId, rating: 5, comment: `flow-${RND}` }) });
   assert.equal(review.status, 201);
 
+  // Customer dashboard/list immediately exposes the saved review so the UI
+  // replaces the rating action instead of allowing a second submission.
+  const customerBookings = await authJson(token, '/bookings/my');
+  assert.equal(customerBookings.status, 200);
+  const reviewedCustomerBooking = customerBookings.body.find((row) => row.id === bookingId);
+  assert.equal(reviewedCustomerBooking.review_rating, 5);
+  assert.equal(reviewedCustomerBooking.review_comment, `flow-${RND}`);
+  const customerDashboard = await authJson(token, '/customer/dashboard');
+  assert.equal(customerDashboard.status, 200);
+  assert.ok(customerDashboard.body.reviews.some((row) => row.bookingId === bookingId && row.rating === 5));
+  const duplicateReview = await authJson(token, '/reviews', { method: 'POST', body: JSON.stringify({ booking_id: bookingId, rating: 4, comment: 'duplicate' }) });
+  assert.equal(duplicateReview.status, 400);
+  assert.match(duplicateReview.body.error, /already submitted/i);
+
   // B12: provider payout is exact Decimal math serialized as a number
   const earnings = await authJson(provider, '/provider/earnings');
   assert.equal(earnings.status, 200);
@@ -286,6 +300,21 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   const historyRow = earnings.body.history.find((h) => h.id === bookingId);
   assert.ok(historyRow, 'completed booking missing from earnings history');
   assert.equal(historyRow.job_earnings, 2500);
+  assert.equal(historyRow.rating, 5);
+  assert.equal(historyRow.review_comment, `flow-${RND}`);
+  assert.ok(earnings.body.rating_count >= 1);
+  assert.ok(earnings.body.average_rating >= 1 && earnings.body.average_rating <= 5);
+
+  const admin = await login('admin@luxora.lk');
+  assert.equal((await authJson(provider, '/admin/reviews')).status, 403);
+  const adminReviews = await authJson(admin, '/admin/reviews');
+  assert.equal(adminReviews.status, 200);
+  assert.ok(adminReviews.body.summary.review_count >= 1);
+  const bookingReview = adminReviews.body.reviews.find((row) => row.booking_id === bookingId);
+  assert.ok(bookingReview, 'completed booking review missing from admin provider reviews');
+  assert.ok(adminReviews.body.providers.some((row) => row.provider_id === bookingReview.provider_id));
+  assert.equal(bookingReview.rating, 5);
+  assert.equal(bookingReview.comment, `flow-${RND}`);
 
   // B8: simulate a real PayHere charge then refund webhook for a gateway payment
   const payment = await prisma.payment.create({ data: { userId: reg.user.id, planId: 1, gateway: 'PAYHERE', gatewayOrderId: `LUX-PH-${RND}-1`, idempotencyKey: `LUX-PH-${RND}-1`, expectedAmount: 12000, expectedCurrency: 'LKR' } });

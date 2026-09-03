@@ -17,6 +17,7 @@ const Icons = {
   Approvals: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke="currentColor" strokeWidth="1.8"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>),
   Subscriptions: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M3 10h18" stroke="currentColor" strokeWidth="1.8"/><path d="M7 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Bookings: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  Reviews: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l2.6 5.27 5.82.85-4.21 4.1.99 5.8L12 16.78l-5.2 2.74.99-5.8-4.21-4.1 5.82-.85L12 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>),
   CancellationRequests: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4v5c0 4.7-3.1 7.9-8 9-4.9-1.1-8-4.3-8-9V7l8-4z" stroke="currentColor" strokeWidth="1.8"/><path d="M9 12h6M12 9v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Complaints: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l9.5 16.5H2.5L12 3z" stroke="currentColor" strokeWidth="1.8"/><path d="M12 10v4M12 17.2v.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Promotions: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M20 12l-8-8H4v8l8 8 8-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg>),
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard },
   { id: 'users', label: 'User Management', icon: Icons.Users },
   { id: 'providers', label: 'Providers', icon: Icons.Building },
+  { id: 'provider_reviews', label: 'Provider Reviews', icon: Icons.Reviews },
   { id: 'approvals', label: 'Approvals', icon: Icons.Approvals },
   { id: 'subscriptions', label: 'Packages', icon: Icons.Subscriptions },
   { id: 'session_payouts', label: 'Session Payout & Payments', icon: Icons.Subscriptions },
@@ -67,6 +69,18 @@ const StatBadge = ({ value }) => (
     {String(value || '—').replace(/_/g, ' ')}
   </span>
 )
+
+const RatingStars = ({ value, showValue = true }) => {
+  const rating = Number(value) || 0
+  return (
+    <span aria-label={`${rating.toFixed(1)} out of 5 stars`} title={`${rating.toFixed(1)} out of 5`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.16rem', whiteSpace: 'nowrap' }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <span key={star} aria-hidden="true" style={{ color: star <= Math.round(rating) ? 'var(--gold, #c9a84c)' : '#3b3b3b', fontSize: '1rem' }}>★</span>
+      ))}
+      {showValue && <strong style={{ color: '#ddd', marginLeft: '0.25rem', fontSize: '0.78rem' }}>{rating.toFixed(1)}</strong>}
+    </span>
+  )
+}
 
 const CARE_SETS = [
   { label: 'Auto Care', names: ['Auto Care'], icon: '🚗', accent: '#60a5fa', bg: 'rgba(96,165,250,0.06)', border: 'rgba(96,165,250,0.18)', hint: '— vehicle wash, detailing, interior' },
@@ -132,6 +146,7 @@ const AdminDashboard = () => {
   const [schedulingForbidden, setSchedulingForbidden] = useState(false)
   const [sessionPayouts, setSessionPayouts] = useState([])
   const [providerPayouts, setProviderPayouts] = useState([])
+  const [providerReviews, setProviderReviews] = useState({ summary: { average_rating: 0, review_count: 0, rated_provider_count: 0 }, providers: [], reviews: [] })
 
   /* UI state */
   const [showNotifModal, setShowNotifModal] = useState(false)
@@ -163,7 +178,7 @@ const AdminDashboard = () => {
     if (!token) return
     setLoadError('')
     try {
-      const [s, p, b, c, t, subs, cats, promos, notes, u, sessionRows, payoutRows] = await Promise.all([
+      const [s, p, b, c, t, subs, cats, promos, notes, u, sessionRows, payoutRows, reviewRows] = await Promise.all([
         apiRequest('/admin/stats', 'GET', null, token),
         apiRequest('/admin/providers', 'GET', null, token),
         apiRequest('/admin/bookings', 'GET', null, token),
@@ -176,6 +191,7 @@ const AdminDashboard = () => {
         apiRequest('/admin/users', 'GET', null, token),
         apiRequest('/admin/session-payouts', 'GET', null, token),
         apiRequest('/admin/payouts', 'GET', null, token),
+        apiRequest('/admin/reviews', 'GET', null, token),
       ])
       setStats(s)
       setProviders(Array.isArray(p) ? p : [])
@@ -192,6 +208,13 @@ const AdminDashboard = () => {
       setUsers(Array.isArray(u) ? u : [])
       setSessionPayouts(Array.isArray(sessionRows) ? sessionRows : [])
       setProviderPayouts(Array.isArray(payoutRows) ? payoutRows : [])
+      if (reviewRows && typeof reviewRows === 'object') {
+        setProviderReviews({
+          summary: reviewRows.summary || { average_rating: 0, review_count: 0, rated_provider_count: 0 },
+          providers: Array.isArray(reviewRows.providers) ? reviewRows.providers : [],
+          reviews: Array.isArray(reviewRows.reviews) ? reviewRows.reviews : [],
+        })
+      }
     } catch (err) {
       setLoadError(err.message || 'Could not load admin data. Please refresh.')
     }
@@ -660,6 +683,55 @@ const AdminDashboard = () => {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {/* PROVIDER REVIEWS */}
+          {activeNav === 'provider_reviews' && (
+            <>
+              <div className="ad-metrics-grid" style={{ marginBottom: '1.25rem' }}>
+                <MetricCard label="OVERALL PROVIDER RATING" value={`${Number(providerReviews.summary.average_rating || 0).toFixed(1)} / 5`} icon={<Icons.Reviews />} />
+                <MetricCard label="TOTAL REVIEWS" value={providerReviews.summary.review_count || 0} icon={<Icons.Reviews />} />
+                <MetricCard label="RATED PROVIDERS" value={providerReviews.summary.rated_provider_count || 0} icon={<Icons.Building />} />
+              </div>
+
+              <div className="ad-table-card" style={{ marginTop: 0, marginBottom: '1.25rem' }}>
+                <h3 className="ad-table-title">PROVIDER RATING SUMMARY</h3>
+                <table className="ad-data-table">
+                  <thead><tr><th>PROVIDER</th><th>OVERALL RATING</th><th>REVIEWS</th></tr></thead>
+                  <tbody>
+                    {providerReviews.providers.map((provider) => (
+                      <tr key={provider.provider_id}>
+                        <td><strong>{provider.provider_name}</strong><small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{provider.provider_email}</small></td>
+                        <td><RatingStars value={provider.average_rating} /></td>
+                        <td>{provider.review_count}</td>
+                      </tr>
+                    ))}
+                    {providerReviews.providers.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No providers have been rated yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="ad-table-card" style={{ marginTop: 0 }}>
+                <h3 className="ad-table-title">BOOKING REVIEWS ({providerReviews.reviews.length})</h3>
+                <table className="ad-data-table">
+                  <thead><tr><th>BOOKING</th><th>PROVIDER</th><th>CUSTOMER</th><th>SERVICE</th><th>RATING</th><th>REVIEW</th><th>SUBMITTED</th></tr></thead>
+                  <tbody>
+                    {providerReviews.reviews.map((review) => (
+                      <tr key={review.id}>
+                        <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{review.booking_id}<small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{review.booking_date} {review.booking_time || ''}</small></td>
+                        <td>{review.provider_name}<small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{review.provider_email}</small></td>
+                        <td>{review.customer_name}<small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{review.customer_email}</small></td>
+                        <td>{review.category_name || review.service_title || '—'}{review.service_title && review.service_title !== review.category_name && <small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{review.service_title}</small>}</td>
+                        <td><RatingStars value={review.rating} /></td>
+                        <td style={{ minWidth: '190px', maxWidth: '340px', whiteSpace: 'normal', color: review.comment ? '#ccc' : '#777' }}>{review.comment || 'No written review'}</td>
+                        <td>{fmtDateTime(review.created_at)}</td>
+                      </tr>
+                    ))}
+                    {providerReviews.reviews.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No booking reviews have been submitted.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* APPROVALS */}

@@ -826,6 +826,13 @@ const ProviderDashboard = () => {
                   <p className="pd-stat__label">COMPLETED JOBS</p>
                   <p className="pd-stat__value">{earnings?.completedJobs ?? '—'}</p>
                 </div>
+                <div className="pd-stat">
+                  <p className="pd-stat__label">OVERALL CUSTOMER RATING</p>
+                  <p className="pd-stat__value" aria-label={`${Number(earnings?.average_rating || 0).toFixed(1)} out of 5 stars`}>
+                    <span style={{ color: 'var(--gold)', letterSpacing: '0.08em' }}>★</span> {Number(earnings?.average_rating || 0).toFixed(1)} / 5
+                  </p>
+                  <small style={{ color: '#777' }}>{earnings?.rating_count || 0} customer review{Number(earnings?.rating_count || 0) === 1 ? '' : 's'}</small>
+                </div>
               </div>
 
               <div className="pd-all-bookings-grid">
@@ -852,6 +859,20 @@ const ProviderDashboard = () => {
                       <span style={{ color: 'var(--gold)', fontWeight: 800, fontSize: '0.9rem', marginLeft: 'auto' }}>
                         {formatRupees(h.job_earnings)}
                       </span>
+                    </div>
+                    <div style={{ marginTop: '0.85rem', padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(201, 168, 76, 0.2)', background: 'rgba(201, 168, 76, 0.04)' }}>
+                      {h.rating ? (
+                        <>
+                          <div aria-label={`${h.rating} out of 5 stars`} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                            {[1, 2, 3, 4, 5].map((star) => <span key={star} aria-hidden="true" style={{ color: star <= Number(h.rating) ? 'var(--gold)' : '#3b3b3b', fontSize: '1rem' }}>★</span>)}
+                            <strong style={{ color: '#eee', marginLeft: '0.35rem', fontSize: '0.8rem' }}>{h.rating} / 5</strong>
+                            {h.reviewed_at && <small style={{ color: '#777', marginLeft: 'auto' }}>{new Date(h.reviewed_at).toLocaleDateString()}</small>}
+                          </div>
+                          <p style={{ color: h.review_comment ? '#bbb' : '#777', fontSize: '0.82rem', lineHeight: 1.55, margin: '0.55rem 0 0', fontStyle: h.review_comment ? 'normal' : 'italic' }}>{h.review_comment || 'The customer left a star rating without a written review.'}</p>
+                        </>
+                      ) : (
+                        <p style={{ color: '#777', fontSize: '0.8rem', margin: 0, fontStyle: 'italic' }}>Not rated by the customer yet.</p>
+                      )}
                     </div>
                   </div>
                 ))}
