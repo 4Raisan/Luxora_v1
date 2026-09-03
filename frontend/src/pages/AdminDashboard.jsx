@@ -212,9 +212,46 @@ const AdminDashboard = () => {
   useEffect(() => { loadScheduling() }, [loadScheduling])
 
   useRealtime({
-    onEvent: (type) => {
-      if (['BOOKING_CREATED', 'BOOKING_ASSIGNED', 'BOOKING_CLAIMED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED'].includes(type)) {
-        void loadAll()
+    onEvent: (type, data) => {
+      const b = data?.booking || data
+      if (!b) return
+
+      if (type === 'BOOKING_CREATED') {
+        const id = b.id || b.bookingId
+        setBookings((prev) => {
+          if (prev.some((item) => item.id === id)) return prev
+          const newBooking = {
+            id,
+            bookingDate: b.bookingDate,
+            bookingTime: b.bookingTime,
+            town: b.town,
+            petType: b.petType,
+            status: String(b.status || 'pending').toLowerCase(),
+            totalPrice: b.totalPrice || b.total_price || 0,
+            service: { title: b.serviceTitle || b.service_title, category: { name: b.categoryName || b.category_name } },
+            user: { name: b.customerName || b.customer_name || 'Customer', email: '', phone: b.customerPhone || b.customer_phone || '' },
+            provider: b.providerName ? { user: { name: b.providerName, phone: b.providerPhone } } : null,
+          }
+          return [newBooking, ...prev]
+        })
+        setStats((prev) => prev ? {
+          ...prev,
+          totalBookings: (prev.totalBookings || 0) + 1,
+          pendingBookings: (prev.pendingBookings || 0) + 1,
+        } : prev)
+      } else if (['BOOKING_ASSIGNED', 'BOOKING_CLAIMED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED'].includes(type)) {
+        const id = b.bookingId || b.id
+        setBookings((prev) =>
+          prev.map((item) => {
+            if (item.id !== id) return item
+            const nextStatus = b.status ? String(b.status).toLowerCase() : item.status
+            return {
+              ...item,
+              status: nextStatus,
+              provider: b.providerName ? { user: { name: b.providerName, phone: b.providerPhone || item.provider?.user?.phone } } : item.provider,
+            }
+          })
+        )
       }
     },
     onSync: loadAll,

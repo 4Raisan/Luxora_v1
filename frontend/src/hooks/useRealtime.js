@@ -45,10 +45,29 @@ export function useRealtime({ onEvent, onSync, enabled = true } = {}) {
         wasConnectedRef.current = true;
       };
 
+      const recentEventsRef = new Map();
+
       const handleIncoming = (type) => (e) => {
         if (isDisposed) return;
         try {
           const data = e.data ? JSON.parse(e.data) : null;
+          // Duplicate event suppression within a short sliding window
+          const eventId = data?.bookingId || data?.id || '';
+          const eventStatus = data?.status || '';
+          const key = `${type}:${eventId}:${eventStatus}`;
+          const now = Date.now();
+          if (eventId && recentEventsRef.has(key) && (now - recentEventsRef.get(key) < 500)) {
+            return;
+          }
+          if (eventId) {
+            recentEventsRef.set(key, now);
+            if (recentEventsRef.size > 100) {
+              for (const [k, t] of recentEventsRef.entries()) {
+                if (now - t > 10000) recentEventsRef.delete(k);
+              }
+            }
+          }
+
           if (onEventRef.current) {
             onEventRef.current(type, data);
           }

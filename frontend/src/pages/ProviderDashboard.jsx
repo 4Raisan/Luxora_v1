@@ -276,16 +276,30 @@ const ProviderDashboard = () => {
     setBusy(true)
     try {
       await apiRequest(`/bookings/${bookingId}/claim`, 'POST', null, token)
-      await loadAll()
-      await loadNotifications()
+      // Instant local move from PENDING to ASSIGNED in 0ms
+      setPendingBookingsList((prev) => prev.filter((b) => b.apiId !== bookingId && b.id !== bookingId))
+      const claimedItem = pendingBookingsList.find((b) => b.apiId === bookingId || b.id === bookingId)
+      if (claimedItem) {
+        const assignedItem = {
+          ...claimedItem,
+          status: 'ASSIGNED',
+          color: STATUS_COLORS.ASSIGNED,
+          claimable: false,
+        }
+        setBookingsList((prev) => [assignedItem, ...prev.filter((b) => b.apiId !== bookingId && b.id !== bookingId)])
+        setSelectedFilter('ASSIGNED')
+      }
+      // Light background refresh
+      void loadNotifications()
     } catch (error) {
       alert(error.message || 'Could not claim this booking.')
-      await loadAll()
+      // Immediately remove stale claimed booking from view
+      setPendingBookingsList((prev) => prev.filter((b) => b.apiId !== bookingId && b.id !== bookingId))
     } finally {
       setClaimingId(null)
       setBusy(false)
     }
-  }, [token, loadAll, loadNotifications])
+  }, [token, pendingBookingsList, loadNotifications])
 
   useEffect(() => { void loadAll() }, [loadAll])
   useEffect(() => { void loadNotifications() }, [loadNotifications])
@@ -293,12 +307,60 @@ const ProviderDashboard = () => {
 
   useRealtime({
     onEvent: (type, data) => {
-      if (['BOOKING_CREATED', 'BOOKING_ASSIGNED', 'BOOKING_CLAIMED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED'].includes(type)) {
-        if (type === 'BOOKING_STATUS_CHANGED' && data?.booking) {
-          applyBookingStatusLocally(data.booking.bookingId || data.booking.id, data.booking.status)
+      const b = data?.booking || data
+      if (!b) return
+
+      if (type === 'BOOKING_CREATED') {
+        if (String(b.status).toUpperCase() === 'PENDING' && !b.providerId) {
+          const providerCategories = String(category || '').split(',').map((c) => c.trim().toLowerCase())
+          const catMatch = providerCategories.some((c) => c === (b.categoryName || b.category_name || '').toLowerCase())
+          if (catMatch) {
+            const id = b.id || b.bookingId
+            setPendingBookingsList((prev) => {
+              if (prev.some((item) => item.apiId === id || item.id === id)) return prev
+              const pendingRow = {
+                id: `BKG-${String(id).padStart(4, '0')}`,
+                apiId: id,
+                service: b.categoryName || b.category_name || b.serviceTitle || 'Concierge Service',
+                serviceDesc: b.serviceTitle || b.service_title,
+                customer: b.customerName || b.customer_name || 'Customer',
+                phone: b.customerPhone || b.customer_phone || '',
+                date: b.bookingDate,
+                time: b.bookingTime,
+                amount: `LKR ${Number(b.totalPrice || b.total_price || 0).toLocaleString()}`,
+                status: 'PENDING',
+                color: STATUS_COLORS.PENDING,
+                claimable: true,
+                address: `${b.addressStreet || ''}, ${b.town || ''}${b.addressDistrict ? `, ${b.addressDistrict}` : ''}`.replace(/^,\s*/, ''),
+                petType: b.petType,
+              }
+              return [pendingRow, ...prev]
+            })
+          }
         }
-        void loadAll()
-        void loadNotifications()
+      } else if (type === 'BOOKING_CLAIMED') {
+        const claimedId = b.bookingId || b.id
+        if (claimedId) {
+          setPendingBookingsList((prev) => prev.filter((item) => item.apiId !== claimedId && item.id !== claimedId))
+        }
+      } else if (type === 'BOOKING_ASSIGNED') {
+        const assignedId = b.bookingId || b.id
+        setPendingBookingsList((prev) => prev.filter((item) => item.apiId !== assignedId && item.id !== assignedId))
+        if (b.providerId) {
+          // If assigned to another provider, remove from pending
+          applyBookingStatusLocally(assignedId, 'ASSIGNED')
+        }
+      } else if (type === 'BOOKING_STATUS_CHANGED') {
+        const id = b.bookingId || b.id
+        if (id && b.status) {
+          applyBookingStatusLocally(id, b.status)
+        }
+      } else if (type === 'BOOKING_CANCELLED') {
+        const id = b.bookingId || b.id
+        if (id) {
+          applyBookingStatusLocally(id, 'CANCELLED')
+          setPendingBookingsList((prev) => prev.filter((item) => item.apiId !== id && item.id !== id))
+        }
       }
     },
     onSync: () => {

@@ -386,6 +386,7 @@ const CustomerDashboard = () => {
   const [profileBusy, setProfileBusy] = useState(false)
   const [profileSavedMsg, setProfileSavedMsg] = useState('')
   const [memberSince, setMemberSince] = useState('')
+  const servicesCacheRef = useRef(null)
 
   const loadServerData = async () => {
     const token = sessionStorage.getItem('token')
@@ -525,9 +526,97 @@ const CustomerDashboard = () => {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Real-time synchronization for bookings, assignments, cancellations, and tokens
-  const handleRealtimeEvent = useCallback((type) => {
-    if (['BOOKING_CREATED', 'BOOKING_ASSIGNED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED', 'BOOKING_CLAIMED'].includes(type)) {
-      void loadServerData()
+  const handleRealtimeEvent = useCallback((type, payload) => {
+    const b = payload?.booking || payload
+    if (!b) return
+
+    // Filter events for this customer
+    const currentUserId = (() => {
+      try { return JSON.parse(sessionStorage.getItem('user') || '{}').id } catch { return null }
+    })()
+    if (b.userId && currentUserId && b.userId !== currentUserId) {
+      return
+    }
+
+    if (type === 'BOOKING_CREATED') {
+      const id = b.id || b.bookingId
+      setCustomerActiveBookings((prev) => {
+        if (prev.some((item) => item.id === id)) return prev
+        const currentUserName = (() => {
+          try { return JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Customer' } catch { return 'Customer' }
+        })()
+        const newCard = {
+          id: id,
+          customer: currentUserName,
+          service: b.categoryName || b.category_name || b.serviceTitle || b.service_title || 'Concierge Service',
+          serviceTitle: b.serviceTitle || b.service_title,
+          petType: b.petType || b.pet_type,
+          status: String(b.status || 'pending').toUpperCase(),
+          color: b.status === 'cancelled' ? '#ef4444' : '#4ade80',
+          date: b.bookingDate,
+          time: b.bookingTime,
+          amount: `LKR ${Number(b.totalPrice || b.total_price || 0).toLocaleString()}`,
+          pin: b.pin_code || b.start_pin || undefined,
+          location: b.town || 'Town not set',
+          providerName: b.providerName || b.provider_name || (b.status === 'assigned' ? 'Assigned Provider' : 'Awaiting assignment'),
+          providerPhone: b.providerPhone || b.provider_phone,
+          isSession: true,
+        }
+        return [newCard, ...prev]
+      })
+
+      if (b.entitlement && (b.categoryName || b.category_name)) {
+        const cat = b.categoryName || b.category_name
+        setServerSubscriptions((prev) =>
+          (prev || []).map((sub) => {
+            if (sub.category_name?.toLowerCase() === cat.toLowerCase()) {
+              return {
+                ...sub,
+                remaining_units: b.entitlement.remaining_units,
+                tokens: b.entitlement.remaining_units,
+              }
+            }
+            return sub
+          })
+        )
+      }
+    } else if (type === 'BOOKING_ASSIGNED') {
+      const id = b.bookingId || b.id
+      setCustomerActiveBookings((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: 'ASSIGNED',
+                providerName: b.providerName || b.provider_name || 'Assigned Provider',
+                providerPhone: b.providerPhone || b.provider_phone || item.providerPhone,
+                pin: b.start_pin || b.pin_code || item.pin,
+              }
+            : item
+        )
+      )
+    } else if (type === 'BOOKING_STATUS_CHANGED') {
+      const id = b.bookingId || b.id
+      setCustomerActiveBookings((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: String(b.status).toUpperCase(),
+                color: b.status === 'completed' ? '#4ade80' : b.status === 'cancelled' ? '#ef4444' : '#60a5fa',
+              }
+            : item
+        )
+      )
+    } else if (type === 'BOOKING_CANCELLED') {
+      const id = b.bookingId || b.id
+      setCustomerActiveBookings((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, status: 'CANCELLED', color: '#ef4444' }
+            : item
+        )
+      )
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -673,7 +762,10 @@ const CustomerDashboard = () => {
         setCustomerActiveBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
         setSelectedBookingId(prev => prev === bookingId ? null : prev)
         addNotification({ title: 'Booking Cancelled', message: `Your booking ${bookingId} (${serviceName}) has been cancelled.`, category: 'system' })
-        await loadServerData()
+        // Targeted lightweight entitlement refresh to reflect restored coin
+        apiRequest('/subscriptions/entitlements', 'GET', null, token)
+          .then((rows) => { if (Array.isArray(rows)) setServerSubscriptions(rows) })
+          .catch(() => {})
       })
       .catch((error) => alert(error.message || 'Could not cancel this booking.'))
   }
@@ -729,16 +821,27 @@ const CustomerDashboard = () => {
       return
     }
     let created
+    let service
     setBookingSessionBusy(true)
     try {
-      await apiRequest('/profile', 'PUT', {
-        town: userAddress.city,
-        address_street: userAddress.street,
-        address_district: userAddress.district,
-      }, token)
-      const services = await apiRequest('/services', 'GET', null, token)
+      const addressChanged = userAddress.city !== (currentUser?.town || '') ||
+                             userAddress.street !== (currentUser?.addressStreet || '') ||
+                             userAddress.district !== (currentUser?.addressDistrict || '')
+      if (addressChanged && userAddress.city) {
+        await apiRequest('/profile', 'PUT', {
+          town: userAddress.city,
+          address_street: userAddress.street,
+          address_district: userAddress.district,
+        }, token).catch(() => {})
+      }
+
+      let services = servicesCacheRef.current
+      if (!services || services.length === 0) {
+        services = await apiRequest('/services', 'GET', null, token)
+        servicesCacheRef.current = services
+      }
       const categoryServices = (Array.isArray(services) ? services : []).filter((item) => item.category_name === categoryName)
-      const service = cat === 'pet'
+      service = cat === 'pet'
         ? (categoryServices.find((item) => selectedPetType?.servicePattern?.test(item.title)) || categoryServices[0])
         : categoryServices[0]
       if (!service) {
@@ -760,35 +863,24 @@ const CustomerDashboard = () => {
     }
 
     const serviceTitle = categoryName
-
-    let startPin = created?.start_pin
-    let completionPin = created?.completion_pin
-    if (!startPin && created?.booking_id) {
-      try {
-        const pins = await apiRequest('/bookings/' + created.booking_id + '/pins', 'GET', null, token)
-        startPin = pins.start_pin
-        completionPin = pins.completion_pin
-      } catch {
-        // Pins will still be fetched on dashboard active bookings list
-      }
-    }
-
+    const startPin = created?.start_pin || created?.pin_code
+    const completionPin = created?.completion_pin
     const chosenPetType = cat === 'pet' ? serviceBookingForm.petType : null
 
     const newB = {
       id: created.booking_id,
       customer: currentUser?.name || 'Customer',
       service: serviceTitle,
-      serviceTitle: service.title,
+      serviceTitle: service?.title,
       petType: chosenPetType,
-      status: String(created.status).toUpperCase(),
+      status: String(created.status || 'pending').toUpperCase(),
       color: '#4ade80',
       date: serviceBookingForm.date,
       time: selectedTimeFormatted,
-      amount: `LKR ${Number(created.total_price).toLocaleString()}`,
+      amount: `LKR ${Number(created.total_price || 0).toLocaleString()}`,
       pin: startPin,
       endPin: completionPin,
-      location: `${userAddress.street}, ${userAddress.city}${userAddress.district ? `, ${userAddress.district}` : ''}`,
+      location: `${userAddress.street || ''}, ${userAddress.city || ''}${userAddress.district ? `, ${userAddress.district}` : ''}`.replace(/^,\s*/, ''),
       providerName: String(created.status).toLowerCase() === 'assigned' ? 'Assigned Provider' : 'Awaiting assignment',
       providerRole: '',
       isSession: true,
@@ -808,11 +900,24 @@ const CustomerDashboard = () => {
     })
     setServiceBookingForm(prev => ({ ...prev, packageId: '', petType: '' }))
 
-    // 1. Immediate optimistic UI update with full booking details
+    // 1. Immediate UI state update with confirmed booking details
     setCustomerActiveBookings((prev) => [newB, ...prev.filter((b) => b.id !== newB.id)])
 
-    // 2. Authoritative server refresh of active bookings, coin counters, memberships and notifications
-    await loadServerData()
+    // 2. Immediately decrement remaining tokens in local subscription state
+    if (created.entitlement) {
+      setServerSubscriptions((prev) =>
+        (prev || []).map((sub) => {
+          if (sub.category_name?.toLowerCase() === categoryName.toLowerCase()) {
+            return {
+              ...sub,
+              remaining_units: created.entitlement.remaining_units,
+              tokens: created.entitlement.remaining_units,
+            }
+          }
+          return sub
+        })
+      )
+    }
   }
 
   // Custom Request State — real support tickets from GET /support/my only.
