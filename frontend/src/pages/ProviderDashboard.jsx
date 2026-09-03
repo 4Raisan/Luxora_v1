@@ -303,7 +303,7 @@ const ProviderDashboard = () => {
           claimable: false,
         }
         setBookingsList((prev) => [assignedItem, ...prev.filter((b) => b.apiId !== bookingId && b.id !== bookingId)])
-        setSelectedFilter('ASSIGNED')
+        setBookingFilter('ASSIGNED')
       }
       // Light background refresh
       void loadNotifications()
@@ -609,7 +609,7 @@ const ProviderDashboard = () => {
   const visibleBookings = bookingsList
 
   const activeRows = visibleBookings.filter((b) => ['ASSIGNED', 'IN_PROGRESS'].includes(b.status))
-  const requestRows = visibleBookings.filter((b) => b.claimable)
+  const requestRows = pendingBookingsList
   const inProgressRows = visibleBookings.filter((b) => b.status === 'IN_PROGRESS')
   const upcomingRows = visibleBookings
     .filter((b) => b.status === 'ASSIGNED')
@@ -1183,8 +1183,13 @@ const ProviderDashboard = () => {
                           <span className="pd-cr-budget">💰 {formatRupees(b.price)}</span>
                         </div>
                         <div className="pd-cr-actions">
-                          <button type="button" className="pd-cr-btn-accept" disabled={busy} onClick={() => alert('Bookings are assigned automatically by Luxora.')}>
-                            ACCEPT REQUEST
+                          <button
+                            type="button"
+                            className="pd-cr-btn-accept"
+                            disabled={busy || claimingId === b.apiId}
+                            onClick={() => handleClaimBooking(b.apiId)}
+                          >
+                            {claimingId === b.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}
                           </button>
                           <button type="button" className="pd-cr-btn-decline" onClick={() => setSelectedDetailsBooking(b)}>
                             VIEW DETAILS
