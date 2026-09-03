@@ -45,3 +45,13 @@ frontend/src/pages|components
 Provider operations are gated by JWT role and approved KYC in `backend/src/routes/provider.js` and `backend/src/routes/bookings.js`. Never bypass those gates in the frontend.
 
 Product truth overrides: no Super Admin; Admin can perform all admin operations. Customer bookings are automatically assigned to eligible providers, cannot be cancelled after `IN_PROGRESS`, and must use persisted credits/payment state. Provider earnings are fixed per configured service/category and settle after completion; monthly payout to the selected bank account is a backend/scheduler responsibility.
+
+## Commit style
+
+- Short, plain, undergraduate-level messages. No corporate or AI-polished wording.
+- Present-tense verbs only: `add`, `update`, `fix`, `remove` (e.g. `add login page`, `update auth route`).
+- No conventional commit prefixes (`feat:`, `fix:`, `chore:`, `perf:`).
+- No issue references (`closes #N`).
+- Say what was actually built or changed, not just filenames.
+- Group related files for a feature or fix under one insightful message (fewer meaningful commits > many tiny fragmented ones).
+

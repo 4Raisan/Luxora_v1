@@ -3,6 +3,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { isNonEmptyString } from '../middleware/validators.js';
 import { activePromotionWhere } from '../services/promotions.js';
+import { invalidateSubscriptionsCache } from './services.js';
 
 const router = Router();
 
@@ -71,6 +72,7 @@ router.post('/', async (req, res) => {
       ...(planIds?.length ? { planAssignments: { create: planIds.map((planId) => ({ planId })) } } : {}),
     },
   });
+  invalidateSubscriptionsCache();
   res.status(201).json({ id: p.id, message: 'Promotion created' });
 });
 
@@ -101,6 +103,7 @@ router.put('/:id', async (req, res) => {
   } else {
     await prisma.promotion.update({ where: { id: p.id }, data });
   }
+  invalidateSubscriptionsCache();
   res.json({ message: `Promotion ${requested ? 'activated' : 'deactivated'}`, is_active: requested });
 });
 
@@ -120,6 +123,7 @@ router.delete('/:id', async (req, res) => {
   }
 
   await prisma.promotion.delete({ where: { id: promotion.id } });
+  invalidateSubscriptionsCache();
   res.json({ message: 'Promotion removed' });
 });
 

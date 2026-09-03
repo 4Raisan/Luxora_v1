@@ -26,25 +26,32 @@ router.put('/town', requireRole('CUSTOMER'), async (req, res) => {
 
 router.get('/dashboard', async (req, res) => {
   const userId = req.user.id;
-  const profile = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, email: true, phone: true, town: true, addressStreet: true, addressDistrict: true, role: true, createdAt: true },
-  });
+  const now = new Date();
+
+  const [profile, activeSubs, bookings, reviews] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, phone: true, town: true, addressStreet: true, addressDistrict: true, role: true, createdAt: true },
+    }),
+    prisma.userSubscription.findMany({
+      where: { userId, status: 'active', endDate: { gt: now } },
+      include: { plan: true },
+      orderBy: { startDate: 'desc' },
+    }),
+    prisma.booking.findMany({
+      where: { userId },
+      include: { service: { include: { category: true } }, provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } } },
+      orderBy: [{ bookingDate: 'asc' }, { bookingTime: 'asc' }],
+    }),
+    prisma.review.findMany({
+      where: { userId },
+      include: { booking: { include: { service: true } }, provider: { select: { user: { select: { name: true } } } } },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+
   if (!profile) return res.status(404).json({ error: 'User not found' });
 
-  const activeSubs = await prisma.userSubscription.findMany({
-    where: { userId, status: 'active', endDate: { gt: new Date() } },
-    include: { plan: true },
-    orderBy: { startDate: 'desc' },
-  });
-
-  const bookings = await prisma.booking.findMany({
-    where: { userId },
-    include: { service: { include: { category: true } }, provider: { include: { user: { select: { id: true, name: true, phone: true, email: true } } } } },
-    orderBy: [{ bookingDate: 'asc' }, { bookingTime: 'asc' }],
-  });
-
-  const now = new Date();
   const upcoming = bookings.filter((b) => {
     if (b.status === 'COMPLETED' || b.status === 'CANCELLED') return false;
     const match = String(b.bookingTime || '00:00').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
@@ -53,13 +60,6 @@ router.get('/dashboard', async (req, res) => {
     return d >= now;
   });
   const past = bookings.filter((b) => !upcoming.includes(b));
-
-  // Review has no direct service relation — go through the booking
-  const reviews = await prisma.review.findMany({
-    where: { userId },
-    include: { booking: { include: { service: true } }, provider: { select: { user: { select: { name: true } } } } },
-    orderBy: { createdAt: 'desc' },
-  });
 
   // expectedEndTime is provider-only scheduling metadata. Keep this helper at
   // every customer-facing booking boundary, including nested review bookings.

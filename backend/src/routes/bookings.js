@@ -295,7 +295,7 @@ router.post('/', async (req, res) => {
 // My bookings (customer). Generic booking list returns high-level status;
 // active service PINs are retrieved on demand via GET /bookings/:id/pins.
 router.get('/my', async (req, res) => {
-  await processExpiredBookingsThrottled(prisma).catch(() => {});
+  void processExpiredBookingsThrottled(prisma).catch(() => {});
   const bookings = await prisma.booking.findMany({
     where: { userId: req.user.id },
     include: {
@@ -329,7 +329,7 @@ router.get('/my', async (req, res) => {
 
 // Providers fulfil only bookings assigned by the server scheduling flow.
 router.get('/assigned', async (req, res) => {
-  await processExpiredBookingsThrottled(prisma).catch(() => {});
+  void processExpiredBookingsThrottled(prisma).catch(() => {});
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   if (provider.kycStatus !== 'APPROVED') {

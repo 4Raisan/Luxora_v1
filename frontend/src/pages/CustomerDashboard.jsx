@@ -390,21 +390,21 @@ const CustomerDashboard = () => {
   const [profileSavedMsg, setProfileSavedMsg] = useState('')
   const [memberSince, setMemberSince] = useState('')
   const servicesCacheRef = useRef(null)
+  const lastServerLoadRef = useRef(0)
 
   const loadServerData = async () => {
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') return
+    lastServerLoadRef.current = Date.now()
     try {
-      const [dash, notes, paymentRows, entitlementRows, planRows, mode, bookingRows] = await Promise.all([
+      // Tier 1: Core interactive state for dashboard overview (Profile, Subscriptions, Bookings, Tokens, Notifications)
+      const [dash, notes, entitlementRows, bookingRows] = await Promise.all([
         apiRequest('/customer/dashboard', 'GET', null, token).catch(() => null),
         apiRequest('/notifications', 'GET', null, token).catch(() => null),
-        apiRequest('/payments/my', 'GET', null, token).catch(() => null),
         apiRequest('/subscriptions/entitlements', 'GET', null, token).catch(() => null),
-        apiRequest('/subscriptions').catch(() => null),
-        apiRequest('/payments/mode', 'GET', null, token).catch(() => null),
         apiRequest('/bookings/my', 'GET', null, token).catch(() => null),
       ])
-      if (mode?.mode) setPaymentMode(mode.mode)
+
       if (Array.isArray(dash?.activeSubscriptions)) setServerSubscriptions(dash.activeSubscriptions)
       if (Array.isArray(bookingRows)) {
         setCustomerActiveBookings(mapCustomerBookingRows(bookingRows))
@@ -460,6 +460,15 @@ const CustomerDashboard = () => {
             category: 'system'
           })))
       }
+
+      // Tier 2: Deferred secondary data (Payment history, Available packages catalogue, payment mode)
+      const [paymentRows, planRows, mode] = await Promise.all([
+        apiRequest('/payments/my', 'GET', null, token).catch(() => null),
+        apiRequest('/subscriptions').catch(() => null),
+        apiRequest('/payments/mode', 'GET', null, token).catch(() => null),
+      ])
+
+      if (mode?.mode) setPaymentMode(mode.mode)
       if (Array.isArray(paymentRows?.payments)) {
         const paid = paymentRows.payments
             .filter(p => p.status === 'COMPLETED')
@@ -515,10 +524,12 @@ const CustomerDashboard = () => {
   useEffect(() => { loadServerData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh the server-owned package catalogue when a customer returns to an
-  // already-open portal after an administrator edits a package.
+  // already-open portal after an administrator edits a package (throttled to at most once per minute).
   useEffect(() => {
     const refreshLivePlans = () => {
-      if (document.visibilityState === 'visible') void loadServerData()
+      if (document.visibilityState === 'visible' && Date.now() - lastServerLoadRef.current > 60000) {
+        void loadServerData()
+      }
     }
     window.addEventListener('focus', refreshLivePlans)
     document.addEventListener('visibilitychange', refreshLivePlans)

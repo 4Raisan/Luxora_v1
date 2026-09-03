@@ -46,16 +46,29 @@ router.get('/services', async (_req, res) => {
   })));
 });
 
+let cachedSubscriptions = null;
+let subscriptionsCacheExpiresAt = 0;
+const SUBSCRIPTIONS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export function invalidateSubscriptionsCache() {
+  cachedSubscriptions = null;
+  subscriptionsCacheExpiresAt = 0;
+}
+
 router.get('/subscriptions', async (_req, res) => {
-  const now = new Date();
+  const nowMs = Date.now();
+  if (cachedSubscriptions && nowMs < subscriptionsCacheExpiresAt) {
+    return res.json(cachedSubscriptions);
+  }
+  const now = new Date(nowMs);
   const [plans, promotions] = await Promise.all([
     prisma.subscriptionPlan.findMany({
-    where: { active: true },
-    include: { entitlements: { include: { category: true } } },
-    orderBy: [
-      { displayOrder: 'asc' },
-      { id: 'asc' },
-    ],
+      where: { active: true },
+      include: { entitlements: { include: { category: true } } },
+      orderBy: [
+        { displayOrder: 'asc' },
+        { id: 'asc' },
+      ],
     }),
     prisma.promotion.findMany({
       where: activePromotionWhere(now),
@@ -63,26 +76,29 @@ router.get('/subscriptions', async (_req, res) => {
       orderBy: [{ discountPct: 'desc' }, { createdAt: 'desc' }],
     }),
   ]);
-  res.json(plans.map((p) => {
+  const responseData = plans.map((p) => {
     const promotion = promotions.find((candidate) => candidate.planAssignments.length === 0 || candidate.planAssignments.some((assignment) => assignment.planId === p.id));
     const price = calculatePromotionPrice(p.priceMonthly, promotion?.discountPct || 0);
     return {
-    ...p,
-    displayOrder: p.displayOrder,
-    type: displayPackageType(p.type, p.entitlements),
-    priceMonthly: Number(p.priceMonthly),
-    originalPriceMonthly: Number(price.originalAmount),
-    discountedPriceMonthly: Number(price.discountedAmount),
-    discountAmount: Number(price.discountAmount),
-    promotion: serializePromotion(promotion),
-    features: planFeatures(p.features),
-    entitlements: p.entitlements.map((item) => ({
-      category_id: item.categoryId,
-      category_name: item.category.name,
-      units: item.units,
-    })),
-  };
-  }));
+      ...p,
+      displayOrder: p.displayOrder,
+      type: displayPackageType(p.type, p.entitlements),
+      priceMonthly: Number(p.priceMonthly),
+      originalPriceMonthly: Number(price.originalAmount),
+      discountedPriceMonthly: Number(price.discountedAmount),
+      discountAmount: Number(price.discountAmount),
+      promotion: serializePromotion(promotion),
+      features: planFeatures(p.features),
+      entitlements: p.entitlements.map((item) => ({
+        category_id: item.categoryId,
+        category_name: item.category.name,
+        units: item.units,
+      })),
+    };
+  });
+  cachedSubscriptions = responseData;
+  subscriptionsCacheExpiresAt = nowMs + SUBSCRIPTIONS_CACHE_TTL_MS;
+  res.json(responseData);
 });
 
 export async function renewDueDemoSubscriptions() {

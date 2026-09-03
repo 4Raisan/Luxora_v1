@@ -9,6 +9,7 @@ import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookingsThrottled } from '../services/bookingTimeouts.js';
 import { broadcastBookingEvent, broadcastToUser } from '../services/realtime.js';
+import { invalidateSubscriptionsCache } from './services.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
@@ -380,6 +381,7 @@ router.post('/subscriptions', async (req, res) => {
     include: { entitlements: true },
   });
   logAdminAction({ adminId: req.user.id, action: 'CREATE_PLAN', targetType: 'SubscriptionPlan', targetId: String(plan.id), details: { title: plan.title, type: plan.type, priceMonthly: plan.priceMonthly, displayOrder: plan.displayOrder }, ipAddress: req.ip }).catch(() => {});
+  invalidateSubscriptionsCache();
   res.status(201).json(plan);
 });
 
@@ -420,6 +422,7 @@ router.put('/subscriptions/:id', async (req, res) => {
     return tx.subscriptionPlan.findUnique({ where: { id: plan.id }, include: { entitlements: true } });
   });
   logAdminAction({ adminId: req.user.id, action: 'UPDATE_PLAN', targetType: 'SubscriptionPlan', targetId: String(id), details: { changes: data }, ipAddress: req.ip }).catch(() => {});
+  invalidateSubscriptionsCache();
   res.json(updated);
 });
 
@@ -448,6 +451,7 @@ router.delete('/subscriptions/:id', async (req, res) => {
       await tx.subscriptionPlan.delete({ where: { id: plan.id } });
     }, { isolationLevel: 'Serializable' });
     logAdminAction({ adminId: req.user.id, action: 'DELETE_PLAN', targetType: 'SubscriptionPlan', targetId: String(id), ipAddress: req.ip }).catch(() => {});
+    invalidateSubscriptionsCache();
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
     throw error;
