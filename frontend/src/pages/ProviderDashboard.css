@@ -949,6 +949,12 @@
   transform: scale(1.02);
 }
 
+.pd-request-accept-btn {
+  min-width: 150px;
+  border: 1px solid var(--gold);
+  box-shadow: 0 4px 16px rgba(201, 168, 76, 0.2);
+}
+
 .pd-cr-btn-decline {
   background: transparent;
   color: #aaa;
