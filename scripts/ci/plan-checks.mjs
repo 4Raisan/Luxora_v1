@@ -205,6 +205,10 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
     plan.backendSuites.clear();
     plan.backendSuites.add('full');
   }
+  if (plan.backendSuites.has('full')) {
+    plan.backendSuites.clear();
+    plan.backendSuites.add('full');
+  }
   if (plan.backend && plan.backendSuites.size === 0) plan.backendSuites.add('smoke');
   plan.docsOnly = changed.length > 0
     && documentationCount === changed.length

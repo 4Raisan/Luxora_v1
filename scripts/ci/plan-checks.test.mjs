@@ -107,3 +107,94 @@ test('Knowledge Graph changes select quality verification', () => {
   assert.equal(plan.quality, true);
   assert.equal(plan.knowledgeGraph, true);
 });
+
+test('backend-only non-security non-booking changes select smoke and KG without docker or frontend', () => {
+  const plan = classifyChanges(['backend/src/routes/reviews.js']);
+  assert.equal(plan.quality, true);
+  assert.equal(plan.backend, true);
+  assert.equal(plan.knowledgeGraph, true);
+  assert.equal(plan.frontend, false);
+  assert.equal(plan.docker, false);
+  assert.equal(plan.audit, false);
+  assert.deepEqual(plan.backendSuites, ['smoke']);
+});
+
+test('Docker-only changes select docker smoke without frontend or backend tests', () => {
+  const plan = classifyChanges(['Dockerfile']);
+  assert.equal(plan.docker, true);
+  assert.equal(plan.backend, false);
+  assert.equal(plan.frontend, false);
+  assert.equal(plan.quality, false);
+  assert.equal(plan.audit, false);
+});
+
+test('root dependency changes select full CI and dependency audit', () => {
+  const plan = classifyChanges(['package-lock.json']);
+  assert.equal(plan.full, true);
+  assert.equal(plan.audit, true);
+  assert.equal(plan.backend, true);
+  assert.equal(plan.frontend, true);
+  assert.equal(plan.docker, true);
+  assert.deepEqual(plan.backendSuites, ['full']);
+});
+
+test('frontend dependency changes select frontend validation, audit, and KG without backend or docker', () => {
+  const plan = classifyChanges(['frontend/package.json']);
+  assert.equal(plan.frontend, true);
+  assert.equal(plan.quality, true);
+  assert.equal(plan.knowledgeGraph, true);
+  assert.equal(plan.audit, true);
+  assert.equal(plan.backend, false);
+  assert.equal(plan.docker, false);
+});
+
+test('backend dependency changes select backend full, audit, docker, and KG without frontend', () => {
+  const plan = classifyChanges(['backend/package-lock.json']);
+  assert.equal(plan.backend, true);
+  assert.equal(plan.docker, true);
+  assert.equal(plan.audit, true);
+  assert.equal(plan.knowledgeGraph, true);
+  assert.equal(plan.frontend, false);
+  assert.deepEqual(plan.backendSuites, ['full']);
+});
+
+test('mixed frontend and dependency changes select frontend build, audit, and KG', () => {
+  const plan = classifyChanges([
+    'frontend/src/App.jsx',
+    'frontend/package.json',
+  ]);
+  assert.equal(plan.frontend, true);
+  assert.equal(plan.quality, true);
+  assert.equal(plan.knowledgeGraph, true);
+  assert.equal(plan.audit, true);
+  assert.equal(plan.backend, false);
+  assert.equal(plan.docker, false);
+});
+
+test('mixed backend and database schema changes select full backend, database, docker, and KG', () => {
+  const plan = classifyChanges([
+    'backend/src/routes/bookings.js',
+    'backend/prisma/schema.prisma',
+  ]);
+  assert.equal(plan.backend, true);
+  assert.equal(plan.database, true);
+  assert.equal(plan.docker, true);
+  assert.equal(plan.knowledgeGraph, true);
+  assert.equal(plan.frontend, false);
+  assert.deepEqual(plan.backendSuites, ['full']);
+});
+
+test('multiple commits in one push combine all touched domains', () => {
+  const plan = classifyChanges([
+    { status: 'M', path: 'frontend/src/components/Navbar.jsx' },
+    { status: 'M', path: 'backend/src/routes/services.js' },
+    { status: 'M', path: 'docs/API.md' },
+  ]);
+  assert.equal(plan.frontend, true);
+  assert.equal(plan.backend, true);
+  assert.equal(plan.quality, true);
+  assert.equal(plan.knowledgeGraph, true);
+  assert.equal(plan.docker, false);
+  assert.equal(plan.audit, false);
+});
+

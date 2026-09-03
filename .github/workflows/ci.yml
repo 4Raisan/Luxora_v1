@@ -83,7 +83,7 @@ jobs:
 
   quality:
     name: 02 - Code quality and frontend
-    needs: classify
+    needs: [classify, guard]
     if: needs.classify.outputs.quality == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -119,7 +119,7 @@ jobs:
 
   knowledge_graph:
     name: 02b - Knowledge Graph verify and build
-    needs: classify
+    needs: [classify, guard]
     if: needs.classify.outputs.knowledge_graph == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 4
@@ -131,11 +131,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install root dependencies
-        run: npm ci
 
       - name: Generate Knowledge Graph
         run: npm run graph
@@ -157,10 +152,11 @@ jobs:
           name: knowledge-graph-preview
           path: Knowladge-Graph
           retention-days: 7
+          overwrite: true
 
   backend:
     name: 03 - Backend tests
-    needs: classify
+    needs: [classify, guard]
     if: needs.classify.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 7
@@ -211,7 +207,7 @@ jobs:
 
   audit:
     name: 04 - Dependency audit
-    needs: classify
+    needs: [classify, guard]
     if: needs.classify.outputs.audit == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 4
@@ -232,7 +228,7 @@ jobs:
 
   docker:
     name: 05 - Docker smoke
-    needs: classify
+    needs: [classify, guard]
     if: needs.classify.outputs.docker == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 7
@@ -331,19 +327,47 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
+          EXPECT_QUALITY: ${{ needs.classify.outputs.quality }}
+          EXPECT_KG: ${{ needs.classify.outputs.knowledge_graph }}
+          EXPECT_BACKEND: ${{ needs.classify.outputs.backend }}
+          EXPECT_AUDIT: ${{ needs.classify.outputs.audit }}
+          EXPECT_DOCKER: ${{ needs.classify.outputs.docker }}
         run: |
-          for result in "$GUARD_RESULT" "$CLASSIFY_RESULT" "$QUALITY_RESULT" "$KG_RESULT" "$BACKEND_RESULT" "$AUDIT_RESULT" "$DOCKER_RESULT"; do
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "A required CI job did not pass: $result"
-              exit 1
-            fi
-          done
           if [ "$GUARD_RESULT" != "success" ]; then
-            echo "Protected files guard check must pass."
+            echo "Protected files guard check must pass. Current status: $GUARD_RESULT"
             exit 1
           fi
           if [ "$CLASSIFY_RESULT" != "success" ]; then
-            echo "Change classification and secret scanning must pass."
+            echo "Change classification and secret scanning must pass. Current status: $CLASSIFY_RESULT"
             exit 1
           fi
-          echo "All selected CI checks passed."
+
+          check_selective_job() {
+            local name="$1"
+            local result="$2"
+            local expected="$3"
+
+            echo "Validating $name: expected=$expected, result=$result"
+            if [ "$expected" = "true" ]; then
+              if [ "$result" != "success" ]; then
+                echo "Error: Required CI job '$name' was planned to run but ended with status: $result (expected: success)."
+                exit 1
+              fi
+            else
+              if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+                echo "Error: Job '$name' failed or was cancelled with status: $result."
+                exit 1
+              fi
+              if [ "$result" != "skipped" ]; then
+                echo "Notice: Job '$name' was not planned to run, but completed with status: $result."
+              fi
+            fi
+          }
+
+          check_selective_job "02 - Code quality and frontend" "$QUALITY_RESULT" "$EXPECT_QUALITY"
+          check_selective_job "02b - Knowledge Graph verify and build" "$KG_RESULT" "$EXPECT_KG"
+          check_selective_job "03 - Backend tests" "$BACKEND_RESULT" "$EXPECT_BACKEND"
+          check_selective_job "04 - Dependency audit" "$AUDIT_RESULT" "$EXPECT_AUDIT"
+          check_selective_job "05 - Docker smoke" "$DOCKER_RESULT" "$EXPECT_DOCKER"
+
+          echo "All required and planned CI checks passed successfully."
