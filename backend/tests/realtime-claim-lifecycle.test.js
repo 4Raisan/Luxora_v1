@@ -10,6 +10,7 @@ import {
   broadcastBookingEvent,
 } from '../src/services/realtime.js';
 import { servesTown, providerOffersCategory, hasTimeConflict, bookingStart, providerCanTakeBooking } from '../src/services/scheduling.js';
+import { processExpiredBookingsThrottled } from '../src/services/bookingTimeouts.js';
 
 // Mock response stream for SSE testing
 class MockSseResponse extends EventEmitter {
@@ -212,4 +213,100 @@ test('Provider Pending Matching: offline providers can claim pending jobs if are
   const autoResult = await providerCanTakeBooking(mockClient, offlineProvider, booking, { requireOnline: true });
   assert.equal(autoResult.ok, false);
   assert.equal(autoResult.error, 'Provider must be available (online)');
+});
+
+test('Booking Timeouts Throttling: HTTP read requests do not repeatedly scan the database', async () => {
+  let dbScanCount = 0;
+  const mockClient = {
+    booking: {
+      findMany: async () => {
+        dbScanCount++;
+        return [];
+      },
+    },
+  };
+
+  // First call runs the scan
+  await processExpiredBookingsThrottled(mockClient);
+  assert.equal(dbScanCount, 1);
+
+  // Subsequent rapid calls within 30 seconds are throttled
+  await processExpiredBookingsThrottled(mockClient);
+  await processExpiredBookingsThrottled(mockClient);
+  assert.equal(dbScanCount, 1, 'Rapid calls should be throttled and not hit the database');
+});
+
+test('Rich Real-time Payload: BOOKING_CREATED delivers all card properties for 0ms rendering', () => {
+  const res = new MockSseResponse();
+  registerRealtimeClient(50, 'CUSTOMER', res);
+
+  broadcastBookingEvent('BOOKING_CREATED', {
+    id: 101,
+    bookingId: 101,
+    userId: 50,
+    status: 'assigned',
+    bookingDate: '2026-09-12',
+    bookingTime: '10:00 AM',
+    town: 'Colombo 07',
+    serviceTitle: 'Premium Auto Detailing',
+    categoryName: 'Auto Care',
+    customerName: 'Alice Customer',
+    customerPhone: '+94771234567',
+    totalPrice: 8500,
+    start_pin: '123456',
+    pin_code: '123456',
+    entitlement: { plan_title: 'Elite Auto Plan', remaining_units: 3 },
+  });
+
+  unregisterRealtimeClient(res);
+
+  const eventChunk = res.chunks.find((c) => c.includes('event: BOOKING_CREATED'));
+  assert.ok(eventChunk, 'Should have received BOOKING_CREATED event');
+  const dataLine = eventChunk.split('\n').find((l) => l.startsWith('data: '));
+  const payload = JSON.parse(dataLine.replace('data: ', ''));
+
+  const b = payload.booking;
+  assert.equal(b.id, 101);
+  assert.equal(b.serviceTitle, 'Premium Auto Detailing');
+  assert.equal(b.customerName, 'Alice Customer');
+  assert.equal(b.totalPrice, 8500);
+  assert.equal(b.start_pin, '123456');
+  assert.equal(b.entitlement.remaining_units, 3);
+});
+
+test('Concurrency Safety Simulation: competing claims on same pending booking serialize cleanly', async () => {
+  let bookingState = { id: 200, status: 'PENDING', providerId: null };
+  let lockAcquired = false;
+
+  const simulateClaim = async (providerId) => {
+    // Simulate transaction with pg_advisory_xact_lock
+    while (lockAcquired) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    lockAcquired = true;
+    try {
+      if (bookingState.status !== 'PENDING' || bookingState.providerId !== null) {
+        const err = new Error('This booking is no longer available or has already been claimed');
+        err.statusCode = 409;
+        throw err;
+      }
+      bookingState = { ...bookingState, status: 'ASSIGNED', providerId };
+      return { success: true, booking: bookingState };
+    } finally {
+      lockAcquired = false;
+    }
+  };
+
+  const [resA, resB] = await Promise.allSettled([
+    simulateClaim(10),
+    simulateClaim(20),
+  ]);
+
+  const fulfilled = [resA, resB].filter((r) => r.status === 'fulfilled');
+  const rejected = [resA, resB].filter((r) => r.status === 'rejected');
+
+  assert.equal(fulfilled.length, 1, 'Exactly one provider claim must succeed');
+  assert.equal(rejected.length, 1, 'The losing provider must receive an error');
+  assert.equal(rejected[0].reason.statusCode, 409, 'Losing provider must receive 409 Conflict');
+  assert.ok(bookingState.providerId === 10 || bookingState.providerId === 20);
 });
