@@ -553,8 +553,8 @@ const ProviderDashboard = () => {
     e.preventDefault()
     const amount = Number(redeemAmount)
     if (!selectedBankAccount) return setPaymentMessage('Add and save your bank account before requesting a redemption.')
-    if (availableBalance < 5000) return setPaymentMessage('Your available balance must reach LKR 5,000 before you can request a redemption.')
-    if (!Number.isFinite(amount) || amount < 5000) return setPaymentMessage('Enter a redemption amount of at least LKR 5,000.')
+    if (availableBalance < minimumRedemptionAmount) return setPaymentMessage(`Your available balance must reach ${formatRupees(minimumRedemptionAmount)} before you can request a redemption.`)
+    if (!/^\d+(?:\.\d{1,2})?$/.test(redeemAmount) || !Number.isFinite(amount) || amount < minimumRedemptionAmount) return setPaymentMessage(`Enter an amount of at least ${formatRupees(minimumRedemptionAmount)} with no more than two decimal places.`)
     if (amount > availableBalance) return setPaymentMessage(`The amount cannot exceed your available balance of ${formatRupees(availableBalance)}.`)
     setPaymentBusy(true)
     setPaymentMessage('Submitting your redemption request…')
@@ -616,7 +616,20 @@ const ProviderDashboard = () => {
   const activeAvailability = AVAILABILITY_OPTIONS.find((o) => o.value === availability)
   const selectedBankAccount = (earnings?.bank_accounts || []).find((account) => account.selected) || earnings?.bank_accounts?.[0]
   const availableBalance = Number(earnings?.balance ?? earnings?.earnings ?? 0)
+  const minimumRedemptionAmount = Number(earnings?.minimum_redemption_amount || 5000)
   const redemptionRows = (earnings?.payouts || []).filter((payout) => payout.kind === 'redemption')
+  const pendingRedemptionTotal = redemptionRows
+    .filter((payout) => payout.status === 'pending')
+    .reduce((total, payout) => total + Number(payout.amount || 0), 0)
+  const requestedRedemptionAmount = Number(redeemAmount)
+  const redemptionAmountHasValidPrecision = /^\d+(?:\.\d{1,2})?$/.test(redeemAmount)
+  const redemptionAmountIsValid = redemptionAmountHasValidPrecision
+    && Number.isFinite(requestedRedemptionAmount)
+    && requestedRedemptionAmount >= minimumRedemptionAmount
+    && requestedRedemptionAmount <= availableBalance
+  const canRequestRedemption = Boolean(selectedBankAccount)
+    && availableBalance >= minimumRedemptionAmount
+    && redemptionAmountIsValid
 
   /* Action buttons for a booking row (used in cards + modal) */
   const renderBookingActions = (row, compact = false) => (
@@ -781,17 +794,27 @@ const ProviderDashboard = () => {
                 <div className="pd-stat"><p className="pd-stat__label">OVERALL EARNINGS</p><p className="pd-stat__value">{formatRupees(earnings?.overall_earnings)}</p></div>
                 <div className="pd-stat"><p className="pd-stat__label">REDEEMED</p><p className="pd-stat__value">{formatRupees(earnings?.redeemed)}</p></div>
                 <div className="pd-stat"><p className="pd-stat__label">AVAILABLE BALANCE</p><p className="pd-stat__value pd-stat__value--gold">{formatRupees(availableBalance)}</p></div>
+                <div className="pd-stat"><p className="pd-stat__label">PENDING REDEMPTIONS</p><p className="pd-stat__value">{formatRupees(pendingRedemptionTotal)}</p></div>
               </div>
 
               <div className="pd-all-booking-card" style={{ marginBottom: '1.25rem' }}>
                 <h2 className="pd-section-title" style={{ fontSize: '1.1rem' }}>Request Redemption</h2>
-                <p className="pd-avail__hint">A minimum available balance of LKR 5,000 is required. The amount is reserved while the admin processes your request.</p>
+                <p className="pd-avail__hint" style={{ maxWidth: '720px', lineHeight: 1.55 }}>A minimum available balance of {formatRupees(minimumRedemptionAmount)} is required. A submitted amount is reserved from your balance while the admin processes it.</p>
                 <form noValidate onSubmit={requestRedemption} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input type="number" inputMode="decimal" className="pd-edit-input" min="5000" step="0.01" value={redeemAmount} onChange={(e) => { setRedeemAmount(e.target.value); setPaymentMessage('') }} placeholder="Amount (minimum 5,000)" aria-label="Redemption amount in Sri Lankan Rupees" style={{ maxWidth: '260px' }} disabled={paymentBusy} required />
-                  <button type="submit" className="pd-cr-btn-accept" disabled={paymentBusy}>{paymentBusy ? 'SUBMITTING…' : 'REQUEST REDEMPTION'}</button>
+                  <input type="number" inputMode="decimal" className="pd-edit-input pd-redemption-input" min={minimumRedemptionAmount} max={availableBalance >= minimumRedemptionAmount ? availableBalance : undefined} step="0.01" value={redeemAmount} onChange={(e) => { setRedeemAmount(e.target.value); setPaymentMessage('') }} placeholder={`Amount (minimum ${minimumRedemptionAmount.toLocaleString()})`} aria-label="Redemption amount in Sri Lankan Rupees" aria-describedby="pd-redemption-help" style={{ maxWidth: '260px' }} disabled={paymentBusy} required />
+                  <button type="submit" className="pd-cr-btn-accept" disabled={paymentBusy || !canRequestRedemption} title={!selectedBankAccount ? 'Save a bank account first' : availableBalance < minimumRedemptionAmount ? 'Available balance is below the minimum' : !redemptionAmountIsValid ? 'Enter an amount within your available balance' : 'Submit redemption request'}>{paymentBusy ? 'SUBMITTING…' : 'REQUEST REDEMPTION'}</button>
                 </form>
-                {!selectedBankAccount && <p style={{ color: '#eab308', fontSize: '0.78rem' }}>Save your bank account above before submitting a redemption request.</p>}
-                {availableBalance < 5000 && <p style={{ color: '#eab308', fontSize: '0.78rem' }}>You can request redemption after your available balance reaches LKR 5,000.</p>}
+                <div id="pd-redemption-help" aria-live="polite">
+                  {!selectedBankAccount ? (
+                    <p className="pd-redemption-help pd-redemption-help--warning">Save your bank account above before submitting a redemption request.</p>
+                  ) : availableBalance < minimumRedemptionAmount ? (
+                    <p className="pd-redemption-help pd-redemption-help--warning">Available balance: {formatRupees(availableBalance)}. You need {formatRupees(minimumRedemptionAmount - availableBalance)} more before redemption is enabled.</p>
+                  ) : redeemAmount && requestedRedemptionAmount > availableBalance ? (
+                    <p className="pd-redemption-help pd-redemption-help--warning">The maximum you can request is {formatRupees(availableBalance)}.</p>
+                  ) : (
+                    <p className="pd-redemption-help pd-redemption-help--ready">Available to request: {formatRupees(minimumRedemptionAmount)} to {formatRupees(availableBalance)}.</p>
+                  )}
+                </div>
                 {paymentMessage && <p role="status" style={{ color: /success|sent/i.test(paymentMessage) ? '#4ade80' : 'var(--gold)', fontSize: '0.8rem', fontWeight: 700 }}>{paymentMessage}</p>}
               </div>
 

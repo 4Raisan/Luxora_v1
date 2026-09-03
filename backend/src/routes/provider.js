@@ -173,6 +173,7 @@ router.get('/earnings', async (req, res) => {
     overall_earnings: overallEarnings._sum.providerEarning || 0,
     redeemed: redeemedPayouts._sum.amount || 0,
     balance: provider.earnings,
+    minimum_redemption_amount: 5000,
     completedJobs,
     average_rating: ratingSummary._avg.rating || 0,
     rating_count: ratingSummary._count.rating,
