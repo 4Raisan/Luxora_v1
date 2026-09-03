@@ -254,6 +254,22 @@ const ProviderDashboard = () => {
     } catch { /* notifications are non-critical */ }
   }, [token])
 
+  const applyBookingStatusLocally = useCallback((bookingId, status) => {
+    const id = Number(bookingId)
+    const normalizedStatus = String(status || '').toUpperCase()
+    if (!id || !STATUS_COLORS[normalizedStatus]) return
+
+    const updateRow = (row) => row.apiId === id
+      ? { ...row, status: normalizedStatus, color: STATUS_COLORS[normalizedStatus], claimable: normalizedStatus === 'PENDING' }
+      : row
+
+    setBookingsList((current) => current.map(updateRow))
+    setPendingBookingsList((current) => normalizedStatus === 'PENDING'
+      ? current.map(updateRow)
+      : current.filter((row) => row.apiId !== id))
+    setSelectedDetailsBooking((current) => current?.apiId === id ? updateRow(current) : current)
+  }, [])
+
   const handleClaimBooking = useCallback(async (bookingId) => {
     if (!token) return
     setClaimingId(bookingId)
@@ -276,8 +292,11 @@ const ProviderDashboard = () => {
   useEffect(() => { setCancellationReason('') }, [selectedDetailsBooking?.apiId])
 
   useRealtime({
-    onEvent: (type) => {
+    onEvent: (type, data) => {
       if (['BOOKING_CREATED', 'BOOKING_ASSIGNED', 'BOOKING_CLAIMED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED'].includes(type)) {
+        if (type === 'BOOKING_STATUS_CHANGED' && data?.booking) {
+          applyBookingStatusLocally(data.booking.bookingId || data.booking.id, data.booking.status)
+        }
         void loadAll()
         void loadNotifications()
       }
@@ -313,11 +332,13 @@ const ProviderDashboard = () => {
     }
     setBusy(true)
     try {
-      await apiRequest(`/bookings/${row.apiId}/status`, 'PUT', { status: next, pin_code: pin.trim() }, token)
+      const result = await apiRequest(`/bookings/${row.apiId}/status`, 'PUT', { status: next, pin_code: pin.trim() }, token)
+      const nextStatus = String(result?.status || next).toUpperCase()
+      applyBookingStatusLocally(row.apiId, nextStatus)
+      setBookingFilter(nextStatus)
       setPinDialog(null)
       setSelectedDetailsBooking(null)
-      await loadAll()
-      await loadNotifications()
+      await Promise.all([loadAll(), loadNotifications()])
     } catch (error) {
       if (/from (\w+) to \1/i.test(error.message || '')) {
         // The status change already happened (e.g. double submit) — just refresh.
