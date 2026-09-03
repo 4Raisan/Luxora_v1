@@ -5,6 +5,7 @@ import AccountVerificationPanel from '../components/AccountVerificationPanel'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
 import ActiveBookingCards from '../components/ActiveBookingCards'
+import { useRealtime } from '../hooks/useRealtime'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -523,7 +524,17 @@ const CustomerDashboard = () => {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // PayHere and NOWPayments hosted checkout returns to /customer-dashboard
+  // Real-time synchronization for bookings, assignments, cancellations, and tokens
+  const handleRealtimeEvent = useCallback((type) => {
+    if (['BOOKING_CREATED', 'BOOKING_ASSIGNED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED', 'BOOKING_CLAIMED'].includes(type)) {
+      void loadServerData()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useRealtime({
+    onEvent: handleRealtimeEvent,
+    onSync: loadServerData,
+  })
   // Strip query parameters immediately, then confirm the authoritative payment
   // state from the backend before displaying any completion UI.
   useEffect(() => {

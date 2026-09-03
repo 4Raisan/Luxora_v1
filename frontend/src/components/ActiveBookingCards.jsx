@@ -35,7 +35,7 @@ const ActiveBookingCards = ({
         const status = String(booking.status || 'PENDING').toUpperCase()
         const statusClass = statusKey(status)
         const selected = selectedBookingId === booking.id
-        const canCancel = status === 'PENDING' || status === 'ASSIGNED' || status === 'IN_PROGRESS'
+        const canCancel = status === 'PENDING' || status === 'ASSIGNED'
         const pinUnlocked = typeof isPinUnlocked === 'function' && isPinUnlocked(booking)
         const { month, day } = bookingDateParts(booking.date)
 
