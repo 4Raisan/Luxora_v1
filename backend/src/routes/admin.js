@@ -8,6 +8,7 @@ import { getPlatformSettings, providerCanTakeBooking, reassignOrUnassignProvider
 import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookings } from '../services/bookingTimeouts.js';
+import { broadcastBookingEvent } from '../services/realtime.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
@@ -503,6 +504,15 @@ router.put('/bookings/:id', async (req, res) => {
     const provider = await prisma.provider.findUnique({ where: { id: nextProviderId } });
     if (provider) await notify(provider.userId, `Booking #${id} has been assigned to you.`);
   }
+
+  broadcastBookingEvent('BOOKING_STATUS_CHANGED', {
+    id: booking.id,
+    bookingId: booking.id,
+    userId: booking.userId,
+    providerId: nextProviderId ?? booking.providerId,
+    status: (nextStatus || booking.status).toLowerCase(),
+    previousStatus: booking.status.toLowerCase(),
+  });
 
   logAdminAction({ adminId: req.user.id, action: 'OVERRIDE_BOOKING', targetType: 'Booking', targetId: String(id), details: { status: nextStatus, providerId: nextProviderId }, ipAddress: req.ip }).catch(() => {});
 
