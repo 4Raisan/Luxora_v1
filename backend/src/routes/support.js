@@ -3,7 +3,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify } from '../services/notify.js';
 import { isDate, isNonEmptyString, isQuarterHourTime, isTodayOrFuture, toEnum, toPositiveInt } from '../middleware/validators.js';
-import { getPlatformSettings, pickProvider, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
+import { bookingEndsAt, bookingStart, providerOffersCategory, servesTown } from '../services/scheduling.js';
 import { broadcastToRole, broadcastToUser } from '../services/realtime.js';
 
 const router = Router();
@@ -34,8 +34,55 @@ const serviceRequestInclude = {
   provider: { include: { user: { select: { id: true, name: true, phone: true } } } },
 };
 
-// Customer bespoke requests are persisted separately from ordinary support
-// tickets and immediately matched to an eligible provider when possible.
+const SERVICE_REQUEST_DURATION_MS = 60 * 60 * 1000;
+const SERVICE_REQUEST_BUFFER_MS = 2 * 60 * 60 * 1000;
+
+function intervalsBreachTwoHourBuffer(firstStart, firstEnd, secondStart, secondEnd) {
+  return firstStart < new Date(secondEnd.getTime() + SERVICE_REQUEST_BUFFER_MS)
+    && secondStart < new Date(firstEnd.getTime() + SERVICE_REQUEST_BUFFER_MS);
+}
+
+async function providerCanAcceptServiceRequest(client, provider, request, ignoreRequestId = null) {
+  if (!provider || provider.kycStatus !== 'APPROVED' || provider.user?.active === false) {
+    return { ok: false, error: 'An active, KYC-approved provider account is required' };
+  }
+  if (!providerOffersCategory(provider, request.category)) return { ok: false, error: 'Provider does not offer this service category' };
+  if (!servesTown(provider, request.town, request.addressDistrict)) return { ok: false, error: 'Provider does not serve this request town' };
+
+  const requestedStart = bookingStart(request.preferredDate, request.preferredTime);
+  if (!requestedStart) return { ok: false, error: 'Requested service schedule is invalid' };
+  const requestedEnd = new Date(requestedStart.getTime() + SERVICE_REQUEST_DURATION_MS);
+  const normalBookings = await client.booking.findMany({
+    where: { providerId: provider.id, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
+    include: { service: { select: { durationMins: true } } },
+  });
+  const normalConflict = normalBookings.some((booking) => {
+    const start = bookingStart(booking.bookingDate, booking.bookingTime);
+    const end = bookingEndsAt(booking);
+    return start && end && intervalsBreachTwoHourBuffer(requestedStart, requestedEnd, start, end);
+  });
+  if (normalConflict) return { ok: false, error: 'A normal booking is scheduled at the same time or within the required two-hour buffer' };
+
+  const acceptedRequests = await client.supportTicket.findMany({
+    where: {
+      providerId: provider.id,
+      kind: 'SERVICE_REQUEST',
+      status: { in: ['OPEN', 'IN_PROGRESS'] },
+      ...(ignoreRequestId ? { id: { not: ignoreRequestId } } : {}),
+    },
+    select: { preferredDate: true, preferredTime: true },
+  });
+  const requestConflict = acceptedRequests.some((accepted) => {
+    const start = bookingStart(accepted.preferredDate, accepted.preferredTime);
+    const end = start && new Date(start.getTime() + SERVICE_REQUEST_DURATION_MS);
+    return start && end && intervalsBreachTwoHourBuffer(requestedStart, requestedEnd, start, end);
+  });
+  if (requestConflict) return { ok: false, error: 'Another accepted custom request is at the same time or within the required two-hour buffer' };
+  return { ok: true };
+}
+
+// Customer bespoke requests stay unassigned until an eligible provider
+// explicitly accepts them.
 router.post('/service-requests', requireRole('CUSTOMER'), async (req, res) => {
   const subject = String(req.body.subject || '').trim();
   const notes = String(req.body.notes || '').trim();
@@ -79,22 +126,9 @@ router.post('/service-requests', requireRole('CUSTOMER'), async (req, res) => {
   });
   if (recentDuplicate) return res.status(200).json(serviceRequestPayload(recentDuplicate));
 
-  const settings = await getPlatformSettings(prisma);
-  const provider = await pickProvider(
-    prisma,
-    category.name,
-    customer.town,
-    customer.addressDistrict,
-    preferredDate,
-    preferredTime,
-    { durationMins: 60 },
-    settings,
-  );
-
   const ticket = await prisma.supportTicket.create({
     data: {
       userId: req.user.id,
-      providerId: provider?.id || null,
       subject,
       message: notes,
       kind: 'SERVICE_REQUEST',
@@ -110,15 +144,11 @@ router.post('/service-requests', requireRole('CUSTOMER'), async (req, res) => {
 
   const payload = serviceRequestPayload(ticket);
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
-  await Promise.all([
-    ...admins.map((admin) => notify(admin.id, `New requested service #${ticket.id}: ${ticket.subject}`, '/admin-dashboard')),
-    ...(provider ? [notify(provider.userId, `New requested service assigned: ${ticket.subject} on ${preferredDate} at ${preferredTime}.`, '/provider-dashboard')] : []),
-  ]);
+  await Promise.all(admins.map((admin) => notify(admin.id, `New requested service #${ticket.id}: ${ticket.subject}`, '/admin-dashboard')));
 
   broadcastToRole('ADMIN', 'SERVICE_REQUEST_CREATED', payload);
   broadcastToUser(req.user.id, 'SERVICE_REQUEST_CREATED', payload);
-  if (provider) broadcastToUser(provider.userId, 'SERVICE_REQUEST_CREATED', payload);
-  else broadcastToRole('PROVIDER', 'SERVICE_REQUEST_CREATED', payload);
+  broadcastToRole('PROVIDER', 'SERVICE_REQUEST_CREATED', payload);
 
   res.status(201).json(payload);
 });
@@ -158,13 +188,7 @@ router.get('/service-requests/provider', requireRole('PROVIDER'), async (req, re
       continue;
     }
     if (!providerOffersCategory(provider, ticket.category) || !servesTown(provider, ticket.town, ticket.addressDistrict)) continue;
-    const canTake = await providerCanTakeBooking(prisma, provider, {
-      bookingDate: ticket.preferredDate,
-      bookingTime: ticket.preferredTime,
-      town: ticket.town,
-      addressDistrict: ticket.addressDistrict,
-      service: { durationMins: 60, category: { name: ticket.category } },
-    }, { requireOnline: false });
+    const canTake = await providerCanAcceptServiceRequest(prisma, provider, ticket);
     if (canTake.ok) visible.push(ticket);
   }
 
@@ -193,13 +217,7 @@ router.post('/service-requests/:id/claim', requireRole('PROVIDER'), async (req, 
       if (current.providerId) {
         const error = new Error('This requested service has already been assigned'); error.statusCode = 409; throw error;
       }
-      const canTake = await providerCanTakeBooking(tx, provider, {
-        bookingDate: current.preferredDate,
-        bookingTime: current.preferredTime,
-        town: current.town,
-        addressDistrict: current.addressDistrict,
-        service: { durationMins: 60, category: { name: current.category } },
-      }, { requireOnline: false });
+      const canTake = await providerCanAcceptServiceRequest(tx, provider, current, current.id);
       if (!canTake.ok) { const error = new Error(canTake.error); error.statusCode = 409; throw error; }
       return tx.supportTicket.update({ where: { id }, data: { providerId: provider.id }, include: serviceRequestInclude });
     });
