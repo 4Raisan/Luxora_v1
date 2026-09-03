@@ -940,7 +940,7 @@ const CustomerDashboard = () => {
   const [customRequestSuccessModal, setCustomRequestSuccessModal] = useState(null)
   const [customRequests, setCustomRequests] = useState([])
 
-  const [customForm, setCustomForm] = useState({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
+  const [customForm, setCustomForm] = useState({ title: '', category: 'Auto Care', date: '', time: '09:00 AM', notes: '' })
 
   // Restore a pre-filled Bespoke Concierge request passed from the chatbot.
   useEffect(() => {
@@ -954,7 +954,7 @@ const CustomerDashboard = () => {
         setCustomForm((prev) => ({
           ...prev,
           title: parsed.title || prev.title,
-          category: parsed.category || prev.category,
+          category: ['Auto Care', 'Pet Care', 'Garden Care'].includes(parsed.category) ? parsed.category : prev.category,
           date: parsed.date || prev.date,
           notes: parsed.notes || prev.notes,
         }))
@@ -970,22 +970,25 @@ const CustomerDashboard = () => {
     }
   }, [])
 
-  // Custom requests are real support tickets on the server; load them so the
-  // list survives reloads and is visible to the concierge/admin team.
+  // Custom service requests have their own provider-assignment contract; do
+  // not mix ordinary support tickets or cancellation requests into this list.
   useEffect(() => {
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') return
-    apiRequest('/support/my', 'GET', null, token).then((tickets) => {
+    apiRequest('/support/service-requests/my', 'GET', null, token).then((tickets) => {
       if (!Array.isArray(tickets) || tickets.length === 0) return
       const mapped = tickets.map((t) => ({
         id: `REQ-${String(t.id).padStart(3, '0')}`,
         serverId: t.id,
         title: t.subject,
-        category: 'Concierge Desk',
-        date: new Date(t.createdAt).toISOString().split('T')[0],
-        time: '10:00 AM',
-        notes: t.message,
-        status: t.status === 'RESOLVED' || t.status === 'CLOSED' ? 'Resolved' : 'Under Concierge Review'
+        category: t.category,
+        date: t.preferred_date,
+        time: t.preferred_time,
+        notes: t.notes,
+        providerName: t.provider_name,
+        status: t.status === 'resolved' || t.status === 'closed'
+          ? 'Resolved'
+          : t.assignment_status === 'assigned' ? 'Provider Assigned' : 'Awaiting Provider'
       }))
       setCustomRequests(mapped)
     }).catch((error) => console.warn('Could not load custom requests.', error))
@@ -1005,10 +1008,12 @@ const CustomerDashboard = () => {
     }
 
     try {
-      const ticket = await apiRequest('/support', 'POST', {
+      const ticket = await apiRequest('/support/service-requests', 'POST', {
         subject: customForm.title.trim(),
-        message: `[${customForm.category}${customForm.date ? ` · preferred ${customForm.date} ${customForm.time || '10:00 AM'}` : ''}] ${customForm.notes.trim()}`,
-        priority: 'NORMAL',
+        notes: customForm.notes.trim(),
+        category: customForm.category,
+        preferred_date: customForm.date,
+        preferred_time: customForm.time,
       }, token)
       const newReq = {
         id: `REQ-${String(ticket.id).padStart(3, '0')}`,
@@ -1018,9 +1023,10 @@ const CustomerDashboard = () => {
         date: customForm.date || new Date().toISOString().split('T')[0],
         time: customForm.time || '10:00 AM',
         notes: customForm.notes,
-        status: 'Under Concierge Review'
+        providerName: ticket.provider_name,
+        status: ticket.assignment_status === 'assigned' ? 'Provider Assigned' : 'Awaiting Provider'
       }
-      setCustomRequests([newReq, ...customRequests])
+      setCustomRequests((current) => [newReq, ...current.filter((request) => request.serverId !== ticket.id)])
       addNotification({
         title: 'Custom Request Submitted',
         message: `Your request "${customForm.title}" (${newReq.id}) has been submitted to Concierge Desk.`,
@@ -1031,7 +1037,7 @@ const CustomerDashboard = () => {
         id: newReq.id,
       })
       setShowCustomRequestModal(false)
-      setCustomForm({ title: '', category: 'Home & Estate Care', date: '', time: '10:00 AM', notes: '' })
+      setCustomForm({ title: '', category: 'Auto Care', date: '', time: '09:00 AM', notes: '' })
     } catch (error) {
       alert(error.message || 'Could not submit your request. Please try again.')
     }
@@ -2093,6 +2099,11 @@ const CustomerDashboard = () => {
                         <span>Category: <strong style={{ color: '#ddd' }}>{req.category}</strong></span>
                         <span>Date: <strong style={{ color: '#ddd' }}>{req.date}</strong></span>
                       </div>
+                      {req.providerName && (
+                        <div style={{ color: '#aaa', fontSize: '0.76rem' }}>
+                          Assigned provider: <strong style={{ color: 'var(--gold, #c9a84c)' }}>{req.providerName}</strong>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -4563,11 +4574,9 @@ const CustomerDashboard = () => {
                     onChange={(e) => setCustomForm({ ...customForm, category: e.target.value })}
                     style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
                   >
-                    <option value="Home & Estate Care">Home & Estate Care</option>
                     <option value="Auto Care">Auto Care</option>
                     <option value="Garden Care">Garden Care</option>
                     <option value="Pet Care">Pet Care</option>
-                    <option value="VIP Concierge">VIP Concierge</option>
                   </select>
                 </div>
 
@@ -4582,6 +4591,26 @@ const CustomerDashboard = () => {
                     style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED TIME</label>
+                <select
+                  value={customForm.time}
+                  onChange={(e) => setCustomForm({ ...customForm, time: e.target.value })}
+                  style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
+                >
+                  {Array.from({ length: 48 }, (_, index) => {
+                    const totalMinutes = 9 * 60 + index * 15
+                    if (totalMinutes > 20 * 60 + 45) return null
+                    const hour24 = Math.floor(totalMinutes / 60)
+                    const minutes = totalMinutes % 60
+                    const period = hour24 >= 12 ? 'PM' : 'AM'
+                    const hour12 = hour24 % 12 || 12
+                    const value = `${String(hour12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`
+                    return <option key={value} value={value}>{value}</option>
+                  })}
+                </select>
               </div>
 
               <div>
