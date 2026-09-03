@@ -16,6 +16,10 @@
     "graph:validate": "node Knowladge-Graph/validate-graph.js",
     "graph:verify": "npm run graph && npm run graph:validate",
     "graph:serve": "node scripts/serve-graph.mjs",
+    "architecture:generate": "node Knowladge-Graph/generate-architecture.js",
+    "architecture:validate": "node Knowladge-Graph/validate-architecture.js",
+    "architecture:verify": "npm run architecture:generate && npm run architecture:validate",
+    "architecture:dev": "node scripts/serve-graph.mjs",
     "demo:seed": "node backend/prisma/demo-bookings.js seed",
     "demo:clean": "node backend/prisma/demo-bookings.js clean"
   },
