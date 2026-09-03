@@ -140,11 +140,7 @@ router.get('/earnings', async (req, res) => {
   const completedJobs = await prisma.booking.count({ where: { providerId: provider.id, status: 'COMPLETED' } });
   const history = await prisma.booking.findMany({
     where: { providerId: provider.id },
-    include: {
-      service: { select: { title: true, category: { select: { name: true } } } },
-      user: { select: { name: true, phone: true } },
-      payments: { where: { status: 'COMPLETED' }, select: { status: true } },
-    },
+    include: { service: true, user: { select: { name: true, phone: true } }, payments: { where: { status: 'COMPLETED' }, select: { status: true } } },
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
@@ -174,7 +170,7 @@ router.get('/earnings', async (req, res) => {
     completedJobs,
     history: history.map((h) => ({
       id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
-      service_title: h.service?.title, category_name: h.service?.category?.name, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
+      service_title: h.service?.title, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
     })),
     bank_accounts: bankAccounts.map((account) => ({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), branch: account.branch, selected: account.selected })),
     payouts: payouts.map((payout) => ({
