@@ -4584,6 +4584,7 @@ const CustomerDashboard = () => {
                   <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED DATE</label>
                   <input
                     type="date"
+                    className="cd-custom-request-date"
                     required
                     min={new Date().toISOString().split('T')[0]}
                     value={customForm.date}

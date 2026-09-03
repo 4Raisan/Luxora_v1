@@ -1043,6 +1043,16 @@
   border-bottom: none;
 }
 
+.cd-custom-request-date {
+  color-scheme: dark;
+}
+
+.cd-custom-request-date::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 1;
+  cursor: pointer;
+}
+
 .cd-cell-date {
   color: #aaa;
 }
