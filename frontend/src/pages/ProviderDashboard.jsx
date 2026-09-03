@@ -183,6 +183,11 @@ const ProviderDashboard = () => {
 
   const mapServiceRequestRow = useCallback((request) => {
     const date = new Date(`${request.preferred_date}T00:00:00`)
+    const providerId = request.provider_id ?? request.providerId ?? null
+    const assignmentStatus = String(request.assignment_status || (providerId ? 'assigned' : 'pending')).toLowerCase()
+    const claimable = typeof request.claimable === 'boolean'
+      ? request.claimable
+      : !providerId && assignmentStatus !== 'assigned'
     return {
       apiId: request.id,
       month: Number.isNaN(date.getTime()) ? '' : date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
@@ -195,8 +200,8 @@ const ProviderDashboard = () => {
       customerName: request.customer_name || 'Customer',
       customerPhone: request.customer_phone || '',
       town: request.town || '',
-      status: String(request.assignment_status || 'pending').toUpperCase(),
-      claimable: Boolean(request.claimable),
+      status: assignmentStatus.toUpperCase(),
+      claimable,
     }
   }, [])
 
@@ -1203,8 +1208,8 @@ const ProviderDashboard = () => {
                 <div className="pd-section-header" style={{ marginTop: '2.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <h2 className="pd-section-title">Requested Services</h2>
-                    {requestRows.length > 0 && (
-                      <span className="pd-badge-gold">NEW REQUESTS ({requestRows.length})</span>
+                    {requestRows.some((request) => request.claimable) && (
+                      <span className="pd-badge-gold">NEW REQUESTS ({requestRows.filter((request) => request.claimable).length})</span>
                     )}
                   </div>
                 </div>
@@ -1239,16 +1244,15 @@ const ProviderDashboard = () => {
                           <span className="pd-cr-budget">{b.category}</span>
                         </div>
                         <div className="pd-cr-actions">
-                          {b.claimable && (
-                            <button
-                              type="button"
-                              className="pd-cr-btn-accept"
-                              disabled={busy || claimingServiceRequestId === b.apiId}
-                              onClick={() => handleClaimServiceRequest(b.apiId)}
-                            >
-                              {claimingServiceRequestId === b.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className="pd-cr-btn-accept pd-request-accept-btn"
+                            disabled={!b.claimable || busy || claimingServiceRequestId === b.apiId}
+                            onClick={() => b.claimable && handleClaimServiceRequest(b.apiId)}
+                            title={b.claimable ? 'Accept this custom service request' : 'You have already accepted this request'}
+                          >
+                            {!b.claimable ? 'REQUEST ACCEPTED' : claimingServiceRequestId === b.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}
+                          </button>
                           {b.customerPhone && (
                             <a className="pd-cr-btn-decline" href={`tel:${b.customerPhone}`} style={{ textDecoration: 'none' }}>
                               CONTACT CUSTOMER
