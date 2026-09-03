@@ -2253,7 +2253,7 @@ const CustomerDashboard = () => {
                   type="date"
                   value={activeBookingDateFilter}
                   onChange={(e) => setActiveBookingDateFilter(e.target.value)}
-                  style={{ background: '#1c1c1c', color: '#fff', border: '1px solid #333', padding: '0.5rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem', outline: 'none' }}
+                  style={{ background: '#1c1c1c', color: '#fff', border: '1px solid #333', padding: '0.5rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem', outline: 'none', colorScheme: 'dark' }}
                 />
               </div>
 
