@@ -18,6 +18,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guard:
+    name: Protected Files Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Protected Files Guard
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci/guard-protected-files.mjs
+
   classify:
     name: 01 - Plan and secret scan
     runs-on: ubuntu-latest
@@ -297,12 +321,13 @@ jobs:
   validate-and-test:
     name: 06 - Required gate
     if: always()
-    needs: [classify, quality, knowledge_graph, backend, audit, docker]
+    needs: [guard, classify, quality, knowledge_graph, backend, audit, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - name: Confirm selected checks passed
         env:
+          GUARD_RESULT: ${{ needs.guard.result }}
           CLASSIFY_RESULT: ${{ needs.classify.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           KG_RESULT: ${{ needs.knowledge_graph.result }}
@@ -310,12 +335,16 @@ jobs:
           AUDIT_RESULT: ${{ needs.audit.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
         run: |
-          for result in "$CLASSIFY_RESULT" "$QUALITY_RESULT" "$KG_RESULT" "$BACKEND_RESULT" "$AUDIT_RESULT" "$DOCKER_RESULT"; do
+          for result in "$GUARD_RESULT" "$CLASSIFY_RESULT" "$QUALITY_RESULT" "$KG_RESULT" "$BACKEND_RESULT" "$AUDIT_RESULT" "$DOCKER_RESULT"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "A required CI job did not pass: $result"
               exit 1
             fi
           done
+          if [ "$GUARD_RESULT" != "success" ]; then
+            echo "Protected files guard check must pass."
+            exit 1
+          fi
           if [ "$CLASSIFY_RESULT" != "success" ]; then
             echo "Change classification and secret scanning must pass."
             exit 1

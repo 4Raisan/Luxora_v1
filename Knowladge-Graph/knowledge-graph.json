@@ -6,12 +6,12 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 191,
+    "totalNodes": 192,
     "totalEdges": 408,
     "nodesByGroup": {
       "api": 94,
       "database": 33,
-      "frontend": 33,
+      "frontend": 34,
       "middleware": 3,
       "routes": 16,
       "service": 12
@@ -1954,6 +1954,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/Stats.jsx"
+      }
+    },
+    {
+      "id": "frontend:TrustSection",
+      "label": "TrustSection.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/TrustSection.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/TrustSection.jsx"
       }
     },
     {
