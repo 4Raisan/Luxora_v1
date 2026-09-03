@@ -40,6 +40,7 @@ const orderedTests = [
   'tests/booking-concurrency.test.js',
   'tests/booking-lifecycle-timeouts.test.js',
   'tests/new-flow-rules.test.js',
+  'tests/realtime-claim-lifecycle.test.js',
   'tests/release-hardening.test.js',
 ];
 const discoveredTests = fs.readdirSync(path.join(backendDir, 'tests'), { withFileTypes: true })
@@ -72,6 +73,7 @@ const testSuites = {
     'tests/booking-concurrency.test.js',
     'tests/booking-lifecycle-timeouts.test.js',
     'tests/new-flow-rules.test.js',
+    'tests/realtime-claim-lifecycle.test.js',
   ],
   security: [
     'tests/security-audit.test.js',

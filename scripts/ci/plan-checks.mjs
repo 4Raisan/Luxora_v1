@@ -38,7 +38,7 @@ function suitesForBackendTest(filePath) {
   const name = path.posix.basename(filePath);
   if (name === 'run-tests.js' || filePath.includes('/helpers/')) return ['full'];
   if (/nowpayments|payment-contract|currency|release-hardening/.test(name)) return ['payments'];
-  if (/booking|new-flow|fresh-db|api-fixes/.test(name)) return ['bookings'];
+  if (/booking|new-flow|fresh-db|api-fixes|realtime-claim-lifecycle/.test(name)) return ['bookings'];
   if (/security-audit/.test(name)) return ['security'];
   return ['smoke'];
 }
