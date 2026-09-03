@@ -219,7 +219,7 @@ test('Rule 3 & 4: Provider deactivation/KYC rejection returns assigned bookings 
   assert.equal(opRes.status, 403, 'Operational endpoint must be blocked for REJECTED provider');
 });
 
-test('Rule 5: PIN visibility (Start PIN visible when ASSIGNED, End PIN hidden until IN_PROGRESS, customer can cancel IN_PROGRESS)', async () => {
+test('Rule 5: PIN visibility (Start PIN visible when ASSIGNED, End PIN hidden until IN_PROGRESS, customer CANNOT cancel IN_PROGRESS)', async () => {
   const cust = await prisma.user.create({
     data: { name: `Cust R5 ${RND}`, email: `cust.r5.${RND}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Negombo', addressDistrict: 'Western' },
   });
@@ -270,14 +270,15 @@ test('Rule 5: PIN visibility (Start PIN visible when ASSIGNED, End PIN hidden un
   assert.equal(pinsInProgress.status, 200);
   assert.ok(pinsInProgress.body.completion_pin, 'completion_pin must be visible when IN_PROGRESS');
 
-  // Customer cancels the IN_PROGRESS booking (new Rule 5 allows customer cancellation of in_progress)
+  // Customer attempts to cancel the IN_PROGRESS booking -> MUST BE REJECTED with 400
   const cancelRes = await authJson(custToken, `/bookings/${bookingId}/cancel`, {
     method: 'PUT',
   });
-  assert.equal(cancelRes.status, 200, `Customer should be able to cancel in-progress booking: ${cancelRes.text}`);
+  assert.equal(cancelRes.status, 400, 'Customer cancellation of in-progress booking must be rejected with 400');
+  assert.match(cancelRes.body.error, /cannot be cancelled once service is in progress/i);
 
-  const cancelledBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
-  assert.equal(cancelledBooking.status, 'CANCELLED');
+  const inProgressBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  assert.equal(inProgressBooking.status, 'IN_PROGRESS', 'Booking status must remain IN_PROGRESS');
 });
 
 test('Rule 6 & 10: Admin cancellation notifies customer + provider, and CANCELLED bookings cannot be revived', async () => {

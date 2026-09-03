@@ -30,6 +30,11 @@ test('new backend test files select the full backend suite', () => {
   assert.deepEqual(plan.backendSuites, ['full']);
 });
 
+test('realtime claim lifecycle test file selects bookings suite', () => {
+  const plan = classifyChanges(['backend/tests/realtime-claim-lifecycle.test.js']);
+  assert.deepEqual(Array.from(plan.backendSuites), ['bookings']);
+});
+
 test('frontend changes select frontend validation', () => {
   const plan = classifyChanges(['frontend/src/pages/Login.jsx']);
   assert.equal(plan.quality, true);
