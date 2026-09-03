@@ -167,6 +167,7 @@ const AdminDashboard = () => {
   const [promoForm, setPromoForm] = useState({ title: '', description: '', code: '', discount_pct: '', starts_at: '', ends_at: '', plan_ids: [] })
   const [reportRange, setReportRange] = useState({ from: '', to: '' })
   const [payoutEdits, setPayoutEdits] = useState({})
+  const [redemptionDecision, setRedemptionDecision] = useState(null)
   const activePromotionPlans = plans.filter((plan) => plan.active)
   const cancellationRequests = supportTickets.filter((ticket) => cancellationRequestBookingId(ticket))
   const pendingCancellationRequests = cancellationRequests.filter((ticket) => ['OPEN', 'IN_PROGRESS'].includes(String(ticket.status || '').toUpperCase()))
@@ -476,11 +477,16 @@ const AdminDashboard = () => {
   }
 
   const updateRedemptionRequest = (payout, status) => {
-    const action = status === 'paid' ? 'confirm that the bank transfer was sent' : 'mark this request as not redeemed and return the amount to the provider balance'
-    if (!window.confirm(`Are you sure you want to ${action}?`)) return
+    setRedemptionDecision({ payout, status })
+  }
+
+  const confirmRedemptionRequest = () => {
+    const decision = redemptionDecision
+    if (!decision) return
     return runAction(async () => {
-      await apiRequest(`/admin/payouts/${payout.id}`, 'PUT', { status }, token)
-    }, status === 'paid' ? 'Redemption marked as paid.' : 'Redemption declined and balance restored.')
+      await apiRequest(`/admin/payouts/${decision.payout.id}`, 'PUT', { status: decision.status }, token)
+      setRedemptionDecision(null)
+    })
   }
 
   const markNotifRead = async (id) => {
@@ -1158,6 +1164,44 @@ const AdminDashboard = () => {
               </div>
             ))}
             {notifications.length === 0 && <p className="ad-notif-empty" style={{ color: '#777', textAlign: 'center', padding: '1rem' }}>No notifications.</p>}
+          </div>
+        </Modal>
+      )}
+
+      {redemptionDecision && (
+        <Modal
+          title={redemptionDecision.status === 'paid' ? 'MARK AS REDEEMED?' : 'MARK AS NOT REDEEMED?'}
+          eyebrow={`REDEMPTION REQUEST #${redemptionDecision.payout.id}`}
+          onClose={() => { if (!busy) setRedemptionDecision(null) }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem', padding: '0.9rem', border: '1px solid #2b2b2b', borderRadius: '10px', background: '#0d0d0f' }}>
+            <div><small style={{ color: '#777', display: 'block' }}>PROVIDER</small><strong style={{ color: '#fff', display: 'block', marginTop: '0.2rem' }}>{redemptionDecision.payout.provider_name}</strong></div>
+            <div><small style={{ color: '#777', display: 'block' }}>AMOUNT</small><strong style={{ color: 'var(--gold, #c9a84c)', display: 'block', marginTop: '0.2rem' }}>{fmtMoney(redemptionDecision.payout.amount)}</strong></div>
+            <div><small style={{ color: '#777', display: 'block' }}>BANK</small><strong style={{ color: '#ddd', display: 'block', marginTop: '0.2rem' }}>{redemptionDecision.payout.bank_name || '—'}</strong></div>
+            <div><small style={{ color: '#777', display: 'block' }}>ACCOUNT</small><strong style={{ color: '#ddd', display: 'block', marginTop: '0.2rem', fontFamily: 'monospace' }}>{redemptionDecision.payout.account_number || '—'}</strong></div>
+            <div style={{ gridColumn: '1 / -1' }}><small style={{ color: '#777', display: 'block' }}>ACCOUNT NAME &amp; BRANCH</small><strong style={{ color: '#ddd', display: 'block', marginTop: '0.2rem' }}>{redemptionDecision.payout.account_holder || '—'} · {redemptionDecision.payout.branch || '—'}</strong></div>
+          </div>
+
+          {redemptionDecision.status === 'paid' ? (
+            <div style={{ padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(201,168,76,0.4)', background: 'rgba(201,168,76,0.08)', color: '#e7d18b', fontSize: '0.82rem', lineHeight: 1.55 }}>
+              Confirm only after the bank transfer has been successfully sent. The request will be finalized as redeemed and cannot be changed afterward.
+            </div>
+          ) : (
+            <div style={{ padding: '0.85rem 1rem', borderRadius: '10px', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)', color: '#fca5a5', fontSize: '0.82rem', lineHeight: 1.55 }}>
+              Use this only when the transfer was not sent. The complete reserved amount will be returned to the provider's available balance, and this decision cannot be changed afterward.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.65rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button style={ghostBtn} disabled={busy} onClick={() => setRedemptionDecision(null)}>Cancel</button>
+            <ActionButton
+              style={redemptionDecision.status === 'paid' ? goldBtn : redBtn}
+              loading={busy}
+              loadingText="UPDATING…"
+              onClick={confirmRedemptionRequest}
+            >
+              {redemptionDecision.status === 'paid' ? 'CONFIRM REDEEMED' : 'CONFIRM NOT REDEEMED'}
+            </ActionButton>
           </div>
         </Modal>
       )}
