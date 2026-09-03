@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
+import { useRealtime } from '../hooks/useRealtime'
 import './AdminDashboard.css'
 
 /* Admin control center — backup visual language (ad- design system),
@@ -209,6 +210,15 @@ const AdminDashboard = () => {
 
   useEffect(() => { loadAll() }, [loadAll])
   useEffect(() => { loadScheduling() }, [loadScheduling])
+
+  useRealtime({
+    onEvent: (type) => {
+      if (['BOOKING_CREATED', 'BOOKING_ASSIGNED', 'BOOKING_CLAIMED', 'BOOKING_STATUS_CHANGED', 'BOOKING_CANCELLED'].includes(type)) {
+        void loadAll()
+      }
+    },
+    onSync: loadAll,
+  })
 
   const loadReports = async () => {
     const qs = [reportRange.from && `from=${reportRange.from}`, reportRange.to && `to=${reportRange.to}`].filter(Boolean).join('&')
