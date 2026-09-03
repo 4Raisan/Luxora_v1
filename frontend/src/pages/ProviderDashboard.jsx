@@ -228,6 +228,21 @@ const ProviderDashboard = () => {
     }
   }, [token, navigate, mapBookingRow])
 
+  const refreshBookingLists = useCallback(async () => {
+    if (!token) return
+    try {
+      const [bookingRows, pendingRows] = await Promise.all([
+        apiRequest('/bookings/assigned', 'GET', null, token),
+        apiRequest('/bookings/pending', 'GET', null, token),
+      ])
+      setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
+      setPendingBookingsList((Array.isArray(pendingRows) ? pendingRows : []).map(mapBookingRow))
+      setLoadError('')
+    } catch (error) {
+      setLoadError(error.message || 'Could not refresh your bookings.')
+    }
+  }, [token, mapBookingRow])
+
   const handleKycDocUpload = async (e) => {
     e.preventDefault()
     if (!kycDocFile) return setKycDocMsg('Please select a file to upload.')
@@ -331,33 +346,11 @@ const ProviderDashboard = () => {
       if (!b) return
 
       if (type === 'BOOKING_CREATED') {
-        if (String(b.status).toUpperCase() === 'PENDING' && !b.providerId) {
-          const providerCategories = String(category || '').split(',').map((c) => c.trim().toLowerCase())
-          const catMatch = providerCategories.some((c) => c === (b.categoryName || b.category_name || '').toLowerCase())
-          if (catMatch) {
-            const id = b.id || b.bookingId
-            setPendingBookingsList((prev) => {
-              if (prev.some((item) => item.apiId === id || item.id === id)) return prev
-              const pendingRow = {
-                id: `BKG-${String(id).padStart(4, '0')}`,
-                apiId: id,
-                service: b.categoryName || b.category_name || b.serviceTitle || 'Concierge Service',
-                serviceDesc: b.serviceTitle || b.service_title,
-                customer: b.customerName || b.customer_name || 'Customer',
-                phone: b.customerPhone || b.customer_phone || '',
-                date: b.bookingDate,
-                time: b.bookingTime,
-                amount: `LKR ${Number(b.totalPrice || b.total_price || 0).toLocaleString()}`,
-                status: 'PENDING',
-                color: STATUS_COLORS.PENDING,
-                claimable: true,
-                address: `${b.addressStreet || ''}, ${b.town || ''}${b.addressDistrict ? `, ${b.addressDistrict}` : ''}`.replace(/^,\s*/, ''),
-                petType: b.petType,
-              }
-              return [pendingRow, ...prev]
-            })
-          }
-        }
+        // Re-read both lists through the backend eligibility rules. This handles
+        // unassigned requests as well as bookings auto-assigned at creation time,
+        // without duplicating category and service-area matching in the browser.
+        void refreshBookingLists()
+        void loadNotifications()
       } else if (type === 'BOOKING_CLAIMED') {
         const claimedId = b.bookingId || b.id
         if (claimedId) {
