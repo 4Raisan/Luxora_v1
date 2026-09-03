@@ -38,9 +38,7 @@ const formatMobileNumber = (val) => {
   if (cleaned.startsWith('94')) cleaned = cleaned.slice(2)
   if (cleaned.startsWith('0'))  cleaned = cleaned.slice(1)
   if (!cleaned) return '—'
-  const localPart = '0' + cleaned
-  const intlPart = '+94 ' + cleaned.slice(0, 2) + ' ' + cleaned.slice(2, 5) + ' ' + cleaned.slice(5, 9)
-  return `${intlPart} (${localPart})`
+  return '0' + cleaned
 }
 
 const relTime = (iso) => {
@@ -817,7 +815,7 @@ const ProviderDashboard = () => {
                         <span className="pd-booking__day">{b.day}</span>
                       </div>
                       <div style={{ flex: 1 }}>
-                        <h3 className="pd-all-booking-title">{b.title}</h3>
+                        <h3 className="pd-all-booking-title">{b.category || 'Service category'}</h3>
                         <p className="pd-all-booking-sub">{b.sub}</p>
                       </div>
                       <span className="pd-booking__status" style={{ borderColor: b.color, color: b.color }}>
@@ -936,7 +934,6 @@ const ProviderDashboard = () => {
                         <div className="pd-booking__info">
                           <p className="pd-booking__title">{b.category || 'Not available'}</p>
                           <p className="pd-booking__sub">{b.sub}</p>
-                          <p className="pd-booking__sub">Mobile: {formatMobileNumber(b.customerPhone)}</p>
                         </div>
                         <span className="pd-booking__status" style={{ borderColor: b.color, color: b.color }}>
                           {b.status}
