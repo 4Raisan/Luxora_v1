@@ -22,6 +22,7 @@ databaseUrl.searchParams.set('schema', 'luxora_test');
 const testEnv = {
   ...process.env,
   DATABASE_URL: databaseUrl.toString(),
+  DIRECT_URL: process.env.DIRECT_URL || databaseUrl.toString(),
   JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-for-ci-runs-1234567890',
   NODE_ENV: 'test',
   RESEND_API_KEY: '',
