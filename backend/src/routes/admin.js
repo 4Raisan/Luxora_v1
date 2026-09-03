@@ -8,7 +8,7 @@ import { getPlatformSettings, providerCanTakeBooking, reassignOrUnassignProvider
 import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookingsThrottled } from '../services/bookingTimeouts.js';
-import { broadcastBookingEvent } from '../services/realtime.js';
+import { broadcastBookingEvent, broadcastToUser } from '../services/realtime.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
@@ -684,7 +684,7 @@ router.put('/payouts/:id', async (req, res) => {
       }
       return tx.providerPayout.findUnique({
         where: { id: payout.id },
-        include: { provider: { select: { userId: true } } },
+        include: { provider: { select: { userId: true, earnings: true } } },
       });
     }, { isolationLevel: 'Serializable' });
   } catch (error) {
@@ -694,6 +694,21 @@ router.put('/payouts/:id', async (req, res) => {
   if (!updated) return res.status(404).json({ error: 'Pending payout not found' });
   const payoutLabel = updated.kind === 'REDEMPTION' ? 'redemption request' : 'payout';
   await notify(updated.provider.userId, status === 'PAID' ? `Your ${payoutLabel} #${updated.id} has been marked as redeemed.` : `Your ${payoutLabel} #${updated.id} was not completed and the amount has been returned to your balance.`);
+  const redeemedTotal = await prisma.providerPayout.aggregate({
+    where: { providerId: updated.providerId, status: 'PAID' },
+    _sum: { amount: true },
+  });
+  broadcastToUser(updated.provider.userId, 'PAYOUT_UPDATED', {
+    id: updated.id,
+    payoutId: updated.id,
+    kind: updated.kind.toLowerCase(),
+    status: updated.status.toLowerCase(),
+    amount: Number(updated.amount),
+    paid_at: updated.paidAt,
+    balance: Number(updated.provider.earnings),
+    redeemed: Number(redeemedTotal._sum.amount || 0),
+    timestamp: new Date().toISOString(),
+  });
   logAdminAction({ adminId: req.user.id, action: `PAYOUT_${status}`, targetType: 'ProviderPayout', targetId: String(updated.id), details: { status }, ipAddress: req.ip }).catch(() => {});
   res.json({ id: updated.id, status: updated.status.toLowerCase(), paid_at: updated.paidAt });
 });

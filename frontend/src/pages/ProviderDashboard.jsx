@@ -308,6 +308,25 @@ const ProviderDashboard = () => {
 
   useRealtime({
     onEvent: (type, data) => {
+      if (type === 'PAYOUT_UPDATED') {
+        const payoutId = Number(data?.payoutId || data?.id)
+        setEarnings((current) => {
+          if (!current) return current
+          return {
+            ...current,
+            balance: data?.balance ?? current.balance,
+            earnings: data?.balance ?? current.earnings,
+            redeemed: data?.redeemed ?? current.redeemed,
+            payouts: (current.payouts || []).map((payout) => Number(payout.id) === payoutId
+              ? { ...payout, status: data.status || payout.status, paid_at: data.paid_at ?? payout.paid_at }
+              : payout),
+          }
+        })
+        void loadAll()
+        void loadNotifications()
+        return
+      }
+
       const b = data?.booking || data
       if (!b) return
 
