@@ -140,11 +140,16 @@ router.get('/earnings', async (req, res) => {
   const completedJobs = await prisma.booking.count({ where: { providerId: provider.id, status: 'COMPLETED' } });
   const history = await prisma.booking.findMany({
     where: { providerId: provider.id },
-    include: { service: true, user: { select: { name: true, phone: true } }, payments: { where: { status: 'COMPLETED' }, select: { status: true } } },
+    include: {
+      service: true,
+      user: { select: { name: true, phone: true } },
+      payments: { where: { status: 'COMPLETED' }, select: { status: true } },
+      review: { select: { rating: true, comment: true, createdAt: true } },
+    },
     orderBy: { bookingDate: 'desc' },
     take: 50,
   });
-  const [bankAccounts, payouts, categories, overallEarnings, redeemedPayouts] = await Promise.all([
+  const [bankAccounts, payouts, categories, overallEarnings, redeemedPayouts, ratingSummary] = await Promise.all([
     prisma.providerBankAccount.findMany({ where: { providerId: provider.id }, orderBy: [{ selected: 'desc' }, { id: 'desc' }] }),
     prisma.providerPayout.findMany({ where: { providerId: provider.id }, include: { bankAccount: true }, orderBy: { createdAt: 'desc' }, take: 24 }),
     prisma.category.findMany({
@@ -153,6 +158,7 @@ router.get('/earnings', async (req, res) => {
     }),
     prisma.booking.aggregate({ where: { providerId: provider.id, status: 'COMPLETED' }, _sum: { providerEarning: true } }),
     prisma.providerPayout.aggregate({ where: { providerId: provider.id, status: 'PAID' }, _sum: { amount: true } }),
+    prisma.review.aggregate({ where: { providerId: provider.id }, _avg: { rating: true }, _count: { rating: true } }),
   ]);
   const sessionPayouts = ['Auto Care', 'Garden Care', 'Pet Care'].map((categoryName) => {
     const payoutsForCategory = categories.find((category) => category.name === categoryName)?.services.map((service) => Number(service.providerEarning)) || [];
@@ -168,9 +174,14 @@ router.get('/earnings', async (req, res) => {
     redeemed: redeemedPayouts._sum.amount || 0,
     balance: provider.earnings,
     completedJobs,
+    average_rating: ratingSummary._avg.rating || 0,
+    rating_count: ratingSummary._count.rating,
     history: history.map((h) => ({
       id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
       service_title: h.service?.title, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
+      rating: h.review?.rating || null,
+      review_comment: h.review?.comment || null,
+      reviewed_at: h.review?.createdAt || null,
     })),
     bank_accounts: bankAccounts.map((account) => ({ id: account.id, bank_name: account.bankName, account_holder: account.accountHolder, account_number: maskAccountNumber(account.accountNumber), branch: account.branch, selected: account.selected })),
     payouts: payouts.map((payout) => ({

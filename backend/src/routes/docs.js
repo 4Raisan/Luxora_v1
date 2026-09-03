@@ -97,6 +97,7 @@ const spec = {
         responses: { '200': { description: 'Updated' } } },
     },
     '/provider/earnings': { get: { tags: ['Provider'], summary: 'Fixed service earnings, bank accounts, and payout history', security: bearer, responses: { '200': { description: 'Earnings' } } } },
+    '/admin/reviews': { get: { tags: ['Admin'], summary: 'Booking reviews, provider rating summaries, and the overall provider rating', security: bearer, responses: { '200': { description: 'Provider reviews' } } } },
     '/provider/bank-accounts': {
       post: { tags: ['Provider'], summary: 'Create or replace the provider payout bank account', security: bearer,
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['bank_name', 'account_holder', 'account_number', 'branch'], properties: {

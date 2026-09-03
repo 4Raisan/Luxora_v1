@@ -366,6 +366,9 @@ const CustomerDashboard = () => {
       location: booking?.town || 'Town not set',
       providerName: booking?.provider_name || 'Awaiting assignment',
       providerPhone: booking?.provider_phone,
+      reviewRating: booking?.review_rating || booking?.review?.rating || null,
+      reviewComment: booking?.review_comment || booking?.review?.comment || null,
+      reviewedAt: booking?.reviewed_at || booking?.review?.createdAt || null,
       cancellationReason: booking?.cancellationReason,
       isSession: true,
     }))
@@ -693,6 +696,7 @@ const CustomerDashboard = () => {
         rating: reviewRating,
         comment: reviewComment.trim() || undefined,
       }, token)
+      await loadServerData()
       addNotification({ title: 'Review Submitted', message: 'Thanks for rating ' + (reviewTarget.service || 'your service') + '!', category: 'system' })
       setReviewTarget(null)
     } catch (error) {
@@ -2496,7 +2500,7 @@ const CustomerDashboard = () => {
                                   Cancel
                                 </button>
                               )}
-                              {b.status === 'COMPLETED' && b.providerName && b.providerName !== 'Awaiting assignment' && (
+                              {b.status === 'COMPLETED' && !b.reviewRating && b.providerName && b.providerName !== 'Awaiting assignment' && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); openReview(b); }}
                                   style={{ background: 'transparent', border: 'none', color: 'var(--gold, #c9a84c)', textDecoration: 'underline', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}

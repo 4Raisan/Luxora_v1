@@ -137,6 +137,80 @@ router.get('/providers', async (_req, res) => {
   })));
 });
 
+router.get('/reviews', async (_req, res) => {
+  const [reviews, overall, providerRatings] = await Promise.all([
+    prisma.review.findMany({
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+        booking: {
+          select: {
+            id: true,
+            bookingDate: true,
+            bookingTime: true,
+            service: { select: { title: true, category: { select: { name: true } } } },
+          },
+        },
+        provider: { select: { id: true, user: { select: { name: true, email: true } } } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.review.aggregate({ _avg: { rating: true }, _count: { rating: true } }),
+    prisma.review.groupBy({
+      by: ['providerId'],
+      _avg: { rating: true },
+      _count: { rating: true },
+      orderBy: { _avg: { rating: 'desc' } },
+    }),
+  ]);
+
+  const providerIds = providerRatings.map((row) => row.providerId);
+  const providers = providerIds.length
+    ? await prisma.provider.findMany({
+        where: { id: { in: providerIds } },
+        select: { id: true, user: { select: { name: true, email: true } } },
+      })
+    : [];
+
+  res.json({
+    summary: {
+      average_rating: overall._avg.rating || 0,
+      review_count: overall._count.rating,
+      rated_provider_count: providerRatings.length,
+    },
+    providers: providerRatings.map((row) => {
+      const provider = providers.find((item) => item.id === row.providerId);
+      return {
+        provider_id: row.providerId,
+        provider_name: provider?.user?.name || 'Unknown provider',
+        provider_email: provider?.user?.email || '',
+        average_rating: row._avg.rating || 0,
+        review_count: row._count.rating,
+      };
+    }),
+    reviews: reviews.map((review) => ({
+      id: review.id,
+      booking_id: review.booking.id,
+      booking_date: review.booking.bookingDate,
+      booking_time: review.booking.bookingTime,
+      service_title: review.booking.service?.title || '',
+      category_name: review.booking.service?.category?.name || '',
+      provider_id: review.provider.id,
+      provider_name: review.provider.user?.name || 'Unknown provider',
+      provider_email: review.provider.user?.email || '',
+      customer_id: review.user.id,
+      customer_name: review.user.name,
+      customer_email: review.user.email,
+      rating: review.rating,
+      comment: review.comment,
+      created_at: review.createdAt,
+    })),
+  });
+});
+
 router.put('/providers/:id/kyc', async (req, res) => {
   const status = toEnum(req.body.status, KYC_STATUSES);
   if (!status) return res.status(400).json({ error: 'status must be one of: pending, approved, rejected' });
