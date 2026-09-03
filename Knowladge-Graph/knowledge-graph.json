@@ -6,15 +6,15 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 192,
-    "totalEdges": 408,
+    "totalNodes": 197,
+    "totalEdges": 417,
     "nodesByGroup": {
-      "api": 94,
+      "api": 97,
       "database": 33,
       "frontend": 34,
       "middleware": 3,
       "routes": 16,
-      "service": 12
+      "service": 14
     }
   },
   "nodes": [
@@ -297,6 +297,21 @@
       "metadata": {
         "method": "GET",
         "path": "/api/bookings/my",
+        "routeFile": "bookings.js"
+      },
+      "source": {
+        "path": "backend/src/routes/bookings.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/bookings/pending",
+      "label": "GET /api/bookings/pending",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/bookings.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/bookings/pending",
         "routeFile": "bookings.js"
       },
       "source": {
@@ -769,6 +784,21 @@
       }
     },
     {
+      "id": "endpoint:POST_/api/bookings/:id/claim",
+      "label": "POST /api/bookings/:id/claim",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/bookings.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/bookings/:id/claim",
+        "routeFile": "bookings.js"
+      },
+      "source": {
+        "path": "backend/src/routes/bookings.js"
+      }
+    },
+    {
       "id": "endpoint:POST_/api/bookings/:id/photos",
       "label": "POST /api/bookings/:id/photos",
       "type": "ApiEndpoint",
@@ -1021,6 +1051,21 @@
       },
       "source": {
         "path": "backend/src/routes/uploads.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/provider/payouts/redeem",
+      "label": "POST /api/provider/payouts/redeem",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/provider.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/provider/payouts/redeem",
+        "routeFile": "provider.js"
+      },
+      "source": {
+        "path": "backend/src/routes/provider.js"
       }
     },
     {
@@ -2858,6 +2903,10 @@
             "type": "String"
           },
           {
+            "name": "branch",
+            "type": "String"
+          },
+          {
             "name": "createdAt",
             "type": "DateTime"
           },
@@ -2901,12 +2950,24 @@
       "metadata": {
         "fields": [
           {
+            "name": "@@index([kind,",
+            "type": "status,"
+          },
+          {
             "name": "@@index([period,",
             "type": "status])"
           },
           {
             "name": "@@unique([providerId,",
             "type": "period])"
+          },
+          {
+            "name": "accountHolderSnapshot",
+            "type": "String?"
+          },
+          {
+            "name": "accountNumberSnapshot",
+            "type": "String?"
           },
           {
             "name": "amount",
@@ -2921,6 +2982,14 @@
             "type": "Int"
           },
           {
+            "name": "bankNameSnapshot",
+            "type": "String?"
+          },
+          {
+            "name": "branchSnapshot",
+            "type": "String?"
+          },
+          {
             "name": "createdAt",
             "type": "DateTime"
           },
@@ -2930,6 +2999,10 @@
           },
           {
             "name": "idempotencyKey",
+            "type": "String"
+          },
+          {
+            "name": "kind",
             "type": "String"
           },
           {
@@ -3867,6 +3940,19 @@
       }
     },
     {
+      "id": "service:realtime",
+      "label": "realtime.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/realtime.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/realtime.js"
+      }
+    },
+    {
       "id": "service:scheduling",
       "label": "scheduling.js",
       "type": "Service",
@@ -3877,6 +3963,19 @@
       },
       "source": {
         "path": "backend/src/services/scheduling.js"
+      }
+    },
+    {
+      "id": "service:sriLankaBanks",
+      "label": "sriLankaBanks.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/sriLankaBanks.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/sriLankaBanks.js"
       }
     },
     {
@@ -3985,6 +4084,20 @@
       "label": "GET",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:GET_/api/admin/complaints",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/payouts:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/payouts",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:GET_/api/admin/payouts",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -4251,6 +4364,20 @@
       "label": "PUT",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:PUT_/api/admin/complaints/:id",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->endpoint:PUT_/api/admin/payouts/:id:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:PUT_/api/admin/payouts/:id",
+      "type": "FETCHES_API",
+      "label": "PUT",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:PUT_/api/admin/payouts/:id",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -5056,6 +5183,20 @@
       }
     },
     {
+      "id": "frontend:ProviderDashboard->endpoint:GET_/api/bookings/pending:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:GET_/api/bookings/pending",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:GET_/api/bookings/pending",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:ProviderDashboard->endpoint:GET_/api/notifications:FETCHES_API",
       "from": "frontend:ProviderDashboard",
       "to": "endpoint:GET_/api/notifications",
@@ -5126,6 +5267,20 @@
       }
     },
     {
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/bookings/:id/claim:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/bookings/:id/claim",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:POST_/api/bookings/:id/claim",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:ProviderDashboard->endpoint:POST_/api/bookings/:id/photos:FETCHES_API",
       "from": "frontend:ProviderDashboard",
       "to": "endpoint:POST_/api/bookings/:id/photos",
@@ -5133,6 +5288,20 @@
       "label": "POST",
       "source": "frontend:ProviderDashboard",
       "target": "endpoint:POST_/api/bookings/:id/photos",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/provider/bank-accounts:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/provider/bank-accounts",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:POST_/api/provider/bank-accounts",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",
@@ -5161,6 +5330,20 @@
       "label": "POST",
       "source": "frontend:ProviderDashboard",
       "target": "endpoint:POST_/api/provider/kyc-documents",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/provider/payouts/redeem:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/provider/payouts/redeem",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:POST_/api/provider/payouts/redeem",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",
@@ -7464,6 +7647,20 @@
       }
     },
     {
+      "id": "routefile:bookings->endpoint:GET_/api/bookings/pending:EXPOSES_ENDPOINT",
+      "from": "routefile:bookings",
+      "to": "endpoint:GET_/api/bookings/pending",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:bookings",
+      "target": "endpoint:GET_/api/bookings/pending",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/bookings.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:bookings->endpoint:POST_/api/bookings:EXPOSES_ENDPOINT",
       "from": "routefile:bookings",
       "to": "endpoint:POST_/api/bookings",
@@ -7471,6 +7668,20 @@
       "label": "POST",
       "source": "routefile:bookings",
       "target": "endpoint:POST_/api/bookings",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/bookings.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:bookings->endpoint:POST_/api/bookings/:id/claim:EXPOSES_ENDPOINT",
+      "from": "routefile:bookings",
+      "to": "endpoint:POST_/api/bookings/:id/claim",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:bookings",
+      "target": "endpoint:POST_/api/bookings/:id/claim",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/bookings.js",
@@ -8745,6 +8956,20 @@
       "label": "POST",
       "source": "routefile:provider",
       "target": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/provider.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:provider->endpoint:POST_/api/provider/payouts/redeem:EXPOSES_ENDPOINT",
+      "from": "routefile:provider",
+      "to": "endpoint:POST_/api/provider/payouts/redeem",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:provider",
+      "target": "endpoint:POST_/api/provider/payouts/redeem",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/provider.js",
