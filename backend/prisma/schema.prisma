@@ -385,6 +385,7 @@ model ProviderBankAccount {
   bankName      String
   accountHolder String
   accountNumber String
+  branch        String           @default("")
   accountMask   String?
   accountHash   String?
   selected      Boolean          @default(false)
@@ -398,20 +399,26 @@ model ProviderBankAccount {
 }
 
 model ProviderPayout {
-  id             Int                 @id @default(autoincrement())
-  providerId     Int
-  bankAccountId  Int
-  period         String
-  amount         Decimal             @db.Decimal(12, 2)
-  status         PayoutStatus        @default(PENDING)
-  idempotencyKey String              @unique
-  paidAt         DateTime?
-  createdAt      DateTime            @default(now())
-  provider       Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  bankAccount    ProviderBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  id                    Int                 @id @default(autoincrement())
+  providerId            Int
+  bankAccountId         Int
+  period                String
+  amount                Decimal             @db.Decimal(12, 2)
+  kind                  String              @default("MONTHLY")
+  status                PayoutStatus        @default(PENDING)
+  idempotencyKey        String              @unique
+  bankNameSnapshot      String?
+  accountHolderSnapshot String?
+  accountNumberSnapshot String?
+  branchSnapshot        String?
+  paidAt                DateTime?
+  createdAt             DateTime            @default(now())
+  provider              Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  bankAccount           ProviderBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
 
   @@unique([providerId, period])
   @@index([period, status])
+  @@index([kind, status, createdAt])
   @@map("provider_payouts")
 }
 

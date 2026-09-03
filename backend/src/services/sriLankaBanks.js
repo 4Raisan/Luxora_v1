@@ -1,0 +1,17 @@
+export const SRI_LANKAN_BANKS = [
+  'Amana Bank', 'Bank of Ceylon', 'Bank of China', 'Cargills Bank', 'Citibank',
+  'Commercial Bank of Ceylon', 'Deutsche Bank', 'DFCC Bank', 'Habib Bank', 'Hatton National Bank',
+  'HSBC Sri Lanka', 'Indian Bank', 'Indian Overseas Bank', 'MCB Bank',
+  'National Development Bank', 'Nations Trust Bank', 'Pan Asia Banking Corporation',
+  "People's Bank", 'Public Bank Berhad', 'Sampath Bank', 'Seylan Bank',
+  'Standard Chartered Sri Lanka', 'State Bank of India', 'Union Bank of Colombo',
+  'Housing Development Finance Corporation Bank of Sri Lanka', 'National Savings Bank',
+  'Pradeshiya Sanwardhana Bank', 'SANASA Development Bank', 'Sri Lanka Savings Bank',
+  'State Mortgage and Investment Bank',
+]
+
+const bankByName = new Map(SRI_LANKAN_BANKS.map((name) => [name.toLocaleLowerCase(), name]))
+
+export function getSriLankanBank(name) {
+  return bankByName.get(String(name || '').trim().toLocaleLowerCase()) || null
+}

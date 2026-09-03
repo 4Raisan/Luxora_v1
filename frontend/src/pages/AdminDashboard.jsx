@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   { id: 'providers', label: 'Providers', icon: Icons.Building },
   { id: 'approvals', label: 'Approvals', icon: Icons.Approvals },
   { id: 'subscriptions', label: 'Packages', icon: Icons.Subscriptions },
-  { id: 'session_payouts', label: 'Session Payouts', icon: Icons.Subscriptions },
+  { id: 'session_payouts', label: 'Session Payout & Payments', icon: Icons.Subscriptions },
   { id: 'bookings', label: 'Bookings', icon: Icons.Bookings },
   { id: 'cancellation_requests', label: 'Cancellation Requests', icon: Icons.CancellationRequests },
   { id: 'complaints', label: 'Complaints', icon: Icons.Complaints },
@@ -130,6 +130,7 @@ const AdminDashboard = () => {
   const [scheduling, setScheduling] = useState(null)
   const [schedulingForbidden, setSchedulingForbidden] = useState(false)
   const [sessionPayouts, setSessionPayouts] = useState([])
+  const [providerPayouts, setProviderPayouts] = useState([])
 
   /* UI state */
   const [showNotifModal, setShowNotifModal] = useState(false)
@@ -161,7 +162,7 @@ const AdminDashboard = () => {
     if (!token) return
     setLoadError('')
     try {
-      const [s, p, b, c, t, subs, cats, promos, notes, u, payoutRows] = await Promise.all([
+      const [s, p, b, c, t, subs, cats, promos, notes, u, sessionRows, payoutRows] = await Promise.all([
         apiRequest('/admin/stats', 'GET', null, token),
         apiRequest('/admin/providers', 'GET', null, token),
         apiRequest('/admin/bookings', 'GET', null, token),
@@ -173,6 +174,7 @@ const AdminDashboard = () => {
         apiRequest('/notifications', 'GET', null, token),
         apiRequest('/admin/users', 'GET', null, token),
         apiRequest('/admin/session-payouts', 'GET', null, token),
+        apiRequest('/admin/payouts', 'GET', null, token),
       ])
       setStats(s)
       setProviders(Array.isArray(p) ? p : [])
@@ -187,7 +189,8 @@ const AdminDashboard = () => {
       setPromotions(Array.isArray(promos) ? promos : [])
       setNotifications(Array.isArray(notes) ? notes : [])
       setUsers(Array.isArray(u) ? u : [])
-      setSessionPayouts(Array.isArray(payoutRows) ? payoutRows : [])
+      setSessionPayouts(Array.isArray(sessionRows) ? sessionRows : [])
+      setProviderPayouts(Array.isArray(payoutRows) ? payoutRows : [])
     } catch (err) {
       setLoadError(err.message || 'Could not load admin data. Please refresh.')
     }
@@ -400,6 +403,14 @@ const AdminDashboard = () => {
       await apiRequest(`/admin/session-payouts/${service.category_id}`, 'PUT', { provider_earning: providerEarning }, token)
       setPayoutEdits((current) => { const next = { ...current }; delete next[service.category_id]; return next })
     }, 'Session payout saved.')
+  }
+
+  const updateRedemptionRequest = (payout, status) => {
+    const action = status === 'paid' ? 'confirm that the bank transfer was sent' : 'mark this request as not redeemed and return the amount to the provider balance'
+    if (!window.confirm(`Are you sure you want to ${action}?`)) return
+    return runAction(async () => {
+      await apiRequest(`/admin/payouts/${payout.id}`, 'PUT', { status }, token)
+    }, status === 'paid' ? 'Redemption marked as paid.' : 'Redemption declined and balance restored.')
   }
 
   const markNotifRead = async (id) => {
@@ -883,6 +894,43 @@ const AdminDashboard = () => {
                       </tr>
                     ))}
                     {sessionPayouts.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No care categories are configured yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 className="ad-table-title" style={{ marginTop: '2rem' }}>PROVIDER REDEMPTION REQUESTS</h3>
+              <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem' }}>
+                Review provider withdrawal requests and update them only after the bank transfer succeeds or is declined.
+              </p>
+              <div className="ad-table-scroll">
+                <table className="ad-data-table">
+                  <thead>
+                    <tr><th>PROVIDER</th><th>BANK</th><th>ACCOUNT NUMBER</th><th>ACCOUNT NAME</th><th>BRANCH</th><th>REQUESTED</th><th>AMOUNT</th><th>STATUS</th><th>ACTION</th></tr>
+                  </thead>
+                  <tbody>
+                    {providerPayouts.filter((payout) => payout.kind === 'redemption').map((payout) => (
+                      <tr key={payout.id}>
+                        <td><strong>{payout.provider_name}</strong><br /><small style={{ color: '#888' }}>{payout.provider_email}</small></td>
+                        <td>{payout.bank_name || '—'}</td>
+                        <td style={{ fontFamily: 'monospace' }}>{payout.account_number || '—'}</td>
+                        <td>{payout.account_holder || '—'}</td>
+                        <td>{payout.branch || '—'}</td>
+                        <td>{fmtDateTime(payout.requested_at)}</td>
+                        <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>{fmtMoney(payout.amount)}</td>
+                        <td><StatBadge value={payout.status} /></td>
+                        <td>
+                          {payout.status === 'pending' ? (
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button style={goldBtn} disabled={busy} onClick={() => updateRedemptionRequest(payout, 'paid')}>Mark Redeemed</button>
+                              <button style={redBtn} disabled={busy} onClick={() => updateRedemptionRequest(payout, 'failed')}>Mark Not Redeemed</button>
+                            </div>
+                          ) : <span style={{ color: '#777' }}>Updated</span>}
+                        </td>
+                      </tr>
+                    ))}
+                    {providerPayouts.filter((payout) => payout.kind === 'redemption').length === 0 && (
+                      <tr><td colSpan={9} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No redemption requests yet.</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
