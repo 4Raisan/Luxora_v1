@@ -1,4 +1,4 @@
-# Luxora Agent Entry Point
+# LuXxora Agent Entry Point
 
 Use this file before changing code in this repository.
 
