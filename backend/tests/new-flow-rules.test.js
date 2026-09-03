@@ -359,7 +359,7 @@ test('Rule 8: Support ticket notification link opens /admin-dashboard', async ()
   assert.equal(adminNotif.link, '/admin-dashboard', 'Support notification link must point to /admin-dashboard');
 });
 
-test('Requested service: customer submission is assigned and visible to the matched provider', async () => {
+test('Requested service: provider approval is required and normal bookings enforce a two-hour buffer', async () => {
   const suffix = crypto.randomUUID().slice(0, 8);
   const providerUser = await prisma.user.create({
     data: {
@@ -404,8 +404,8 @@ test('Requested service: customer submission is assigned and visible to the matc
     }),
   });
   assert.equal(created.status, 201, created.text);
-  assert.equal(created.body.assignment_status, 'assigned');
-  assert.equal(created.body.provider_id, provider.id);
+  assert.equal(created.body.assignment_status, 'pending');
+  assert.equal(created.body.provider_id, null);
 
   const providerRequests = await authJson(providerToken, '/support/service-requests/provider');
   assert.equal(providerRequests.status, 200, providerRequests.text);
@@ -413,10 +413,52 @@ test('Requested service: customer submission is assigned and visible to the matc
   const visible = providerRequests.body.find((request) => request.id === created.body.id);
   assert.equal(visible.customer_name, customer.name);
   assert.equal(visible.category, 'Auto Care');
+  assert.equal(visible.claimable, true);
+
+  const claimed = await authJson(providerToken, `/support/service-requests/${created.body.id}/claim`, { method: 'POST' });
+  assert.equal(claimed.status, 200, claimed.text);
+  assert.equal(claimed.body.assignment_status, 'assigned');
+  assert.equal(claimed.body.provider_id, provider.id);
 
   const customerRequests = await authJson(customerToken, '/support/service-requests/my');
   assert.equal(customerRequests.status, 200, customerRequests.text);
-  assert.ok(customerRequests.body.some((request) => request.id === created.body.id));
+  const customerRequest = customerRequests.body.find((request) => request.id === created.body.id);
+  assert.equal(customerRequest.provider_id, provider.id);
+
+  const service = await prisma.service.findFirst({ where: { category: { name: 'Auto Care' } } });
+  await prisma.booking.create({
+    data: {
+      userId: customer.id,
+      providerId: provider.id,
+      serviceId: service.id,
+      bookingDate: preferredDate,
+      bookingTime: '15:00',
+      town: customer.town,
+      addressDistrict: customer.addressDistrict,
+      status: 'ASSIGNED',
+      totalPrice: service.price,
+      providerEarning: service.providerEarning,
+    },
+  });
+  const blockedRequest = await authJson(customerToken, '/support/service-requests', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: 'Request inside normal booking buffer',
+      notes: 'This request must not be claimable by the busy provider.',
+      category: 'Auto Care',
+      preferred_date: preferredDate,
+      preferred_time: '04:00 PM',
+    }),
+  });
+  assert.equal(blockedRequest.status, 201, blockedRequest.text);
+
+  const requestsAfterConflict = await authJson(providerToken, '/support/service-requests/provider');
+  assert.equal(requestsAfterConflict.status, 200, requestsAfterConflict.text);
+  assert.equal(requestsAfterConflict.body.some((request) => request.id === blockedRequest.body.id), false);
+
+  const blockedClaim = await authJson(providerToken, `/support/service-requests/${blockedRequest.body.id}/claim`, { method: 'POST' });
+  assert.equal(blockedClaim.status, 409, blockedClaim.text);
+  assert.match(blockedClaim.body.error, /normal booking.*two-hour buffer/i);
 });
 
 test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, hidden completion PIN, progressive start PIN)', async () => {
