@@ -62,9 +62,12 @@ export function cooldownEndsAt(booking) {
   return new Date(end.getTime() + 2 * 60 * 60 * 1000);
 }
 
-export async function providerCanTakeBooking(client, provider, booking, { ignoreBookingId = null } = {}) {
-  if (!provider || provider.kycStatus !== 'APPROVED' || provider.availabilityStatus !== 'available') {
-    return { ok: false, error: 'Provider must be KYC approved and available' };
+export async function providerCanTakeBooking(client, provider, booking, { ignoreBookingId = null, requireOnline = true } = {}) {
+  if (!provider || provider.kycStatus !== 'APPROVED') {
+    return { ok: false, error: 'Provider must be KYC approved' };
+  }
+  if (requireOnline && provider.availabilityStatus !== 'available') {
+    return { ok: false, error: 'Provider must be available (online)' };
   }
   if (provider.user && provider.user.active === false) {
     return { ok: false, error: 'Provider account is deactivated' };
