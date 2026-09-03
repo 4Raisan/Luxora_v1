@@ -11,6 +11,7 @@ import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
 import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
 import { processExpiredBookings, getAssignedDeadline, getInProgressDeadline } from '../services/bookingTimeouts.js';
+import { broadcastBookingEvent } from '../services/realtime.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -233,11 +234,34 @@ router.post('/', async (req, res) => {
     }
   }
 
+  let assignedProviderUser = null;
   if (booking.providerId) {
-    const assignedProvider = await prisma.provider.findUnique({ where: { id: booking.providerId } });
-    if (assignedProvider) await notify(assignedProvider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
+    const assignedProvider = await prisma.provider.findUnique({ where: { id: booking.providerId }, include: { user: true } });
+    if (assignedProvider) {
+      assignedProviderUser = assignedProvider.user;
+      await notify(assignedProvider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
+    }
   }
   sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${escapeHtml(customer?.name || 'Customer')},</p><p>Your ${escapeHtml(service.title)} booking is scheduled for ${escapeHtml(booking_date)} at ${escapeHtml(booking_time)}.</p><p>Booking status: ${escapeHtml(booking.status.toLowerCase())}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
+
+  broadcastBookingEvent('BOOKING_CREATED', {
+    id: booking.id,
+    bookingId: booking.id,
+    userId: booking.userId,
+    providerId: booking.providerId,
+    providerUserId: assignedProviderUser?.id || null,
+    providerName: assignedProviderUser?.name || null,
+    providerPhone: assignedProviderUser?.phone || null,
+    status: booking.status.toLowerCase(),
+    bookingDate: booking.bookingDate,
+    bookingTime: booking.bookingTime,
+    town: booking.town,
+    petType: booking.petType,
+    serviceTitle: service.title,
+    categoryName: service.category?.name,
+    totalPrice: service.price,
+    providerEarning: service.providerEarning,
+  });
 
   const isAssigned = booking.status === 'ASSIGNED';
   res.status(201).json({
@@ -310,6 +334,172 @@ router.get('/assigned', async (req, res) => {
     customer_name: b.user?.name,
     customer_phone: b.user?.phone,
   })));
+});
+
+// Available pending bookings for eligible providers to claim
+router.get('/pending', async (req, res) => {
+  if (req.user.role !== 'PROVIDER') {
+    return res.status(403).json({ error: 'Only service providers can view pending bookings' });
+  }
+  await processExpiredBookings(prisma).catch(() => {});
+  const provider = await prisma.provider.findUnique({
+    where: { userId: req.user.id },
+    include: { user: { select: { id: true, active: true } } },
+  });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  if (provider.kycStatus !== 'APPROVED') {
+    return res.status(403).json({ error: 'Your KYC must be approved before you can view pending bookings' });
+  }
+  if (provider.user && provider.user.active === false) {
+    return res.json([]);
+  }
+
+  // Find all PENDING bookings with no provider assigned
+  const pendingBookings = await prisma.booking.findMany({
+    where: {
+      status: 'PENDING',
+      providerId: null,
+    },
+    include: {
+      service: { include: { category: true } },
+      user: { select: { id: true, name: true, phone: true, email: true } },
+    },
+    orderBy: [{ bookingDate: 'asc' }, { bookingTime: 'asc' }],
+  });
+
+  const eligible = [];
+  for (const b of pendingBookings) {
+    const serviceCategory = b.service?.category?.name;
+    if (!providerOffersCategory(provider, serviceCategory)) continue;
+    if (!servesTown(provider, b.town, b.addressDistrict)) continue;
+
+    const canTake = await providerCanTakeBooking(prisma, provider, b, { requireOnline: false });
+    if (canTake.ok) {
+      eligible.push({
+        id: b.id,
+        bookingDate: b.bookingDate,
+        bookingTime: b.bookingTime,
+        town: b.town,
+        addressStreet: b.addressStreet,
+        addressDistrict: b.addressDistrict,
+        petType: b.petType,
+        status: b.status.toLowerCase(),
+        totalPrice: b.totalPrice,
+        providerEarning: b.providerEarning,
+        service_title: b.service?.title,
+        service_desc: b.service?.description,
+        category_name: b.service?.category?.name,
+        customer_name: b.user?.name,
+        customer_phone: b.user?.phone,
+        createdAt: b.createdAt,
+      });
+    }
+  }
+
+  res.json(eligible);
+});
+
+// Provider manually claims an eligible pending booking
+router.post('/:id/claim', async (req, res) => {
+  if (req.user.role !== 'PROVIDER') {
+    return res.status(403).json({ error: 'Only service providers can claim bookings' });
+  }
+  const bookingId = toPositiveInt(req.params.id);
+  if (!bookingId) return res.status(400).json({ error: 'Valid booking ID is required' });
+
+  const provider = await prisma.provider.findUnique({
+    where: { userId: req.user.id },
+    include: { user: { select: { id: true, name: true, phone: true, email: true, active: true } } },
+  });
+  if (!provider) return res.status(404).json({ error: 'Provider record not found' });
+  if (provider.kycStatus !== 'APPROVED') {
+    return res.status(403).json({ error: 'Your KYC must be approved before you can claim bookings' });
+  }
+  if (provider.user && provider.user.active === false) {
+    return res.status(403).json({ error: 'Provider account is deactivated' });
+  }
+
+  let updatedBooking;
+  try {
+    updatedBooking = await prisma.$transaction(async (tx) => {
+      // Concurrency lock on booking ID
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(bookingId)})`;
+
+      const b = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { service: { include: { category: true } }, user: true },
+      });
+
+      if (!b) {
+        const err = new Error('Booking not found');
+        err.statusCode = 404;
+        throw err;
+      }
+
+      if (b.status !== 'PENDING' || b.providerId !== null) {
+        const err = new Error('This booking is no longer available or has already been claimed by another provider.');
+        err.statusCode = 409;
+        throw err;
+      }
+
+      const canTake = await providerCanTakeBooking(tx, provider, b, { requireOnline: false });
+      if (!canTake.ok) {
+        const err = new Error(canTake.error || 'You cannot take this booking due to a schedule conflict or service area mismatch.');
+        err.statusCode = 409;
+        throw err;
+      }
+
+      return tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          providerId: provider.id,
+          status: 'ASSIGNED',
+          autoAssigned: false,
+        },
+        include: {
+          service: { include: { category: true } },
+          user: { select: { id: true, name: true, phone: true, email: true } },
+        },
+      });
+    }, { maxWait: 5000, timeout: 15000 });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    throw err;
+  }
+
+  // 1. BOOKING_CLAIMED event broadcast to all providers so it disappears from their pending list
+  broadcastBookingEvent('BOOKING_CLAIMED', {
+    id: updatedBooking.id,
+    bookingId: updatedBooking.id,
+    claimedByProviderId: provider.id,
+  });
+
+  // 2. BOOKING_ASSIGNED event sent to claiming provider and customer
+  broadcastBookingEvent('BOOKING_ASSIGNED', {
+    id: updatedBooking.id,
+    bookingId: updatedBooking.id,
+    userId: updatedBooking.userId,
+    providerId: provider.id,
+    providerUserId: provider.userId,
+    providerName: provider.user?.name,
+    providerPhone: provider.user?.phone,
+    status: 'assigned',
+    bookingDate: updatedBooking.bookingDate,
+    bookingTime: updatedBooking.bookingTime,
+    serviceTitle: updatedBooking.service?.title,
+    categoryName: updatedBooking.service?.category?.name,
+    petType: updatedBooking.petType,
+  });
+
+  await notify(updatedBooking.userId, `A provider (${provider.user?.name || 'Specialist'}) has accepted your booking #${updatedBooking.id}!`, '/customer-dashboard').catch(() => {});
+  await notify(provider.userId, `You have claimed booking #${updatedBooking.id} (${updatedBooking.service?.title || 'Service'}).`, '/provider-dashboard').catch(() => {});
+
+  res.json({
+    message: 'Booking claimed successfully',
+    booking_id: updatedBooking.id,
+    status: 'assigned',
+    provider_id: provider.id,
+  });
 });
 
 router.get('/:id/pins', async (req, res) => {
@@ -486,6 +676,19 @@ router.put('/:id/status', async (req, res) => {
     await notify(booking.userId, `A provider has been assigned to your booking #${bookingId}.`);
   }
 
+  broadcastBookingEvent('BOOKING_STATUS_CHANGED', {
+    id: booking.id,
+    bookingId: booking.id,
+    userId: booking.userId,
+    providerId: provider.id,
+    providerUserId: provider.userId,
+    status: nextStatus.toLowerCase(),
+    previousStatus: booking.status.toLowerCase(),
+    bookingDate: booking.bookingDate,
+    bookingTime: booking.bookingTime,
+    serviceTitle: booking.service?.title,
+  });
+
   res.json({ message: `Booking status updated to ${nextStatus.toLowerCase()}`, status: nextStatus.toLowerCase() });
 });
 
@@ -516,7 +719,7 @@ router.put('/:id/schedule', async (req, res) => {
   res.json({ message: 'Expected end time saved', expected_end_time: expectedEndTime });
 });
 
-// Cancel own booking (customer: PENDING, ASSIGNED, or IN_PROGRESS)
+// Cancel own booking (customer: PENDING or ASSIGNED only)
 router.put('/:id/cancel', async (req, res) => {
   const bookingId = toPositiveInt(req.params.id);
   if (!bookingId) return res.status(400).json({ error: 'Valid booking ID is required' });
@@ -528,8 +731,8 @@ router.put('/:id/cancel', async (req, res) => {
       include: { provider: true },
     });
     if (!booking) return { status: 404, body: { error: 'Booking not found' } };
-    if (!['PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(booking.status)) {
-      return { status: 400, body: { error: 'This booking cannot be cancelled' } };
+    if (!['PENDING', 'ASSIGNED'].includes(booking.status)) {
+      return { status: 400, body: { error: 'Bookings cannot be cancelled once service is in progress or completed.' } };
     }
     await tx.booking.update({
       where: { id: booking.id },
@@ -544,6 +747,17 @@ router.put('/:id/cancel', async (req, res) => {
   if (outcome.booking.providerId && outcome.booking.provider?.userId) {
     await notify(outcome.booking.provider.userId, `Booking #${bookingId} has been cancelled by the customer.`);
   }
+
+  broadcastBookingEvent('BOOKING_CANCELLED', {
+    id: bookingId,
+    bookingId,
+    userId: outcome.booking.userId,
+    providerId: outcome.booking.providerId,
+    providerUserId: outcome.booking.provider?.userId || null,
+    reason: 'Cancelled by customer',
+    status: 'cancelled',
+  });
+
   res.json(outcome.body);
 });
 
