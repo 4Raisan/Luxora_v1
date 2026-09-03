@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node src/index.js",
-    "start": "npx prisma generate && npx prisma migrate deploy && node src/index.js",
+    "start": "node prisma/run-migrations.js && node src/index.js",
     "prisma:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
+    "db:migrate": "node prisma/run-migrations.js",
     "db:migrate:dev": "prisma migrate dev",
     "db:push": "prisma db push",
     "test": "node tests/run-tests.js --suite=full",
