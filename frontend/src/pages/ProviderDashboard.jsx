@@ -83,7 +83,9 @@ const ProviderDashboard = () => {
   const [bookingsList, setBookingsList] = useState([])
   /* Pending unassigned bookings available for manual claim */
   const [pendingBookingsList, setPendingBookingsList] = useState([])
+  const [serviceRequests, setServiceRequests] = useState([])
   const [claimingId, setClaimingId] = useState(null)
+  const [claimingServiceRequestId, setClaimingServiceRequestId] = useState(null)
   /* Availability / earnings / notifications */
   const [availability, setAvailability] = useState('available')
   const [providerCategory, setProviderCategory] = useState('')
@@ -179,6 +181,25 @@ const ProviderDashboard = () => {
     }
   }, [])
 
+  const mapServiceRequestRow = useCallback((request) => {
+    const date = new Date(`${request.preferred_date}T00:00:00`)
+    return {
+      apiId: request.id,
+      month: Number.isNaN(date.getTime()) ? '' : date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+      day: Number.isNaN(date.getTime()) ? '' : String(date.getDate()),
+      bookingDate: request.preferred_date,
+      bookingTime: request.preferred_time,
+      title: request.subject || 'Requested service',
+      notes: request.notes || '',
+      category: request.category || 'Service category',
+      customerName: request.customer_name || 'Customer',
+      customerPhone: request.customer_phone || '',
+      town: request.town || '',
+      status: String(request.assignment_status || 'pending').toUpperCase(),
+      claimable: Boolean(request.claimable),
+    }
+  }, [])
+
   const loadAll = useCallback(async () => {
     if (!token) return navigate('/login', { replace: true })
     setLoading(true)
@@ -195,10 +216,11 @@ const ProviderDashboard = () => {
         return
       }
 
-      const [avail, bookingRows, pendingRows, earningsRow, supportRows] = await Promise.all([
+      const [avail, bookingRows, pendingRows, serviceRequestRows, earningsRow, supportRows] = await Promise.all([
         apiRequest('/provider/availability', 'GET', null, token),
         apiRequest('/bookings/assigned', 'GET', null, token),
         apiRequest('/bookings/pending', 'GET', null, token).catch(() => []),
+        apiRequest('/support/service-requests/provider', 'GET', null, token).catch(() => []),
         apiRequest('/provider/earnings', 'GET', null, token),
         apiRequest('/support/my', 'GET', null, token).catch(() => []),
       ])
@@ -211,6 +233,7 @@ const ProviderDashboard = () => {
       setServiceTowns(avail.service_towns || '')
       setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
       setPendingBookingsList((Array.isArray(pendingRows) ? pendingRows : []).map(mapBookingRow))
+      setServiceRequests((Array.isArray(serviceRequestRows) ? serviceRequestRows : []).map(mapServiceRequestRow))
       setEarnings(earningsRow)
       setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
       const bank = (earningsRow.bank_accounts || []).find((account) => account.selected) || earningsRow.bank_accounts?.[0]
@@ -226,7 +249,7 @@ const ProviderDashboard = () => {
     } finally {
       setLoading(false)
     }
-  }, [token, navigate, mapBookingRow])
+  }, [token, navigate, mapBookingRow, mapServiceRequestRow])
 
   const refreshBookingLists = useCallback(async () => {
     if (!token) return
@@ -242,6 +265,16 @@ const ProviderDashboard = () => {
       setLoadError(error.message || 'Could not refresh your bookings.')
     }
   }, [token, mapBookingRow])
+
+  const refreshServiceRequests = useCallback(async () => {
+    if (!token) return
+    try {
+      const rows = await apiRequest('/support/service-requests/provider', 'GET', null, token)
+      setServiceRequests((Array.isArray(rows) ? rows : []).map(mapServiceRequestRow))
+    } catch (error) {
+      setLoadError(error.message || 'Could not refresh requested services.')
+    }
+  }, [token, mapServiceRequestRow])
 
   const handleKycDocUpload = async (e) => {
     e.preventDefault()
@@ -317,6 +350,22 @@ const ProviderDashboard = () => {
     }
   }, [token, pendingBookingsList, loadNotifications])
 
+  const handleClaimServiceRequest = useCallback(async (requestId) => {
+    if (!token) return
+    setClaimingServiceRequestId(requestId)
+    setBusy(true)
+    try {
+      await apiRequest(`/support/service-requests/${requestId}/claim`, 'POST', null, token)
+      await Promise.all([refreshServiceRequests(), loadNotifications()])
+    } catch (error) {
+      alert(error.message || 'Could not accept this requested service.')
+      await refreshServiceRequests()
+    } finally {
+      setClaimingServiceRequestId(null)
+      setBusy(false)
+    }
+  }, [token, refreshServiceRequests, loadNotifications])
+
   useEffect(() => { void loadAll() }, [loadAll])
   useEffect(() => { void loadNotifications() }, [loadNotifications])
   useEffect(() => { setCancellationReason('') }, [selectedDetailsBooking?.apiId])
@@ -338,6 +387,12 @@ const ProviderDashboard = () => {
           }
         })
         void loadAll()
+        void loadNotifications()
+        return
+      }
+
+      if (type === 'SERVICE_REQUEST_CREATED' || type === 'SERVICE_REQUEST_ASSIGNED') {
+        void refreshServiceRequests()
         void loadNotifications()
         return
       }
@@ -609,7 +664,7 @@ const ProviderDashboard = () => {
   const visibleBookings = bookingsList
 
   const activeRows = visibleBookings.filter((b) => ['ASSIGNED', 'IN_PROGRESS'].includes(b.status))
-  const requestRows = pendingBookingsList
+  const requestRows = serviceRequests
   const inProgressRows = visibleBookings.filter((b) => b.status === 'IN_PROGRESS')
   const upcomingRows = visibleBookings
     .filter((b) => b.status === 'ASSIGNED')
@@ -1144,7 +1199,7 @@ const ProviderDashboard = () => {
                   </>
                 )}
 
-                {/* Requested Services (incoming PENDING requests) */}
+                {/* Bespoke service requests assigned or offered to this provider */}
                 <div className="pd-section-header" style={{ marginTop: '2.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <h2 className="pd-section-title">Requested Services</h2>
@@ -1171,29 +1226,34 @@ const ProviderDashboard = () => {
                           </div>
                           <h3 className="pd-cr-service">{b.title}</h3>
                         </div>
-                        <span className="pd-cr-status pd-cr-status--new">NEW REQUEST</span>
+                        <span className="pd-cr-status pd-cr-status--new">{b.claimable ? 'AVAILABLE REQUEST' : 'ASSIGNED TO YOU'}</span>
                       </div>
 
                       <p className="pd-cr-notes">
                         📅 {b.month} {b.day}, {b.bookingDate?.slice(0, 4)} • {String(b.bookingTime || '').slice(0, 5)}{b.town ? ` • 📍 ${b.town}` : ''}
                       </p>
+                      <p className="pd-cr-notes">{b.notes}</p>
 
                       <div className="pd-cr-footer">
                         <div className="pd-cr-meta">
-                          <span className="pd-cr-budget">💰 {formatRupees(b.price)}</span>
+                          <span className="pd-cr-budget">{b.category}</span>
                         </div>
                         <div className="pd-cr-actions">
-                          <button
-                            type="button"
-                            className="pd-cr-btn-accept"
-                            disabled={busy || claimingId === b.apiId}
-                            onClick={() => handleClaimBooking(b.apiId)}
-                          >
-                            {claimingId === b.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}
-                          </button>
-                          <button type="button" className="pd-cr-btn-decline" onClick={() => setSelectedDetailsBooking(b)}>
-                            VIEW DETAILS
-                          </button>
+                          {b.claimable && (
+                            <button
+                              type="button"
+                              className="pd-cr-btn-accept"
+                              disabled={busy || claimingServiceRequestId === b.apiId}
+                              onClick={() => handleClaimServiceRequest(b.apiId)}
+                            >
+                              {claimingServiceRequestId === b.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}
+                            </button>
+                          )}
+                          {b.customerPhone && (
+                            <a className="pd-cr-btn-decline" href={`tel:${b.customerPhone}`} style={{ textDecoration: 'none' }}>
+                              CONTACT CUSTOMER
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>

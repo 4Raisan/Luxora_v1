@@ -359,6 +359,66 @@ test('Rule 8: Support ticket notification link opens /admin-dashboard', async ()
   assert.equal(adminNotif.link, '/admin-dashboard', 'Support notification link must point to /admin-dashboard');
 });
 
+test('Requested service: customer submission is assigned and visible to the matched provider', async () => {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const providerUser = await prisma.user.create({
+    data: {
+      name: `Request Provider ${suffix}`,
+      email: `request.provider.${suffix}@test.luxora`,
+      passwordHash: await bcrypt.hash('pass123', 10),
+      role: 'PROVIDER',
+    },
+  });
+  const provider = await prisma.provider.create({
+    data: {
+      userId: providerUser.id,
+      category: 'Auto Care',
+      serviceTowns: `Request Town ${suffix}`,
+      kycStatus: 'APPROVED',
+      availabilityStatus: 'available',
+    },
+  });
+  const customer = await prisma.user.create({
+    data: {
+      name: `Request Customer ${suffix}`,
+      email: `request.customer.${suffix}@test.luxora`,
+      passwordHash: await bcrypt.hash('pass123', 10),
+      role: 'CUSTOMER',
+      phone: '+94770000000',
+      town: `Request Town ${suffix}`,
+      addressDistrict: 'Western',
+    },
+  });
+  const customerToken = jwt.sign({ id: customer.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
+  const providerToken = jwt.sign({ id: providerUser.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
+  const preferredDate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+
+  const created = await authJson(customerToken, '/support/service-requests', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: 'Custom vehicle preparation',
+      notes: 'Prepare the vehicle for a special event.',
+      category: 'Auto Care',
+      preferred_date: preferredDate,
+      preferred_time: '09:00 AM',
+    }),
+  });
+  assert.equal(created.status, 201, created.text);
+  assert.equal(created.body.assignment_status, 'assigned');
+  assert.equal(created.body.provider_id, provider.id);
+
+  const providerRequests = await authJson(providerToken, '/support/service-requests/provider');
+  assert.equal(providerRequests.status, 200, providerRequests.text);
+  assert.ok(providerRequests.body.some((request) => request.id === created.body.id));
+  const visible = providerRequests.body.find((request) => request.id === created.body.id);
+  assert.equal(visible.customer_name, customer.name);
+  assert.equal(visible.category, 'Auto Care');
+
+  const customerRequests = await authJson(customerToken, '/support/service-requests/my');
+  assert.equal(customerRequests.status, 200, customerRequests.text);
+  assert.ok(customerRequests.body.some((request) => request.id === created.body.id));
+});
+
 test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, hidden completion PIN, progressive start PIN)', async () => {
   const uid = crypto.randomUUID().slice(0, 8);
   // Monaragala has no auto-care providers seeded -> will be PENDING
