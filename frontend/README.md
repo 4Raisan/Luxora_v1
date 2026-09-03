@@ -1,4 +1,4 @@
-# Luxora Frontend
+# iLuxora Frontend
 
 The Luxora frontend is a React and Vite application for customer, provider, and administrator workflows. It consumes the Luxora API through the shared request client in `src/services/api.js`.
 
@@ -28,11 +28,11 @@ VITE_API_URL=http://localhost:5000/api
 
 API resolution is intentionally environment-aware:
 
-| Situation | API base used |
-| --- | --- |
-| Development without `VITE_API_URL` | `http://localhost:5000/api` |
-| Production without `VITE_API_URL` | Same-origin `/api` |
-| Separate frontend and API domains | Explicit `VITE_API_URL` value |
+| Situation                          | API base used                 |
+| ---------------------------------- | ----------------------------- |
+| Development without `VITE_API_URL` | `http://localhost:5000/api`   |
+| Production without `VITE_API_URL`  | Same-origin `/api`            |
+| Separate frontend and API domains  | Explicit `VITE_API_URL` value |
 
 The client normalizes an explicit URL so requests consistently use the `/api` prefix. A Vercel frontend deployed separately from the backend must define `VITE_API_URL` with the public backend URL.
 
