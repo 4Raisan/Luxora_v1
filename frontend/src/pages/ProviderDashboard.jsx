@@ -776,6 +776,7 @@ const ProviderDashboard = () => {
           {[
             { id: 'overview', icon: <GridIcon />, label: 'Overview' },
             { id: 'bookings', icon: <CalIcon />, label: 'Bookings' },
+            { id: 'service_requests', icon: <CalIcon />, label: 'Requested Services' },
             { id: 'history',  icon: <HistIcon />, label: 'History' },
             { id: 'payments', icon: <PaymentIcon />, label: 'Payments' },
           ].map((item) => (
@@ -1918,6 +1919,7 @@ const ProviderDashboard = () => {
         {[
           { id: 'overview', icon: <GridIcon />, label: 'OVERVIEW' },
           { id: 'bookings', icon: <CalIcon />, label: 'BOOKINGS' },
+          { id: 'service_requests', icon: <CalIcon />, label: 'REQUESTS' },
           { id: 'history', icon: <HistIcon />, label: 'HISTORY' },
           { id: 'payments', icon: <PaymentIcon />, label: 'PAYMENTS' },
         ].map((item) => (
