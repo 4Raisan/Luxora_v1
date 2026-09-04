@@ -433,6 +433,8 @@
 .ad-notif-modal {
   width: 100%;
   max-width: 520px;
+  max-height: 90dvh;
+  overflow-y: auto;
   background: #111111;
   border: 1px solid rgba(201, 168, 76, 0.25);
   border-radius: 16px;

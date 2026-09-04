@@ -1,4 +1,5 @@
 import './ActiveBookingCards.css'
+import BookingPhotoGallery from './BookingPhotoGallery'
 
 const statusKey = (status) => String(status || 'PENDING').toLowerCase()
 
@@ -97,6 +98,11 @@ const ActiveBookingCards = ({
                   <strong>{status === 'IN_PROGRESS' ? (booking.completionPin || booking.endPin || '••••••') : 'HIDDEN'}</strong>
                   <small>{status === 'IN_PROGRESS' ? 'Share once service is completed' : 'Unlocks after provider starts service'}</small>
                 </div>
+                {status === 'COMPLETED' && (
+                  <div className="cd-active-booking-details__photos">
+                    <BookingPhotoGallery bookingId={booking.id} title="COMPLETED SERVICE EVIDENCE" />
+                  </div>
+                )}
               </div>
             )}
 

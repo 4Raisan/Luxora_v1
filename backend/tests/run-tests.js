@@ -71,6 +71,7 @@ const testSuites = {
   ],
   bookings: [
     'tests/fresh-db-smoke.test.js',
+    'tests/service-photo-flow.test.js',
     'tests/api-fixes.test.js',
     'tests/booking-concurrency.test.js',
     'tests/booking-lifecycle-timeouts.test.js',

@@ -179,6 +179,11 @@
   letter-spacing: 0.12em;
 }
 
+.cd-active-booking-details__photos {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .cd-active-booking-card__actions {
   display: flex;
   flex-wrap: wrap;

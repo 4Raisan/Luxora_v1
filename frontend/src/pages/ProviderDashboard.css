@@ -1417,6 +1417,7 @@
   animation: pdModalScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
+  max-height: 88vh;
 }
 
 @keyframes pdModalScale {
@@ -1460,6 +1461,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
+  overflow-y: auto;
 }
 
 .pd-modal-cancel-preview {

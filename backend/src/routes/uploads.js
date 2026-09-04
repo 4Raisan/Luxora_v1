@@ -108,6 +108,44 @@ router.post('/bookings/:id/photos', authenticateToken, requireRole('PROVIDER'), 
   res.status(201).json({ photos: photos.map((p) => ({ id: p.id, kind: p.kind, original_name: p.originalName, url: `/api/uploads/photos/${p.id}` })) });
 });
 
+// List persisted service evidence without exposing internal storage keys. The
+// same booking-level authorization used by the file endpoint applies here so a
+// customer, assigned provider, or admin can restore the gallery after reload.
+router.get('/bookings/:id/photos', authenticateToken, async (req, res) => {
+  const bookingId = toPositiveInt(req.params.id);
+  if (!bookingId) return res.status(400).json({ error: 'A valid booking id is required' });
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { userId: true, providerId: true },
+  });
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+  const provider = req.user.role === 'PROVIDER'
+    ? await prisma.provider.findUnique({ where: { userId: req.user.id }, select: { id: true } })
+    : null;
+  const permitted = req.user.role === 'ADMIN'
+    || booking.userId === req.user.id
+    || (provider && provider.id === booking.providerId);
+  if (!permitted) return res.status(403).json({ error: 'Access denied' });
+
+  const photos = await prisma.servicePhoto.findMany({
+    where: { bookingId },
+    orderBy: [{ kind: 'asc' }, { createdAt: 'asc' }],
+  });
+  res.json({
+    photos: photos.map((photo) => ({
+      id: photo.id,
+      kind: photo.kind,
+      original_name: photo.originalName,
+      mime_type: photo.mimeType,
+      size_bytes: photo.sizeBytes,
+      created_at: photo.createdAt,
+      url: `/api/uploads/photos/${photo.id}`,
+    })),
+  });
+});
+
 router.get('/uploads/photos/:id', authenticateToken, async (req, res) => {
   const photo = await prisma.servicePhoto.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 }, include: { booking: true } });
   if (!photo) return res.status(404).json({ error: 'Photo not found' });
