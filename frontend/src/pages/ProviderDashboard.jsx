@@ -699,6 +699,8 @@ const ProviderDashboard = () => {
   const upcomingRows = visibleBookings
     .filter((b) => b.status === 'ASSIGNED')
     .sort((a, b) => `${a.bookingDate} ${a.bookingTime}`.localeCompare(`${b.bookingDate} ${b.bookingTime}`))
+  const overviewUpcomingRows = upcomingRows.slice(0, 5)
+  const overviewRequestRows = requestRows.slice(0, 5)
   const nextService = upcomingRows[0]
   const nextServiceStr = nextService ? nextService.bookingDate.replaceAll('-', '.') : '—'
   const historyRows = (earnings?.history || [])
@@ -1196,7 +1198,7 @@ const ProviderDashboard = () => {
                   {!loading && upcomingRows.length === 0 && (
                     <p style={{ color: '#888', fontStyle: 'italic' }}>No upcoming bookings right now.</p>
                   )}
-                  {upcomingRows.map((b, i) => {
+                  {overviewUpcomingRows.map((b, i) => {
                     const dayNum = parseInt(b.day, 10)
                     const isSelected = selectedCalendarDay === dayNum
                     return (
@@ -1299,7 +1301,7 @@ const ProviderDashboard = () => {
                   {requestRows.length === 0 && (
                     <p style={{ color: '#888', fontStyle: 'italic' }}>No new service requests right now.</p>
                   )}
-                  {requestRows.map((b) => (
+                  {overviewRequestRows.map((b) => (
                     <div key={b.apiId} className="pd-cr-card">
                       <div className="pd-cr-header">
                         <div>
