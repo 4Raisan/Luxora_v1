@@ -95,3 +95,18 @@
     min-height: 50px;
   }
 }
+
+/* ── Tablet (≤768px): tap-target sizing only, no layout change ──
+   Desktop above 768px is untouched. */
+@media (max-width: 768px) {
+  .rv-star {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rv-submit {
+    min-height: 50px;
+  }
+}

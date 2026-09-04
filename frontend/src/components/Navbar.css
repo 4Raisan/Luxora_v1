@@ -277,6 +277,9 @@
     display: flex;
     align-items: center;
   }
+  .navbar__mobile-actions > * {
+    min-height: 48px;
+  }
 }
 
 @media (max-width: 380px) {
