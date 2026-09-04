@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Luxora Live System Architecture Explorer</title>
-  <script type="text/javascript" src="./vis-network.min.js"></script>
+  <script type="text/javascript" src="../vis-network.min.js"></script>
   <style>
     :root {
       --bg-primary: #070b14;
@@ -443,7 +443,7 @@
       <div class="stat-pill">Nodes: <strong id="statNodes">0</strong></div>
       <div class="stat-pill">Edges: <strong id="statEdges">0</strong></div>
       <div class="stat-pill">Views: <strong id="statViews">12</strong></div>
-      <a href="./index.html" class="nav-btn">
+      <a href="../" class="nav-btn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM9 3v18M3 9h18"/></svg>
         Codebase Knowledge Graph
       </a>
@@ -538,11 +538,11 @@
   <script type="module">
     let graphData;
     try {
-      const response = await fetch('./architecture-graph.json', { cache: 'no-store' });
+      const response = await fetch('../architecture-graph.json', { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       graphData = await response.json();
     } catch (error) {
-      document.body.innerHTML = '<main style="padding:2rem;color:#fff;background:#070b14;font-family:system-ui"><h1>Architecture Graph Unavailable</h1><p>The architecture graph JSON could not be loaded via ' + '.' + '/architecture-graph.json.</p></main>';
+      document.body.innerHTML = '<main style="padding:2rem;color:#fff;background:#070b14;font-family:system-ui"><h1>Architecture Graph Unavailable</h1><p>The architecture graph JSON could not be loaded via ' + '..' + '/architecture-graph.json.</p></main>';
       throw error;
     }
 

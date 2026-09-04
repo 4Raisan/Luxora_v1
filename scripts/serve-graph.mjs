@@ -19,7 +19,13 @@ const port = process.env.PORT || 3333;
 const server = http.createServer((req, res) => {
   const cleanPath = req.url.split('?')[0];
   let file = path.join(base, cleanPath === '/' ? 'index.html' : cleanPath);
-  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+  if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
+    const dirIndex = path.join(file, 'index.html');
+    if (fs.existsSync(dirIndex)) {
+      file = dirIndex;
+    }
+  }
+  if (!fs.existsSync(file)) {
     file = path.join(base, 'index.html');
   }
   const ext = path.extname(file);
