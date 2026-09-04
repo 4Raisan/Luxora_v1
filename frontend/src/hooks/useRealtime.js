@@ -86,6 +86,7 @@ export function useRealtime({ onEvent, onSync, enabled = true } = {}) {
         'BOOKING_CANCELLED',
         'SERVICE_REQUEST_CREATED',
         'SERVICE_REQUEST_ASSIGNED',
+        'SERVICE_REQUEST_COMPLETED',
         'PAYMENT_UPDATED',
         'PAYOUT_UPDATED',
       ];

@@ -440,6 +440,25 @@ test('Requested service: provider approval is required and normal bookings enfor
   const customerRequest = customerRequests.body.find((request) => request.id === created.body.id);
   assert.equal(customerRequest.provider_id, provider.id);
 
+  const completed = await authJson(providerToken, `/support/service-requests/${created.body.id}/complete`, { method: 'POST' });
+  assert.equal(completed.status, 200, completed.text);
+  assert.equal(completed.body.status, 'resolved');
+  assert.equal(completed.body.assignment_status, 'completed');
+
+  const completedAdminRequests = await authJson(adminToken, '/support/service-requests/admin');
+  assert.equal(completedAdminRequests.status, 200, completedAdminRequests.text);
+  const completedAdminRequest = completedAdminRequests.body.find((request) => request.id === created.body.id);
+  assert.equal(completedAdminRequest.assignment_status, 'completed');
+  assert.equal(completedAdminRequest.provider_name, providerUser.name);
+
+  const providerRequestsAfterCompletion = await authJson(providerToken, '/support/service-requests/provider');
+  assert.equal(providerRequestsAfterCompletion.status, 200, providerRequestsAfterCompletion.text);
+  assert.equal(providerRequestsAfterCompletion.body.some((request) => request.id === created.body.id), false);
+
+  const providerRequestHistory = await authJson(providerToken, '/support/service-requests/provider?include_completed=true');
+  assert.equal(providerRequestHistory.status, 200, providerRequestHistory.text);
+  assert.equal(providerRequestHistory.body.some((request) => request.id === created.body.id && request.assignment_status === 'completed'), true);
+
   const service = await prisma.service.findFirst({ where: { category: { name: 'Auto Care' } } });
   await prisma.booking.create({
     data: {

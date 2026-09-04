@@ -241,7 +241,7 @@ const AdminDashboard = () => {
 
   useRealtime({
     onEvent: (type, data) => {
-      if (['SERVICE_REQUEST_CREATED', 'SERVICE_REQUEST_ASSIGNED'].includes(type)) {
+      if (['SERVICE_REQUEST_CREATED', 'SERVICE_REQUEST_ASSIGNED', 'SERVICE_REQUEST_COMPLETED'].includes(type)) {
         const request = data?.request || data
         if (!request?.id) return
         setRequestedServices((prev) => {

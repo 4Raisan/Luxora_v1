@@ -19,8 +19,8 @@ const serviceRequestPayload = (ticket) => ({
   town: ticket.town,
   address_district: ticket.addressDistrict,
   status: String(ticket.status || 'OPEN').toLowerCase(),
-  assignment_status: ticket.providerId ? 'assigned' : 'pending',
-  claimable: !ticket.providerId,
+  assignment_status: ticket.status === 'RESOLVED' ? 'completed' : ticket.providerId ? 'assigned' : 'pending',
+  claimable: ticket.status === 'OPEN' && !ticket.providerId,
   provider_id: ticket.providerId,
   provider_name: ticket.provider?.user?.name || null,
   customer_name: ticket.user?.name || null,
@@ -180,11 +180,14 @@ router.get('/service-requests/provider', requireRole('PROVIDER'), async (req, re
   if (provider.kycStatus !== 'APPROVED') return res.status(403).json({ error: 'Your KYC must be approved before you can view requested services' });
   if (!provider.user?.active) return res.json([]);
 
+  const includeCompleted = String(req.query.include_completed || '').toLowerCase() === 'true';
   const tickets = await prisma.supportTicket.findMany({
     where: {
       kind: 'SERVICE_REQUEST',
-      status: { in: ['OPEN', 'IN_PROGRESS'] },
-      OR: [{ providerId: provider.id }, { providerId: null }],
+      OR: [
+        { providerId: provider.id, status: { in: includeCompleted ? ['OPEN', 'IN_PROGRESS', 'RESOLVED'] : ['OPEN', 'IN_PROGRESS'] } },
+        { providerId: null, status: { in: ['OPEN', 'IN_PROGRESS'] } },
+      ],
     },
     include: serviceRequestInclude,
     orderBy: { createdAt: 'desc' },
@@ -243,6 +246,49 @@ router.post('/service-requests/:id/claim', requireRole('PROVIDER'), async (req, 
   broadcastToRole('ADMIN', 'SERVICE_REQUEST_ASSIGNED', payload);
   broadcastToRole('PROVIDER', 'SERVICE_REQUEST_ASSIGNED', payload);
   broadcastToUser(ticket.userId, 'SERVICE_REQUEST_ASSIGNED', payload);
+  res.json(payload);
+});
+
+router.post('/service-requests/:id/complete', requireRole('PROVIDER'), async (req, res) => {
+  const id = toPositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Valid requested service ID is required' });
+
+  const provider = await prisma.provider.findUnique({
+    where: { userId: req.user.id },
+    include: { user: { select: { id: true, active: true } } },
+  });
+  if (!provider || provider.kycStatus !== 'APPROVED' || !provider.user?.active) {
+    return res.status(403).json({ error: 'An active, KYC-approved provider account is required' });
+  }
+
+  const current = await prisma.supportTicket.findUnique({ where: { id }, include: serviceRequestInclude });
+  if (!current || current.kind !== 'SERVICE_REQUEST') {
+    return res.status(404).json({ error: 'Requested service not found' });
+  }
+  if (current.providerId !== provider.id) {
+    return res.status(403).json({ error: 'Only the assigned provider can complete this requested service' });
+  }
+  if (current.status === 'RESOLVED') {
+    return res.status(409).json({ error: 'This requested service has already been completed' });
+  }
+  if (!['OPEN', 'IN_PROGRESS'].includes(current.status)) {
+    return res.status(409).json({ error: 'This requested service cannot be completed in its current state' });
+  }
+
+  const ticket = await prisma.supportTicket.update({
+    where: { id },
+    data: { status: 'RESOLVED' },
+    include: serviceRequestInclude,
+  });
+  const payload = serviceRequestPayload(ticket);
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
+  await Promise.all([
+    notify(ticket.userId, `Your requested service #${ticket.id} has been marked as completed.`, '/customer-dashboard'),
+    ...admins.map((admin) => notify(admin.id, `Requested service #${ticket.id} was marked as completed by its provider.`, '/admin-dashboard')),
+  ]);
+  broadcastToRole('ADMIN', 'SERVICE_REQUEST_COMPLETED', payload);
+  broadcastToUser(ticket.userId, 'SERVICE_REQUEST_COMPLETED', payload);
+  broadcastToUser(provider.userId, 'SERVICE_REQUEST_COMPLETED', payload);
   res.json(payload);
 });
 

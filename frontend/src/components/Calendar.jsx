@@ -67,15 +67,20 @@ const Calendar = ({ bookings = [], selectedDay, onSelectDay }) => {
     viewMonth === today.getMonth() &&
     viewYear === today.getFullYear()
 
-  // Booking days map e.g. [16, 19, 22, 25] (skipping CANCELLED bookings)
+  // Booking days map e.g. [16, 19, 22, 25] (skipping CANCELLED bookings).
+  // More than one service can share a day, including accepted requested services.
   const bookingDaysMap = {}
   bookings.forEach(b => {
     if (b.status === 'CANCELLED') return
-    const d = parseInt(b.day, 10)
-    if (!isNaN(d)) bookingDaysMap[d] = b
+    const scheduledDate = b.bookingDate ? new Date(`${b.bookingDate}T00:00:00`) : null
+    if (scheduledDate && !Number.isNaN(scheduledDate.getTime())
+      && (scheduledDate.getFullYear() !== viewYear || scheduledDate.getMonth() !== viewMonth)) return
+    const d = scheduledDate && !Number.isNaN(scheduledDate.getTime()) ? scheduledDate.getDate() : parseInt(b.day, 10)
+    if (!isNaN(d)) bookingDaysMap[d] = [...(bookingDaysMap[d] || []), b]
   })
 
-  const matchedBooking = bookingDaysMap[localSelected]
+  const matchedBookings = bookingDaysMap[localSelected] || []
+  const matchedBooking = matchedBookings[0]
 
   return (
     <div className="cal" id="cal-widget">
@@ -103,7 +108,8 @@ const Calendar = ({ bookings = [], selectedDay, onSelectDay }) => {
         {/* Day cells */}
         {cells.map((cell, i) => {
           const isTod = isToday(cell)
-          const hasBooking = cell.type === 'current' && bookingDaysMap[cell.day]
+          const dayBookings = bookingDaysMap[cell.day] || []
+          const hasBooking = cell.type === 'current' && dayBookings.length > 0
           const isSel = cell.type === 'current' && cell.day === localSelected
 
           return (
@@ -121,7 +127,7 @@ const Calendar = ({ bookings = [], selectedDay, onSelectDay }) => {
               tabIndex={cell.type === 'current' ? 0 : -1}
             >
               {cell.day}
-              {hasBooking && <span className="cal__booking-dot" style={{ background: isTod ? '#000' : hasBooking.color }} />}
+              {hasBooking && <span className="cal__booking-dot" style={{ background: isTod ? '#000' : dayBookings[0].color }} />}
             </button>
           )
         })}
@@ -135,15 +141,15 @@ const Calendar = ({ bookings = [], selectedDay, onSelectDay }) => {
               <span className="cal__footer-dot" style={{ background: matchedBooking.color }} />
               <strong style={{ color: '#fff', fontSize: '0.75rem' }}>{localSelected} {MONTHS[viewMonth]} {viewYear}</strong>
               <span style={{ fontSize: '0.62rem', color: matchedBooking.color, border: `1px solid ${matchedBooking.color}`, padding: '0.1rem 0.4rem', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 700 }}>
-                {matchedBooking.status}
+                {matchedBookings.length > 1 ? `${matchedBookings.length} SERVICES` : matchedBooking.status}
               </span>
             </div>
-            <p style={{ margin: '0.25rem 0 0', fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 600 }}>
-              {matchedBooking.title}
-            </p>
-            <p style={{ margin: '0.15rem 0 0', fontSize: '0.65rem', color: '#888' }}>
-              {matchedBooking.sub}
-            </p>
+            {matchedBookings.map((booking) => (
+              <div key={`${booking.apiId || booking.id}-${booking.title}`} style={{ marginTop: '0.25rem' }}>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 600 }}>{booking.title}</p>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.65rem', color: '#888' }}>{booking.sub}</p>
+              </div>
+            ))}
           </div>
         </div>
       ) : (
