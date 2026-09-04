@@ -200,6 +200,18 @@ const SRI_LANKA_TOWNS = [
   { name: "Kegalle", province: "Sabaragamuwa" }
 ]
 
+const serviceTypeLabel = (booking) => {
+  const source = String(booking?.categoryName || booking?.category || booking?.service || '').toLowerCase()
+  if (source.includes('pet')) return 'Pet Care'
+  if (source.includes('garden') || source.includes('landscape')) return 'Garden Care'
+  return 'Auto Care'
+}
+
+const numericBookingDate = (value) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : (value || 'Date not set')
+}
+
 const CustomerDashboard = () => {
   const navigate = useNavigate()
 
@@ -2094,7 +2106,7 @@ const CustomerDashboard = () => {
                                 )}
                               </td>
                               <td data-label="Date" style={{ color: '#ccc', fontSize: '0.78rem' }}>
-                                <div>{b.date}</div>
+                                <div>{numericBookingDate(b.date)}</div>
                                 <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                               </td>
                             </tr>
@@ -2542,7 +2554,7 @@ const CustomerDashboard = () => {
                             </div>
                           </td>
                           <td style={{ color: '#ccc', fontSize: '0.85rem' }}>
-                            <div>{b.date}</div>
+                            <div>{numericBookingDate(b.date)}</div>
                             <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                           </td>
                           <td>
@@ -3485,7 +3497,7 @@ const CustomerDashboard = () => {
                   Service Type
                 </span>
                 <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>
-                  {sessionBookingSuccessModal.categoryName || sessionBookingSuccessModal.service || 'Service'}
+                  {serviceTypeLabel(sessionBookingSuccessModal)}
                 </span>
               </div>
 
@@ -4659,16 +4671,22 @@ const CustomerDashboard = () => {
               <div>
                 <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED TIME</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem' }}>
-                  <select aria-label="Preferred hour" value={customTimeHour} onChange={(e) => updateCustomRequestTime('hour', e.target.value)} style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                    {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0')).map((hour) => <option key={hour} value={hour}>{hour}</option>)}
-                  </select>
-                  <select aria-label="Preferred minutes" value={customTimeMinute} onChange={(e) => updateCustomRequestTime('minute', e.target.value)} style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                    {['00', '15', '30', '45'].map((minute) => <option key={minute} value={minute}>{minute}</option>)}
-                  </select>
-                  <select aria-label="Preferred time period" value={customTimePeriod} onChange={(e) => updateCustomRequestTime('period', e.target.value)} style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                    <option value="AM">AM</option>
-                    <option value="PM">PM</option>
-                  </select>
+                  <label style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>HOUR
+                    <select aria-label="Preferred hour" value={customTimeHour} onChange={(e) => updateCustomRequestTime('hour', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                      {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0')).map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>MINUTES
+                    <select aria-label="Preferred minutes" value={customTimeMinute} onChange={(e) => updateCustomRequestTime('minute', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                      {['00', '15', '30', '45'].map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>PERIOD
+                    <select aria-label="Preferred time period" value={customTimePeriod} onChange={(e) => updateCustomRequestTime('period', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                      <option value="AM">AM</option>
+                      <option value="PM">PM</option>
+                    </select>
+                  </label>
                 </div>
               </div>
 
