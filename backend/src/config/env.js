@@ -23,5 +23,5 @@ function resolveJwtSecret() {
 export const JWT_SECRET = resolveJwtSecret();
 
 if (!process.env.DATABASE_URL) {
-  console.warn('WARNING: DATABASE_URL is not set. Point it at your PostgreSQL / Aiven database in .env');
+  console.warn('WARNING: DATABASE_URL is not set. Point it at your PostgreSQL / Neon database in .env');
 }

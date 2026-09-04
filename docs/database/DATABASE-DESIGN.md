@@ -33,3 +33,16 @@ npm --prefix backend run db:migrate
 ```
 
 `npm test` proves the complete migration chain against an isolated `luxora_test` schema. `db:push` is not a deployment workflow. Never rewrite applied migrations or run tests against managed/production databases.
+
+## Production topology (Neon PostgreSQL)
+
+Production runs on managed Neon Serverless PostgreSQL 15. The connection configuration utilizes a dual-URL model:
+
+- **Runtime Queries (`DATABASE_URL`)**: Uses Neon's connection pooler endpoint for high concurrency across containerized instances on Northflank.
+- **Prisma Migrations (`DIRECT_URL`)**: Uses Neon's direct unpooled connection endpoint for transactional DDL execution during `prisma migrate deploy`.
+
+```env
+DATABASE_URL="postgresql://<user>:<pass>@<endpoint>-pooler.neon.tech/luxoradb?sslmode=require"
+DIRECT_URL="postgresql://<user>:<pass>@<endpoint>.neon.tech/luxoradb?sslmode=require"
+```
+
