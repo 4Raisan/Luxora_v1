@@ -1,4 +1,4 @@
-# LuXxora Agent Entry Point
+# Luxora Agent Entry Point
 
 Use this file before changing code in this repository.
 
@@ -54,4 +54,3 @@ Product truth overrides: no Super Admin; Admin can perform all admin operations.
 - No issue references (`closes #N`).
 - Say what was actually built or changed, not just filenames.
 - Group related files for a feature or fix under one insightful message (fewer meaningful commits > many tiny fragmented ones).
-
