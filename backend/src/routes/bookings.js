@@ -242,6 +242,7 @@ router.post('/', async (req, res) => {
       await notify(assignedProvider.userId, `New booking assigned: ${service.title} on ${booking_date} at ${booking_time}.`);
     }
   }
+  await notify(userId, `Booking #${booking.id} confirmed: ${service.title} on ${booking.bookingDate} at ${booking.bookingTime}.`, '/customer-dashboard');
   sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${escapeHtml(customer?.name || 'Customer')},</p><p>Your ${escapeHtml(service.title)} booking is scheduled for ${escapeHtml(booking_date)} at ${escapeHtml(booking_time)}.</p><p>Booking status: ${escapeHtml(booking.status.toLowerCase())}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
   const isAssigned = booking.status === 'ASSIGNED';
