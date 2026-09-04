@@ -71,7 +71,6 @@ const ActiveBookingCards = ({
                 <div className="cd-active-booking-card__meta">
                   <span>Booking #{booking.id}</span>
                   <span>{booking.time || 'Time not set'}</span>
-                  <span>{booking.amount}</span>
                 </div>
               </div>
             </div>
