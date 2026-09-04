@@ -879,13 +879,13 @@ const ProviderDashboard = () => {
                 ) : <p className="pd-avail__hint">Add one Sri Lankan bank account before requesting a redemption.</p>}
 
                 <form onSubmit={saveBankAccount} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
-                  <select className="pd-edit-input" value={bankForm.bank_name} onChange={(e) => setBankForm({ ...bankForm, bank_name: e.target.value })} required>
+                  <select id="provider-bank-name" name="bank_name" className="pd-edit-input" value={bankForm.bank_name} onChange={(e) => setBankForm({ ...bankForm, bank_name: e.target.value })} required>
                     <option value="">Select Sri Lankan bank</option>
                     {SRI_LANKAN_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
                   </select>
-                  <input className="pd-edit-input" value={bankForm.branch} onChange={(e) => setBankForm({ ...bankForm, branch: e.target.value })} placeholder="Branch" maxLength={100} required />
-                  <input className="pd-edit-input" value={bankForm.account_holder} onChange={(e) => setBankForm({ ...bankForm, account_holder: e.target.value })} placeholder="Account holder name" maxLength={100} required />
-                  <input className="pd-edit-input" value={bankForm.account_number} onChange={(e) => setBankForm({ ...bankForm, account_number: e.target.value.replace(/[^0-9A-Za-z-]/g, '') })} placeholder={selectedBankAccount ? `Re-enter to change (${selectedBankAccount.account_number})` : 'Account number'} maxLength={40} required />
+                  <input id="provider-bank-branch" name="branch" className="pd-edit-input" value={bankForm.branch} onChange={(e) => setBankForm({ ...bankForm, branch: e.target.value })} placeholder="Branch" maxLength={100} required />
+                  <input id="provider-bank-account-holder" name="account_holder" className="pd-edit-input" value={bankForm.account_holder} onChange={(e) => setBankForm({ ...bankForm, account_holder: e.target.value })} placeholder="Account holder name" maxLength={100} required />
+                  <input id="provider-bank-account-number" name="account_number" className="pd-edit-input" value={bankForm.account_number} onChange={(e) => setBankForm({ ...bankForm, account_number: e.target.value.replace(/[^0-9A-Za-z-]/g, '') })} placeholder={selectedBankAccount ? `Re-enter to change (${selectedBankAccount.account_number})` : 'Account number'} maxLength={40} required />
                   <button type="submit" className="pd-cr-btn-accept" disabled={paymentBusy} style={{ gridColumn: '1 / -1', justifySelf: 'start' }}>{paymentBusy ? 'SAVING…' : selectedBankAccount ? 'UPDATE BANK ACCOUNT' : 'ADD BANK ACCOUNT'}</button>
                 </form>
               </div>
@@ -901,7 +901,7 @@ const ProviderDashboard = () => {
                 <h2 className="pd-section-title" style={{ fontSize: '1.1rem' }}>Request Redemption</h2>
                 <p className="pd-avail__hint" style={{ maxWidth: '720px', lineHeight: 1.55 }}>A minimum available balance of {formatRupees(minimumRedemptionAmount)} is required. A submitted amount is reserved from your balance while the admin processes it.</p>
                 <form noValidate onSubmit={requestRedemption} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input type="number" inputMode="decimal" className="pd-edit-input pd-redemption-input" min={minimumRedemptionAmount} max={availableBalance >= minimumRedemptionAmount ? availableBalance : undefined} step="0.01" value={redeemAmount} onChange={(e) => { setRedeemAmount(e.target.value); setPaymentMessage('') }} placeholder={`Amount (minimum ${minimumRedemptionAmount.toLocaleString()})`} aria-label="Redemption amount in Sri Lankan Rupees" aria-describedby="pd-redemption-help" style={{ maxWidth: '260px' }} disabled={paymentBusy} required />
+                  <input id="provider-redemption-amount" name="redemption_amount" type="number" inputMode="decimal" className="pd-edit-input pd-redemption-input" min={minimumRedemptionAmount} max={availableBalance >= minimumRedemptionAmount ? availableBalance : undefined} step="0.01" value={redeemAmount} onChange={(e) => { setRedeemAmount(e.target.value); setPaymentMessage('') }} placeholder={`Amount (minimum ${minimumRedemptionAmount.toLocaleString()})`} aria-label="Redemption amount in Sri Lankan Rupees" aria-describedby="pd-redemption-help" style={{ maxWidth: '260px' }} disabled={paymentBusy} required />
                   <button type="submit" className="pd-cr-btn-accept" disabled={paymentBusy || !canRequestRedemption} title={!selectedBankAccount ? 'Save a bank account first' : availableBalance < minimumRedemptionAmount ? 'Available balance is below the minimum' : !redemptionAmountIsValid ? 'Enter an amount within your available balance' : 'Submit redemption request'}>{paymentBusy ? 'SUBMITTING…' : 'REQUEST REDEMPTION'}</button>
                 </form>
                 <div id="pd-redemption-help" aria-live="polite">
@@ -1146,7 +1146,7 @@ const ProviderDashboard = () => {
                     </div>
                   )}
                   <form onSubmit={handleKycDocUpload} style={{ marginTop: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
-                    <select value={kycDocType} onChange={(e) => setKycDocType(e.target.value)} style={{ background: '#111', border: '1px solid #333', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.88rem' }}>
+                    <select id="provider-kyc-document-type" name="document_type" value={kycDocType} onChange={(e) => setKycDocType(e.target.value)} style={{ background: '#111', border: '1px solid #333', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.88rem' }}>
                       <option value="NIC_FRONT">National ID (Front)</option>
                       <option value="NIC_BACK">National ID (Back)</option>
                       <option value="PASSPORT">Passport</option>
@@ -1154,7 +1154,7 @@ const ProviderDashboard = () => {
                       <option value="SELFIE">Selfie Verification</option>
                       <option value="UTILITY_BILL">Proof of Address</option>
                     </select>
-                    <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => setKycDocFile(e.target.files?.[0] || null)} style={{ color: '#ccc', fontSize: '0.85rem' }} />
+                    <input id="provider-kyc-document" name="kyc_document" type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => setKycDocFile(e.target.files?.[0] || null)} style={{ color: '#ccc', fontSize: '0.85rem' }} />
                     <button type="submit" disabled={kycDocBusy || !kycDocFile} style={{ background: 'var(--gold)', color: '#000', fontWeight: 800, border: 'none', borderRadius: '8px', padding: '0.6rem 1.25rem', cursor: kycDocBusy || !kycDocFile ? 'not-allowed' : 'pointer' }}>
                       {kycDocBusy ? 'Uploading...' : 'Upload Document'}
                     </button>
@@ -1439,7 +1439,9 @@ const ProviderDashboard = () => {
                   ) : (
                     <>
                       <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>Send a reason to the admin for review. The booking remains assigned until the admin decides.</p>
-                      <textarea
+                        <textarea
+                        id="provider-cancellation-reason"
+                        name="cancellation_reason"
                         className="pd-edit-input"
                         rows="3"
                         maxLength="500"
@@ -1472,7 +1474,7 @@ const ProviderDashboard = () => {
                         <span>BEFORE PHOTOS <small style={{ color: '#888' }}>(required to start)</small></span>
                         <label className={`pd-photo-upload ${photoBusy ? 'pd-photo-upload--busy' : ''}`}>
                           + UPLOAD
-                          <input type="file" accept="image/jpeg,image/png" multiple hidden disabled={photoBusy} onChange={(e) => uploadPhotos(e, selectedDetailsBooking, 'BEFORE')} />
+                          <input id={`provider-before-photos-${selectedDetailsBooking.apiId}`} name="before_photos" type="file" accept="image/jpeg,image/png" multiple hidden disabled={photoBusy} onChange={(e) => uploadPhotos(e, selectedDetailsBooking, 'BEFORE')} />
                         </label>
                       </div>
                       <div className="pd-photo-chips">
@@ -1488,7 +1490,7 @@ const ProviderDashboard = () => {
                         <span>AFTER PHOTOS <small style={{ color: '#888' }}>(required to complete)</small></span>
                         <label className={`pd-photo-upload ${photoBusy ? 'pd-photo-upload--busy' : ''}`}>
                           + UPLOAD
-                          <input type="file" accept="image/jpeg,image/png" multiple hidden disabled={photoBusy} onChange={(e) => uploadPhotos(e, selectedDetailsBooking, 'AFTER')} />
+                          <input id={`provider-after-photos-${selectedDetailsBooking.apiId}`} name="after_photos" type="file" accept="image/jpeg,image/png" multiple hidden disabled={photoBusy} onChange={(e) => uploadPhotos(e, selectedDetailsBooking, 'AFTER')} />
                         </label>
                       </div>
                       <div className="pd-photo-chips">
@@ -1535,6 +1537,8 @@ const ProviderDashboard = () => {
                 #{pinDialog.row.apiId} — {pinDialog.row.title}. Entering the PIN verifies the service {pinDialog.next === 'in_progress' ? 'has started on site' : 'is finished'}.
               </p>
               <input
+                id="provider-service-pin"
+                name="service_pin"
                 type="password"
                 inputMode="numeric"
                 className="pd-edit-input pd-pin-input"
@@ -1702,6 +1706,8 @@ const ProviderDashboard = () => {
               <div className="pd-edit-field">
                 <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>DISPLAY NAME *</label>
                 <input
+                  id="provider-display-name"
+                  name="name"
                   type="text"
                   required
                   className="pd-edit-input"
@@ -1715,6 +1721,8 @@ const ProviderDashboard = () => {
               <div className="pd-edit-field">
                 <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.3rem', display: 'block' }}>MOBILE NUMBER</label>
                 <input
+                  id="provider-mobile-number"
+                  name="phone"
                   type="tel"
                   className="pd-edit-input"
                   value={settingsForm.phone}
@@ -1798,6 +1806,8 @@ const ProviderDashboard = () => {
                 {areaMode === 'towns' ? (
                   <>
                     <input
+                      id="provider-town-search"
+                      name="town_search"
                       type="text"
                       className="pd-edit-input"
                       placeholder="🔍 Search towns…"
@@ -1818,6 +1828,8 @@ const ProviderDashboard = () => {
                             {towns.map((town) => (
                               <label key={town} className="pd-town-check">
                                 <input
+                                  id={`provider-town-${town.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                                  name="service_towns"
                                   type="checkbox"
                                   checked={settingsForm.towns.includes(town)}
                                   onChange={() => toggleSettingsTown(town)}

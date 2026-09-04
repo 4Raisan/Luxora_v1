@@ -50,10 +50,10 @@ export function PromptDialog({ title, kicker, fields, submitLabel = 'Save', onSu
     <div className="ui-fields">
       {fields.map((field) => <label key={field.name} className={`ui-field ${field.full ? 'ui-field--full' : ''}`}>
         <span>{field.label}{field.required ? ' *' : ''}</span>
-        {field.type === 'select' ? <select value={values[field.name]} onChange={(event) => setValues({ ...values, [field.name]: event.target.value })}>
+        {field.type === 'select' ? <select id={`prompt-${field.name}`} name={field.name} value={values[field.name]} onChange={(event) => setValues({ ...values, [field.name]: event.target.value })}>
           {(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select> : field.type === 'textarea' ? <textarea value={values[field.name]} placeholder={field.placeholder || ''} maxLength={field.maxLength} rows={field.rows || 3} onChange={(event) => setValues({ ...values, [field.name]: event.target.value })} />
-          : <input type={field.type || 'text'} value={values[field.name]} placeholder={field.placeholder || ''} inputMode={field.inputMode} maxLength={field.maxLength} min={field.min} max={field.max} onChange={(event) => setValues({ ...values, [field.name]: event.target.value })} />}
+        </select> : field.type === 'textarea' ? <textarea id={`prompt-${field.name}`} name={field.name} value={values[field.name]} placeholder={field.placeholder || ''} maxLength={field.maxLength} rows={field.rows || 3} onChange={(event) => setValues({ ...values, [field.name]: event.target.value })} />
+          : <input id={`prompt-${field.name}`} name={field.name} type={field.type || 'text'} value={values[field.name]} placeholder={field.placeholder || ''} inputMode={field.inputMode} maxLength={field.maxLength} min={field.min} max={field.max} onChange={(event) => setValues({ ...values, [field.name]: event.target.value })} />}
         {field.hint && <small>{field.hint}</small>}
       </label>)}
     </div>
@@ -68,7 +68,7 @@ export function FilterPills({ options, value, onChange, ariaLabel = 'Filter' }) 
 }
 
 export function SearchInput({ value, onChange, placeholder = 'Search', ariaLabel = 'Search' }) {
-  return <div className="ui-search"><span aria-hidden="true">⌕</span><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-label={ariaLabel} /></div>
+  return <div className="ui-search"><span aria-hidden="true">⌕</span><input name="search" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-label={ariaLabel} /></div>
 }
 
 // The Luxora coin — one coin funds one service booking in its category
