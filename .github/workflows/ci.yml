@@ -86,7 +86,7 @@ jobs:
     needs: [classify, guard]
     if: needs.classify.outputs.quality == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -210,7 +210,7 @@ jobs:
     needs: [classify, guard]
     if: needs.classify.outputs.audit == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 8
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
