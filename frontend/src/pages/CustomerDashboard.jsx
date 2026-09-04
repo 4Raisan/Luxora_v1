@@ -2883,6 +2883,8 @@ const CustomerDashboard = () => {
               <form onSubmit={saveProfileEdits} style={{ marginTop: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 <h4 className="cd-profile-sublabel" style={{ marginBottom: 0 }}>EDIT PROFILE</h4>
                 <input
+                  id="customer-profile-name"
+                  name="customerProfileName"
                   type="text"
                   value={profileEdit.name}
                   onChange={(e) => setProfileEdit({ ...profileEdit, name: e.target.value })}
@@ -2891,6 +2893,8 @@ const CustomerDashboard = () => {
                   style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
                 />
                 <input
+                  id="customer-profile-phone"
+                  name="customerProfilePhone"
                   type="tel"
                   value={profileEdit.phone}
                   onChange={(e) => {
@@ -2902,6 +2906,8 @@ const CustomerDashboard = () => {
                   style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#eee', padding: '0.6rem 0.8rem', fontSize: '0.85rem', fontFamily: 'inherit' }}
                 />
                 <input
+                  id="customer-profile-town"
+                  name="customerProfileTown"
                   type="text"
                   list="sl-towns-profile"
                   value={profileEdit.town}
