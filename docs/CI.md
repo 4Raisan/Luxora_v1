@@ -4,9 +4,19 @@ Luxora CI chooses checks from the files changed in each push or pull request. Th
 
 The selector lives in `scripts/ci/plan-checks.mjs`. Its unit tests live beside it in `scripts/ci/plan-checks.test.mjs`.
 
-## Always-run checks
+## Always-run checks & visible job structure
 
 Every run checks out full Git history, runs the **Protected Files Guard** (`scripts/ci/guard-protected-files.mjs`), classifies the change, and runs Gitleaks.
+
+The CI workflow provides 8 explicit, visible checks:
+1. `Luxora CI / Protected Files Guard`: Gating core workflows, docker configs, and security policies.
+2. `Luxora CI / 01 - Plan and secret scan`: Commit classifier and Gitleaks secret scan.
+3. `Luxora CI / 02 - Code quality and frontend`: Oxlint and Vite production frontend build.
+4. `Luxora CI / 02b - Knowledge Graph verify and build`: Deterministic verification and artifact packaging for both the Codebase Knowledge Graph and Live Architecture Explorer (`npm run graph:verify`).
+5. `Luxora CI / 03 - Backend tests`: Dynamic suite selection (smoke, payments, bookings, security, or full) against ephemeral PostgreSQL.
+6. `Luxora CI / 04 - Dependency audit`: Production package-lock vulnerability audit.
+7. `Luxora CI / 05 - Docker smoke`: Multi-stage Alpine container build and `/api/health` container probe.
+8. `Luxora CI / 06 - Required gate`: Fail-closed gate evaluating all selected upstream jobs.
 
 The final job, `Luxora CI / 06 - Required gate`, succeeds only when the Protected Files Guard, secret scanning, and every selected job passes. Use this final gate as the stable branch-protection check.
 
@@ -51,7 +61,7 @@ Two manual operator batch files are provided in the repository root for manual e
 | Docker files | Production Docker build and health check |
 | Dependency lockfiles | Affected checks and production dependency audit |
 | CI rules, classifier, unknown source area, or large refactor | Full validation |
-| Knowledge Graph only | Gitleaks here; generation and publication remain in the separate Knowledge Graph workflow |
+| Knowledge Graph and Architecture | Job 02b verifies deterministic generation and builds previews (`npm run graph:verify`); deployment to GitHub Pages executes on main |
 
 For a mixed commit, the selector combines every required check. Renames inspect both the old and new paths so moving a critical source file into a documentation folder cannot reduce coverage.
 
