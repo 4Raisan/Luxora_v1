@@ -11,6 +11,24 @@ export function bookingStart(date, time) {
   return new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
 }
 
+export const PROVIDER_CANCELLATION_NOTICE_HOURS = 4;
+
+export function providerCancellationPolicy(date, time, now = new Date()) {
+  const scheduledStart = bookingStart(date, time);
+  if (!scheduledStart || Number.isNaN(scheduledStart.getTime())) {
+    return { canCancel: false, scheduledStart: null, cancellationDeadline: null };
+  }
+  const cancellationDeadline = new Date(
+    scheduledStart.getTime() - PROVIDER_CANCELLATION_NOTICE_HOURS * 60 * 60 * 1000,
+  );
+  const currentTime = now instanceof Date ? now : new Date(now);
+  return {
+    canCancel: !Number.isNaN(currentTime.getTime()) && currentTime <= cancellationDeadline,
+    scheduledStart,
+    cancellationDeadline,
+  };
+}
+
 export function servesTown(provider, town, addressDistrict = null) {
   if (!town) return false;
   const wanted = town.toLocaleLowerCase();

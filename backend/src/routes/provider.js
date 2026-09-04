@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { encryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
-import { bookingStart, getPlatformSettings, pickProvider, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
+import { bookingStart, getPlatformSettings, pickProvider, providerCancellationPolicy, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { notify } from '../services/notify.js';
 import { broadcastBookingEvent } from '../services/realtime.js';
 import { getSriLankaLocation, SRI_LANKA_TOWNS } from '../services/sriLankaLocations.js';
@@ -116,9 +116,11 @@ router.post('/bookings/:id/cancel', async (req, res) => {
     });
     if (!booking) return { status: 404, body: { error: 'Only an assigned upcoming booking can be cancelled.' } };
 
-    const scheduledStart = bookingStart(booking.bookingDate, booking.bookingTime);
-    if (!scheduledStart || scheduledStart <= new Date()) return { status: 409, body: { error: 'Only a future assigned booking can be cancelled.' } };
-    if (scheduledStart.getTime() - Date.now() < 4 * 60 * 60 * 1000) {
+    const cancellationPolicy = providerCancellationPolicy(booking.bookingDate, booking.bookingTime);
+    if (!cancellationPolicy.scheduledStart || cancellationPolicy.scheduledStart <= new Date()) {
+      return { status: 409, body: { error: 'Only a future assigned booking can be cancelled.' } };
+    }
+    if (!cancellationPolicy.canCancel) {
       return { status: 409, body: { error: 'Bookings can only be cancelled when at least four hours remain before the scheduled start.' } };
     }
 

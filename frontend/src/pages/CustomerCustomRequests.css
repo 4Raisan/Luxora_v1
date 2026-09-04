@@ -1,0 +1,61 @@
+.ccr-page {
+  min-height: 100vh;
+  background: #0c0c0c;
+  color: #f7f4ee;
+  font-family: var(--font-primary, Arial, sans-serif);
+  padding: 2rem 1rem 4rem;
+}
+
+.ccr-shell { max-width: 1180px; margin: 0 auto; }
+
+.ccr-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.5rem 0 1.75rem;
+  border-bottom: 1px solid rgba(201, 168, 76, 0.3);
+}
+
+.ccr-eyebrow { margin: 0 0 0.45rem; color: #c9a84c; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.16em; }
+.ccr-header h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+.ccr-header p:not(.ccr-eyebrow) { margin: 0.55rem 0 0; color: #aaa; }
+
+.ccr-back, .ccr-tabs button {
+  border: 1px solid rgba(201, 168, 76, 0.55);
+  background: transparent;
+  color: #d9ba64;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ccr-back:hover, .ccr-tabs button.is-active { background: #c9a84c; color: #111; }
+
+.ccr-tabs { display: flex; gap: 0.7rem; flex-wrap: wrap; margin: 1.75rem 0; }
+.ccr-tabs button { color: #ccc; border-color: #333; }
+.ccr-tabs button span { margin-left: 0.35rem; opacity: 0.75; }
+
+.ccr-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 1rem; }
+.ccr-card { background: #141414; border: 1px solid rgba(201, 168, 76, 0.27); border-radius: 14px; padding: 1.2rem; }
+.ccr-card__head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; color: #c9a84c; font-size: 0.72rem; font-weight: 800; }
+.ccr-card h2 { margin: 0.85rem 0 0.4rem; font-size: 1.1rem; color: #fff; }
+.ccr-notes { color: #aaa; font-size: 0.85rem; line-height: 1.55; min-height: 2.6em; }
+.ccr-status { border-radius: 999px; padding: 0.28rem 0.55rem; font-size: 0.65rem; }
+.ccr-status--awaiting { color: #f5ce55; background: rgba(234, 179, 8, 0.13); }
+.ccr-status--assigned { color: #8bc4ff; background: rgba(96, 165, 250, 0.13); }
+.ccr-status--completed { color: #8bdd9a; background: rgba(74, 222, 128, 0.13); }
+.ccr-details { border-top: 1px solid #282828; margin: 1rem 0 0; padding-top: 0.8rem; display: grid; gap: 0.7rem; }
+.ccr-details div { display: grid; gap: 0.15rem; }
+.ccr-details dt { color: #777; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.ccr-details dd { margin: 0; color: #ddd; font-size: 0.82rem; }
+.ccr-message, .ccr-empty { color: #aaa; background: #141414; border: 1px dashed #3a3321; border-radius: 12px; padding: 2rem; text-align: center; }
+.ccr-message--error { color: #ff9a9a; }
+
+@media (max-width: 640px) {
+  .ccr-header { flex-direction: column; }
+  .ccr-back { width: 100%; }
+}

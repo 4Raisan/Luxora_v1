@@ -2122,13 +2122,22 @@ const CustomerDashboard = () => {
                   <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0.2rem 0 0 0' }}>Request specialized estate care, bespoke valet, or tailored concierge services</p>
                 </div>
                 {customRequests.length > 0 && (
-                  <button
-                    className="cd-btn-view-receipt"
-                    onClick={() => setShowCustomRequestModal(true)}
-                    style={{ background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', fontWeight: 800, padding: '0.6rem 1.25rem', fontSize: '0.82rem', borderRadius: '8px', cursor: 'pointer' }}
-                  >
-                    + Submit Custom Request
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                    <button
+                      className="cd-btn-view-receipt"
+                      onClick={() => navigate('/customer-requests')}
+                      style={{ background: 'transparent', color: 'var(--gold, #c9a84c)', border: '1px solid var(--gold, #c9a84c)', fontWeight: 800, padding: '0.6rem 1.25rem', fontSize: '0.82rem', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      View All →
+                    </button>
+                    <button
+                      className="cd-btn-view-receipt"
+                      onClick={() => setShowCustomRequestModal(true)}
+                      style={{ background: 'var(--gold, #c9a84c)', color: '#000', border: 'none', fontWeight: 800, padding: '0.6rem 1.25rem', fontSize: '0.82rem', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      + Submit Custom Request
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -2144,7 +2153,7 @@ const CustomerDashboard = () => {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
-                  {customRequests.map((req) => (
+                  {customRequests.slice(0, 6).map((req) => (
                     <div key={req.id} style={{ background: '#141414', border: '1px solid rgba(201, 168, 76, 0.25)', borderRadius: '14px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
