@@ -12,7 +12,8 @@
 **Primary URLs**:
 - **Production Web Application**: `https://luxora.bond` (Vercel Global Edge)
 - **Production API Gateway**: `https://site--luxora-backend--6kb9tg67ytl4.code.run` (Northflank Container Cluster)
-- **Knowledge Graph Explorer**: `https://4raisan.github.io/Luxora_v1/` (GitHub Pages)
+- **Knowledge Graph Explorer**: `https://4raisan.github.io/Luxora_v1/` (GitHub Pages Codebase Navigator)
+- **Live Architecture Explorer**: `https://4raisan.github.io/Luxora_v1/architecture/` (GitHub Pages 12-View Interactive System Topology)
 
 ---
 
@@ -436,9 +437,9 @@ Prisma database exceptions are caught and transformed into clean HTTP responses,
 ## SECTION 7: DATABASE ARCHITECTURE & PRISMA ENTITY-RELATIONSHIP MODEL
 
 ### Database Specifications
-- **Engine**: PostgreSQL 15 (managed container or Aiven PostgreSQL instance).
+- **Engine**: PostgreSQL 15 (managed container in local dev, Neon Serverless PostgreSQL in production).
 - **ORM / Schema Manager**: Prisma ORM v6.19.3.
-- **Connection Model**: Connection pooling via `DATABASE_URL` with transaction support.
+- **Connection Model**: Dual-URL connection topology: pooled connection via `DATABASE_URL` (with connection pooling) for high-throughput runtime queries, and direct unpooled connection via `DIRECT_URL` for transactional Prisma migrations (`prisma migrate deploy`).
 - **Precision Standard**: Financial amounts (`price`, `providerEarning`, `priceMonthly`, `expectedAmount`, `capturedAmount`, `amount`) are strictly defined as `Decimal(12, 2)` to eliminate floating-point inaccuracies.
 
 ### Entity-Relationship Architecture

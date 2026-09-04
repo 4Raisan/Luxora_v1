@@ -18,11 +18,29 @@ flowchart LR
   ROUTE --> DB[(Prisma / PostgreSQL)]
 ```
 
-## Explorer controls
+## Explorer controls & Architecture Explorer
 
-Open `index.html` to explore the graph. The sidebar inspector is collapsible and its recovery button remains visible. The settings dock keeps the default animated force layout and adds controls for physics motion, edge labels, node scale, edge strength, connected spacing, outer pull, fit, and reset. Search and the layer filters work together, so both can narrow the visible graph.
+The repository provides two synchronized, interactive visual explorers:
 
-The live explorer is deployed separately at [https://4raisan.github.io/Luxora_v1/](https://4raisan.github.io/Luxora_v1/) by `.github/workflows/knowledge-graph-pages.yml`. Pull requests validate regenerated and deterministic graph output without publishing it; pushes to `main` and manual workflow dispatches also publish this directory to GitHub Pages. The explorer fetches `./knowledge-graph.json`, so it works under the repository path used by GitHub Pages.
+1. **Codebase Knowledge Graph (`index.html`)**:
+   Deployed at [https://4raisan.github.io/Luxora_v1/](https://4raisan.github.io/Luxora_v1/). Visualizes granular AST-extracted code entities (React pages, API routes, middleware, domain services, Prisma models, and enums) with animated concentric force physics and blast-radius tracing.
+
+2. **Live System Architecture Explorer (`architecture/index.html`)**:
+   Deployed at [https://4raisan.github.io/Luxora_v1/architecture/](https://4raisan.github.io/Luxora_v1/architecture/). Provides a high-level, 12-view deterministic architectural blueprint spanning:
+   - System Overview (5-tier full-stack hierarchy + DevOps & Deployment columns)
+   - Frontend Presentation Layer
+   - Backend API Gateway & Routers
+   - Database Entity Architecture (Prisma Models & Relations)
+   - Booking Lifecycle (End-to-end fulfillment flow)
+   - Realtime / Server-Sent Events (SSE broadcasting hub)
+   - Payments Engine (Tri-gateway settlement flow)
+   - Email & External Cloud Integrations
+   - CI/CD Quality Pipeline (8-check verification flow)
+   - Production Deployment Topology (Vercel, Northflank, Neon, GitHub Pages)
+   - Knowledge Graph Subsystem
+   - Security & Cryptographic Architecture (Defense-in-depth)
+
+Both explorers are deployed together to GitHub Pages by `.github/workflows/knowledge-graph-pages.yml`. Pull requests validate deterministic generation for both graphs (`npm run graph:verify`) without publishing; pushes to `main` publish the entire `Knowladge-Graph/` directory.
 
 ## Route groups
 
