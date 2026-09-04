@@ -19,13 +19,15 @@ const ActiveBookingCards = ({
   onCancel,
   onReview,
   isPinUnlocked,
+  emptyTitle = 'No active service bookings found',
+  emptyHint = 'Try clearing the filters or schedule a new concierge service.',
 }) => {
   if (!bookings.length) {
     return (
       <div className="cd-active-booking-empty">
         <span className="cd-active-booking-empty__icon">◇</span>
-        <strong>No active service bookings found</strong>
-        <small>Try clearing the filters or schedule a new concierge service.</small>
+        <strong>{emptyTitle}</strong>
+        <small>{emptyHint}</small>
       </div>
     )
   }
