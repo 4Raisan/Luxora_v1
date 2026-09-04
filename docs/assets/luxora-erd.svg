@@ -42,12 +42,10 @@
   <path class="line" d="M1315 406 L1380 406"/><text class="label" x="1321" y="394">0..* evidence</text>
 
   <rect class="group" x="45" y="670" width="720" height="460" rx="18"/>
-  <text class="subtitle" x="70" y="701">PAYMENTS, REFUNDS &amp; TRUST</text>
+  <text class="subtitle" x="70" y="701">PAYMENTS, REVIEWS &amp; TRUST</text>
   <rect class="node" x="90" y="755" width="175" height="80" rx="10"/><text class="head" x="110" y="785">payments</text><text class="text" x="110" y="808">user · plan · booking</text><text class="text" x="110" y="825">subscription · gateway</text>
-  <rect class="node" x="350" y="755" width="175" height="80" rx="10"/><text class="head" x="370" y="785">refund_requests</text><text class="text" x="370" y="808">subscription · payment</text><text class="text" x="370" y="825">reviewedBy user</text>
   <rect class="node" x="90" y="935" width="175" height="72" rx="10"/><text class="head" x="110" y="963">reviews</text><text class="text" x="110" y="985">booking · user · provider</text>
   <rect class="node" x="350" y="935" width="175" height="72" rx="10"/><text class="head" x="370" y="963">complaints</text><text class="text" x="370" y="985">user · optional booking</text>
-  <path class="line" d="M265 795 L350 795"/><text class="label" x="276" y="783">0..* refunds</text>
   <path class="line" d="M177 835 L177 935"/><text class="label" x="186" y="890">booking review</text>
   <path class="line" d="M265 970 L350 970"/><text class="label" x="272" y="958">booking issue</text>
 
@@ -60,6 +58,6 @@
   <rect class="standalone" x="1360" y="935" width="150" height="76" rx="10"/><text class="head" x="1380" y="965">platform_settings</text><text class="text" x="1380" y="987">singleton config</text>
   <path class="lineMuted" d="M275 230 C470 230 560 200 585 215"/><text class="label" x="452" y="196">users own subscriptions / bookings / payments</text>
   <path class="lineMuted" d="M275 270 C400 650 800 650 935 760"/><text class="label" x="550" y="625">users receive / create</text>
-  <path class="lineMuted" d="M1200 450 C1030 650 550 650 438 755"/><text class="label" x="710" y="640">payments may fund bookings / subscriptions</text>
+  <path class="lineMuted" d="M1200 450 C1030 650 550 650 265 775"/><text class="label" x="710" y="640">payments may fund bookings / subscriptions</text>
   <text class="subtitle" x="70" y="1180">Standalone catalogue/configuration entities are shown with dashed borders. See DATABASE-ERD.md for field detail, constraints, and delete behaviour.</text>
 </svg>

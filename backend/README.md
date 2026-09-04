@@ -32,7 +32,7 @@ Copy `.env.example` to `.env` for local development. Keep real values in the hos
 | Payment mode | `PAYMENT_MODE` |
 | Bank data | `BANK_ENCRYPTION_KEY` |
 | Object storage | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_SESSION_TOKEN`, `S3_PREFIX` |
-| Redis | `REDIS_URL` |
+| Redis (optional) | `REDIS_URL` (optional; for future multi-instance distributed rate limiting) |
 | PayHere | `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET`, `PAYHERE_BASE_URL`, `PAYHERE_NOTIFY_URL`, `PAYHERE_RETURN_URL`, `PAYHERE_CANCEL_URL` |
 | NOWPayments | `NOWPAYMENTS_API_KEY`, `NOWPAYMENTS_IPN_SECRET`, `NOWPAYMENTS_BASE_URL` |
 | Email and sign-in | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `GOOGLE_CLIENT_ID` |
@@ -45,7 +45,7 @@ Production requirements:
 - Use a separate `BANK_ENCRYPTION_KEY`; never reuse the JWT secret.
 - Configure S3-compatible storage. Local disk uploads are development-only.
 - Use explicit public origins in `CORS_ORIGIN` or `FRONTEND_URL`, and configure `TRUST_PROXY` for the real ingress topology.
-- Provide a reachable Redis instance when the deployment relies on distributed rate limiting.
+- The current single-instance production setup uses bounded in-memory rate limiting and SSE state with zero external broker dependencies. `REDIS_URL` is optional and only required if scaling to multi-instance distributed rate limiting in the future.
 
 ## Database and bank-account migration
 
@@ -76,7 +76,7 @@ Subscription records preserve their contractual LKR price snapshot separately fr
 
 Production uploads use private S3-compatible objects and short-lived signed read URLs. File validation checks authenticated ownership, MIME type, extension, size, and file signature. Sensitive provider documents and bank details must never be returned through public static paths.
 
-The API also enforces JWT authentication, role and KYC gates, request validation, explicit CORS origins, and rate limits. When multiple API instances are deployed, verify the limiter is using the shared Redis store and that the application is reachable only through the trusted proxy path.
+The API also enforces JWT authentication, role and KYC gates, request validation, explicit CORS origins, and rate limits. The current single-instance deployment uses self-contained, in-memory rate limiting and SSE connection tracking. When scaling to multiple API instances in the future, configure `REDIS_URL` so the limiter can coordinate across instances via a shared Redis store, and verify that the application is reachable only through the trusted proxy path.
 
 ## Source map
 

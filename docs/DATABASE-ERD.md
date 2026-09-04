@@ -25,8 +25,6 @@ erDiagram
     users ||--o{ user_subscriptions : "owns"
     users ||--o{ bookings : "creates"
     users ||--o{ payments : "makes"
-    users ||--o{ refund_requests : "requests"
-    users ||--o{ refund_requests : "reviews"
     users ||--o{ reviews : "writes"
     users ||--o{ complaints : "raises"
     users ||--o{ notifications : "receives"
@@ -49,7 +47,6 @@ erDiagram
     subscription_plans ||--o{ payments : "paid through"
 
     user_subscriptions ||--o{ bookings : "funds"
-    user_subscriptions ||--o| refund_requests : "may have"
     user_subscriptions ||--o{ payments : "renewed through"
 
     services ||--o{ bookings : "is booked"
@@ -58,7 +55,6 @@ erDiagram
     bookings ||--o| reviews : "has"
     bookings ||--o{ complaints : "may receive"
 
-    payments ||--o{ refund_requests : "supports"
     promotions ||--o{ payments : "applied to"
 
     users {
@@ -143,14 +139,6 @@ erDiagram
         string gatewayOrderId UK
         string status
         decimal expectedAmount
-    }
-    refund_requests {
-        int id PK
-        int userId FK
-        int subscriptionId FK_UK
-        int paymentId FK
-        int reviewedById FK
-        string status
     }
     reviews {
         int id PK
@@ -247,7 +235,7 @@ erDiagram
     bookings ||--o{ complaints : "complaints"
 ```
 
-### Payments and refunds
+### Payments and transactions
 
 ```mermaid
 erDiagram
@@ -255,10 +243,7 @@ erDiagram
     subscription_plans ||--o{ payments : "initial purchase"
     user_subscriptions ||--o{ payments : "renewals"
     bookings ||--o{ payments : "booking payment"
-    users ||--o{ refund_requests : "requests"
-    user_subscriptions ||--o| refund_requests : "one refund request"
-    payments ||--o{ refund_requests : "related payment"
-    users ||--o{ refund_requests : "admin reviewer"
+    promotions ||--o{ payments : "applied to"
 ```
 
 ## Table reference
@@ -277,7 +262,6 @@ erDiagram
 | `bookings` | Scheduled service work | Belongs to user and service; optionally provider and subscription |
 | `service_photos` | Before/after evidence for a booking | Belongs to `bookings` |
 | `payments` | Payment intent, gateway response, and captured amount | Belongs to user; may reference plan, booking, or subscription |
-| `refund_requests` | Refund workflow for a subscription | One per subscription; may reference payment and reviewing admin |
 | `reviews` | Customer review of a completed booking/provider | One per booking; references user and provider |
 | `complaints` | Customer complaint workflow | Belongs to user; may relate to a booking |
 | `support_tickets` | Customer support conversation and status | Belongs to user |
@@ -301,9 +285,8 @@ erDiagram
 | `subscription_plans` | Promotion package assignments | Cascade delete |
 | `promotions` | Promotion package assignments | Cascade delete |
 | `promotions` | Payments | Set null on promotion deletion; preserve the recorded paid amount |
-| `user_subscriptions` | Refund request | Restrict delete; preserve refund records |
 | `bookings` | Service photos | Cascade delete |
-| `payments` | Booking/subscription/refund request links | Booking/subscription/refund link may be set to null to preserve payment records |
+| `payments` | Booking/subscription links | Booking/subscription link may be set to null to preserve payment records |
 
 ## Important constraints
 
@@ -311,7 +294,6 @@ erDiagram
 - A provider profile is unique per user (`providers.userId`).
 - A plan can have only one entitlement per category (`subscription_entitlements.planId + categoryId`).
 - A booking has at most one review (`reviews.bookingId`).
-- A subscription has at most one refund request (`refund_requests.subscriptionId`).
 - A provider can have at most one payout for a given period (`provider_payouts.providerId + period`).
 
 ## Current database alignment note

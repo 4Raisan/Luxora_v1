@@ -314,7 +314,7 @@
 <li class="numbered">**Refund Policy**: There are **strictly no refunds in V1**. All subscription package purchases are final. Customer bookings cancelled within valid timeframes restore subscription entitlement units (service coins), never cash refunds.</li>
 <li class="numbered">**Server-Authoritative Balances**: Client applications have zero authority over coins, pricing, or status transitions. All entitlement consumption, deductions, and restorations are validated within Prisma database transactions.</li>
 <li class="numbered">**Provider Operational KYC Gate**: All operational routes in `backend/src/routes/provider.js` and `backend/src/routes/bookings.js` enforce `kycStatus === 'APPROVED'`. Providers with pending or rejected status are barred from receiving auto-assignments, entering start/completion PINs, or viewing job addresses.</li>
-<li class="numbered">**Dual-PIN Physical Evidence Verification**: Service execution requires mutual physical confirmation. The provider cannot start service without the customer providing the 4-digit Start PIN (verified via bcrypt against `startPinHash`) along with an uploaded `BEFORE` photo. The provider cannot complete service without the 4-digit Completion PIN (verified against `completionPinHash`) along with an uploaded `AFTER` photo.</li>
+<li class="numbered">**Dual-PIN Physical Evidence Verification**: Service execution requires mutual physical confirmation. The provider cannot start service without the customer providing the 6-digit cryptographically secure Start PIN (verified via bcrypt against `startPinHash`) along with an uploaded `BEFORE` photo. The provider cannot complete service without the 6-digit cryptographically secure Completion PIN (verified against `completionPinHash`) along with an uploaded `AFTER` photo.</li>
 <li class="numbered">**Automatic Dispatch & Timeout Cancellation**: The backend scheduler runs continuous checks. Bookings unassigned after 30 minutes, or unstarted after 2 hours, or uncompleted after 2 hours past scheduled end, are automatically cancelled and their token units restored via PostgreSQL advisory locks.</li>
 <li class="numbered">**Monthly Provider Payout Ledger**: Provider earnings accumulate per completed booking based on a fixed configured rate per service. An idempotent scheduler queues monthly payouts on the 31st for admin review and bank settlement.</li>
 <hr class="divider" />
@@ -720,7 +720,7 @@
 <li>**Integrity Authentication**: The GCM authentication tag guarantees that ciphertext cannot be altered or tampered with in the database.</li>
 <li>**Lookup & Masking**: For administrative queries, the database stores a non-reversible SHA-256 hash (`accountHash`) for uniqueness checks, and a display mask (`accountMask`, e.g., `****1234`).</li>
 <h3 class="subsection-title">Brute-Force PIN Lockout Protection</h3>
-<p>To prevent brute-force guessing of the 4-digit service verification PINs:</p>
+<p>To prevent brute-force guessing of the 6-digit service verification PINs:</p>
 <li>The system enforces a **5-attempt ceiling** (`pinAttempts`).</li>
 <li>After 5 consecutive failed attempts, the booking is locked for **15 minutes** (`pinLockedUntil = now + 15 min`).</li>
 <li>Subsequent attempts return `HTTP 429 Too Many Requests` indicating the remaining lockout minutes.</li>
@@ -1023,7 +1023,7 @@
     Sched--&gt;&gt;API: Provider ID
     API-&gt;&gt;DB: BEGIN TRANSACTION
     API-&gt;&gt;DB: Deduct 1 Unit from user_subscription_entitlements
-    API-&gt;&gt;API: Generate 4-digit Start PIN &amp; Completion PIN
+    API-&gt;&gt;API: Generate 6-digit Start PIN &amp; Completion PIN
     API-&gt;&gt;API: Hash PINs with Bcrypt; Encrypt for Display with AES-256-GCM
     API-&gt;&gt;DB: INSERT INTO bookings (status: ASSIGNED, providerId, pinHashes)
     API-&gt;&gt;DB: COMMIT TRANSACTION
@@ -1041,16 +1041,16 @@
   participant DB as PostgreSQL
 
   Provider-&gt;&gt;Customer: Arrives at job location
-  Customer-&gt;&gt;Provider: Provides 4-Digit Start PIN
-  Provider-&gt;&gt;API: POST /api/bookings/:id/start { pin: '1234', photo: &lt;file&gt; }
+  Customer-&gt;&gt;Provider: Provides 6-Digit Start PIN
+  Provider-&gt;&gt;API: POST /api/bookings/:id/start { pin: '123456', photo: &lt;file&gt; }
   API-&gt;&gt;API: Sniff Magic Bytes -&gt; Store BEFORE photo in S3
   API-&gt;&gt;API: bcrypt.compare(pin, booking.startPinHash)
   API-&gt;&gt;DB: UPDATE bookings SET status = 'IN_PROGRESS', startedAt = NOW()
   API--&gt;&gt;Provider: Service Started Successfully
   
   Provider-&gt;&gt;Provider: Completes physical service
-  Customer-&gt;&gt;Provider: Provides 4-Digit Completion PIN
-  Provider-&gt;&gt;API: POST /api/bookings/:id/complete { pin: '5678', photo: &lt;file&gt; }
+  Customer-&gt;&gt;Provider: Provides 6-Digit Completion PIN
+  Provider-&gt;&gt;API: POST /api/bookings/:id/complete { pin: '654321', photo: &lt;file&gt; }
   API-&gt;&gt;API: Sniff Magic Bytes -&gt; Store AFTER photo in S3
   API-&gt;&gt;API: bcrypt.compare(pin, booking.completionPinHash)
   API-&gt;&gt;DB: BEGIN TRANSACTION

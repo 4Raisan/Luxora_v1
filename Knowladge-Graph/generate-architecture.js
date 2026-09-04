@@ -99,7 +99,7 @@ addNode({
   type: 'user_actor',
   views: ['system', 'frontend', 'booking', 'payments', 'security', 'deployment'],
   file: 'backend/prisma/schema.prisma',
-  description: 'Purchases 30-day packages, books home services with active category coins, reveals 4-digit start and completion PINs, submits reviews, complaints, and support tickets.',
+  description: 'Purchases 30-day packages, books home services with active category coins, reveals 6-digit start and completion PINs, submits reviews, complaints, and support tickets.',
   metadata: { role: 'CUSTOMER', capabilities: ['package_purchase', 'coin_booking', 'pin_access', 'complaints'] },
 });
 
@@ -722,7 +722,7 @@ addNode({
   type: 'security_control',
   views: ['security', 'booking'],
   file: 'backend/src/routes/auth.js',
-  description: 'Adaptive cryptographic key derivation protecting user passwords and 4-digit start/completion PIN codes against brute-force and dictionary attacks.',
+  description: 'Adaptive cryptographic key derivation protecting user passwords and 6-digit start/completion PIN codes against brute-force and dictionary attacks.',
 });
 
 addNode({

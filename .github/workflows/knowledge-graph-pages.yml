@@ -51,15 +51,17 @@ jobs:
       - name: Generate Knowledge Graph
         run: npm run graph
 
-      - name: Validate generated graph
-        run: node Knowladge-Graph/validate-graph.js
+      - name: Validate generated graphs
+        run: npm run graph:validate
 
       - name: Verify deterministic generation
         run: |
           cp Knowladge-Graph/knowledge-graph.json /tmp/knowledge-graph.json
+          cp Knowladge-Graph/architecture-graph.json /tmp/architecture-graph.json
           cp Knowladge-Graph/index.html /tmp/knowledge-graph.html
           npm run graph
           cmp --silent /tmp/knowledge-graph.json Knowladge-Graph/knowledge-graph.json
+          cmp --silent /tmp/architecture-graph.json Knowladge-Graph/architecture-graph.json
           cmp --silent /tmp/knowledge-graph.html Knowladge-Graph/index.html
 
       - name: Configure GitHub Pages
