@@ -4,9 +4,11 @@
   color: #f7f4ee;
   font-family: var(--font-primary, Arial, sans-serif);
   padding: 2rem 1rem 4rem;
+  position: relative;
+  isolation: isolate;
 }
 
-.ccr-shell { max-width: 1180px; margin: 0 auto; }
+.ccr-shell { max-width: 1180px; margin: 0 auto; position: relative; z-index: 1; }
 
 .ccr-header {
   display: flex;

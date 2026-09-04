@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
+import BookingPhotoGallery from '../components/BookingPhotoGallery'
 import { useRealtime } from '../hooks/useRealtime'
 import './AdminDashboard.css'
 
@@ -1254,6 +1255,7 @@ const AdminDashboard = () => {
             <option value="">— unchanged —</option>
             {approvedProviders.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
           </select>
+          <BookingPhotoGallery bookingId={bookingEdit.booking.id} token={token} title="SERVICE COMPLETION EVIDENCE" />
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
             <button style={ghostBtn} onClick={() => setBookingEdit(null)}>Cancel</button>
             <button style={goldBtn} disabled={busy} onClick={saveBookingEdit}>Apply</button>

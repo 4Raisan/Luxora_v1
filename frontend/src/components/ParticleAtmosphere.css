@@ -1,0 +1,13 @@
+.particle-atmosphere {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.78;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .particle-atmosphere { opacity: 0.42; }
+}

@@ -4,6 +4,7 @@ import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
 import ActiveBookingCards from '../components/ActiveBookingCards'
+import ParticleAtmosphere from '../components/ParticleAtmosphere'
 import { useRealtime } from '../hooks/useRealtime'
 import './CustomerDashboard.css'
 
@@ -349,6 +350,7 @@ const CustomerDashboard = () => {
   const [selectedBookingId, setSelectedBookingId] = useState(null)
   const [activeBookingIdFilter, setActiveBookingIdFilter] = useState('')
   const [activeBookingDateFilter, setActiveBookingDateFilter] = useState('')
+  const [activeBookingStatusFilter, setActiveBookingStatusFilter] = useState('ASSIGNED')
   const [customerActiveBookings, setCustomerActiveBookings] = useState([])
 
   const mapCustomerBookingRows = useCallback((rows) => {
@@ -1385,6 +1387,24 @@ const CustomerDashboard = () => {
     .filter(b => b && b.status !== 'CANCELLED' && b.date && b.date >= todayStr)
     .sort((a, b) => `${a.date} ${a.time || ''}`.localeCompare(`${b.date} ${b.time || ''}`))[0] || null
 
+  const customerServiceBookings = customerActiveBookings
+    .filter((booking) => booking.isSession || booking.pin || booking.location || (booking.time && (booking.time.includes('AM') || booking.time.includes('PM'))))
+  const activeBookingStatusCounts = {
+    PENDING: customerServiceBookings.filter((booking) => booking.status === 'PENDING').length,
+    ASSIGNED: customerServiceBookings.filter((booking) => ['ASSIGNED', 'IN_PROGRESS'].includes(booking.status)).length,
+    COMPLETED: customerServiceBookings.filter((booking) => booking.status === 'COMPLETED').length,
+    CANCELLED: customerServiceBookings.filter((booking) => booking.status === 'CANCELLED').length,
+  }
+  const filteredCustomerServiceBookings = customerServiceBookings
+    .filter((booking) => activeBookingStatusFilter === 'ASSIGNED'
+      ? ['ASSIGNED', 'IN_PROGRESS'].includes(booking.status)
+      : booking.status === activeBookingStatusFilter)
+    .filter((booking) => {
+      const matchId = !activeBookingIdFilter || String(booking.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
+      const matchDate = !activeBookingDateFilter || booking.date === activeBookingDateFilter
+      return matchId && matchDate
+    })
+
   const filteredHistory = historyFilter === 'all'
     ? historyData
     : historyData.filter((item) => item.cat === historyFilter)
@@ -1439,6 +1459,7 @@ const CustomerDashboard = () => {
 
   return (
     <div className="cd-page">
+      <ParticleAtmosphere />
       {/* 2-Second Polished Logout Overlay */}
       <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeLogout} />
 
@@ -2474,19 +2495,40 @@ const CustomerDashboard = () => {
             </div>
           </div>
 
+          <div className="cd-booking-status-tabs" role="tablist" aria-label="Booking status">
+            {[
+              { id: 'ASSIGNED', label: 'Assigned', description: 'Includes services currently in progress' },
+              { id: 'PENDING', label: 'Pending' },
+              { id: 'COMPLETED', label: 'Completed' },
+              { id: 'CANCELLED', label: 'Cancelled' },
+            ].map((statusTab) => (
+              <button
+                type="button"
+                role="tab"
+                key={statusTab.id}
+                aria-selected={activeBookingStatusFilter === statusTab.id}
+                className={`cd-booking-status-tab${activeBookingStatusFilter === statusTab.id ? ' is-active' : ''}`}
+                title={statusTab.description}
+                onClick={() => {
+                  setActiveBookingStatusFilter(statusTab.id)
+                  setSelectedBookingId(null)
+                }}
+              >
+                <span>{statusTab.label}</span>
+                <strong>{activeBookingStatusCounts[statusTab.id]}</strong>
+              </button>
+            ))}
+          </div>
+
           <ActiveBookingCards
-            bookings={customerActiveBookings
-              .filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
-              .filter(b => {
-                const matchId = !activeBookingIdFilter || String(b.id || '').toLowerCase().includes(activeBookingIdFilter.toLowerCase())
-                const matchDate = !activeBookingDateFilter || b.date === activeBookingDateFilter
-                return matchId && matchDate
-              })}
+            bookings={filteredCustomerServiceBookings}
             selectedBookingId={selectedBookingId}
             onToggleDetails={(bookingId) => setSelectedBookingId(prev => prev === bookingId ? null : bookingId)}
             onCancel={handleCancelBooking}
             onReview={openReview}
             isPinUnlocked={checkIsPinUnlocked}
+            emptyTitle={`No ${activeBookingStatusFilter.toLowerCase()} bookings found`}
+            emptyHint="Try another status or clear the booking ID and date filters."
           />
 
           {/* Legacy table retained for contract parity; replaced visually by cards */}

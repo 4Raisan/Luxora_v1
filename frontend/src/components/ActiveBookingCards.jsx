@@ -1,4 +1,5 @@
 import './ActiveBookingCards.css'
+import BookingPhotoGallery from './BookingPhotoGallery'
 
 const statusKey = (status) => String(status || 'PENDING').toLowerCase()
 
@@ -18,13 +19,15 @@ const ActiveBookingCards = ({
   onCancel,
   onReview,
   isPinUnlocked,
+  emptyTitle = 'No active service bookings found',
+  emptyHint = 'Try clearing the filters or schedule a new concierge service.',
 }) => {
   if (!bookings.length) {
     return (
       <div className="cd-active-booking-empty">
         <span className="cd-active-booking-empty__icon">◇</span>
-        <strong>No active service bookings found</strong>
-        <small>Try clearing the filters or schedule a new concierge service.</small>
+        <strong>{emptyTitle}</strong>
+        <small>{emptyHint}</small>
       </div>
     )
   }
@@ -97,6 +100,11 @@ const ActiveBookingCards = ({
                   <strong>{status === 'IN_PROGRESS' ? (booking.completionPin || booking.endPin || '••••••') : 'HIDDEN'}</strong>
                   <small>{status === 'IN_PROGRESS' ? 'Share once service is completed' : 'Unlocks after provider starts service'}</small>
                 </div>
+                {status === 'COMPLETED' && (
+                  <div className="cd-active-booking-details__photos">
+                    <BookingPhotoGallery bookingId={booking.id} title="COMPLETED SERVICE EVIDENCE" />
+                  </div>
+                )}
               </div>
             )}
 

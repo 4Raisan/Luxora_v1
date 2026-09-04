@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
 import { useRealtime } from '../hooks/useRealtime'
+import ParticleAtmosphere from '../components/ParticleAtmosphere'
 import './CustomerCustomRequests.css'
 
 const requestState = (request) => {
@@ -65,6 +66,7 @@ export default function CustomerCustomRequests() {
 
   return (
     <main className="ccr-page">
+      <ParticleAtmosphere />
       <div className="ccr-shell">
         <header className="ccr-header">
           <div>

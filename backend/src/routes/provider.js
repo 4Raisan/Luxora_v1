@@ -207,7 +207,7 @@ router.get('/earnings', async (req, res) => {
   const history = await prisma.booking.findMany({
     where: { providerId: provider.id },
     include: {
-      service: true,
+      service: { include: { category: true } },
       user: { select: { name: true, phone: true } },
       payments: { where: { status: 'COMPLETED' }, select: { status: true } },
       review: { select: { rating: true, comment: true, createdAt: true } },
@@ -245,7 +245,7 @@ router.get('/earnings', async (req, res) => {
     rating_count: ratingSummary._count.rating,
     history: history.map((h) => ({
       id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
-      service_title: h.service?.title, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
+      service_title: h.service?.title, category_name: h.service?.category?.name, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
       rating: h.review?.rating || null,
       review_comment: h.review?.comment || null,
       reviewed_at: h.review?.createdAt || null,

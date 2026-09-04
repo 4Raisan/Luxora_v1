@@ -4,6 +4,7 @@ import Calendar from '../components/Calendar'
 import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
+import BookingPhotoGallery from '../components/BookingPhotoGallery'
 import { useRealtime } from '../hooks/useRealtime'
 import { SRI_LANKA_PROVINCES, SRI_LANKA_TOWNS } from '../data/sriLankaLocations'
 import { SRI_LANKAN_BANKS } from '../data/sriLankaBanks'
@@ -731,6 +732,28 @@ const ProviderDashboard = () => {
     && availableBalance >= minimumRedemptionAmount
     && redemptionAmountIsValid
 
+  const openHistoryBooking = (historyBooking) => {
+    const date = new Date(`${historyBooking.booking_date}T00:00:00`)
+    setPhotoError('')
+    setSelectedDetailsBooking({
+      apiId: historyBooking.id,
+      month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+      day: String(date.getDate()),
+      bookingDate: historyBooking.booking_date,
+      bookingTime: historyBooking.booking_time,
+      title: historyBooking.service_title || 'Service booking',
+      status: 'COMPLETED',
+      color: STATUS_COLORS.COMPLETED,
+      customerName: historyBooking.customer_name || 'Customer',
+      customerPhone: historyBooking.customer_phone || '',
+      category: historyBooking.category_name || '',
+      address: '',
+      town: '',
+      notes: '',
+      serviceDesc: '',
+    })
+  }
+
   /* Action buttons for a booking row (used in cards + modal) */
   const renderBookingActions = (row, compact = false) => (
     <>
@@ -944,7 +967,7 @@ const ProviderDashboard = () => {
 
               <div className="pd-stats" style={{ marginBottom: '1.5rem' }}>
                 <div className="pd-stat">
-                  <p className="pd-stat__label">TOTAL EARNINGS</p>
+                  <p className="pd-stat__label">AVAILABLE BALANCE</p>
                   <p className="pd-stat__value pd-stat__value--gold">{formatRupees(earnings?.earnings)}</p>
                 </div>
                 <div className="pd-stat">
@@ -981,6 +1004,9 @@ const ProviderDashboard = () => {
                     </div>
                     <div className="pd-all-booking-actions" style={{ alignItems: 'center' }}>
                       <span style={{ color: '#888', fontSize: '0.75rem' }}>PAID: {String(h.payment_status || '—').toUpperCase()}</span>
+                      <button type="button" className="pd-booking__details" onClick={() => openHistoryBooking(h)}>
+                        VIEW PHOTOS
+                      </button>
                       <span style={{ color: 'var(--gold)', fontWeight: 800, fontSize: '0.9rem', marginLeft: 'auto' }}>
                         {formatRupees(h.job_earnings)}
                       </span>
@@ -1181,7 +1207,7 @@ const ProviderDashboard = () => {
                     <p className="pd-stat__value">{activeRows.length}</p>
                   </div>
                   <div className="pd-stat">
-                    <p className="pd-stat__label">TOTAL EARNINGS</p>
+                    <p className="pd-stat__label">AVAILABLE BALANCE</p>
                     <p className="pd-stat__value pd-stat__value--gold">{formatRupees(earnings?.earnings)}</p>
                   </div>
                   <div className="pd-stat">
@@ -1454,7 +1480,7 @@ const ProviderDashboard = () => {
               </div>
 
               {/* Before / After photo upload — stage-aware */}
-              {(selectedDetailsBooking.status === 'ASSIGNED' || selectedDetailsBooking.status === 'IN_PROGRESS') && (
+              {['ASSIGNED', 'IN_PROGRESS', 'COMPLETED'].includes(selectedDetailsBooking.status) && (
                 <div className="pd-profile-field">
                   <label>SERVICE PHOTOS (BEFORE / AFTER)</label>
                   {selectedDetailsBooking.status === 'ASSIGNED' && (
@@ -1491,6 +1517,12 @@ const ProviderDashboard = () => {
                     </div>
                   )}
                   {photoError && <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.4rem' }}>{photoError}</p>}
+                  <BookingPhotoGallery
+                    bookingId={selectedDetailsBooking.apiId}
+                    token={token}
+                    refreshKey={(photosByBooking[selectedDetailsBooking.apiId] || []).length}
+                    title={selectedDetailsBooking.status === 'COMPLETED' ? 'COMPLETED SERVICE EVIDENCE' : 'SAVED SERVICE PHOTOS'}
+                  />
                 </div>
               )}
             </div>
