@@ -19,7 +19,7 @@ const chrome = spawn(chromePath, [
   '--no-first-run',
   '--disable-gpu',
   '--window-size=1440,900',
-  'http://localhost:3333/architecture.html'
+  'http://localhost:3333/architecture/'
 ], { stdio: 'pipe' });
 
 async function waitForCdp(retries = 30) {
@@ -27,12 +27,12 @@ async function waitForCdp(retries = 30) {
     try {
       const res = await fetch('http://127.0.0.1:9222/json');
       const tabs = await res.json();
-      const target = tabs.find(t => t.url.includes('architecture.html'));
+      const target = tabs.find(t => t.url.includes('architecture'));
       if (target) return target;
     } catch (e) {}
     await new Promise(r => setTimeout(r, 200));
   }
-  throw new Error('Timeout waiting for architecture.html tab');
+  throw new Error('Timeout waiting for architecture tab');
 }
 
 async function run() {
