@@ -416,7 +416,9 @@ const CustomerDashboard = () => {
         }
         setCurrentUser((prev) => {
           const updatedName = dash.profile.name || prev.name
-          const updatedPhone = dash.profile.phone !== undefined ? (dash.profile.phone || '') : prev.phone
+          // An address-only save must never blank a phone already held in the
+          // local session when a delayed dashboard response has no phone value.
+          const updatedPhone = dash.profile.phone ? dash.profile.phone : prev.phone
           const updatedTown = dash.profile.town !== undefined ? (dash.profile.town || '') : prev.town
           const updated = {
             ...prev,
@@ -1299,11 +1301,23 @@ const CustomerDashboard = () => {
     const token = sessionStorage.getItem('token')
     if (token && token !== 'demo-token') {
       try {
-        await apiRequest('/profile', 'PUT', {
+        const savedProfile = await apiRequest('/profile', 'PUT', {
           town: newAddr.city,
           address_street: newAddr.street,
           address_district: newAddr.district,
         }, token)
+        setCurrentUser((previous) => {
+          const updated = {
+            ...previous,
+            name: savedProfile.name || previous.name,
+            phone: savedProfile.phone || previous.phone,
+            town: savedProfile.town || newAddr.city,
+          }
+          try {
+            sessionStorage.setItem('user', JSON.stringify({ ...JSON.parse(sessionStorage.getItem('user') || '{}'), ...updated }))
+          } catch {}
+          return updated
+        })
       } catch (error) {
         console.warn('Could not persist customer town to backend.', error)
       }
