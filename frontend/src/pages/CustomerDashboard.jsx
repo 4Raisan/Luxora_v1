@@ -943,6 +943,19 @@ const CustomerDashboard = () => {
   const [customRequests, setCustomRequests] = useState([])
 
   const [customForm, setCustomForm] = useState({ title: '', category: 'Auto Care', date: '', time: '09:00 AM', notes: '' })
+  const customTimeParts = String(customForm.time || '09:00 AM').match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  const customTimeHour = String(Number(customTimeParts?.[1] || 9)).padStart(2, '0')
+  const customTimeMinute = customTimeParts?.[2] || '00'
+  const customTimePeriod = (customTimeParts?.[3] || 'AM').toUpperCase()
+  const updateCustomRequestTime = (part, value) => {
+    const next = {
+      hour: customTimeHour,
+      minute: customTimeMinute,
+      period: customTimePeriod,
+      [part]: value,
+    }
+    setCustomForm((previous) => ({ ...previous, time: `${next.hour}:${next.minute} ${next.period}` }))
+  }
 
   // Restore a pre-filled Bespoke Concierge request passed from the chatbot.
   useEffect(() => {
@@ -3469,15 +3482,10 @@ const CustomerDashboard = () => {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Service Style
+                  Service Type
                 </span>
                 <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 800 }}>
-                  {sessionBookingSuccessModal.serviceTitle || sessionBookingSuccessModal.service}
-                  {sessionBookingSuccessModal.petType && (
-                    <span style={{ marginLeft: '6px', fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(201,168,76,0.15)', color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>
-                      {sessionBookingSuccessModal.petType === 'dog' ? '🐕 Dog' : sessionBookingSuccessModal.petType === 'cat' ? '🐈 Cat' : sessionBookingSuccessModal.petType}
-                    </span>
-                  )}
+                  {sessionBookingSuccessModal.categoryName || sessionBookingSuccessModal.service || 'Service'}
                 </span>
               </div>
 
@@ -4650,22 +4658,18 @@ const CustomerDashboard = () => {
 
               <div>
                 <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED TIME</label>
-                <select
-                  value={customForm.time}
-                  onChange={(e) => setCustomForm({ ...customForm, time: e.target.value })}
-                  style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
-                >
-                  {Array.from({ length: 48 }, (_, index) => {
-                    const totalMinutes = 9 * 60 + index * 15
-                    if (totalMinutes > 20 * 60 + 45) return null
-                    const hour24 = Math.floor(totalMinutes / 60)
-                    const minutes = totalMinutes % 60
-                    const period = hour24 >= 12 ? 'PM' : 'AM'
-                    const hour12 = hour24 % 12 || 12
-                    const value = `${String(hour12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`
-                    return <option key={value} value={value}>{value}</option>
-                  })}
-                </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem' }}>
+                  <select aria-label="Preferred hour" value={customTimeHour} onChange={(e) => updateCustomRequestTime('hour', e.target.value)} style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                    {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0')).map((hour) => <option key={hour} value={hour}>{hour}</option>)}
+                  </select>
+                  <select aria-label="Preferred minutes" value={customTimeMinute} onChange={(e) => updateCustomRequestTime('minute', e.target.value)} style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                    {['00', '15', '30', '45'].map((minute) => <option key={minute} value={minute}>{minute}</option>)}
+                  </select>
+                  <select aria-label="Preferred time period" value={customTimePeriod} onChange={(e) => updateCustomRequestTime('period', e.target.value)} style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
               </div>
 
               <div>

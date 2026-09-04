@@ -54,6 +54,11 @@
   font-weight: 800;
 }
 
+.cd-active-booking-date .cd-active-booking-date__year {
+  margin: 0.2rem 0 0;
+  font-size: 0.55rem;
+}
+
 .cd-active-booking-card__identity {
   min-width: 0;
 }
