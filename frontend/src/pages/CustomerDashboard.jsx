@@ -1874,6 +1874,8 @@ const CustomerDashboard = () => {
                       <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em' }}>CALENDAR DATE</span>
                     </div>
                     <input
+                      id="service-booking-date"
+                      name="serviceBookingDate"
                       type="date"
                       value={serviceBookingForm.date}
                       min={new Date().toISOString().split('T')[0]}
@@ -1903,8 +1905,10 @@ const CustomerDashboard = () => {
                     <div className="cd-time-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem' }}>
                       {/* Hours */}
                       <div>
-                        <label style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>HOUR</label>
+                        <label htmlFor="service-booking-hour" style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>HOUR</label>
                         <select
+                          id="service-booking-hour"
+                          name="serviceBookingHour"
                           value={serviceBookingForm.hour}
                           onChange={(e) => setServiceBookingForm(prev => ({ ...prev, hour: e.target.value }))}
                           style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.55rem 0.2rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
@@ -1917,8 +1921,10 @@ const CustomerDashboard = () => {
 
                       {/* Minutes */}
                       <div>
-                        <label style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>MIN</label>
+                        <label htmlFor="service-booking-minute" style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>MIN</label>
                         <select
+                          id="service-booking-minute"
+                          name="serviceBookingMinute"
                           value={serviceBookingForm.minute}
                           onChange={(e) => setServiceBookingForm(prev => ({ ...prev, minute: e.target.value }))}
                           style={{ width: '100%', background: '#0d0d0f', color: '#fff', border: '1px solid #333', padding: '0.55rem 0.2rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
@@ -1931,8 +1937,10 @@ const CustomerDashboard = () => {
 
                       {/* AM/PM */}
                       <div>
-                        <label style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>PERIOD</label>
+                        <label htmlFor="service-booking-period" style={{ display: 'block', color: '#888', fontSize: '0.6rem', fontWeight: 700, marginBottom: '0.2rem' }}>PERIOD</label>
                         <select
+                          id="service-booking-period"
+                          name="serviceBookingPeriod"
                           value={serviceBookingForm.ampm}
                           onChange={(e) => setServiceBookingForm(prev => ({ ...prev, ampm: e.target.value }))}
                           style={{ width: '100%', background: '#0d0d0f', color: 'var(--gold, #c9a84c)', border: '1px solid var(--gold, #c9a84c)', padding: '0.55rem 0.2rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 900, textAlign: 'center', outline: 'none', cursor: 'pointer' }}
