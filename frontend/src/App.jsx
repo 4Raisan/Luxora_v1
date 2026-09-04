@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import Stats from './components/Stats'
@@ -49,6 +49,12 @@ const HomePage = () => (
   </>
 )
 
+const ChatbotRouteGate = () => {
+  const { pathname } = useLocation()
+  const route = pathname.replace(/\/+$/, '') || '/'
+  return route === '/' || route === '/customer-dashboard' ? <LuxoraChatbot /> : null
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -69,7 +75,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
           </Routes>
         </Suspense>
-        <LuxoraChatbot />
+        <ChatbotRouteGate />
       </div>
     </BrowserRouter>
   )
