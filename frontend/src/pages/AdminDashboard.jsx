@@ -36,6 +36,7 @@ const NAV_ITEMS = [
   { id: 'subscriptions', label: 'Packages', icon: Icons.Subscriptions },
   { id: 'session_payouts', label: 'Session Payout & Payments', icon: Icons.Subscriptions },
   { id: 'bookings', label: 'Bookings', icon: Icons.Bookings },
+  { id: 'requested_services', label: 'Requested Services', icon: Icons.Bookings },
   { id: 'cancellation_requests', label: 'Cancellation Requests', icon: Icons.CancellationRequests },
   { id: 'complaints', label: 'Complaints', icon: Icons.Complaints },
   { id: 'support', label: 'Support Desk', icon: Icons.Support },
@@ -137,6 +138,7 @@ const AdminDashboard = () => {
   const [bookings, setBookings] = useState([])
   const [complaints, setComplaints] = useState([])
   const [supportTickets, setSupportTickets] = useState([])
+  const [requestedServices, setRequestedServices] = useState([])
   const [plans, setPlans] = useState([])
   const [categories, setCategories] = useState([])
   const [promotions, setPromotions] = useState([])
@@ -171,7 +173,7 @@ const AdminDashboard = () => {
   const activePromotionPlans = plans.filter((plan) => plan.active)
   const cancellationRequests = supportTickets.filter((ticket) => cancellationRequestBookingId(ticket))
   const pendingCancellationRequests = cancellationRequests.filter((ticket) => ['OPEN', 'IN_PROGRESS'].includes(String(ticket.status || '').toUpperCase()))
-  const generalSupportTickets = supportTickets.filter((ticket) => !cancellationRequestBookingId(ticket))
+  const generalSupportTickets = supportTickets.filter((ticket) => !cancellationRequestBookingId(ticket) && ticket.kind !== 'SERVICE_REQUEST')
 
   const token = sessionStorage.getItem('token')
 
@@ -179,12 +181,13 @@ const AdminDashboard = () => {
     if (!token) return
     setLoadError('')
     try {
-      const [s, p, b, c, t, subs, cats, promos, notes, u, sessionRows, payoutRows, reviewRows] = await Promise.all([
+      const [s, p, b, c, t, requestRows, subs, cats, promos, notes, u, sessionRows, payoutRows, reviewRows] = await Promise.all([
         apiRequest('/admin/stats', 'GET', null, token),
         apiRequest('/admin/providers', 'GET', null, token),
         apiRequest('/admin/bookings', 'GET', null, token),
         apiRequest('/admin/complaints', 'GET', null, token),
         apiRequest('/support', 'GET', null, token),
+        apiRequest('/support/service-requests/admin', 'GET', null, token),
         apiRequest('/admin/subscriptions', 'GET', null, token),
         apiRequest('/categories', 'GET', null, token),
         apiRequest('/promotions/all', 'GET', null, token),
@@ -199,6 +202,7 @@ const AdminDashboard = () => {
       setBookings(Array.isArray(b) ? b : [])
       setComplaints(Array.isArray(c) ? c : [])
       setSupportTickets(Array.isArray(t) ? t : [])
+      setRequestedServices(Array.isArray(requestRows) ? requestRows : [])
       setPlans(Array.isArray(subs) ? subs.map((plan) => ({
         ...plan,
         features: Array.isArray(plan.features) ? plan.features : [],
@@ -237,6 +241,17 @@ const AdminDashboard = () => {
 
   useRealtime({
     onEvent: (type, data) => {
+      if (['SERVICE_REQUEST_CREATED', 'SERVICE_REQUEST_ASSIGNED'].includes(type)) {
+        const request = data?.request || data
+        if (!request?.id) return
+        setRequestedServices((prev) => {
+          const existingIndex = prev.findIndex((item) => item.id === request.id)
+          if (existingIndex === -1) return [request, ...prev]
+          return prev.map((item, index) => index === existingIndex ? { ...item, ...request } : item)
+        })
+        return
+      }
+
       const b = data?.booking || data
       if (!b) return
 
@@ -865,6 +880,28 @@ const AdminDashboard = () => {
                     )
                   })}
                   {cancellationRequests.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No provider cancellation requests.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* REQUESTED SERVICES */}
+          {activeNav === 'requested_services' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">REQUESTED SERVICES ({requestedServices.length})</h3>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>TITLE</th><th>CUSTOMER NAME</th><th>PROVIDER NAME</th><th>STATUS</th></tr></thead>
+                <tbody>
+                  {requestedServices.map((request) => (
+                    <tr key={request.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{request.id}</td>
+                      <td style={{ maxWidth: '280px' }}>{request.subject || '—'}</td>
+                      <td>{request.customer_name || '—'}</td>
+                      <td>{request.provider_name || <span style={{ color: '#888' }}>Awaiting Provider</span>}</td>
+                      <td><StatBadge value={request.assignment_status || request.status} /></td>
+                    </tr>
+                  ))}
+                  {requestedServices.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No requested services.</td></tr>}
                 </tbody>
               </table>
             </div>

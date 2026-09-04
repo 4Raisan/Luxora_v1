@@ -391,6 +391,8 @@ test('Requested service: provider approval is required and normal bookings enfor
   });
   const customerToken = jwt.sign({ id: customer.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
   const providerToken = jwt.sign({ id: providerUser.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+  const adminToken = jwt.sign({ id: admin.id, role: 'ADMIN', tokenVersion: admin.tokenVersion }, JWT_SECRET);
   const preferredDate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
 
   const created = await authJson(customerToken, '/support/service-requests', {
@@ -407,6 +409,13 @@ test('Requested service: provider approval is required and normal bookings enfor
   assert.equal(created.body.assignment_status, 'pending');
   assert.equal(created.body.provider_id, null);
 
+  const pendingAdminRequests = await authJson(adminToken, '/support/service-requests/admin');
+  assert.equal(pendingAdminRequests.status, 200, pendingAdminRequests.text);
+  const pendingAdminRequest = pendingAdminRequests.body.find((request) => request.id === created.body.id);
+  assert.equal(pendingAdminRequest.subject, 'Custom vehicle preparation');
+  assert.equal(pendingAdminRequest.customer_name, customer.name);
+  assert.equal(pendingAdminRequest.provider_name, null);
+
   const providerRequests = await authJson(providerToken, '/support/service-requests/provider');
   assert.equal(providerRequests.status, 200, providerRequests.text);
   assert.ok(providerRequests.body.some((request) => request.id === created.body.id));
@@ -419,6 +428,12 @@ test('Requested service: provider approval is required and normal bookings enfor
   assert.equal(claimed.status, 200, claimed.text);
   assert.equal(claimed.body.assignment_status, 'assigned');
   assert.equal(claimed.body.provider_id, provider.id);
+
+  const assignedAdminRequests = await authJson(adminToken, '/support/service-requests/admin');
+  assert.equal(assignedAdminRequests.status, 200, assignedAdminRequests.text);
+  const assignedAdminRequest = assignedAdminRequests.body.find((request) => request.id === created.body.id);
+  assert.equal(assignedAdminRequest.provider_name, providerUser.name);
+  assert.equal(assignedAdminRequest.assignment_status, 'assigned');
 
   const customerRequests = await authJson(customerToken, '/support/service-requests/my');
   assert.equal(customerRequests.status, 200, customerRequests.text);
