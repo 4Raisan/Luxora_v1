@@ -207,11 +207,6 @@ const serviceTypeLabel = (booking) => {
   return 'Auto Care'
 }
 
-const numericBookingDate = (value) => {
-  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  return match ? `${match[2]}/${match[3]}/${match[1]}` : (value || 'Date not set')
-}
-
 const CustomerDashboard = () => {
   const navigate = useNavigate()
 
@@ -2106,7 +2101,7 @@ const CustomerDashboard = () => {
                                 )}
                               </td>
                               <td data-label="Date" style={{ color: '#ccc', fontSize: '0.78rem' }}>
-                                <div>{numericBookingDate(b.date)}</div>
+                                <div>{b.date}</div>
                                 <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                               </td>
                             </tr>
@@ -2554,7 +2549,7 @@ const CustomerDashboard = () => {
                             </div>
                           </td>
                           <td style={{ color: '#ccc', fontSize: '0.85rem' }}>
-                            <div>{numericBookingDate(b.date)}</div>
+                            <div>{b.date}</div>
                             <small style={{ color: 'var(--gold, #c9a84c)', fontWeight: 700 }}>{b.time}</small>
                           </td>
                           <td>

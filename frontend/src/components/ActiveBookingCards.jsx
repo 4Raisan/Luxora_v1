@@ -4,12 +4,10 @@ const statusKey = (status) => String(status || 'PENDING').toLowerCase()
 
 const bookingDateParts = (value) => {
   const parsed = value ? new Date(`${value}T00:00:00`) : null
-  if (!parsed || Number.isNaN(parsed.getTime())) return { month: 'DATE', day: '—', year: '—', label: 'Date not set' }
+  if (!parsed || Number.isNaN(parsed.getTime())) return { month: 'DATE', day: '—' }
   return {
-    month: String(parsed.getMonth() + 1).padStart(2, '0'),
-    day: String(parsed.getDate()).padStart(2, '0'),
-    year: parsed.getFullYear(),
-    label: parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    month: parsed.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    day: parsed.getDate(),
   }
 }
 
@@ -39,7 +37,7 @@ const ActiveBookingCards = ({
         const selected = selectedBookingId === booking.id
         const canCancel = status === 'PENDING' || status === 'ASSIGNED'
         const pinUnlocked = typeof isPinUnlocked === 'function' && isPinUnlocked(booking)
-        const { month, day, year, label: bookingDateLabel } = bookingDateParts(booking.date)
+        const { month, day } = bookingDateParts(booking.date)
 
         return (
           <article
@@ -50,7 +48,6 @@ const ActiveBookingCards = ({
               <div className="cd-active-booking-date" aria-label={booking.date || 'Date not set'}>
                 <span>{month}</span>
                 <strong>{day}</strong>
-                <span className="cd-active-booking-date__year">{year}</span>
               </div>
 
               <div className="cd-active-booking-card__identity">
@@ -89,7 +86,7 @@ const ActiveBookingCards = ({
                 <div className="cd-active-booking-detail">
                   <span>Service location</span>
                   <strong>{booking.location || 'Address not set'}</strong>
-                  <small>{bookingDateLabel} · {booking.time || 'Time not set'}</small>
+                  <small>{booking.date || 'Date not set'} · {booking.time || 'Time not set'}</small>
                 </div>
                 <div className="cd-active-booking-detail cd-active-booking-detail--pin">
                   <span>Start security PIN</span>
