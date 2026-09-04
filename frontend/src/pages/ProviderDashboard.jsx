@@ -1018,20 +1018,22 @@ const ProviderDashboard = () => {
               <div className="pd-all-bookings-grid" style={{ marginBottom: '2rem' }}>
                 {requestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No ongoing requested services.</p>}
                 {requestRows.map((request) => (
-                  <div key={`ongoing-${request.apiId}`} className="pd-all-booking-card">
-                    <div className="pd-all-booking-header">
+                  <div key={`ongoing-${request.apiId}`} className="pd-request-card">
+                    <div className="pd-request-card__header">
                       <div className="pd-booking__date"><span className="pd-booking__month">{request.month}</span><span className="pd-booking__day">{request.day}</span></div>
-                      <div style={{ flex: 1 }}><h3 className="pd-all-booking-title">{request.title}</h3><p className="pd-all-booking-sub">{request.customerName}{request.customerPhone ? ` • 📞 ${formatMobileNumber(request.customerPhone)}` : ''} • {request.category}</p></div>
-                      <span className="pd-booking__status" style={{ color: request.claimable ? '#eab308' : STATUS_COLORS.ASSIGNED, borderColor: request.claimable ? '#eab308' : STATUS_COLORS.ASSIGNED }}>{request.claimable ? 'AVAILABLE' : 'ONGOING'}</span>
+                      <div className="pd-request-card__info"><h3 className="pd-request-card__title">{request.title}</h3><p className="pd-request-card__sub">{request.customerName}{request.customerPhone ? ` • ${formatMobileNumber(request.customerPhone)}` : ''}{request.town ? ` • ${request.town}` : ''}</p></div>
+                      <span className="pd-request-card__status">{request.claimable ? 'AVAILABLE' : 'ASSIGNED'}</span>
                     </div>
-                    <p className="pd-cr-notes">{request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
-                    {request.notes && <p className="pd-cr-notes">{request.notes}</p>}
-                    <div className="pd-all-booking-actions">
+                    {request.notes && <p className="pd-request-card__notes">{request.notes}</p>}
+                    <div className="pd-request-card__divider" />
+                    <div className="pd-request-card__actions">
+                      <span className="pd-request-card__category">{request.category}</span>
                       {request.claimable ? (
                         <button type="button" className="pd-cr-btn-accept" disabled={busy || claimingServiceRequestId === request.apiId} onClick={() => handleClaimServiceRequest(request.apiId)}>{claimingServiceRequestId === request.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}</button>
                       ) : (
                         <button type="button" className="pd-cr-btn-accept" disabled={busy || completingServiceRequestId === request.apiId} onClick={() => handleCompleteServiceRequest(request.apiId)}>{completingServiceRequestId === request.apiId ? 'MARKING DONE...' : 'MARK AS DONE'}</button>
                       )}
+                      <button type="button" className="pd-cr-btn-decline" onClick={() => { setActiveNav('overview'); handleBookingClick(request.day) }}>VIEW ON CALENDAR</button>
                       {request.customerPhone && <a className="pd-cr-btn-decline" href={`tel:${request.customerPhone}`} style={{ textDecoration: 'none' }}>CONTACT CUSTOMER</a>}
                     </div>
                   </div>
@@ -1044,14 +1046,14 @@ const ProviderDashboard = () => {
               <div className="pd-all-bookings-grid">
                 {completedRequestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No completed requested services yet.</p>}
                 {completedRequestRows.map((request) => (
-                  <div key={`completed-${request.apiId}`} className="pd-all-booking-card" style={{ opacity: 0.8 }}>
-                    <div className="pd-all-booking-header">
+                    <div key={`completed-${request.apiId}`} className="pd-request-card pd-request-card--completed">
+                    <div className="pd-request-card__header">
                       <div className="pd-booking__date"><span className="pd-booking__month">{request.month}</span><span className="pd-booking__day">{request.day}</span></div>
-                      <div style={{ flex: 1 }}><h3 className="pd-all-booking-title">{request.title}</h3><p className="pd-all-booking-sub">{request.customerName} • {request.category}</p></div>
-                      <span className="pd-booking__status" style={{ color: STATUS_COLORS.COMPLETED, borderColor: STATUS_COLORS.COMPLETED }}>COMPLETED</span>
+                      <div className="pd-request-card__info"><h3 className="pd-request-card__title">{request.title}</h3><p className="pd-request-card__sub">{request.customerName}{request.town ? ` • ${request.town}` : ''}</p></div>
+                      <span className="pd-request-card__status">COMPLETED</span>
                     </div>
-                    <p className="pd-cr-notes">{request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
-                    {request.notes && <p className="pd-cr-notes">{request.notes}</p>}
+                    <div className="pd-request-card__divider" />
+                    <div className="pd-request-card__actions"><span className="pd-request-card__category">{request.category}</span></div>
                   </div>
                 ))}
               </div>
@@ -1302,32 +1304,19 @@ const ProviderDashboard = () => {
                     <p style={{ color: '#888', fontStyle: 'italic' }}>No new service requests right now.</p>
                   )}
                   {overviewRequestRows.map((b) => (
-                    <div key={b.apiId} className="pd-cr-card">
-                      <div className="pd-cr-header">
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <span className="pd-cr-client">👤 {b.customerName}</span>
-                            {b.customerPhone && (
-                              <a href={`tel:${b.customerPhone}`} style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600 }}>
-                                📞 {formatMobileNumber(b.customerPhone)}
-                              </a>
-                            )}
-                          </div>
-                          <h3 className="pd-cr-service">{b.title}</h3>
+                    <div key={b.apiId} className="pd-request-card">
+                      <div className="pd-request-card__header">
+                        <div className="pd-booking__date"><span className="pd-booking__month">{b.month}</span><span className="pd-booking__day">{b.day}</span></div>
+                        <div className="pd-request-card__info">
+                          <h3 className="pd-request-card__title">{b.title}</h3>
+                          <p className="pd-request-card__sub">{b.customerName}{b.customerPhone ? ` • ${formatMobileNumber(b.customerPhone)}` : ''}{b.town ? ` • ${b.town}` : ''}</p>
                         </div>
-                        <span className="pd-cr-status pd-cr-status--new">{b.claimable ? 'AVAILABLE REQUEST' : 'ASSIGNED TO YOU'}</span>
+                      <span className="pd-request-card__status">{b.claimable ? 'AVAILABLE' : 'ASSIGNED'}</span>
                       </div>
-
-                      <p className="pd-cr-notes">
-                        📅 {b.month} {b.day}, {b.bookingDate?.slice(0, 4)} • {String(b.bookingTime || '').slice(0, 5)}{b.town ? ` • 📍 ${b.town}` : ''}
-                      </p>
-                      <p className="pd-cr-notes">{b.notes}</p>
-
-                      <div className="pd-cr-footer">
-                        <div className="pd-cr-meta">
-                          <span className="pd-cr-budget">{b.category}</span>
-                        </div>
-                        <div className="pd-cr-actions">
+                      {b.notes && <p className="pd-request-card__notes">{b.notes}</p>}
+                      <div className="pd-request-card__divider" />
+                      <div className="pd-request-card__actions">
+                          <span className="pd-request-card__category">{b.category}</span>
                           {b.claimable ? (
                             <button
                               type="button"
@@ -1349,12 +1338,12 @@ const ProviderDashboard = () => {
                               {completingServiceRequestId === b.apiId ? 'MARKING DONE...' : 'MARK AS DONE'}
                             </button>
                           )}
+                          <button type="button" className="pd-cr-btn-decline" onClick={() => handleBookingClick(b.day)}>VIEW ON CALENDAR</button>
                           {b.customerPhone && (
                             <a className="pd-cr-btn-decline" href={`tel:${b.customerPhone}`} style={{ textDecoration: 'none' }}>
                               CONTACT CUSTOMER
                             </a>
                           )}
-                        </div>
                       </div>
                     </div>
                   ))}

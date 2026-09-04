@@ -588,6 +588,97 @@
 
 .pd-booking__details:hover { background: rgba(201, 168, 76, 0.12); color: #f3d77d; }
 
+/* Requested services use the same concise appointment-card language as bookings. */
+.pd-request-card {
+  background: #151515;
+  border: 1px solid rgba(201, 168, 76, 0.52);
+  border-radius: 12px;
+  padding: 1rem 1.35rem 1.15rem;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.pd-request-card:hover {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+
+.pd-request-card--completed { opacity: 0.72; }
+
+.pd-request-card__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pd-request-card__info { flex: 1; min-width: 0; }
+
+.pd-request-card__title {
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pd-request-card__sub {
+  color: #969696;
+  font-size: 0.8rem;
+  margin: 0.3rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pd-request-card__status {
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  color: var(--gold);
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  padding: 0.34rem 0.62rem;
+}
+
+.pd-request-card__notes {
+  color: #9a9a9a;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0.75rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pd-request-card__divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  margin: 1rem 0;
+}
+
+.pd-request-card__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.pd-request-card__actions .pd-cr-btn-accept,
+.pd-request-card__actions .pd-cr-btn-decline {
+  border-radius: 6px;
+  font-size: 0.68rem;
+  padding: 0.55rem 0.85rem;
+}
+
+.pd-request-card__category {
+  color: var(--gold);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* ─── Right Panel ────────────────────────────────── */
 .pd-panel-right {
   display: flex;
