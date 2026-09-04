@@ -3987,7 +3987,7 @@ const CustomerDashboard = () => {
                     onChange={(e) => setSupportCategory(e.target.value)}
                   >
                     <option value="General Inquiry">General Inquiry</option>
-                    <option value="Booking Assistance">Booking Assistance</option>
+                    <option value="Booking Issues">Booking Issues</option>
                     <option value="Service Quality & Feedback">Service Quality &amp; Feedback</option>
                     <option value="Billing & Subscription">Billing &amp; Subscription</option>
                     <option value="Emergency Request">Emergency Concierge Request</option>
