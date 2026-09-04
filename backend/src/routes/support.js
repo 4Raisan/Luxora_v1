@@ -162,6 +162,15 @@ router.get('/service-requests/my', requireRole('CUSTOMER'), async (req, res) => 
   res.json(tickets.map(serviceRequestPayload));
 });
 
+router.get('/service-requests/admin', requireRole('ADMIN'), async (req, res) => {
+  const tickets = await prisma.supportTicket.findMany({
+    where: { kind: 'SERVICE_REQUEST' },
+    include: serviceRequestInclude,
+    orderBy: { updatedAt: 'desc' },
+  });
+  res.json(tickets.map(serviceRequestPayload));
+});
+
 router.get('/service-requests/provider', requireRole('PROVIDER'), async (req, res) => {
   const provider = await prisma.provider.findUnique({
     where: { userId: req.user.id },
@@ -231,6 +240,7 @@ router.post('/service-requests/:id/claim', requireRole('PROVIDER'), async (req, 
     notify(ticket.userId, `Your requested service #${ticket.id} has been assigned to a provider.`, '/customer-dashboard'),
     notify(provider.userId, `You accepted requested service #${ticket.id}.`, '/provider-dashboard'),
   ]);
+  broadcastToRole('ADMIN', 'SERVICE_REQUEST_ASSIGNED', payload);
   broadcastToRole('PROVIDER', 'SERVICE_REQUEST_ASSIGNED', payload);
   broadcastToUser(ticket.userId, 'SERVICE_REQUEST_ASSIGNED', payload);
   res.json(payload);
