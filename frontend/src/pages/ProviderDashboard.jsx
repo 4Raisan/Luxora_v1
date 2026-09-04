@@ -28,11 +28,6 @@ const STATUS_COLORS = {
   CANCELLED: '#ef4444',
 }
 
-const cancellationRequestBookingId = (ticket) => {
-  const match = String(ticket?.subject || '').match(/^Booking #(\d+) cancellation request$/i)
-  return match ? Number(match[1]) : null
-}
-
 const formatMobileNumber = (val) => {
   if (!val) return '—'
   let cleaned = String(val).replace(/\D/g, '')
@@ -112,8 +107,6 @@ const ProviderDashboard = () => {
   const [photosByBooking, setPhotosByBooking] = useState({})
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
-  const [cancellationReason, setCancellationReason] = useState('')
-  const [cancellationRequests, setCancellationRequests] = useState({})
   /* Settings form */
   const [settingsForm, setSettingsForm] = useState({ name: providerFullName, phone: '', categories: [], towns: [], provinces: [] })
   const [settingsSaving, setSettingsSaving] = useState(false)
@@ -134,21 +127,18 @@ const ProviderDashboard = () => {
   const [kycDocBusy, setKycDocBusy] = useState(false)
   const [kycDocMsg, setKycDocMsg] = useState('')
 
-  const requestBookingCancellation = async () => {
+  const cancelAssignedBooking = async () => {
     if (!selectedDetailsBooking) return
-    const reason = cancellationReason.trim()
-    if (reason.length < 3) return alert('Please enter a short cancellation reason.')
+    const confirmed = window.confirm('Cancel this assigned booking? You can only cancel when at least four hours remain. Luxora will immediately assign an eligible replacement. If none is available, the booking is cancelled and the customer token is restored.')
+    if (!confirmed) return
     setBusy(true)
     try {
-      const result = await apiRequest(`/provider/bookings/${selectedDetailsBooking.apiId}/cancellation-request`, 'POST', { reason }, token)
-      setCancellationReason('')
-      setCancellationRequests((current) => ({ ...current, [selectedDetailsBooking.apiId]: result.request_id || true }))
-      alert(result.message || 'Cancellation request sent to the admin.')
+      const result = await apiRequest(`/provider/bookings/${selectedDetailsBooking.apiId}/cancel`, 'POST', null, token)
+      setSelectedDetailsBooking(null)
+      await Promise.all([loadAll(), loadNotifications()])
+      alert(result.message || 'Booking cancelled.')
     } catch (error) {
-      if (/already awaiting admin review/i.test(error.message || '')) {
-        setCancellationRequests((current) => ({ ...current, [selectedDetailsBooking.apiId]: true }))
-      }
-      alert(error.message || 'Could not send the cancellation request.')
+      alert(error.message || 'Could not cancel this booking.')
     } finally {
       setBusy(false)
     }
@@ -222,13 +212,12 @@ const ProviderDashboard = () => {
         return
       }
 
-      const [avail, bookingRows, pendingRows, serviceRequestRows, earningsRow, supportRows] = await Promise.all([
+      const [avail, bookingRows, pendingRows, serviceRequestRows, earningsRow] = await Promise.all([
         apiRequest('/provider/availability', 'GET', null, token),
         apiRequest('/bookings/assigned', 'GET', null, token),
         apiRequest('/bookings/pending', 'GET', null, token).catch(() => []),
         apiRequest('/support/service-requests/provider?include_completed=true', 'GET', null, token).catch(() => []),
         apiRequest('/provider/earnings', 'GET', null, token),
-        apiRequest('/support/my', 'GET', null, token).catch(() => []),
       ])
       setAvailability(avail.availability_status)
       const categories = Array.isArray(avail.categories)
@@ -244,11 +233,6 @@ const ProviderDashboard = () => {
       setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
       const bank = (earningsRow.bank_accounts || []).find((account) => account.selected) || earningsRow.bank_accounts?.[0]
       if (bank) setBankForm((current) => ({ ...current, bank_name: bank.bank_name || '', account_holder: bank.account_holder || '', branch: bank.branch || '', account_number: '' }))
-      setCancellationRequests(Object.fromEntries(
-        (Array.isArray(supportRows) ? supportRows : [])
-          .filter((ticket) => cancellationRequestBookingId(ticket) && ['OPEN', 'IN_PROGRESS'].includes(String(ticket.status || '').toUpperCase()))
-          .map((ticket) => [cancellationRequestBookingId(ticket), ticket.id || true]),
-      ))
       setLoadError('')
     } catch (error) {
       setLoadError(error.message || 'Could not load your dashboard.')
@@ -390,7 +374,6 @@ const ProviderDashboard = () => {
 
   useEffect(() => { void loadAll() }, [loadAll])
   useEffect(() => { void loadNotifications() }, [loadNotifications])
-  useEffect(() => { setCancellationReason('') }, [selectedDetailsBooking?.apiId])
 
   useRealtime({
     onEvent: (type, data) => {
@@ -800,6 +783,7 @@ const ProviderDashboard = () => {
       <div className="pd-main">
         {/* Top Bar */}
         <header className="pd-topbar">
+          <div className="pd-topbar__title">Provider Dashboard</div>
           <div className="pd-topbar__actions">
             <button
               type="button"
@@ -1433,28 +1417,11 @@ const ProviderDashboard = () => {
 
               {selectedDetailsBooking.status === 'ASSIGNED' && (
                 <div className="pd-profile-field">
-                  <label>REQUEST CANCELLATION</label>
-                  {cancellationRequests[selectedDetailsBooking.apiId] ? (
-                    <p style={{ fontSize: '0.82rem', color: '#9fd0ac', margin: 0 }}>✓ Request submitted to the Admin Support Desk. This booking remains assigned while it is reviewed.</p>
-                  ) : (
-                    <>
-                      <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>Send a reason to the admin for review. The booking remains assigned until the admin decides.</p>
-                        <textarea
-                        id="provider-cancellation-reason"
-                        name="cancellation_reason"
-                        className="pd-edit-input"
-                        rows="3"
-                        maxLength="500"
-                        placeholder="Reason for cancellation request"
-                        value={cancellationReason}
-                        onChange={(e) => setCancellationReason(e.target.value)}
-                        style={{ resize: 'vertical' }}
-                      />
-                      <button type="button" className="pd-cr-btn-decline" disabled={busy || cancellationReason.trim().length < 3} style={{ marginTop: '0.65rem' }} onClick={requestBookingCancellation}>
-                        {busy ? 'SENDING…' : 'REQUEST CANCELLATION'}
-                      </button>
-                    </>
-                  )}
+                  <label>CANCEL ASSIGNED BOOKING</label>
+                  <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>You can cancel only when at least four hours remain. An eligible provider is assigned automatically; otherwise the booking is cancelled and the customer token is restored.</p>
+                  <button type="button" className="pd-cr-btn-decline" disabled={busy} style={{ marginTop: '0.65rem' }} onClick={cancelAssignedBooking}>
+                    {busy ? 'CANCELLING…' : 'CANCEL BOOKING'}
+                  </button>
                 </div>
               )}
               <div className="pd-profile-field">

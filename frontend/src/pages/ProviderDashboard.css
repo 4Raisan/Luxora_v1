@@ -11,7 +11,7 @@
 .pd-sidebar {
   width: 200px;
   flex-shrink: 0;
-  background: #0f0f0f;
+  background: #0c0c0c;
   border-right: 1px solid #1a1a1a;
   display: flex;
   flex-direction: column;
@@ -180,6 +180,15 @@
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.pd-topbar__title {
+  color: var(--white);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .pd-topbar__actions {
@@ -1891,6 +1900,11 @@
   .pd-topbar__actions {
     flex: 1;
     justify-content: space-between;
+  }
+
+  .pd-topbar__title {
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
   }
 
   .pd-topbar__user-info { display: none; }

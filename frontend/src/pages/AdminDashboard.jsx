@@ -18,7 +18,6 @@ const Icons = {
   Subscriptions: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M3 10h18" stroke="currentColor" strokeWidth="1.8"/><path d="M7 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Bookings: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Reviews: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3.5l2.6 5.27 5.82.85-4.21 4.1.99 5.8L12 16.78l-5.2 2.74.99-5.8-4.21-4.1 5.82-.85L12 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>),
-  CancellationRequests: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4v5c0 4.7-3.1 7.9-8 9-4.9-1.1-8-4.3-8-9V7l8-4z" stroke="currentColor" strokeWidth="1.8"/><path d="M9 12h6M12 9v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Complaints: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3l9.5 16.5H2.5L12 3z" stroke="currentColor" strokeWidth="1.8"/><path d="M12 10v4M12 17.2v.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
   Promotions: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M20 12l-8-8H4v8l8 8 8-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg>),
   Support: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 13a8 8 0 0116 0" stroke="currentColor" strokeWidth="1.8"/><rect x="2.5" y="13" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8"/><rect x="17.5" y="13" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8"/><path d="M19.5 19a3.5 3.5 0 01-3.5 3h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>),
@@ -37,7 +36,6 @@ const NAV_ITEMS = [
   { id: 'session_payouts', label: 'Session Payout & Payments', icon: Icons.Subscriptions },
   { id: 'bookings', label: 'Bookings', icon: Icons.Bookings },
   { id: 'requested_services', label: 'Requested Services', icon: Icons.Bookings },
-  { id: 'cancellation_requests', label: 'Cancellation Requests', icon: Icons.CancellationRequests },
   { id: 'complaints', label: 'Complaints', icon: Icons.Complaints },
   { id: 'support', label: 'Support Desk', icon: Icons.Support },
   { id: 'promotions', label: 'Promotions', icon: Icons.Promotions },
@@ -48,10 +46,6 @@ const NAV_ITEMS = [
 const fmtMoney = (v) => 'LKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 const fmtDateTime = (v) => (v ? new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
-const cancellationRequestBookingId = (ticket) => {
-  const match = String(ticket?.subject || '').match(/^Booking #(\d+) cancellation request$/i)
-  return match ? Number(match[1]) : null
-}
 const bookingCareLabel = (booking) => {
   const base = booking?.category_name || booking?.service_title || '—'
   const pet = (booking?.petType || booking?.pet_type)
@@ -173,9 +167,7 @@ const AdminDashboard = () => {
   const [payoutEdits, setPayoutEdits] = useState({})
   const [redemptionDecision, setRedemptionDecision] = useState(null)
   const activePromotionPlans = plans.filter((plan) => plan.active)
-  const cancellationRequests = supportTickets.filter((ticket) => cancellationRequestBookingId(ticket))
-  const pendingCancellationRequests = cancellationRequests.filter((ticket) => ['OPEN', 'IN_PROGRESS'].includes(String(ticket.status || '').toUpperCase()))
-  const generalSupportTickets = supportTickets.filter((ticket) => !cancellationRequestBookingId(ticket) && ticket.kind !== 'SERVICE_REQUEST')
+  const generalSupportTickets = supportTickets.filter((ticket) => ticket.kind !== 'SERVICE_REQUEST')
 
   const token = sessionStorage.getItem('token')
 
@@ -376,15 +368,6 @@ const AdminDashboard = () => {
     setTicketOpen(null); setTicketResponse('')
   }, 'Ticket updated.')
 
-  const openCancellationBooking = (ticket) => {
-    const bookingId = cancellationRequestBookingId(ticket)
-    const booking = bookings.find((item) => Number(item.id) === bookingId)
-    if (!booking) { alert('The related booking is no longer available.'); return }
-    setTicketOpen(null)
-    setActiveNav('bookings')
-    setBookingEdit({ booking, status: '', provider_id: '' })
-  }
-
   const savePlan = () => {
     const ed = planEditor || {}
     const price = Number(ed.price)
@@ -559,7 +542,6 @@ const AdminDashboard = () => {
             <button key={item.id} className={`ad-nav__item ${activeNav === item.id ? 'ad-nav__item--active' : ''}`} onClick={() => { setActiveNav(item.id); setNavOpen(false) }}>
               <span className="ad-nav__icon"><item.icon /></span>
               <span className="ad-nav__label">{item.label}</span>
-              {item.id === 'cancellation_requests' && pendingCancellationRequests.length > 0 && <span className="ad-nav__badge">{pendingCancellationRequests.length}</span>}
             </button>
           ))}
         </nav>
@@ -850,39 +832,6 @@ const AdminDashboard = () => {
                     </tr>
                   ))}
                   {bookings.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No bookings.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* PROVIDER CANCELLATION REQUESTS */}
-          {activeNav === 'cancellation_requests' && (
-            <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <h3 className="ad-table-title">PROVIDER CANCELLATION REQUESTS ({pendingCancellationRequests.length} PENDING)</h3>
-              <p style={{ margin: '-0.65rem 0 1.15rem', color: '#888', fontSize: '0.8rem' }}>Providers cannot cancel bookings themselves. Review the reason, then manage the related booking using the existing validated booking controls.</p>
-              <table className="ad-data-table">
-                <thead><tr><th>REQUEST</th><th>BOOKING</th><th>PROVIDER</th><th>REASON</th><th>SUBMITTED</th><th>STATUS</th><th>ACTION</th></tr></thead>
-                <tbody>
-                  {cancellationRequests.map((ticket) => {
-                    const bookingId = cancellationRequestBookingId(ticket)
-                    const booking = bookings.find((item) => Number(item.id) === bookingId)
-                    const reason = String(ticket.message || '').split('\n').find((line) => line.startsWith('Reason:'))?.replace('Reason:', '').trim() || ticket.message
-                    return (
-                      <tr key={ticket.id}>
-                        <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{ticket.id}</td>
-                        <td>#{bookingId}<small style={{ display: 'block', color: '#777' }}>{booking?.service_title || 'Booking unavailable'}</small></td>
-                        <td>{ticket.user?.name || 'Provider'}</td>
-                        <td style={{ maxWidth: '260px' }}>{reason}</td>
-                        <td>{fmtDateTime(ticket.createdAt)}</td>
-                        <td><StatBadge value={ticket.status} /></td>
-                        <td style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <button style={ghostBtn} onClick={() => { setTicketOpen(ticket); setTicketResponse(ticket.adminResponse || '') }}>Review Request</button>
-                          <button style={goldBtn} disabled={!booking} onClick={() => openCancellationBooking(ticket)}>Manage Booking</button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {cancellationRequests.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No provider cancellation requests.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -1333,7 +1282,6 @@ const AdminDashboard = () => {
           <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Response to the member</label>
           <textarea rows={3} style={fieldStyle} value={ticketResponse} onChange={(e) => setTicketResponse(e.target.value)} placeholder="Write your response…" />
           <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            {cancellationRequestBookingId(ticketOpen) && <button style={redBtn} disabled={busy || !bookings.some((booking) => Number(booking.id) === cancellationRequestBookingId(ticketOpen))} onClick={() => openCancellationBooking(ticketOpen)}>Manage Related Booking</button>}
             <button style={ghostBtn} disabled={busy} onClick={() => saveTicket('in_progress')}>Save & In Progress</button>
             <button style={goldBtn} disabled={busy} onClick={() => saveTicket('resolved')}>Send & Resolve</button>
           </div>
