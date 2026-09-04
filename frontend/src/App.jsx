@@ -19,6 +19,7 @@ import './App.css'
 
 const ProviderRegister = lazy(() => import('./pages/ProviderRegister'))
 const CustomerDashboard = lazy(() => import('./pages/CustomerDashboard'))
+const CustomerCustomRequests = lazy(() => import('./pages/CustomerCustomRequests'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const ProviderDashboard = lazy(() => import('./pages/ProviderDashboard'))
 const BookService = lazy(() => import('./pages/BookService'))
@@ -60,6 +61,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/provider-register" element={<ProviderRegister />} />
             <Route path="/customer-dashboard" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><CustomerDashboard /></ErrorBoundary></RequireAuth>} />
+            <Route path="/customer-requests" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><CustomerCustomRequests /></ErrorBoundary></RequireAuth>} />
             <Route path="/admin-dashboard" element={<RequireAuth allow={['ADMIN']}><ErrorBoundary><AdminDashboard /></ErrorBoundary></RequireAuth>} />
             <Route path="/provider-dashboard" element={<RequireAuth allow={['PROVIDER']}><ErrorBoundary><ProviderDashboard /></ErrorBoundary></RequireAuth>} />
             <Route path="/book-service" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><BookService /></ErrorBoundary></RequireAuth>} />
