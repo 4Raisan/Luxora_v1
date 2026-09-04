@@ -624,7 +624,7 @@ router.put('/complaints/:id', async (req, res) => {
   if (adminNote !== undefined && adminNote.length > 2000) return res.status(400).json({ error: 'admin_note must be at most 2000 characters' });
   await prisma.complaint.update({ where: { id: complaint.id }, data: { status, adminNote } });
   if (status === 'RESOLVED') {
-    await notify(complaint.userId, `Your complaint #${complaint.id} has been resolved.`);
+    await notify(complaint.userId, `Your complaint #${complaint.id} has been resolved. Tap to view the admin response.`, `/customer-dashboard?complaint=${complaint.id}`);
   }
   logAdminAction({ adminId: req.user.id, action: `COMPLAINT_${status}`, targetType: 'Complaint', targetId: String(complaint.id), details: { status, adminNote }, ipAddress: req.ip }).catch(() => {});
   res.json({ message: `Complaint updated to ${status.toLowerCase()}` });

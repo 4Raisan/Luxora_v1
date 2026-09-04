@@ -458,7 +458,8 @@ const CustomerDashboard = () => {
             message: n.message,
             time: new Date(n.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
             unread: !n.read,
-            category: 'system'
+            category: 'system',
+            link: n.link || null,
           })))
       }
 
@@ -1206,6 +1207,7 @@ const CustomerDashboard = () => {
   // loadServerData); no seeded rows so fabricated alerts can never render.
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [complaintResolution, setComplaintResolution] = useState(null)
 
   const addNotification = () => { void loadServerData() }
 
@@ -1226,6 +1228,24 @@ const CustomerDashboard = () => {
     apiRequest('/notifications/' + target.serverId + '/read', 'PUT', null, token)
       .then(() => setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n)))
       .catch((error) => alert(error.message || 'Could not mark this notification as read.'))
+  }
+
+  const openComplaintResolution = async (notification) => {
+    markNotifAsRead(notification.id)
+    const linkComplaintId = String(notification.link || '').match(/[?&]complaint=(\d+)/)?.[1]
+    const messageComplaintId = String(notification.message || '').match(/complaint\s*#(\d+)/i)?.[1]
+    const complaintId = Number(linkComplaintId || messageComplaintId)
+    if (!Number.isInteger(complaintId) || complaintId <= 0) return
+
+    try {
+      const complaints = await apiRequest('/complaints/my', 'GET', null, sessionStorage.getItem('token'))
+      const complaint = (Array.isArray(complaints) ? complaints : []).find((item) => Number(item.id) === complaintId)
+      if (!complaint) throw new Error('Complaint details are no longer available.')
+      setShowNotifDrawer(false)
+      setComplaintResolution(complaint)
+    } catch (error) {
+      alert(error.message || 'Could not load the complaint response.')
+    }
   }
 
   const dismissNotification = (id) => {
@@ -4097,7 +4117,7 @@ const CustomerDashboard = () => {
                 notifications.map((item) => (
                   <div
                     key={item.id}
-                    onClick={() => markNotifAsRead(item.id)}
+                    onClick={() => openComplaintResolution(item)}
                     style={{
                       background: item.unread ? 'rgba(201, 168, 76, 0.08)' : '#1a1a1e',
                       border: item.unread ? '1px solid rgba(201, 168, 76, 0.4)' : '1px solid #282828',
@@ -4122,6 +4142,9 @@ const CustomerDashboard = () => {
                         <span style={{ color: '#888', fontSize: '0.72rem' }}>{item.time}</span>
                       </div>
                       <p style={{ color: '#ccc', fontSize: '0.82rem', margin: 0, lineHeight: 1.4 }}>{item.message}</p>
+                      {(String(item.link || '').includes('complaint=') || /complaint\s*#\d+/i.test(item.message || '')) && (
+                        <span style={{ display: 'inline-block', color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.06em', marginTop: '0.55rem' }}>VIEW ADMIN RESPONSE →</span>
+                      )}
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); dismissNotification(item.id); }}
@@ -4134,6 +4157,26 @@ const CustomerDashboard = () => {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {complaintResolution && (
+        <div className="cd-address-overlay" onClick={() => setComplaintResolution(null)}>
+          <div className="cd-address-modal animate-fade-in" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '560px', padding: '2rem', position: 'relative' }}>
+            <button type="button" className="auth-card-close-btn" onClick={() => setComplaintResolution(null)} aria-label="Close complaint response">✕</button>
+            <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.1em' }}>COMPLAINT RESOLUTION</span>
+            <h3 style={{ color: '#fff', margin: '0.5rem 0 0.35rem', fontSize: '1.2rem' }}>{complaintResolution.subject}</h3>
+            <p style={{ color: '#aaa', margin: 0, fontSize: '0.78rem' }}>Reference SUP-{String(complaintResolution.id).padStart(4, '0')} · {String(complaintResolution.status || '').replace('_', ' ').toUpperCase()}</p>
+            <div style={{ background: '#101012', border: '1px solid #2a2a2a', borderRadius: '10px', padding: '0.9rem', marginTop: '1.15rem' }}>
+              <span style={{ color: '#888', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em' }}>YOUR REQUEST</span>
+              <p style={{ color: '#d0d0d0', fontSize: '0.86rem', lineHeight: 1.55, margin: '0.45rem 0 0' }}>{complaintResolution.description}</p>
+            </div>
+            <div style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.42)', borderRadius: '10px', padding: '0.9rem', marginTop: '0.75rem' }}>
+              <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em' }}>ADMIN RESPONSE</span>
+              <p style={{ color: '#f0f0f0', fontSize: '0.88rem', lineHeight: 1.55, margin: '0.45rem 0 0' }}>{complaintResolution.admin_note || 'Your complaint has been marked as resolved. Please contact Support if you need further help.'}</p>
+            </div>
+            <button type="button" className="cd-address-save-btn" style={{ marginTop: '1.2rem', width: '100%' }} onClick={() => setComplaintResolution(null)}>CLOSE</button>
           </div>
         </div>
       )}
