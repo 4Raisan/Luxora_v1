@@ -4,6 +4,15 @@
   box-sizing: border-box;
 }
 
+/* The supplied logo is a rectangular JPG-style image with a dark backdrop.
+   Screen blending removes that backdrop visually, while the soft mask keeps
+   its outer edge from appearing as a hard square on dark Luxora surfaces. */
+img[src$="luxora-logo.png"] {
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(ellipse 80% 84% at center, #000 56%, rgba(0, 0, 0, 0.96) 70%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 84% at center, #000 56%, rgba(0, 0, 0, 0.96) 70%, transparent 100%);
+}
+
 :root {
   --gold: #C9A84C;
   --gold-light: #E8C96B;
