@@ -86,8 +86,8 @@ export async function providerCanTakeBooking(client, provider, booking, { ignore
   return { ok: true };
 }
 
-export async function pickProvider(tx, categoryName, town, district, booking_date, normalizedTime, service, settings) {
-  if (!isInAutoAssignmentWindow(booking_date, normalizedTime, settings)) return null;
+export async function pickProvider(tx, categoryName, town, district, booking_date, normalizedTime, service, settings, { ignoreAssignmentWindow = false } = {}) {
+  if (!ignoreAssignmentWindow && !isInAutoAssignmentWindow(booking_date, normalizedTime, settings)) return null;
 
   const candidates = await tx.provider.findMany({
     where: {

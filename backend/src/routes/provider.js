@@ -4,8 +4,9 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { encryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
-import { bookingStart, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
+import { bookingStart, getPlatformSettings, pickProvider, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { notify } from '../services/notify.js';
+import { broadcastBookingEvent } from '../services/realtime.js';
 import { getSriLankaLocation, SRI_LANKA_TOWNS } from '../services/sriLankaLocations.js';
 import { getSriLankanBank } from '../services/sriLankaBanks.js';
 
@@ -88,7 +89,7 @@ router.put('/availability', async (req, res) => {
       return start && (start.getTime() - now.getTime()) / 3600000 < 6;
     });
     if (nearBooking) {
-      return res.status(400).json({ error: `Cannot go offline: you have an assigned booking (#${nearBooking.id} for ${nearBooking.service?.title || 'Service'}) scheduled within 6 hours (${nearBooking.bookingDate} at ${nearBooking.bookingTime}). Please complete this booking or request cancellation from its details.` });
+      return res.status(400).json({ error: `Cannot go offline: you have an assigned booking (#${nearBooking.id} for ${nearBooking.service?.title || 'Service'}) scheduled within 6 hours (${nearBooking.bookingDate} at ${nearBooking.bookingTime}). Please complete this booking, or cancel it from its details if at least four hours remain.` });
     }
   }
 
@@ -97,41 +98,104 @@ router.put('/availability', async (req, res) => {
   res.json({ message: `Availability set to ${targetStatus}`, availability_status: targetStatus });
 });
 
-// Providers may ask an admin to cancel an assigned job, but cannot cancel it
-// directly. This preserves the booking owner and admin cancellation controls.
-router.post('/bookings/:id/cancellation-request', async (req, res) => {
+// A provider may cancel only an assigned future booking with at least four
+// hours notice. The same transaction attempts a replacement assignment first.
+// A cancelled booking no longer consumes an entitlement, so the customer's
+// token becomes available again through the persisted entitlement calculation.
+router.post('/bookings/:id/cancel', async (req, res) => {
   const bookingId = Number(req.params.id);
-  const reason = String(req.body.reason || '').trim();
   if (!Number.isInteger(bookingId) || bookingId < 1) return res.status(400).json({ error: 'Valid booking ID is required.' });
-  if (reason.length < 3 || reason.length > 500) return res.status(400).json({ error: 'Cancellation reason must be 3 to 500 characters.' });
 
-  const provider = await prisma.provider.findUnique({ where: { userId: req.user.id }, include: { user: { select: { name: true } } } });
+  const provider = await prisma.provider.findUnique({ where: { userId: req.user.id }, select: { id: true, userId: true } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found.' });
-  const booking = await prisma.booking.findFirst({ where: { id: bookingId, providerId: provider.id, status: 'ASSIGNED' }, include: { service: { include: { category: true } } } });
-  if (!booking) return res.status(404).json({ error: 'Only an assigned upcoming booking can be submitted for cancellation review.' });
+  const outcome = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(bookingId)})`;
+    const booking = await tx.booking.findFirst({
+      where: { id: bookingId, providerId: provider.id, status: 'ASSIGNED' },
+      include: { service: { include: { category: true } } },
+    });
+    if (!booking) return { status: 404, body: { error: 'Only an assigned upcoming booking can be cancelled.' } };
 
-  const scheduledStart = bookingStart(booking.bookingDate, booking.bookingTime);
-  if (!scheduledStart || scheduledStart <= new Date()) return res.status(409).json({ error: 'Cancellation review can only be requested for an upcoming booking.' });
+    const scheduledStart = bookingStart(booking.bookingDate, booking.bookingTime);
+    if (!scheduledStart || scheduledStart <= new Date()) return { status: 409, body: { error: 'Only a future assigned booking can be cancelled.' } };
+    if (scheduledStart.getTime() - Date.now() < 4 * 60 * 60 * 1000) {
+      return { status: 409, body: { error: 'Bookings can only be cancelled when at least four hours remain before the scheduled start.' } };
+    }
 
-  const subject = `Booking #${booking.id} cancellation request`;
-  const existingRequest = await prisma.supportTicket.findFirst({
-    where: { userId: req.user.id, subject, status: { in: ['OPEN', 'IN_PROGRESS'] } },
-    orderBy: { createdAt: 'desc' },
-  });
-  if (existingRequest) return res.status(409).json({ error: `A cancellation request for booking #${booking.id} is already awaiting admin review.`, request_id: existingRequest.id });
+    const settings = await getPlatformSettings(tx);
+    const replacement = await pickProvider(
+      tx,
+      booking.service.category?.name,
+      booking.town,
+      booking.addressDistrict,
+      booking.bookingDate,
+      booking.bookingTime,
+      booking.service,
+      settings,
+      { ignoreAssignmentWindow: true },
+    );
 
-  const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
-  const serviceName = booking.service?.title || booking.service?.category?.name || 'Service';
-  const ticket = await prisma.supportTicket.create({
-    data: {
-      userId: req.user.id,
-      subject,
-      message: `Provider: ${provider.user?.name || 'Provider'}\nBooking: #${booking.id}\nService: ${serviceName}\nScheduled: ${booking.bookingDate} at ${booking.bookingTime}\nReason: ${reason}`,
-      priority: 'HIGH',
-    },
-  });
-  await Promise.all(admins.map((admin) => notify(admin.id, `Provider cancellation request #${ticket.id} for booking #${booking.id}.`, '/admin-dashboard')));
-  res.status(201).json({ message: 'Cancellation request sent to the admin for review.', request_id: ticket.id });
+    if (replacement) {
+      const updatedBooking = await tx.booking.update({
+        where: { id: booking.id },
+        data: { providerId: replacement.id, status: 'ASSIGNED', cancellationReason: null },
+        include: { service: { include: { category: true } } },
+      });
+      return { status: 200, body: { message: 'Booking cancelled and reassigned to another provider.', outcome: 'reassigned' }, booking: updatedBooking, replacement };
+    }
+
+    const updatedBooking = await tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        status: 'CANCELLED',
+        cancellationReason: 'Cancelled by provider at least four hours before the booking; no eligible replacement was available.',
+      },
+      include: { service: { include: { category: true } } },
+    });
+    return { status: 200, body: { message: 'Booking cancelled. The customer token has been restored because no replacement provider was available.', outcome: 'cancelled' }, booking: updatedBooking };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5000, timeout: 15000 });
+
+  if (outcome.status !== 200) return res.status(outcome.status).json(outcome.body);
+
+  const serviceName = outcome.booking.service?.title || 'Service';
+  if (outcome.body.outcome === 'reassigned') {
+    await Promise.all([
+      notify(provider.userId, `You cancelled booking #${bookingId}. It has been reassigned to another provider.`, '/provider-dashboard').catch(() => {}),
+      notify(outcome.replacement.userId, `Booking #${bookingId} (${serviceName}) has been assigned to you.`, '/provider-dashboard').catch(() => {}),
+      notify(outcome.booking.userId, `Your booking #${bookingId} has been reassigned to another provider.`, '/customer-dashboard').catch(() => {}),
+    ]);
+    broadcastBookingEvent('BOOKING_ASSIGNED', {
+      id: outcome.booking.id,
+      bookingId: outcome.booking.id,
+      userId: outcome.booking.userId,
+      providerId: outcome.replacement.id,
+      providerUserId: outcome.replacement.userId,
+      providerName: outcome.replacement.user?.name,
+      providerPhone: outcome.replacement.user?.phone,
+      status: 'assigned',
+      bookingDate: outcome.booking.bookingDate,
+      bookingTime: outcome.booking.bookingTime,
+      serviceTitle: serviceName,
+      categoryName: outcome.booking.service?.category?.name,
+      petType: outcome.booking.petType,
+    });
+  } else {
+    await Promise.all([
+      notify(provider.userId, `You cancelled booking #${bookingId}. No eligible replacement was available.`, '/provider-dashboard').catch(() => {}),
+      notify(outcome.booking.userId, `Booking #${bookingId} was cancelled because no replacement provider was available. Your token has been restored.`, '/customer-dashboard').catch(() => {}),
+    ]);
+    broadcastBookingEvent('BOOKING_CANCELLED', {
+      id: outcome.booking.id,
+      bookingId: outcome.booking.id,
+      userId: outcome.booking.userId,
+      providerId: provider.id,
+      providerUserId: provider.userId,
+      reason: outcome.booking.cancellationReason,
+      status: 'cancelled',
+    });
+  }
+
+  res.json(outcome.body);
 });
 
 router.get('/earnings', async (req, res) => {
