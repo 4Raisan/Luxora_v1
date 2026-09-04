@@ -4,6 +4,7 @@ import { apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
 import ActiveBookingCards from '../components/ActiveBookingCards'
+import ParticleAtmosphere from '../components/ParticleAtmosphere'
 import { useRealtime } from '../hooks/useRealtime'
 import './CustomerDashboard.css'
 
@@ -1439,6 +1440,7 @@ const CustomerDashboard = () => {
 
   return (
     <div className="cd-page">
+      <ParticleAtmosphere />
       {/* 2-Second Polished Logout Overlay */}
       <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeLogout} />
 

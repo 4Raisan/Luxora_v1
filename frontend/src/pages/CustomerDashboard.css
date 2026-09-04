@@ -2,12 +2,18 @@
 .cd-page {
   min-height: 100vh;
   background: #090909;
+  position: relative;
+  isolation: isolate;
   color: var(--white);
   font-family: var(--font-primary);
   display: flex;
   flex-direction: column;
   /* Header is fixed; compensate its 64px height so content is not covered. */
   padding-top: 64px;
+}
+
+.cd-page > :not(.particle-atmosphere) {
+  z-index: 1;
 }
 
 .gold-accent {
