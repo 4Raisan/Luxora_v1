@@ -60,6 +60,14 @@ const SERVICE_CATEGORIES = ['Auto Care', 'Garden Care', 'Pet Care']
 const SRI_LANKA_AREAS = Object.fromEntries(SRI_LANKA_PROVINCES.map((province) => [province, SRI_LANKA_TOWNS.filter((location) => location.province === province).map((location) => location.name)]))
 const PROVINCE_NAMES = SRI_LANKA_PROVINCES
 
+const providerCancellationIsOpen = (booking, now = Date.now()) => {
+  const deadline = new Date(booking?.providerCancellationDeadline || '').getTime()
+  return booking?.status === 'ASSIGNED'
+    && booking?.providerCanCancel === true
+    && Number.isFinite(deadline)
+    && now <= deadline
+}
+
 /* ── Component ─────────────────────────────────────── */
 const ProviderDashboard = () => {
   const navigate = useNavigate()
@@ -68,6 +76,7 @@ const ProviderDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [cancellationClock, setCancellationClock] = useState(Date.now())
 
   const [currentProvider, setCurrentProvider] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('user') || 'null') || {} } catch { return {} }
@@ -129,6 +138,9 @@ const ProviderDashboard = () => {
 
   const cancelAssignedBooking = async () => {
     if (!selectedDetailsBooking) return
+    if (!providerCancellationIsOpen(selectedDetailsBooking)) {
+      return alert('Cancellation is unavailable because fewer than four hours remain before this booking.')
+    }
     const confirmed = window.confirm('Cancel this assigned booking? Cancellation is unavailable when fewer than four hours remain. When allowed, Luxora immediately assigns an eligible replacement. If none is available, the booking is cancelled and the customer token is restored.')
     if (!confirmed) return
     setBusy(true)
@@ -169,6 +181,8 @@ const ProviderDashboard = () => {
       category: booking.category_name || '',
       serviceDesc: booking.service_desc || '',
       petType: booking.petType || booking.pet_type || '',
+      providerCanCancel: booking.provider_can_cancel === true,
+      providerCancellationDeadline: booking.provider_cancellation_deadline || null,
     }
   }, [])
 
@@ -374,6 +388,10 @@ const ProviderDashboard = () => {
 
   useEffect(() => { void loadAll() }, [loadAll])
   useEffect(() => { void loadNotifications() }, [loadNotifications])
+  useEffect(() => {
+    const timer = window.setInterval(() => setCancellationClock(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useRealtime({
     onEvent: (type, data) => {
@@ -1418,9 +1436,13 @@ const ProviderDashboard = () => {
               {selectedDetailsBooking.status === 'ASSIGNED' && (
                 <div className="pd-profile-field">
                   <label>CANCEL ASSIGNED BOOKING</label>
-                  <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>Cancellation is unavailable when fewer than four hours remain. When cancellation is allowed, Luxora automatically assigns an eligible replacement; otherwise the booking is cancelled and the customer token is restored.</p>
-                  <button type="button" className="pd-cr-btn-decline" disabled={busy} style={{ marginTop: '0.65rem' }} onClick={cancelAssignedBooking}>
-                    {busy ? 'CANCELLING…' : 'CANCEL BOOKING'}
+                  <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>
+                    {providerCancellationIsOpen(selectedDetailsBooking, cancellationClock)
+                      ? 'Cancellation is available until four hours before the booking. Luxora will assign an eligible replacement; otherwise the booking is cancelled and the customer token is restored.'
+                      : 'Cancellation is locked because fewer than four hours remain before this booking.'}
+                  </p>
+                  <button type="button" className="pd-cr-btn-decline" disabled={busy || !providerCancellationIsOpen(selectedDetailsBooking, cancellationClock)} style={{ marginTop: '0.65rem' }} onClick={cancelAssignedBooking}>
+                    {busy ? 'CANCELLING…' : providerCancellationIsOpen(selectedDetailsBooking, cancellationClock) ? 'CANCEL BOOKING' : 'CANCELLATION LOCKED'}
                   </button>
                 </div>
               )}

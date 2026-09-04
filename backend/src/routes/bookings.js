@@ -9,7 +9,7 @@ import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { toPositiveInt, isDate, isQuarterHourTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
-import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
+import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCancellationPolicy, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
 import { processExpiredBookingsThrottled, getAssignedDeadline, getInProgressDeadline } from '../services/bookingTimeouts.js';
 import { broadcastBookingEvent } from '../services/realtime.js';
 
@@ -342,21 +342,26 @@ router.get('/assigned', async (req, res) => {
     include: { service: { include: { category: true } }, user: { select: { id: true, name: true, phone: true, email: true } } },
     orderBy: { id: 'desc' },
   });
-  res.json(bookings.map((b) => ({
-    ...b,
-    startPinHash: undefined,
-    completionPinHash: undefined,
-    customerStartPinCipher: undefined,
-    customerCompletionPinCipher: undefined,
-    pinCode: undefined,
-    pinAttempts: undefined,
-    status: b.status.toLowerCase(),
-    service_title: b.service?.title,
-    service_desc: b.service?.description,
-    category_name: b.service?.category?.name,
-    customer_name: b.user?.name,
-    customer_phone: b.user?.phone,
-  })));
+  res.json(bookings.map((b) => {
+    const cancellationPolicy = providerCancellationPolicy(b.bookingDate, b.bookingTime);
+    return {
+      ...b,
+      startPinHash: undefined,
+      completionPinHash: undefined,
+      customerStartPinCipher: undefined,
+      customerCompletionPinCipher: undefined,
+      pinCode: undefined,
+      pinAttempts: undefined,
+      status: b.status.toLowerCase(),
+      service_title: b.service?.title,
+      service_desc: b.service?.description,
+      category_name: b.service?.category?.name,
+      customer_name: b.user?.name,
+      customer_phone: b.user?.phone,
+      provider_can_cancel: b.status === 'ASSIGNED' && cancellationPolicy.canCancel,
+      provider_cancellation_deadline: cancellationPolicy.cancellationDeadline?.toISOString() || null,
+    };
+  }));
 });
 
 // Available pending bookings for eligible providers to claim
