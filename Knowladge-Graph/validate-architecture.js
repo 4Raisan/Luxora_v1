@@ -140,7 +140,26 @@ if (graph) {
   }
 }
 
-// Validate HTML Explorer
+// Validate HTML Explorers
+const subdirHtmlPath = path.join(__dirname, 'architecture', 'index.html');
+if (!fs.existsSync(subdirHtmlPath)) {
+  fail('architecture/index.html is missing');
+} else {
+  const subHtml = fs.readFileSync(subdirHtmlPath, 'utf8');
+  if (!subHtml.includes("fetch('../architecture-graph.json'")) {
+    fail('architecture/index.html must load graph JSON via relative path ../architecture-graph.json');
+  }
+  if (!subHtml.includes('src="../vis-network.min.js"')) {
+    fail('architecture/index.html must load bundled ../vis-network.min.js via relative path');
+  }
+  if (/unpkg\.com|cdn\.|cdnjs\./i.test(subHtml)) {
+    fail('architecture/index.html must not depend on an external graph-renderer CDN');
+  }
+  if (/C:\\Users\\|file:\/\//i.test(subHtml)) {
+    fail('architecture/index.html contains hardcoded local filesystem paths');
+  }
+}
+
 if (fs.existsSync(htmlPath)) {
   const html = fs.readFileSync(htmlPath, 'utf8');
   if (!html.includes("fetch('./architecture-graph.json'")) {

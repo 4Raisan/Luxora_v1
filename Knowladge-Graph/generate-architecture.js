@@ -23,6 +23,8 @@ const frontendDir = path.join(rootDir, 'frontend');
 const prismaSchemaPath = path.join(backendDir, 'prisma', 'schema.prisma');
 const outputJsonPath = path.join(__dirname, 'architecture-graph.json');
 const outputHtmlPath = path.join(__dirname, 'architecture.html');
+const outputSubdir = path.join(__dirname, 'architecture');
+const outputSubdirHtmlPath = path.join(outputSubdir, 'index.html');
 
 console.log('🔍 Starting Luxora Live System Architecture Graph Extraction...');
 
@@ -299,6 +301,10 @@ const backendRoutes = [
   { id: 'route:services', label: '🚦 /api/services Router', file: 'backend/src/routes/services.js', desc: 'Public service catalog, category definitions, 30-day package listings, and subscription checkout session creation.', views: ['backend', 'payments'] },
   { id: 'route:integrations', label: '🚦 /api/integrations Router', file: 'backend/src/routes/integrations.js', desc: 'Webhook receivers: PayHere MD5 signature verified IPN, NOWPayments HMAC-SHA512 IPN, and Resend transactional email client.', views: ['backend', 'payments', 'email'] },
   { id: 'route:uploads', label: '🚦 /api/uploads Router', file: 'backend/src/routes/uploads.js', desc: 'Multipart memory-buffered upload processor performing magic-byte content sniffing for genuine JPEG/PNG/PDF files before streaming to S3.', views: ['backend', 'security', 'email'] },
+  { id: 'route:notifications', label: '🚦 /api/notifications Router', file: 'backend/src/routes/notifications.js', desc: 'In-app notification manager with realtime SSE notification pushes for booking status changes, reminders, and payment alerts.', views: ['backend', 'realtime'] },
+  { id: 'route:reviews', label: '🚦 /api/reviews Router', file: 'backend/src/routes/reviews.js', desc: 'Post-fulfillment review submittal: 1-5 star ratings and feedback restricted to completed bookings.', views: ['backend', 'booking'] },
+  { id: 'route:complaints', label: '🚦 /api/complaints Router', file: 'backend/src/routes/complaints.js', desc: 'Dispute management: customer complaint submittal against bookings and administrative resolution workflow.', views: ['backend', 'booking'] },
+  { id: 'route:profile', label: '🚦 /api/profile Router', file: 'backend/src/routes/profile.js', desc: 'User profile management, contact details update, address maintenance, and town coverage configuration.', views: ['backend'] },
 ];
 
 for (const r of backendRoutes) {
@@ -410,6 +416,15 @@ addEdge('server:express-app', 'route:customer', 'mounts', 'Mounts /api/customer'
 addEdge('server:express-app', 'route:services', 'mounts', 'Mounts /api/services', 'Mounts catalog and subscription purchase router.', ['backend', 'payments']);
 addEdge('server:express-app', 'route:integrations', 'mounts', 'Mounts /api/integrations', 'Mounts payment and email webhook receiver.', ['backend', 'payments', 'email']);
 addEdge('server:express-app', 'route:uploads', 'mounts', 'Mounts /api/uploads', 'Mounts multipart file upload router.', ['backend', 'security']);
+addEdge('server:express-app', 'route:notifications', 'mounts', 'Mounts /api/notifications', 'Mounts in-app notification and alert router.', ['backend', 'realtime']);
+addEdge('server:express-app', 'route:reviews', 'mounts', 'Mounts /api/reviews', 'Mounts post-fulfillment customer review router.', ['backend', 'booking']);
+addEdge('server:express-app', 'route:complaints', 'mounts', 'Mounts /api/complaints', 'Mounts dispute and complaint management router.', ['backend', 'booking']);
+addEdge('server:express-app', 'route:profile', 'mounts', 'Mounts /api/profile', 'Mounts user profile management router.', ['backend']);
+addEdge('route:notifications', 'model:notification', 'persists', 'Stores Notifications', 'Persists user alerts with read/unread tracking.', ['backend', 'database']);
+addEdge('route:notifications', 'service:realtime', 'broadcasts_alert', 'Pushes Notification Alert', 'Broadcasts instant notifications to active SSE clients.', ['backend', 'realtime']);
+addEdge('route:reviews', 'model:review', 'creates_review', 'Stores 1-5 Star Reviews', 'Records customer rating and comments on completion.', ['backend', 'booking', 'database']);
+addEdge('route:complaints', 'model:complaint', 'records_complaint', 'Stores Complaints', 'Logs customer complaints for administrative review.', ['backend', 'booking', 'database']);
+addEdge('route:profile', 'model:user', 'updates_user', 'Updates Profile Data', 'Updates name, phone, address, and coverage towns.', ['backend', 'database']);
 addEdge('server:express-app', 'service:realtime', 'mounts', 'Mounts /api/realtime', 'Exposes SSE endpoint for persistent client connections.', ['backend', 'realtime', 'system']);
 addEdge('hook:use-realtime', 'service:realtime', 'connects', 'Persistent SSE Connection', 'Browser establishes EventSource stream to receive real-time notifications.', ['system', 'frontend', 'realtime']);
 
@@ -474,7 +489,7 @@ const externalServices = [
   { id: 'ext:resend', label: '✉️ Resend Email API', file: 'backend/src/services/integrations.js', desc: 'Modern transactional email platform dispatched via direct HTTPS REST API (https://api.resend.com/emails) with HTML-escaped templates.', views: ['system', 'email'] },
   { id: 'ext:s3', label: '☁️ S3 Cloud Bucket', file: 'backend/src/services/storage.js', desc: 'Durable private cloud object storage (Cloudflare R2 or AWS S3) storing encrypted provider KYC identity documents and booking photographic evidence.', views: ['system', 'security', 'email', 'deployment'] },
   { id: 'ext:google-oauth', label: '🔑 Google OAuth 2.0', file: 'backend/src/routes/auth.js', desc: 'Federated Google Sign-In validating client tokens via Google tokeninfo API to streamline customer onboarding.', views: ['security', 'email'] },
-  { id: 'ext:postgresql', label: '🗄️ PostgreSQL 15', file: 'backend/prisma/schema.prisma', desc: 'ACID relational database engine hosting all business entities, transactional advisory locks, and decimal financial balances.', views: ['system', 'database', 'deployment'] },
+  { id: 'ext:postgresql', label: '🗄️ Neon PostgreSQL 15', file: 'backend/prisma/schema.prisma', desc: 'Managed serverless Neon PostgreSQL database hosting all relational business entities, ACID transactions, pg_advisory_xact_lock row locks, and exact decimal balances. Configured with pooled DATABASE_URL for runtime queries and direct DIRECT_URL for Prisma migrations.', views: ['system', 'database', 'deployment'] },
 ];
 
 for (const e of externalServices) {
@@ -776,13 +791,14 @@ console.log(`✅ Wrote deterministic Architecture Graph JSON: ${outputJsonPath} 
 // =========================================================================
 console.log('🎨 Generating Interactive Architecture Explorer HTML...');
 
-const htmlContent = `<!DOCTYPE html>
+function buildExplorerHtml(assetPrefix = '.') {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Luxora Live System Architecture Explorer</title>
-  <script type="text/javascript" src="./vis-network.min.js"></script>
+  <script type="text/javascript" src="${assetPrefix}/vis-network.min.js"></script>
   <style>
     :root {
       --bg-primary: #070b14;
@@ -1221,7 +1237,7 @@ const htmlContent = `<!DOCTYPE html>
       <div class="stat-pill">Nodes: <strong id="statNodes">0</strong></div>
       <div class="stat-pill">Edges: <strong id="statEdges">0</strong></div>
       <div class="stat-pill">Views: <strong id="statViews">12</strong></div>
-      <a href="./index.html" class="nav-btn">
+      <a href="${assetPrefix === '.' ? './index.html' : '../'}" class="nav-btn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM9 3v18M3 9h18"/></svg>
         Codebase Knowledge Graph
       </a>
@@ -1316,11 +1332,11 @@ const htmlContent = `<!DOCTYPE html>
   <script type="module">
     let graphData;
     try {
-      const response = await fetch('./architecture-graph.json', { cache: 'no-store' });
+      const response = await fetch('${assetPrefix}/architecture-graph.json', { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       graphData = await response.json();
     } catch (error) {
-      document.body.innerHTML = '<main style="padding:2rem;color:#fff;background:#070b14;font-family:system-ui"><h1>Architecture Graph Unavailable</h1><p>The architecture graph JSON could not be loaded via ./architecture-graph.json.</p></main>';
+      document.body.innerHTML = '<main style="padding:2rem;color:#fff;background:#070b14;font-family:system-ui"><h1>Architecture Graph Unavailable</h1><p>The architecture graph JSON could not be loaded via ' + '${assetPrefix}' + '/architecture-graph.json.</p></main>';
       throw error;
     }
 
@@ -1904,7 +1920,18 @@ const htmlContent = `<!DOCTYPE html>
 </body>
 </html>
 `;
+}
 
-fs.writeFileSync(outputHtmlPath, htmlContent, 'utf8');
-console.log(`✅ Wrote Interactive Architecture Explorer HTML: ${outputHtmlPath} (${htmlContent.length} bytes)`);
+if (!fs.existsSync(outputSubdir)) {
+  fs.mkdirSync(outputSubdir, { recursive: true });
+}
+
+const rootHtmlContent = buildExplorerHtml('.');
+fs.writeFileSync(outputHtmlPath, rootHtmlContent, 'utf8');
+console.log(`✅ Wrote Interactive Architecture Explorer HTML: ${outputHtmlPath} (${rootHtmlContent.length} bytes)`);
+
+const subdirHtmlContent = buildExplorerHtml('..');
+fs.writeFileSync(outputSubdirHtmlPath, subdirHtmlContent, 'utf8');
+console.log(`✅ Wrote Interactive Architecture Explorer Subdir HTML: ${outputSubdirHtmlPath} (${subdirHtmlContent.length} bytes)`);
+
 console.log('🎉 Luxora Live System Architecture Generation Complete!');
