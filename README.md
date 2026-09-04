@@ -16,6 +16,7 @@
 <p align="center">
   <a href="https://luxora.bond">Website</a> ·
   <a href="https://4raisan.github.io/Luxora_v1/">Knowledge Graph</a> ·
+  <a href="https://4raisan.github.io/Luxora_v1/architecture/">Architecture</a> ·
   <a href="docs/api/API-DOCUMENTATION.md">API documentation</a>
 </p>
 
@@ -40,14 +41,15 @@ The application demonstrates the agreed MVP scope. External production services 
 ## Architecture
 
 ```text
-React + Vite frontend
-        │  HTTPS / JSON
+React 19 + Vite frontend (Vercel Global Edge)
+        │  HTTPS / JSON / SSE
         ▼
-Express API ── Prisma ORM ── PostgreSQL
+Express 5 API Gateway (Northflank Container) ── Prisma ORM ── Neon PostgreSQL
     │
-    ├── PayHere / NOWPayments
-    ├── S3-compatible object storage
-    └── Email and notification integrations
+    ├── Server-Sent Events (/api/realtime) ── Realtime Booking & Alert Sync
+    ├── PayHere / NOWPayments ─────────────── Tri-Gateway Payment Settlement
+    ├── S3-compatible object storage ──────── KYC Proof & Booking Evidence
+    └── Resend REST API ───────────────────── Transactional Notifications
 ```
 
 ## Local development
@@ -74,6 +76,8 @@ Local services:
 - API: `http://localhost:5000/api`
 - Health check: `http://localhost:5000/api/health`
 - API reference: `http://localhost:5000/api/docs`
+- Knowledge Graph: `http://localhost:3333/` (`npm run graph:serve`)
+- Architecture Explorer: `http://localhost:3333/architecture/` (`npm run architecture:dev`)
 
 Docker Compose requires its PostgreSQL and application secrets to be configured. Production additionally requires a dedicated bank-encryption key and S3-compatible storage credentials; see the [backend guide](backend/README.md).
 
@@ -85,15 +89,18 @@ npm run test:ci-plan
 npm run lint
 npm run build
 npm run graph:verify
+npm run architecture:verify
 ```
 
-The standard tests, lint, and build protect application behaviour. GitHub uses deterministic, fail-closed [selective CI rules](docs/CI.md) so ordinary commits run only their relevant checks while unknown and high-risk changes receive broader coverage. `graph:verify` regenerates and validates the codebase knowledge graph; review and commit any generated graph changes with the related code change.
+The standard tests, lint, and build protect application behaviour. GitHub uses deterministic, fail-closed [selective CI rules](docs/CI.md) so ordinary commits run only their relevant checks while unknown and high-risk changes receive broader coverage. `graph:verify` regenerates and validates both the codebase knowledge graph and the live architecture graph; review and commit any generated graph changes with the related code change.
 
 ## Deployment
 
-- Frontend: Vercel
-- Backend and PostgreSQL: Northflank or Docker-compatible infrastructure
-- Knowledge Graph explorer: GitHub Pages
+- Frontend: Vercel Global Edge (`https://luxora.bond`)
+- Backend: Northflank Container Cluster (`https://site--luxora-backend--6kb9tg67ytl4.code.run`)
+- Database: Neon Serverless PostgreSQL 15 (pooled `DATABASE_URL` + direct `DIRECT_URL` for migrations)
+- Knowledge Graph: GitHub Pages (`https://4raisan.github.io/Luxora_v1/`)
+- Architecture Explorer: GitHub Pages (`https://4raisan.github.io/Luxora_v1/architecture/`)
 
 Keep production URLs and credentials in the deployment platform. Never commit `.env` files, payment secrets, JWT secrets, bank-encryption keys, database credentials, or cloud-storage credentials.
 
@@ -119,6 +126,8 @@ Knowladge-Graph/      Codebase graph, architecture references, and agent playboo
 | --- | --- |
 | [Requirements and acceptance rules](docs/planning/requirements.md) | Current functional and non-functional behaviour |
 | [Roadmap](docs/planning/roadmap.md) | Current baseline, future work, and external validation still required |
+| [Live System Architecture Explorer](https://4raisan.github.io/Luxora_v1/architecture/) | Interactive live multi-view architecture graph with component drilldowns |
+| [Technical Architecture Document](docs/architecture/TECHNICAL_ARCHITECTURE_AND_SYSTEM_DOCUMENTATION.md) | Full technical systems engineering documentation |
 | [System architecture diagram](docs/architecture/system-architecture.png) | System and deployment overview |
 | [Database ERD](docs/DATABASE-ERD.md) | Entity relationships derived from the Prisma model |
 | [API documentation](docs/api/API-DOCUMENTATION.md) | Active API routes and contracts |
