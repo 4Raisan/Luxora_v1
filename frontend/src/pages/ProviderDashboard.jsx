@@ -86,6 +86,8 @@ const ProviderDashboard = () => {
   const [serviceRequests, setServiceRequests] = useState([])
   const [claimingId, setClaimingId] = useState(null)
   const [claimingServiceRequestId, setClaimingServiceRequestId] = useState(null)
+  const [completingServiceRequestId, setCompletingServiceRequestId] = useState(null)
+  const [showAllServiceRequests, setShowAllServiceRequests] = useState(false)
   /* Availability / earnings / notifications */
   const [availability, setAvailability] = useState('available')
   const [providerCategory, setProviderCategory] = useState('')
@@ -225,7 +227,7 @@ const ProviderDashboard = () => {
         apiRequest('/provider/availability', 'GET', null, token),
         apiRequest('/bookings/assigned', 'GET', null, token),
         apiRequest('/bookings/pending', 'GET', null, token).catch(() => []),
-        apiRequest('/support/service-requests/provider', 'GET', null, token).catch(() => []),
+        apiRequest('/support/service-requests/provider?include_completed=true', 'GET', null, token).catch(() => []),
         apiRequest('/provider/earnings', 'GET', null, token),
         apiRequest('/support/my', 'GET', null, token).catch(() => []),
       ])
@@ -274,7 +276,7 @@ const ProviderDashboard = () => {
   const refreshServiceRequests = useCallback(async () => {
     if (!token) return
     try {
-      const rows = await apiRequest('/support/service-requests/provider', 'GET', null, token)
+      const rows = await apiRequest('/support/service-requests/provider?include_completed=true', 'GET', null, token)
       setServiceRequests((Array.isArray(rows) ? rows : []).map(mapServiceRequestRow))
     } catch (error) {
       setLoadError(error.message || 'Could not refresh requested services.')
@@ -371,6 +373,22 @@ const ProviderDashboard = () => {
     }
   }, [token, refreshServiceRequests, loadNotifications])
 
+  const handleCompleteServiceRequest = useCallback(async (requestId) => {
+    if (!token) return
+    setCompletingServiceRequestId(requestId)
+    setBusy(true)
+    try {
+      await apiRequest(`/support/service-requests/${requestId}/complete`, 'POST', null, token)
+      await Promise.all([refreshServiceRequests(), loadNotifications()])
+    } catch (error) {
+      alert(error.message || 'Could not mark this requested service as completed.')
+      await refreshServiceRequests()
+    } finally {
+      setCompletingServiceRequestId(null)
+      setBusy(false)
+    }
+  }, [token, refreshServiceRequests, loadNotifications])
+
   useEffect(() => { void loadAll() }, [loadAll])
   useEffect(() => { void loadNotifications() }, [loadNotifications])
   useEffect(() => { setCancellationReason('') }, [selectedDetailsBooking?.apiId])
@@ -396,7 +414,7 @@ const ProviderDashboard = () => {
         return
       }
 
-      if (type === 'SERVICE_REQUEST_CREATED' || type === 'SERVICE_REQUEST_ASSIGNED') {
+      if (['SERVICE_REQUEST_CREATED', 'SERVICE_REQUEST_ASSIGNED', 'SERVICE_REQUEST_COMPLETED'].includes(type)) {
         void refreshServiceRequests()
         void loadNotifications()
         return
@@ -669,7 +687,15 @@ const ProviderDashboard = () => {
   const visibleBookings = bookingsList
 
   const activeRows = visibleBookings.filter((b) => ['ASSIGNED', 'IN_PROGRESS'].includes(b.status))
-  const requestRows = serviceRequests
+  const requestRows = serviceRequests.filter((request) => request.status !== 'COMPLETED')
+  const completedRequestRows = serviceRequests.filter((request) => request.status === 'COMPLETED')
+  const calendarServiceRequests = requestRows
+    .filter((request) => !request.claimable && request.status === 'ASSIGNED')
+    .map((request) => ({
+      ...request,
+      sub: `${request.customerName}${request.town ? ` • ${request.town}` : ''} • Requested service`,
+      color: STATUS_COLORS.ASSIGNED,
+    }))
   const inProgressRows = visibleBookings.filter((b) => b.status === 'IN_PROGRESS')
   const upcomingRows = visibleBookings
     .filter((b) => b.status === 'ASSIGNED')
@@ -1212,6 +1238,9 @@ const ProviderDashboard = () => {
                       <span className="pd-badge-gold">NEW REQUESTS ({requestRows.filter((request) => request.claimable).length})</span>
                     )}
                   </div>
+                  <button type="button" className="pd-booking__details" onClick={() => setShowAllServiceRequests((current) => !current)}>
+                    {showAllServiceRequests ? 'HIDE ALL' : 'VIEW ALL'}
+                  </button>
                 </div>
                 <div className="pd-custom-requests">
                   {requestRows.length === 0 && (
@@ -1244,15 +1273,27 @@ const ProviderDashboard = () => {
                           <span className="pd-cr-budget">{b.category}</span>
                         </div>
                         <div className="pd-cr-actions">
-                          <button
-                            type="button"
-                            className="pd-cr-btn-accept pd-request-accept-btn"
-                            disabled={!b.claimable || busy || claimingServiceRequestId === b.apiId}
-                            onClick={() => b.claimable && handleClaimServiceRequest(b.apiId)}
-                            title={b.claimable ? 'Accept this custom service request' : 'You have already accepted this request'}
-                          >
-                            {!b.claimable ? 'REQUEST ACCEPTED' : claimingServiceRequestId === b.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}
-                          </button>
+                          {b.claimable ? (
+                            <button
+                              type="button"
+                              className="pd-cr-btn-accept pd-request-accept-btn"
+                              disabled={busy || claimingServiceRequestId === b.apiId}
+                              onClick={() => handleClaimServiceRequest(b.apiId)}
+                              title="Accept this custom service request"
+                            >
+                              {claimingServiceRequestId === b.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="pd-cr-btn-accept pd-request-accept-btn"
+                              disabled={busy || completingServiceRequestId === b.apiId}
+                              onClick={() => handleCompleteServiceRequest(b.apiId)}
+                              title="Mark this accepted requested service as completed"
+                            >
+                              {completingServiceRequestId === b.apiId ? 'MARKING DONE...' : 'MARK AS DONE'}
+                            </button>
+                          )}
                           {b.customerPhone && (
                             <a className="pd-cr-btn-decline" href={`tel:${b.customerPhone}`} style={{ textDecoration: 'none' }}>
                               CONTACT CUSTOMER
@@ -1263,13 +1304,43 @@ const ProviderDashboard = () => {
                     </div>
                   ))}
                 </div>
+                {showAllServiceRequests && (
+                  <div className="pd-custom-requests" style={{ marginTop: '1rem' }}>
+                    <div className="pd-section-header" style={{ marginTop: 0 }}>
+                      <h3 className="pd-section-title" style={{ fontSize: '0.95rem' }}>Ongoing Requested Services ({requestRows.length})</h3>
+                    </div>
+                    {requestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No ongoing requested services.</p>}
+                    {requestRows.map((request) => (
+                      <div key={`ongoing-${request.apiId}`} className="pd-cr-card" style={{ padding: '0.9rem 1rem' }}>
+                        <div className="pd-cr-header">
+                          <div><span className="pd-cr-client">👤 {request.customerName}</span><h3 className="pd-cr-service">{request.title}</h3></div>
+                          <span className="pd-cr-status pd-cr-status--new">{request.claimable ? 'AVAILABLE' : 'ONGOING'}</span>
+                        </div>
+                        <p className="pd-cr-notes">📅 {request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
+                      </div>
+                    ))}
+                    <div className="pd-section-header" style={{ marginTop: '1.5rem' }}>
+                      <h3 className="pd-section-title" style={{ fontSize: '0.95rem' }}>Completed Requested Services ({completedRequestRows.length})</h3>
+                    </div>
+                    {completedRequestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No completed requested services yet.</p>}
+                    {completedRequestRows.map((request) => (
+                      <div key={`completed-${request.apiId}`} className="pd-cr-card" style={{ padding: '0.9rem 1rem', opacity: 0.78 }}>
+                        <div className="pd-cr-header">
+                          <div><span className="pd-cr-client">👤 {request.customerName}</span><h3 className="pd-cr-service">{request.title}</h3></div>
+                          <span className="pd-cr-status" style={{ borderColor: STATUS_COLORS.COMPLETED, color: STATUS_COLORS.COMPLETED }}>COMPLETED</span>
+                        </div>
+                        <p className="pd-cr-notes">📅 {request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* ══ RIGHT PANEL ══ */}
               <div className="pd-panel-right">
                 {/* Calendar */}
                 <div className="pd-widget" id="cal-widget">
-                  <Calendar bookings={upcomingRows} selectedDay={selectedCalendarDay} onSelectDay={setSelectedCalendarDay} />
+                  <Calendar bookings={[...upcomingRows, ...calendarServiceRequests]} selectedDay={selectedCalendarDay} onSelectDay={setSelectedCalendarDay} />
                 </div>
 
                 {/* Session payout rates */}
