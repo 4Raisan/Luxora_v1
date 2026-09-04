@@ -129,7 +129,7 @@ const ProviderDashboard = () => {
 
   const cancelAssignedBooking = async () => {
     if (!selectedDetailsBooking) return
-    const confirmed = window.confirm('Cancel this assigned booking? You can only cancel when at least four hours remain. Luxora will immediately assign an eligible replacement. If none is available, the booking is cancelled and the customer token is restored.')
+    const confirmed = window.confirm('Cancel this assigned booking? Cancellation is unavailable when fewer than four hours remain. When allowed, Luxora immediately assigns an eligible replacement. If none is available, the booking is cancelled and the customer token is restored.')
     if (!confirmed) return
     setBusy(true)
     try {
@@ -1418,7 +1418,7 @@ const ProviderDashboard = () => {
               {selectedDetailsBooking.status === 'ASSIGNED' && (
                 <div className="pd-profile-field">
                   <label>CANCEL ASSIGNED BOOKING</label>
-                  <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>You can cancel only when at least four hours remain. An eligible provider is assigned automatically; otherwise the booking is cancelled and the customer token is restored.</p>
+                  <p style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.55rem' }}>Cancellation is unavailable when fewer than four hours remain. When cancellation is allowed, Luxora automatically assigns an eligible replacement; otherwise the booking is cancelled and the customer token is restored.</p>
                   <button type="button" className="pd-cr-btn-decline" disabled={busy} style={{ marginTop: '0.65rem' }} onClick={cancelAssignedBooking}>
                     {busy ? 'CANCELLING…' : 'CANCEL BOOKING'}
                   </button>
