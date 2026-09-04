@@ -128,6 +128,8 @@ const AdminDashboard = () => {
     try { return JSON.parse(sessionStorage.getItem('user') || '{}') } catch { return {} }
   })
   const [activeNav, setActiveNav] = useState('dashboard')
+  /* Mobile nav drawer: collapsed by default on phones (see .ad-sidebar.is-open). Desktop unaffected. */
+  const [navOpen, setNavOpen] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -547,13 +549,14 @@ const AdminDashboard = () => {
       <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeSignOut} />
 
       {/* Sidebar */}
-      <aside className="ad-sidebar">
+      <aside className={`ad-sidebar ${navOpen ? 'is-open' : ''}`}>
         <div className="ad-sidebar__logo">
           <img src="/luxora-logo.png" alt="LUXORA" className="ad-logo-img" />
+          <button type="button" className="ad-menu-btn" aria-label={navOpen ? 'Close admin menu' : 'Open admin menu'} aria-expanded={navOpen} onClick={() => setNavOpen((v) => !v)}>☰</button>
         </div>
         <nav className="ad-nav">
           {NAV_ITEMS.map((item) => (
-            <button key={item.id} className={`ad-nav__item ${activeNav === item.id ? 'ad-nav__item--active' : ''}`} onClick={() => setActiveNav(item.id)}>
+            <button key={item.id} className={`ad-nav__item ${activeNav === item.id ? 'ad-nav__item--active' : ''}`} onClick={() => { setActiveNav(item.id); setNavOpen(false) }}>
               <span className="ad-nav__icon"><item.icon /></span>
               <span className="ad-nav__label">{item.label}</span>
               {item.id === 'cancellation_requests' && pendingCancellationRequests.length > 0 && <span className="ad-nav__badge">{pendingCancellationRequests.length}</span>}
@@ -654,7 +657,7 @@ const AdminDashboard = () => {
                     borderRadius: '7px', padding: '0.5rem 0.9rem', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
                   }}>{role}S ({users.filter((u) => (u.role || '').toUpperCase() === role).length})</button>
                 ))}
-                <input style={{ ...fieldStyle, maxWidth: '260px', marginLeft: 'auto' }} placeholder="Search name or email…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
+                <input className="ad-search-input" style={{ ...fieldStyle, maxWidth: '260px', marginLeft: 'auto' }} placeholder="Search name or email…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
               </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>NAME</th><th>EMAIL</th><th>TOWN</th><th>ACTIVE PLAN</th><th>JOINED</th><th>STATUS</th><th>ACTION</th></tr></thead>
@@ -1211,7 +1214,7 @@ const AdminDashboard = () => {
           eyebrow={`REDEMPTION REQUEST #${redemptionDecision.payout.id}`}
           onClose={() => { if (!busy) setRedemptionDecision(null) }}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem', padding: '0.9rem', border: '1px solid #2b2b2b', borderRadius: '10px', background: '#0d0d0f' }}>
+          <div className="ad-form-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem', padding: '0.9rem', border: '1px solid #2b2b2b', borderRadius: '10px', background: '#0d0d0f' }}>
             <div><small style={{ color: '#777', display: 'block' }}>PROVIDER</small><strong style={{ color: '#fff', display: 'block', marginTop: '0.2rem' }}>{redemptionDecision.payout.provider_name}</strong></div>
             <div><small style={{ color: '#777', display: 'block' }}>AMOUNT</small><strong style={{ color: 'var(--gold, #c9a84c)', display: 'block', marginTop: '0.2rem' }}>{fmtMoney(redemptionDecision.payout.amount)}</strong></div>
             <div><small style={{ color: '#777', display: 'block' }}>BANK</small><strong style={{ color: '#ddd', display: 'block', marginTop: '0.2rem' }}>{redemptionDecision.payout.bank_name || '—'}</strong></div>
@@ -1367,7 +1370,7 @@ const AdminDashboard = () => {
             <>
               <p style={{ color: '#fff', fontWeight: 700, fontSize: '1rem', margin: '0 0 0.35rem' }}>{planDetails.title}</p>
               {planDetails.description && <p style={{ color: '#bbb', fontSize: '0.84rem', lineHeight: 1.5 }}>{planDetails.description}</p>}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.65rem', marginTop: '1rem' }}>
+              <div className="ad-form-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.65rem', marginTop: '1rem' }}>
                 <div><span style={{ color: '#777', fontSize: '0.7rem' }}>ORDER / #</span><strong style={{ display: 'block', color: 'var(--gold, #c9a84c)', marginTop: '0.15rem' }}>#{planDetails.displayOrder || planDetails.id}</strong></div>
                 <div><span style={{ color: '#777', fontSize: '0.7rem' }}>PRICE</span><strong style={{ display: 'block', color: '#fff', marginTop: '0.15rem' }}>{fmtMoney(planDetails.priceMonthly)} / {planDetails.durationDays || 30}d</strong></div>
                 <div><span style={{ color: '#777', fontSize: '0.7rem' }}>STATUS</span><div style={{ marginTop: '0.25rem' }}><StatBadge value={planDetails.active ? 'active' : 'closed'} /></div></div>
@@ -1394,13 +1397,13 @@ const AdminDashboard = () => {
       {planEditor && (
         <Modal title={planEditor.id ? `EDIT PACKAGE #${planEditor.id}` : 'NEW PACKAGE'} onClose={() => setPlanEditor(null)}>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
+            <div className="ad-form-grid-uneven" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
               <label style={{ color: '#888', fontSize: '0.75rem' }}>Title
                 <input style={fieldStyle} value={planEditor.title} onChange={(e) => setPlanEditor({ ...planEditor, title: e.target.value })} /></label>
               <label style={{ color: '#888', fontSize: '0.75rem' }}>Order / #
                 <input type="number" min="1" style={fieldStyle} placeholder="1" value={planEditor.displayOrder ?? ''} onChange={(e) => setPlanEditor({ ...planEditor, displayOrder: e.target.value })} /></label>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="ad-form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <label style={{ color: '#888', fontSize: '0.75rem' }}>Price (LKR)
                 <input type="number" min="0" style={fieldStyle} value={planEditor.price} onChange={(e) => setPlanEditor({ ...planEditor, price: e.target.value })} /></label>
               <label style={{ color: '#888', fontSize: '0.75rem' }}>Duration

@@ -64,6 +64,33 @@ button, input, select, textarea {
   body {
     font-size: 0.92rem;
   }
+  /* Mobile overflow guard: long words/URLs/tokens must wrap instead of
+     forcing the page wider than the viewport. Desktop untouched. */
+  body, main, section, article, div {
+    overflow-wrap: anywhere;
+  }
+  p, h1, h2, h3, h4, h5, h6, span, td, th, li {
+    overflow-wrap: break-word;
+  }
+  /* Prevent iOS auto-zoom on focus: inputs below 16px force a zoom that
+     breaks fixed/sticky layouts. Desktop font sizes unchanged. */
+  input, select, textarea {
+    font-size: max(16px, 1em);
+  }
+  /* Media never exceeds its container on narrow screens. */
+  img, video, iframe, table {
+    max-width: 100%;
+  }
+  /* Native file inputs render the chosen filename inline; keep the row
+     inside the viewport on narrow screens. Desktop unaffected. */
+  input[type="file"] {
+    max-width: 100%;
+  }
+}
+
+/* Respect notched devices: keep fixed bottom bars clear of the home bar. */
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 a {

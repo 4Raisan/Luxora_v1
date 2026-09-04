@@ -454,5 +454,45 @@
   text-decoration: underline;
 }
 
+/* ── Mobile: footer dialogs fit 320px viewports ────────────────
+   Desktop rules above are untouched. */
+@media (max-width: 480px) {
+  .about-modal__backdrop {
+    padding: 0.75rem;
+  }
+  .about-modal__window {
+    padding: 1.5rem 1.15rem 1.25rem;
+    border-radius: 14px;
+    max-height: calc(100dvh - 1.5rem);
+    overflow-y: auto;
+  }
+  .about-modal__title {
+    font-size: 1.35rem;
+    padding-right: 2.5rem;
+  }
+  .about-modal__close {
+    min-width: 44px;
+    min-height: 44px;
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+  .about-modal__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .about-modal__btn {
+    width: 100%;
+    min-height: 48px;
+  }
+  .contact-modal__item {
+    padding: 0.85rem;
+    gap: 0.8rem;
+  }
+  .contact-modal__val {
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+  }
+}
+
 
 

@@ -154,3 +154,24 @@
   color: #888;
   font-weight: 500;
 }
+
+/* ── Mobile: 44px-equivalent touch days, larger steppers ────────
+   The 7-column grid is kept (a calendar must stay 7 columns) but day
+   cells gain a minimum tap height and legible type at 320px. */
+@media (max-width: 640px) {
+  .cal__month-label { font-size: 0.74rem; }
+  .cal__nav-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+  }
+  .cal__dow { font-size: 0.62rem; }
+  .cal__day {
+    font-size: 0.8rem;
+    min-height: 40px;
+    border-radius: 8px;
+  }
+  .cal__booking-dot { bottom: 4px; width: 5px; height: 5px; }
+  .cal__footer-text { font-size: 0.76rem; }
+}

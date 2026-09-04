@@ -1897,6 +1897,10 @@
 
   .pd-topbar__account-pill { padding: 0.35rem; }
 
+  /* Key topbar controls meet touch minimums on phones only. */
+  .pd-topbar__icon-btn { min-width: 44px; min-height: 44px; }
+  .pd-drawer__close { min-width: 44px; min-height: 44px; }
+
   /* Compact typography */
   .pd-greeting__title { font-size: 1.35rem; }
   .pd-section-title { font-size: 1.05rem; }
@@ -1931,13 +1935,14 @@
 
   .pd-booking__status { font-size: 0.6rem; padding: 0.25rem 0.5rem; }
 
-  .pd-booking__details { padding: 0.3rem 0.4rem; }
+  .pd-booking__details { padding: 0.3rem 0.4rem; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 
   /* Filter chips scroll horizontally instead of wrapping tall */
   .pd-bookings-filter-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     padding-bottom: 0.4rem;
     margin-bottom: 1rem;
   }
@@ -1963,7 +1968,7 @@
   .pd-cr-meta { flex-wrap: wrap; }
 
   /* Modals & drawer become near-full-screen sheets */
-  .pd-drawer-overlay { padding: 0.5rem; }
+  .pd-drawer-overlay { padding: 0.5rem 0.5rem max(0.5rem, env(safe-area-inset-bottom, 0px)); }
 
   .pd-modal,
   .pd-drawer {
@@ -1986,6 +1991,7 @@
 
   /* Photo uploads */
   .pd-photo-row__head { flex-wrap: wrap; gap: 0.4rem; }
+  .pd-photo-upload { min-height: 40px; display: inline-flex; align-items: center; }
 }
 
 @media (max-width: 420px) {
@@ -1994,4 +2000,28 @@
   .pd-greeting__title { font-size: 1.15rem; }
   .pd-all-booking-actions > *,
   .pd-cr-actions > * { flex: 1 1 100%; }
+}
+
+/* ── Narrow phones (≤380px): stat tiles and topbar stay legible ──
+   The ≤768px layer uses 3 compact tiles; at 320px each tile is ~95px
+   wide and "LKR 1,234,567" clips. Two columns keep values readable. */
+@media (max-width: 380px) {
+  .pd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pd-stat { overflow-wrap: anywhere; }
+  .pd-stat__value { font-size: 0.9rem; }
+  .pd-content { padding: 0.85rem 0.75rem 6rem; }
+  .pd-topbar { padding: 0.6rem 0.75rem; }
+  .pd-topbar__account-pill { min-width: 0; max-width: 100%; }
+  .pd-topbar__user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pd-edit-input { min-height: 46px; }
+  .pd-drawer-overlay { padding: 0.5rem 0.5rem max(0.5rem, env(safe-area-inset-bottom, 0px)); }
+  /* Service-area chips: the remove control stays tappable. */
+  .pd-chip-x button { min-width: 32px; min-height: 32px; }
+  .pd-area-mode { flex-direction: column; }
+  .pd-area-mode__btn { min-height: 44px; }
+  /* Provider calendar keeps its 7-column structure (a calendar must stay
+     7 columns) but day cells and steppers meet touch minimums. */
+  .pd-calendar__nav button { width: 36px; height: 36px; font-size: 1rem; border-radius: 8px; }
+  .pd-calendar__day { min-height: 40px; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; }
+  .pd-calendar__dow { font-size: 0.6rem; }
 }

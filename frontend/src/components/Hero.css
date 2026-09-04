@@ -195,6 +195,31 @@
   }
   .hero__actions {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+  }
+  .hero__btn-primary,
+  .hero__btn-secondary {
+    width: 100%;
+    min-height: 52px;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero__content {
+    padding: 0 1rem;
+    padding-top: 72px;
+  }
+  .hero__heading {
+    font-size: 2rem;
+    overflow-wrap: break-word;
+  }
+  .hero__badge {
+    font-size: 0.62rem;
+    max-width: 100%;
+  }
+  .hero__scroll {
+    display: none;
   }
 }

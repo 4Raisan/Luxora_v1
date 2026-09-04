@@ -150,3 +150,49 @@
 .ui-button--secondary:hover{border-color:#4a4c48;color:#fff}
 .ui-button--text{background:transparent;color:var(--p-muted,#989b96);border:0}
 .ui-button--text:hover{color:var(--p-text,#f3f1eb)}
+
+/* ── Mobile (touch-first) ──────────────────────────────────────
+   Desktop rules above are untouched; everything below only narrows. */
+@media(max-width:640px){
+  .ui-overlay{padding:12px 12px max(12px, env(safe-area-inset-bottom, 0px))}
+  .ui-modal{width:100%;max-height:calc(100dvh - 24px);border-radius:12px}
+  .ui-modal--wide{width:100%}
+  .ui-modal-head{padding:16px 16px 0}
+  .ui-modal-head h3{font-size:17px}
+  .ui-modal-close{min-width:40px;min-height:40px;font-size:14px}
+  .ui-modal-body{padding:14px 16px 16px}
+  .ui-modal-foot{flex-wrap:wrap;padding:0 16px 16px}
+  .ui-modal-foot .ui-button{flex:1 1 auto;min-height:44px;text-align:center}
+  /* Two-column form grids become one column so fields never squeeze. */
+  .ui-fields{grid-template-columns:1fr}
+  .ui-field input,.ui-field select,.ui-field textarea{min-height:44px}
+  /* Pills stay tappable and wrap instead of overflowing. */
+  .ui-pills button{min-height:36px;padding:8px 14px}
+  /* Search stretches full width instead of forcing a 220px minimum. */
+  .ui-search{min-width:0;width:100%;flex:1 1 auto}
+  .ui-search input{min-height:40px}
+  /* Booking wizard: steps scroll horizontally, categories stack. */
+  .wizard-steps{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;padding-bottom:4px}
+  .wizard-steps span{flex:1 0 auto;min-height:36px;display:inline-flex;align-items:center;justify-content:center}
+  .wizard-category-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
+  .wizard-category{min-height:72px}
+  .wizard-actions{flex-wrap:wrap}
+  .wizard-actions .ui-button{flex:1 1 auto;min-height:44px}
+  .wizard-review div{flex-wrap:wrap;gap:4px}
+  /* PIN + receipt + KYC meta: single column on phones. */
+  .pin-display{grid-template-columns:1fr}
+  .pin-display b{font-size:26px;letter-spacing:.18em}
+  .ui-receipt dl{grid-template-columns:1fr}
+  .kyc-meta{grid-template-columns:1fr}
+  .kyc-preview iframe{height:44vh}
+  /* Notifications: timestamp wraps below the message. */
+  .ui-notification-item{grid-template-columns:auto 1fr}
+  .ui-notification-item small{grid-column:2}
+  .ui-button{min-height:44px}
+  /* Shared provider calendar: 7 columns are kept, cells grow to touch size. */
+  .provider-calendar-day{min-height:42px}
+  .provider-calendar-head button{width:36px;height:36px}
+}
+@media(max-width:380px){
+  .wizard-category-grid{grid-template-columns:1fr}
+}

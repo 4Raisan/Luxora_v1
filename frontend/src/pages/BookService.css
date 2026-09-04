@@ -116,3 +116,57 @@
   padding: 0.7rem 1.3rem; border-radius: 999px; cursor: pointer; transition: var(--transition);
 }
 .bs-btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Mobile (touch-first) ──────────────────────────────────────
+   Desktop rules above are untouched. */
+@media (max-width: 640px) {
+  .bs {
+    padding: calc(72px + 1rem) 0.85rem 3rem;
+    align-items: flex-start;
+  }
+  .bs-card {
+    padding: 1.5rem 1.15rem;
+    border-radius: 16px;
+  }
+  .bs-title {
+    font-size: 1.6rem;
+  }
+  .bs-sub {
+    font-size: 0.84rem;
+    margin-bottom: 1.5rem;
+  }
+  /* Date + time stack so neither input squeezes below a usable width. */
+  .bs-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .bs-select, .bs-input {
+    min-height: 48px;
+  }
+  .bs-submit {
+    min-height: 50px;
+  }
+  .bs-success__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bs-btn-gold, .bs-btn-ghost {
+    width: 100%;
+    min-height: 48px;
+    text-align: center;
+  }
+  .bs-pin strong {
+    display: inline-block;
+    margin-top: 0.3rem;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 380px) {
+  .bs-card {
+    padding: 1.25rem 0.95rem;
+  }
+  .bs-title {
+    font-size: 1.4rem;
+  }
+}

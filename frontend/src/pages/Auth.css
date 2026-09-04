@@ -485,6 +485,9 @@
 
 /* ─── Responsive ────────────────────────────────────────── */
 @media (max-width: 540px) {
+  .auth-page {
+    padding: 5rem 0.85rem 3rem;
+  }
   .auth-card {
     padding: 2rem 1.5rem 1.75rem;
     border-radius: 16px;
@@ -496,6 +499,35 @@
 
   .auth-card__title {
     font-size: 1.5rem;
+  }
+
+  /* Password eye meets the touch minimum without moving the icon. */
+  .auth-eye {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    right: 0.35rem;
+  }
+
+  /* Remember-me + forgot-password wrap instead of squeezing. */
+  .auth-row {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  /* Text-button target meets the touch minimum (was ~16px tall). */
+  .auth-forgot {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .auth-submit {
+    min-height: 50px;
+  }
+
+  .auth-logo-img {
+    height: 60px;
   }
 }
 
@@ -568,6 +600,34 @@
   font-size: 10.5px;
   letter-spacing: 0.03em;
   text-align: center;
+}
+
+/* ─── Tablet touch targets (≤768px) ───────────────────────────
+   Phones are covered above; this extends only the tap-target sizing
+   (no layout or aesthetic changes) so the required 768×1024 viewport
+   keeps reachable controls. Desktop above 768px is untouched. */
+@media (max-width: 768px) {
+  .auth-eye {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    right: 0.35rem;
+  }
+  .auth-submit {
+    min-height: 50px;
+  }
+  .auth-forgot {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* Inline-sized 32px close buttons in JSX; override is mobile-scoped. */
+  .auth-card-close-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* ─── Reduced Motion ────────────────────────────────────── */

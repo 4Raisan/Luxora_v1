@@ -2346,11 +2346,13 @@
     overflow-x: auto;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     padding-bottom: 0.25rem;
   }
   .cd-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
   .cd-pills-bar {
     flex-wrap: wrap;
@@ -2726,6 +2728,7 @@
     flex: 1 1 auto;
     min-width: 0;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     gap: 0.4rem;
     padding: 0.2rem 0;
@@ -2789,8 +2792,8 @@
   /* ── Confirm-booking modal: rows stack, billing options single column ── */
   .cd-book-confirm-row { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
   .cd-book-confirm-details { padding: 1rem; }
-  .cd-support-overlay { padding: 0.6rem; }
-  .cd-support-modal { padding: 1.25rem !important; border-radius: 16px !important; max-height: calc(100vh - 1.2rem); }
+  .cd-support-overlay { padding: 0.6rem 0.6rem max(0.6rem, env(safe-area-inset-bottom, 0px)); }
+  .cd-support-modal { padding: 1.25rem !important; border-radius: 16px !important; max-height: calc(100dvh - 1.2rem); }
   .cd-address-modal { padding: 1.25rem !important; }
 
   /* ── Plans page: compact toggles and cards ── */
@@ -2799,7 +2802,7 @@
   .cd-combo-card { padding: 1rem !important; }
 
   /* ── Tables stay horizontally scrollable with readable sizing ── */
-  .cd-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .cd-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
   .cd-table { font-size: 0.78rem; min-width: 560px; }
 
   /* Active bookings: no wide table on phones — each booking renders as a
@@ -2839,7 +2842,13 @@
   .cd-booking-success-toast { font-size: 0.78rem; padding: 0.7rem 0.9rem; }
 
   /* ── Drawers (notifications / profile) cover the full phone screen ── */
-  .cd-drawer-window { width: 100% !important; max-width: 100% !important; }
+  .cd-drawer-window {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh;
+    padding-bottom: max(2.5rem, env(safe-area-inset-bottom, 0px));
+  }
+  .cd-drawer-close { min-width: 44px; min-height: 44px; }
 }
 
 @media (max-width: 400px) {
@@ -2901,4 +2910,29 @@
 .cd-easypay__help-body ul {
   margin: 0.4rem 0;
   padding-left: 1.1rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE REFINEMENTS — narrow-phone fixes (≤400px)
+   The ≤760px layer above handles the phone layout; these rules fix
+   actual cramping observed at 320–360px without touching desktop.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 400px) {
+  /* Scheduler tiles: 3 columns leave ~90px per tile at 320px, clipping
+     category names and times. Two columns stay tappable and legible. */
+  .cd-cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .cd-time-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .cd-pet-type-grid { grid-template-columns: 1fr; }
+
+  /* Package actions: half-width buttons clip labels at 320px. */
+  .cd-package-card__info > div > button { flex: 1 1 100%; min-height: 44px; }
+
+  /* EasyPay header wraps instead of squeezing the badge off-screen. */
+  .cd-easypay__head { flex-wrap: wrap; }
+
+  /* Confirm rows keep labels above values so prices never clip. */
+  .cd-book-confirm-row strong { overflow-wrap: anywhere; }
+
+  /* Support modal close stays reachable and tappable. */
+  .cd-support-modal__close { min-width: 44px; min-height: 44px; top: 0; right: 0; }
 }

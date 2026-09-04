@@ -245,14 +245,57 @@
 }
 
 @media (max-width: 900px) {
+  .navbar {
+    padding: 0 1rem;
+  }
   .navbar__links,
   .navbar__actions {
     display: none;
   }
   .navbar__hamburger {
     display: flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
   }
   .navbar__mobile {
     display: flex;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+    /* Closed menu must not swallow taps: it sits invisible (opacity 0)
+       over the hero until opened. Desktop base stays display:none. */
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .navbar__mobile--open {
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .navbar__mobile-link {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .navbar {
+    padding: 0 0.75rem;
+  }
+  .navbar__logo-img {
+    height: 42px;
+  }
+  .navbar__mobile {
+    padding: 1.25rem 1rem 1.75rem;
+  }
+  /* Login / Sign-up stack full-width so neither clips at 320px. */
+  .navbar__mobile-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .navbar__mobile-actions > * {
+    min-height: 48px;
+    text-align: center;
   }
 }

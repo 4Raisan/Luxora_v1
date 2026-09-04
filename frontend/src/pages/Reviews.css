@@ -63,3 +63,35 @@
   transition: var(--transition);
 }
 .rv-submit:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold); }
+
+/* ── Mobile (touch-first) ──────────────────────────────────────
+   Desktop rules above are untouched. */
+@media (max-width: 640px) {
+  .rv {
+    padding: calc(72px + 1rem) 0.85rem 3rem;
+    align-items: flex-start;
+  }
+  .rv-card {
+    padding: 1.5rem 1.15rem;
+    border-radius: 16px;
+  }
+  .rv-title {
+    font-size: 1.55rem;
+    margin-bottom: 1.2rem;
+    overflow-wrap: break-word;
+  }
+  .rv-select, .rv-textarea {
+    min-height: 48px;
+  }
+  /* Stars meet the 44px touch minimum without changing desktop size. */
+  .rv-star {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rv-submit {
+    min-height: 50px;
+  }
+}
