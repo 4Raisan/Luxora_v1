@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { apiRequest } from '../services/api'
-import AccountVerificationPanel from '../components/AccountVerificationPanel'
 import { ActionButton } from '../components/ui'
 import LogoutOverlay from '../components/LogoutOverlay'
 import ActiveBookingCards from '../components/ActiveBookingCards'
@@ -2866,16 +2865,6 @@ const CustomerDashboard = () => {
                 </div>
               </form>
 
-              {/* ── LUXORA MULTI-METHOD ACCOUNT VERIFICATION ── */}
-              <AccountVerificationPanel
-                currentUser={currentUser}
-                onUserUpdated={(updated) => {
-                  setCurrentUser(updated);
-                  try {
-                    sessionStorage.setItem('user', JSON.stringify(updated));
-                  } catch {}
-                }}
-              />
             </div>
 
             <div className="cd-profile-section-divider" />
