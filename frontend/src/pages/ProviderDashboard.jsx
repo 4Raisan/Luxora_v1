@@ -1604,25 +1604,6 @@ const ProviderDashboard = () => {
               </div>
 
               <div className="pd-profile-field">
-                <label>SERVICE AVAILABILITY</label>
-                <div className="pd-avail" style={{ marginTop: '0.5rem' }}>
-                  {AVAILABILITY_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      disabled={busy}
-                      className={`pd-avail__btn ${availability === opt.value ? 'pd-avail__btn--active' : ''}`}
-                      onClick={() => saveAvailability(opt.value)}
-                    >
-                      <span className="pd-avail__dot" />
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="pd-avail__hint">{activeAvailability?.hint || ''}</p>
-              </div>
-
-              <div className="pd-profile-field">
                 <label>SERVICE CATEGORIES</label>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
                   {(providerCategories.length ? providerCategories : (providerCategory ? [providerCategory] : ['—'])).map((category) => <span key={category} className="pd-service-chip">{category}</span>)}
@@ -1744,6 +1725,25 @@ const ProviderDashboard = () => {
                   Keep your mobile number current so customers can reach you about assigned work.
                 </small>
 
+              </div>
+
+              <div className="pd-edit-field">
+                <label style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.35rem', display: 'block' }}>SERVICE AVAILABILITY</label>
+                <div className="pd-avail">
+                  {AVAILABILITY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={busy || settingsSaving}
+                      className={`pd-avail__btn ${availability === opt.value ? 'pd-avail__btn--active' : ''}`}
+                      onClick={() => saveAvailability(opt.value)}
+                    >
+                      <span className="pd-avail__dot" />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="pd-avail__hint">{activeAvailability?.hint || ''}</p>
               </div>
 
               {/* Service categories — providers choose the work they offer. */}
