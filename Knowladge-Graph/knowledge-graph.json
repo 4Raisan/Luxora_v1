@@ -6,10 +6,10 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 198,
-    "totalEdges": 421,
+    "totalNodes": 204,
+    "totalEdges": 434,
     "nodesByGroup": {
-      "api": 98,
+      "api": 104,
       "database": 33,
       "frontend": 34,
       "middleware": 3,
@@ -634,6 +634,51 @@
       }
     },
     {
+      "id": "endpoint:GET_/api/support/service-requests/admin",
+      "label": "GET /api/support/service-requests/admin",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/support.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/support/service-requests/admin",
+        "routeFile": "support.js"
+      },
+      "source": {
+        "path": "backend/src/routes/support.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/support/service-requests/my",
+      "label": "GET /api/support/service-requests/my",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/support.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/support/service-requests/my",
+        "routeFile": "support.js"
+      },
+      "source": {
+        "path": "backend/src/routes/support.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/support/service-requests/provider",
+      "label": "GET /api/support/service-requests/provider",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/support.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/support/service-requests/provider",
+        "routeFile": "support.js"
+      },
+      "source": {
+        "path": "backend/src/routes/support.js"
+      }
+    },
+    {
       "id": "endpoint:GET_/api/uploads/kyc/:id",
       "label": "GET /api/uploads/kyc/:id",
       "type": "ApiEndpoint",
@@ -1122,6 +1167,51 @@
       "metadata": {
         "method": "POST",
         "path": "/api/support",
+        "routeFile": "support.js"
+      },
+      "source": {
+        "path": "backend/src/routes/support.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/support/service-requests",
+      "label": "POST /api/support/service-requests",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/support.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/support/service-requests",
+        "routeFile": "support.js"
+      },
+      "source": {
+        "path": "backend/src/routes/support.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/support/service-requests/:id/claim",
+      "label": "POST /api/support/service-requests/:id/claim",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/support.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/support/service-requests/:id/claim",
+        "routeFile": "support.js"
+      },
+      "source": {
+        "path": "backend/src/routes/support.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/support/service-requests/:id/complete",
+      "label": "POST /api/support/service-requests/:id/complete",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/support.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/support/service-requests/:id/complete",
         "routeFile": "support.js"
       },
       "source": {
@@ -2875,6 +2965,10 @@
             "type": "Review[]"
           },
           {
+            "name": "serviceRequests",
+            "type": "SupportTicket[]"
+          },
+          {
             "name": "serviceTowns",
             "type": "String"
           },
@@ -3343,11 +3437,23 @@
       "metadata": {
         "fields": [
           {
+            "name": "@@index([kind,",
+            "type": "providerId,"
+          },
+          {
             "name": "@@index([userId,",
             "type": "status])"
           },
           {
+            "name": "addressDistrict",
+            "type": "String?"
+          },
+          {
             "name": "adminResponse",
+            "type": "String?"
+          },
+          {
+            "name": "category",
             "type": "String?"
           },
           {
@@ -3359,12 +3465,32 @@
             "type": "Int"
           },
           {
+            "name": "kind",
+            "type": "String"
+          },
+          {
             "name": "message",
             "type": "String"
           },
           {
+            "name": "preferredDate",
+            "type": "String?"
+          },
+          {
+            "name": "preferredTime",
+            "type": "String?"
+          },
+          {
             "name": "priority",
             "type": "TicketPriority"
+          },
+          {
+            "name": "provider",
+            "type": "Provider?"
+          },
+          {
+            "name": "providerId",
+            "type": "Int?"
           },
           {
             "name": "status",
@@ -3373,6 +3499,10 @@
           {
             "name": "subject",
             "type": "String"
+          },
+          {
+            "name": "town",
+            "type": "String?"
           },
           {
             "name": "updatedAt",
@@ -4332,6 +4462,20 @@
       }
     },
     {
+      "id": "frontend:AdminDashboard->endpoint:GET_/api/support/service-requests/admin:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/support/service-requests/admin",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:GET_/api/support/service-requests/admin",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:AdminDashboard->endpoint:POST_/api/admin/settings/scheduling/restore-defaults:FETCHES_API",
       "from": "frontend:AdminDashboard",
       "to": "endpoint:POST_/api/admin/settings/scheduling/restore-defaults",
@@ -4808,27 +4952,13 @@
       }
     },
     {
-      "id": "frontend:CustomerDashboard->endpoint:GET_/api/support:FETCHES_API",
+      "id": "frontend:CustomerDashboard->endpoint:GET_/api/support/service-requests/my:FETCHES_API",
       "from": "frontend:CustomerDashboard",
-      "to": "endpoint:GET_/api/support",
+      "to": "endpoint:GET_/api/support/service-requests/my",
       "type": "FETCHES_API",
       "label": "GET",
       "source": "frontend:CustomerDashboard",
-      "target": "endpoint:GET_/api/support",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/CustomerDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:CustomerDashboard->endpoint:GET_/api/support/my:FETCHES_API",
-      "from": "frontend:CustomerDashboard",
-      "to": "endpoint:GET_/api/support/my",
-      "type": "FETCHES_API",
-      "label": "GET",
-      "source": "frontend:CustomerDashboard",
-      "target": "endpoint:GET_/api/support/my",
+      "target": "endpoint:GET_/api/support/service-requests/my",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
@@ -4934,13 +5064,13 @@
       }
     },
     {
-      "id": "frontend:CustomerDashboard->endpoint:POST_/api/support:FETCHES_API",
+      "id": "frontend:CustomerDashboard->endpoint:POST_/api/support/service-requests:FETCHES_API",
       "from": "frontend:CustomerDashboard",
-      "to": "endpoint:POST_/api/support",
+      "to": "endpoint:POST_/api/support/service-requests",
       "type": "FETCHES_API",
       "label": "POST",
       "source": "frontend:CustomerDashboard",
-      "target": "endpoint:POST_/api/support",
+      "target": "endpoint:POST_/api/support/service-requests",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
@@ -5389,6 +5519,34 @@
       "label": "POST",
       "source": "frontend:ProviderDashboard",
       "target": "endpoint:POST_/api/provider/payouts/redeem",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/support/service-requests/:id/claim:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/support/service-requests/:id/claim",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:POST_/api/support/service-requests/:id/claim",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/support/service-requests/:id/complete:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:POST_/api/support/service-requests/:id/complete",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:POST_/api/support/service-requests/:id/complete",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",
@@ -6278,6 +6436,20 @@
       }
     },
     {
+      "id": "model:Provider->model:SupportTicket:DB_RELATION",
+      "from": "model:Provider",
+      "to": "model:SupportTicket",
+      "type": "DB_RELATION",
+      "label": "serviceRequests",
+      "source": "model:Provider",
+      "target": "model:SupportTicket",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "model:Provider->model:User:DB_RELATION",
       "from": "model:Provider",
       "to": "model:User",
@@ -6565,6 +6737,20 @@
       "label": "status",
       "source": "model:SupportTicket",
       "target": "enum:TicketStatus",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:SupportTicket->model:Provider:DB_RELATION",
+      "from": "model:SupportTicket",
+      "to": "model:Provider",
+      "type": "DB_RELATION",
+      "label": "provider",
+      "source": "model:SupportTicket",
+      "target": "model:Provider",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
@@ -9638,6 +9824,48 @@
       }
     },
     {
+      "id": "routefile:support->endpoint:GET_/api/support/service-requests/admin:EXPOSES_ENDPOINT",
+      "from": "routefile:support",
+      "to": "endpoint:GET_/api/support/service-requests/admin",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:support",
+      "target": "endpoint:GET_/api/support/service-requests/admin",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:support->endpoint:GET_/api/support/service-requests/my:EXPOSES_ENDPOINT",
+      "from": "routefile:support",
+      "to": "endpoint:GET_/api/support/service-requests/my",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:support",
+      "target": "endpoint:GET_/api/support/service-requests/my",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:support->endpoint:GET_/api/support/service-requests/provider:EXPOSES_ENDPOINT",
+      "from": "routefile:support",
+      "to": "endpoint:GET_/api/support/service-requests/provider",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:support",
+      "target": "endpoint:GET_/api/support/service-requests/provider",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:support->endpoint:POST_/api/support:EXPOSES_ENDPOINT",
       "from": "routefile:support",
       "to": "endpoint:POST_/api/support",
@@ -9645,6 +9873,48 @@
       "label": "POST",
       "source": "routefile:support",
       "target": "endpoint:POST_/api/support",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:support->endpoint:POST_/api/support/service-requests:EXPOSES_ENDPOINT",
+      "from": "routefile:support",
+      "to": "endpoint:POST_/api/support/service-requests",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:support",
+      "target": "endpoint:POST_/api/support/service-requests",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:support->endpoint:POST_/api/support/service-requests/:id/claim:EXPOSES_ENDPOINT",
+      "from": "routefile:support",
+      "to": "endpoint:POST_/api/support/service-requests/:id/claim",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:support",
+      "target": "endpoint:POST_/api/support/service-requests/:id/claim",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:support->endpoint:POST_/api/support/service-requests/:id/complete:EXPOSES_ENDPOINT",
+      "from": "routefile:support",
+      "to": "endpoint:POST_/api/support/service-requests/:id/complete",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:support",
+      "target": "endpoint:POST_/api/support/service-requests/:id/complete",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/support.js",
@@ -9708,6 +9978,34 @@
       }
     },
     {
+      "id": "routefile:support->model:Category:QUERIES_DB",
+      "from": "routefile:support",
+      "to": "model:Category",
+      "type": "QUERIES_DB",
+      "label": "prisma.category",
+      "source": "routefile:support",
+      "target": "model:Category",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:support->model:Provider:QUERIES_DB",
+      "from": "routefile:support",
+      "to": "model:Provider",
+      "type": "QUERIES_DB",
+      "label": "prisma.provider",
+      "source": "routefile:support",
+      "target": "model:Provider",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:support->model:SupportTicket:QUERIES_DB",
       "from": "routefile:support",
       "to": "model:SupportTicket",
@@ -9743,6 +10041,20 @@
       "label": "",
       "source": "routefile:support",
       "target": "service:notify",
+      "kind": "CALLS_SERVICE",
+      "evidence": {
+        "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:support->service:scheduling:CALLS_SERVICE",
+      "from": "routefile:support",
+      "to": "service:scheduling",
+      "type": "CALLS_SERVICE",
+      "label": "",
+      "source": "routefile:support",
+      "target": "service:scheduling",
       "kind": "CALLS_SERVICE",
       "evidence": {
         "path": "backend/src/routes/support.js",

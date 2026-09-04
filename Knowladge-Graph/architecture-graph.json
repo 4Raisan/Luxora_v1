@@ -765,7 +765,7 @@
       "file": "backend/prisma/schema.prisma",
       "description": "Provider operational record tracking KYC approval, coverage towns, AES-256-GCM encrypted bank accounts, and monthly payout ledgers.",
       "metadata": {
-        "fieldsCount": 17,
+        "fieldsCount": 18,
         "fields": [
           "id",
           "userId",
@@ -975,18 +975,18 @@
       "file": "backend/prisma/schema.prisma",
       "description": "Prisma PostgreSQL model storing SupportTicket records.",
       "metadata": {
-        "fieldsCount": 10,
+        "fieldsCount": 18,
         "fields": [
           "id",
           "userId",
+          "providerId",
           "subject",
           "message",
-          "status",
-          "priority",
-          "adminResponse",
-          "createdAt",
-          "updatedAt",
-          "user"
+          "kind",
+          "category",
+          "preferredDate",
+          "preferredTime",
+          "town"
         ]
       }
     },
