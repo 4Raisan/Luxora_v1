@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0.0",
   "stats": {
-    "totalNodes": 81,
-    "totalEdges": 98,
+    "totalNodes": 85,
+    "totalEdges": 107,
     "totalViews": 12
   },
   "views": [
@@ -328,7 +328,7 @@
     },
     {
       "id": "ext:postgresql",
-      "label": "🗄️ PostgreSQL 15",
+      "label": "🗄️ Neon PostgreSQL 15",
       "layer": "External Cloud Services",
       "type": "external_service",
       "views": [
@@ -337,7 +337,7 @@
         "deployment"
       ],
       "file": "backend/prisma/schema.prisma",
-      "description": "ACID relational database engine hosting all business entities, transactional advisory locks, and decimal financial balances.",
+      "description": "Managed serverless Neon PostgreSQL database hosting all relational business entities, ACID transactions, pg_advisory_xact_lock row locks, and exact decimal balances. Configured with pooled DATABASE_URL for runtime queries and direct DIRECT_URL for Prisma migrations.",
       "metadata": {}
     },
     {
@@ -1185,6 +1185,19 @@
       "metadata": {}
     },
     {
+      "id": "route:complaints",
+      "label": "🚦 /api/complaints Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "booking"
+      ],
+      "file": "backend/src/routes/complaints.js",
+      "description": "Dispute management: customer complaint submittal against bookings and administrative resolution workflow.",
+      "metadata": {}
+    },
+    {
       "id": "route:customer",
       "label": "🚦 /api/customer Router",
       "layer": "API Gateway & Middleware",
@@ -1212,6 +1225,31 @@
       "metadata": {}
     },
     {
+      "id": "route:notifications",
+      "label": "🚦 /api/notifications Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "realtime"
+      ],
+      "file": "backend/src/routes/notifications.js",
+      "description": "In-app notification manager with realtime SSE notification pushes for booking status changes, reminders, and payment alerts.",
+      "metadata": {}
+    },
+    {
+      "id": "route:profile",
+      "label": "🚦 /api/profile Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend"
+      ],
+      "file": "backend/src/routes/profile.js",
+      "description": "User profile management, contact details update, address maintenance, and town coverage configuration.",
+      "metadata": {}
+    },
+    {
       "id": "route:provider",
       "label": "🚦 /api/provider Router",
       "layer": "API Gateway & Middleware",
@@ -1223,6 +1261,19 @@
       ],
       "file": "backend/src/routes/provider.js",
       "description": "Provider operations: availability toggle (ONLINE/OFFLINE), coverage town selection, AES-256-GCM bank account registration, and earnings aggregation.",
+      "metadata": {}
+    },
+    {
+      "id": "route:reviews",
+      "label": "🚦 /api/reviews Router",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_route",
+      "views": [
+        "backend",
+        "booking"
+      ],
+      "file": "backend/src/routes/reviews.js",
+      "description": "Post-fulfillment review submittal: 1-5 star ratings and feedback restricted to completed bookings.",
       "metadata": {}
     },
     {
@@ -2186,6 +2237,19 @@
       ]
     },
     {
+      "id": "route:complaints->model:complaint:records_complaint",
+      "from": "route:complaints",
+      "to": "model:complaint",
+      "type": "records_complaint",
+      "label": "Stores Complaints",
+      "description": "Logs customer complaints for administrative review.",
+      "views": [
+        "backend",
+        "booking",
+        "database"
+      ]
+    },
+    {
       "id": "route:integrations->ext:nowpayments:verifies_ipn",
       "from": "route:integrations",
       "to": "ext:nowpayments",
@@ -2246,6 +2310,42 @@
       ]
     },
     {
+      "id": "route:notifications->model:notification:persists",
+      "from": "route:notifications",
+      "to": "model:notification",
+      "type": "persists",
+      "label": "Stores Notifications",
+      "description": "Persists user alerts with read/unread tracking.",
+      "views": [
+        "backend",
+        "database"
+      ]
+    },
+    {
+      "id": "route:notifications->service:realtime:broadcasts_alert",
+      "from": "route:notifications",
+      "to": "service:realtime",
+      "type": "broadcasts_alert",
+      "label": "Pushes Notification Alert",
+      "description": "Broadcasts instant notifications to active SSE clients.",
+      "views": [
+        "backend",
+        "realtime"
+      ]
+    },
+    {
+      "id": "route:profile->model:user:updates_user",
+      "from": "route:profile",
+      "to": "model:user",
+      "type": "updates_user",
+      "label": "Updates Profile Data",
+      "description": "Updates name, phone, address, and coverage towns.",
+      "views": [
+        "backend",
+        "database"
+      ]
+    },
+    {
       "id": "route:provider->service:banking-crypto:encrypts_bank",
       "from": "route:provider",
       "to": "service:banking-crypto",
@@ -2254,6 +2354,19 @@
       "description": "Encrypts bank account number at rest with auth tag.",
       "views": [
         "security"
+      ]
+    },
+    {
+      "id": "route:reviews->model:review:creates_review",
+      "from": "route:reviews",
+      "to": "model:review",
+      "type": "creates_review",
+      "label": "Stores 1-5 Star Reviews",
+      "description": "Records customer rating and comments on completion.",
+      "views": [
+        "backend",
+        "booking",
+        "database"
       ]
     },
     {
@@ -2398,6 +2511,18 @@
       ]
     },
     {
+      "id": "server:express-app->route:complaints:mounts",
+      "from": "server:express-app",
+      "to": "route:complaints",
+      "type": "mounts",
+      "label": "Mounts /api/complaints",
+      "description": "Mounts dispute and complaint management router.",
+      "views": [
+        "backend",
+        "booking"
+      ]
+    },
+    {
       "id": "server:express-app->route:customer:mounts",
       "from": "server:express-app",
       "to": "route:customer",
@@ -2422,12 +2547,47 @@
       ]
     },
     {
+      "id": "server:express-app->route:notifications:mounts",
+      "from": "server:express-app",
+      "to": "route:notifications",
+      "type": "mounts",
+      "label": "Mounts /api/notifications",
+      "description": "Mounts in-app notification and alert router.",
+      "views": [
+        "backend",
+        "realtime"
+      ]
+    },
+    {
+      "id": "server:express-app->route:profile:mounts",
+      "from": "server:express-app",
+      "to": "route:profile",
+      "type": "mounts",
+      "label": "Mounts /api/profile",
+      "description": "Mounts user profile management router.",
+      "views": [
+        "backend"
+      ]
+    },
+    {
       "id": "server:express-app->route:provider:mounts",
       "from": "server:express-app",
       "to": "route:provider",
       "type": "mounts",
       "label": "Mounts /api/provider",
       "description": "Mounts provider operations controller.",
+      "views": [
+        "backend",
+        "booking"
+      ]
+    },
+    {
+      "id": "server:express-app->route:reviews:mounts",
+      "from": "server:express-app",
+      "to": "route:reviews",
+      "type": "mounts",
+      "label": "Mounts /api/reviews",
+      "description": "Mounts post-fulfillment customer review router.",
       "views": [
         "backend",
         "booking"
