@@ -783,6 +783,7 @@ const ProviderDashboard = () => {
       <div className="pd-main">
         {/* Top Bar */}
         <header className="pd-topbar">
+          <div className="pd-topbar__title">Provider Dashboard</div>
           <div className="pd-topbar__actions">
             <button
               type="button"
