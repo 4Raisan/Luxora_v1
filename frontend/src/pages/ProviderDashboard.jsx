@@ -87,7 +87,6 @@ const ProviderDashboard = () => {
   const [claimingId, setClaimingId] = useState(null)
   const [claimingServiceRequestId, setClaimingServiceRequestId] = useState(null)
   const [completingServiceRequestId, setCompletingServiceRequestId] = useState(null)
-  const [showAllServiceRequests, setShowAllServiceRequests] = useState(false)
   /* Availability / earnings / notifications */
   const [availability, setAvailability] = useState('available')
   const [providerCategory, setProviderCategory] = useState('')
@@ -999,6 +998,61 @@ const ProviderDashboard = () => {
                 ))}
               </div>
             </div>
+          ) : activeNav === 'service_requests' ? (
+            /* ══ ALL REQUESTED SERVICES ══ */
+            <div className="pd-all-bookings-view" style={{ gridColumn: '1 / -1' }}>
+              <div className="pd-section-header" style={{ marginBottom: '1.5rem' }}>
+                <div>
+                  <span className="pd-greeting__label">CUSTOM REQUESTS</span>
+                  <h1 className="pd-section-title" style={{ fontSize: '1.6rem' }}>Requested Services</h1>
+                </div>
+                <button className="pd-section-link" onClick={() => setActiveNav('overview')}>← Back to Overview</button>
+              </div>
+
+              <div className="pd-section-header" style={{ marginBottom: '0.9rem' }}>
+                <h2 className="pd-section-title" style={{ fontSize: '1.05rem' }}>Ongoing Requested Services ({requestRows.length})</h2>
+              </div>
+              <div className="pd-all-bookings-grid" style={{ marginBottom: '2rem' }}>
+                {requestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No ongoing requested services.</p>}
+                {requestRows.map((request) => (
+                  <div key={`ongoing-${request.apiId}`} className="pd-all-booking-card">
+                    <div className="pd-all-booking-header">
+                      <div className="pd-booking__date"><span className="pd-booking__month">{request.month}</span><span className="pd-booking__day">{request.day}</span></div>
+                      <div style={{ flex: 1 }}><h3 className="pd-all-booking-title">{request.title}</h3><p className="pd-all-booking-sub">{request.customerName}{request.customerPhone ? ` • 📞 ${formatMobileNumber(request.customerPhone)}` : ''} • {request.category}</p></div>
+                      <span className="pd-booking__status" style={{ color: request.claimable ? '#eab308' : STATUS_COLORS.ASSIGNED, borderColor: request.claimable ? '#eab308' : STATUS_COLORS.ASSIGNED }}>{request.claimable ? 'AVAILABLE' : 'ONGOING'}</span>
+                    </div>
+                    <p className="pd-cr-notes">{request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
+                    {request.notes && <p className="pd-cr-notes">{request.notes}</p>}
+                    <div className="pd-all-booking-actions">
+                      {request.claimable ? (
+                        <button type="button" className="pd-cr-btn-accept" disabled={busy || claimingServiceRequestId === request.apiId} onClick={() => handleClaimServiceRequest(request.apiId)}>{claimingServiceRequestId === request.apiId ? 'ACCEPTING...' : 'ACCEPT REQUEST'}</button>
+                      ) : (
+                        <button type="button" className="pd-cr-btn-accept" disabled={busy || completingServiceRequestId === request.apiId} onClick={() => handleCompleteServiceRequest(request.apiId)}>{completingServiceRequestId === request.apiId ? 'MARKING DONE...' : 'MARK AS DONE'}</button>
+                      )}
+                      {request.customerPhone && <a className="pd-cr-btn-decline" href={`tel:${request.customerPhone}`} style={{ textDecoration: 'none' }}>CONTACT CUSTOMER</a>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pd-section-header" style={{ marginBottom: '0.9rem' }}>
+                <h2 className="pd-section-title" style={{ fontSize: '1.05rem' }}>Completed Requested Services ({completedRequestRows.length})</h2>
+              </div>
+              <div className="pd-all-bookings-grid">
+                {completedRequestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No completed requested services yet.</p>}
+                {completedRequestRows.map((request) => (
+                  <div key={`completed-${request.apiId}`} className="pd-all-booking-card" style={{ opacity: 0.8 }}>
+                    <div className="pd-all-booking-header">
+                      <div className="pd-booking__date"><span className="pd-booking__month">{request.month}</span><span className="pd-booking__day">{request.day}</span></div>
+                      <div style={{ flex: 1 }}><h3 className="pd-all-booking-title">{request.title}</h3><p className="pd-all-booking-sub">{request.customerName} • {request.category}</p></div>
+                      <span className="pd-booking__status" style={{ color: STATUS_COLORS.COMPLETED, borderColor: STATUS_COLORS.COMPLETED }}>COMPLETED</span>
+                    </div>
+                    <p className="pd-cr-notes">{request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
+                    {request.notes && <p className="pd-cr-notes">{request.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : activeNav === 'bookings' ? (
             /* ══ ALL BOOKINGS ══ */
             <div className="pd-all-bookings-view" style={{ gridColumn: '1 / -1' }}>
@@ -1238,9 +1292,7 @@ const ProviderDashboard = () => {
                       <span className="pd-badge-gold">NEW REQUESTS ({requestRows.filter((request) => request.claimable).length})</span>
                     )}
                   </div>
-                  <button type="button" className="pd-booking__details" onClick={() => setShowAllServiceRequests((current) => !current)}>
-                    {showAllServiceRequests ? 'HIDE ALL' : 'VIEW ALL'}
-                  </button>
+                  <button type="button" className="pd-booking__details" onClick={() => setActiveNav('service_requests')}>VIEW ALL</button>
                 </div>
                 <div className="pd-custom-requests">
                   {requestRows.length === 0 && (
@@ -1304,36 +1356,6 @@ const ProviderDashboard = () => {
                     </div>
                   ))}
                 </div>
-                {showAllServiceRequests && (
-                  <div className="pd-custom-requests" style={{ marginTop: '1rem' }}>
-                    <div className="pd-section-header" style={{ marginTop: 0 }}>
-                      <h3 className="pd-section-title" style={{ fontSize: '0.95rem' }}>Ongoing Requested Services ({requestRows.length})</h3>
-                    </div>
-                    {requestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No ongoing requested services.</p>}
-                    {requestRows.map((request) => (
-                      <div key={`ongoing-${request.apiId}`} className="pd-cr-card" style={{ padding: '0.9rem 1rem' }}>
-                        <div className="pd-cr-header">
-                          <div><span className="pd-cr-client">👤 {request.customerName}</span><h3 className="pd-cr-service">{request.title}</h3></div>
-                          <span className="pd-cr-status pd-cr-status--new">{request.claimable ? 'AVAILABLE' : 'ONGOING'}</span>
-                        </div>
-                        <p className="pd-cr-notes">📅 {request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
-                      </div>
-                    ))}
-                    <div className="pd-section-header" style={{ marginTop: '1.5rem' }}>
-                      <h3 className="pd-section-title" style={{ fontSize: '0.95rem' }}>Completed Requested Services ({completedRequestRows.length})</h3>
-                    </div>
-                    {completedRequestRows.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>No completed requested services yet.</p>}
-                    {completedRequestRows.map((request) => (
-                      <div key={`completed-${request.apiId}`} className="pd-cr-card" style={{ padding: '0.9rem 1rem', opacity: 0.78 }}>
-                        <div className="pd-cr-header">
-                          <div><span className="pd-cr-client">👤 {request.customerName}</span><h3 className="pd-cr-service">{request.title}</h3></div>
-                          <span className="pd-cr-status" style={{ borderColor: STATUS_COLORS.COMPLETED, color: STATUS_COLORS.COMPLETED }}>COMPLETED</span>
-                        </div>
-                        <p className="pd-cr-notes">📅 {request.bookingDate} • {String(request.bookingTime || '').slice(0, 5)}{request.town ? ` • 📍 ${request.town}` : ''}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* ══ RIGHT PANEL ══ */}
