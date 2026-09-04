@@ -72,45 +72,30 @@ async function run() {
       // Wait 1.5s for initial mount
       await new Promise(r => setTimeout(r, 1500));
 
-      // 1. Verify System Overview View
-      console.log('📸 1. Capturing System Overview View...');
-      let shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '01_system_overview.png'), Buffer.from(shot.data, 'base64'));
+      // List of all 12 architectural views
+      const viewsToCapture = [
+        { id: 'system', file: '01_system_overview.png', name: 'System Overview' },
+        { id: 'frontend', file: '02_frontend_architecture.png', name: 'Frontend Architecture' },
+        { id: 'backend', file: '03_backend_api_gateway.png', name: 'Backend & API Gateway' },
+        { id: 'database', file: '04_database_architecture.png', name: 'Database Architecture' },
+        { id: 'booking', file: '05_booking_lifecycle.png', name: 'Booking Lifecycle' },
+        { id: 'realtime', file: '06_realtime_sse.png', name: 'Realtime / SSE' },
+        { id: 'payments', file: '07_payments_engine.png', name: 'Payments Engine' },
+        { id: 'email', file: '08_email_external_services.png', name: 'Email & External Services' },
+        { id: 'cicd', file: '09_cicd_pipeline.png', name: 'CI/CD Pipeline' },
+        { id: 'deployment', file: '10_production_deployments.png', name: 'Production Deployments' },
+        { id: 'kg', file: '11_knowledge_graph.png', name: 'Knowledge Graph Subsystem' },
+        { id: 'security', file: '12_security_architecture.png', name: 'Security Architecture' },
+      ];
 
-      // 2. Switch to Booking Lifecycle View
-      console.log('📸 2. Switching to Booking Lifecycle View...');
-      await send('Runtime.evaluate', { expression: `window.switchView('booking')` });
-      await new Promise(r => setTimeout(r, 600));
-      shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '02_booking_lifecycle.png'), Buffer.from(shot.data, 'base64'));
-
-      // 3. Switch to Realtime / SSE View
-      console.log('📸 3. Switching to Realtime / SSE View...');
-      await send('Runtime.evaluate', { expression: `window.switchView('realtime')` });
-      await new Promise(r => setTimeout(r, 600));
-      shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '03_realtime_sse.png'), Buffer.from(shot.data, 'base64'));
-
-      // 4. Switch to Payments Engine View
-      console.log('📸 4. Switching to Payments Engine View...');
-      await send('Runtime.evaluate', { expression: `window.switchView('payments')` });
-      await new Promise(r => setTimeout(r, 600));
-      shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '04_payments_engine.png'), Buffer.from(shot.data, 'base64'));
-
-      // 5. Switch to CI/CD Pipeline View
-      console.log('📸 5. Switching to CI/CD Pipeline View...');
-      await send('Runtime.evaluate', { expression: `window.switchView('cicd')` });
-      await new Promise(r => setTimeout(r, 600));
-      shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '05_cicd_pipeline.png'), Buffer.from(shot.data, 'base64'));
-
-      // 6. Switch to Security Architecture View
-      console.log('📸 6. Switching to Security Architecture View...');
-      await send('Runtime.evaluate', { expression: `window.switchView('security')` });
-      await new Promise(r => setTimeout(r, 600));
-      shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '06_security_architecture.png'), Buffer.from(shot.data, 'base64'));
+      for (let i = 0; i < viewsToCapture.length; i++) {
+        const v = viewsToCapture[i];
+        console.log(`📸 [${i + 1}/12] Capturing ${v.name} (${v.id})...`);
+        await send('Runtime.evaluate', { expression: `window.switchView('${v.id}')` });
+        await new Promise(r => setTimeout(r, 600));
+        const shot = await send('Page.captureScreenshot', { format: 'png' });
+        fs.writeFileSync(path.join(screenshotDir, v.file), Buffer.from(shot.data, 'base64'));
+      }
 
       // 7. Test Interaction: Select Node 'route:bookings' & Verify Inspector
       console.log('🔍 7. Testing Node Selection & Inspector Panel...');
@@ -128,8 +113,8 @@ async function run() {
         })()`
       });
       await new Promise(r => setTimeout(r, 500));
-      shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '07_node_inspector_opened.png'), Buffer.from(shot.data, 'base64'));
+      const shotInspector = await send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(screenshotDir, '13_node_inspector_opened.png'), Buffer.from(shotInspector.data, 'base64'));
 
       // 8. Test Search Filter: Search 'PayHere'
       console.log('🔍 8. Testing Search Filtering...');
@@ -145,8 +130,8 @@ async function run() {
         returnByValue: true
       });
       console.log('Search Filter Result:', searchStats.result.value);
-      shot = await send('Page.captureScreenshot', { format: 'png' });
-      fs.writeFileSync(path.join(screenshotDir, '08_search_filter_active.png'), Buffer.from(shot.data, 'base64'));
+      const shotSearch = await send('Page.captureScreenshot', { format: 'png' });
+      fs.writeFileSync(path.join(screenshotDir, '14_search_filter_active.png'), Buffer.from(shotSearch.data, 'base64'));
 
       // 9. Inspect All 12 Views Statistics
       const allViewsStats = await send('Runtime.evaluate', {

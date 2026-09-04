@@ -629,184 +629,355 @@
       const positions = {};
 
       if (viewId === 'system') {
-        // Multi-tier layered layout with side columns for DevOps and Deployment
-        const tiers = {
-          'Users & Roles': { y: -320, spacing: 240, nodes: [] },
-          'Frontend Presentation': { y: -160, spacing: 180, nodes: [] },
-          'API Gateway & Middleware': { y: 0, spacing: 190, nodes: [] },
-          'Domain Services': { y: 160, spacing: 190, nodes: [] },
-          'Realtime & SSE': { y: 160, spacing: 190, nodes: [] },
-          'Database & Models': { y: 320, spacing: 180, nodes: [] },
-          'External Cloud Services': { y: 480, spacing: 180, nodes: [] },
-        };
+        // 1. SYSTEM OVERVIEW (34 nodes)
+        // Multi-tier layered architecture with side columns for DevOps and Knowledge Graph
+        // Users & Roles
+        positions['user:customer'] = { x: -240, y: -360 };
+        positions['user:provider'] = { x: 0, y: -360 };
+        positions['user:admin'] = { x: 240, y: -360 };
 
-        const sideColumns = {
-          'CI/CD & DevOps': { x: 720, startY: -320, stepY: 100, nodes: [] },
-          'Deployment Infrastructure': { x: 720, startY: 180, stepY: 110, nodes: [] },
-          'Security Controls': { x: -750, startY: -100, stepY: 120, nodes: [] },
-          'Knowledge Graph Subsystem': { x: -750, startY: 340, stepY: 110, nodes: [] },
-        };
+        // Frontend Presentation
+        positions['page:login-signup'] = { x: -380, y: -220 };
+        positions['page:customer-dashboard'] = { x: -190, y: -220 };
+        positions['page:provider-dashboard'] = { x: 0, y: -220 };
+        positions['page:admin-dashboard'] = { x: 190, y: -220 };
+        positions['hook:use-realtime'] = { x: 380, y: -220 };
 
-        viewNodes.forEach(node => {
-          if (sideColumns[node.layer]) {
-            sideColumns[node.layer].nodes.push(node);
-          } else if (tiers[node.layer]) {
-            tiers[node.layer].nodes.push(node);
-          } else {
-            tiers['Domain Services'].nodes.push(node);
-          }
-        });
+        // API Gateway & Middleware
+        positions['service:frontend-api'] = { x: -260, y: -80 };
+        positions['server:express-app'] = { x: 0, y: -80 };
+        positions['middleware:auth'] = { x: 260, y: -80 };
 
-        // Center tier nodes horizontally
-        Object.keys(tiers).forEach(tKey => {
-          const tier = tiers[tKey];
-          const count = tier.nodes.length;
-          if (count === 0) return;
-          const totalWidth = (count - 1) * tier.spacing;
-          const startX = -totalWidth / 2;
-          tier.nodes.forEach((n, idx) => {
-            positions[n.id] = {
-              x: Math.round(startX + idx * tier.spacing),
-              y: tier.y
-            };
-          });
-        });
+        // Mounted Routes & Domain Services
+        positions['route:bookings'] = { x: -260, y: 70 };
+        positions['service:scheduling'] = { x: 0, y: 70 };
+        positions['service:realtime'] = { x: 260, y: 70 };
 
-        // Position side column nodes vertically
-        Object.keys(sideColumns).forEach(cKey => {
-          const col = sideColumns[cKey];
-          col.nodes.forEach((n, idx) => {
-            positions[n.id] = {
-              x: col.x,
-              y: col.startY + idx * col.stepY
-            };
-          });
-        });
+        // Database & Models
+        positions['model:user'] = { x: -400, y: 220 };
+        positions['model:provider'] = { x: -240, y: 220 };
+        positions['model:service'] = { x: -80, y: 220 };
+        positions['model:booking'] = { x: 80, y: 220 };
+        positions['model:payment'] = { x: 240, y: 220 };
+        positions['model:usersubscription'] = { x: 400, y: 220 };
 
-        return positions;
-      }
+        // External Cloud Services
+        positions['ext:postgresql'] = { x: -360, y: 370 };
+        positions['ext:resend'] = { x: -180, y: 370 };
+        positions['ext:s3'] = { x: 0, y: 370 };
+        positions['ext:payhere'] = { x: 180, y: 370 };
+        positions['ext:nowpayments'] = { x: 360, y: 370 };
 
-      if (viewId === 'booking') {
-        // Chronological fulfillment workflow layout (left to right)
-        const workflowOrder = [
-          { id: 'user:customer', x: -620, y: -60 },
-          { id: 'page:book-service', x: -440, y: -60 },
-          { id: 'route:bookings', x: -260, y: -60 },
-          { id: 'model:usersubscriptionentitlement', x: -260, y: 140 },
-          { id: 'service:scheduling', x: -70, y: -60 },
-          { id: 'model:provider', x: -70, y: 140 },
-          { id: 'model:booking', x: 130, y: -60 },
-          { id: 'service:booking-timeouts', x: 130, y: -220 },
-          { id: 'user:provider', x: 130, y: 140 },
-          { id: 'page:provider-dashboard', x: 330, y: -60 },
-          { id: 'model:servicephoto', x: 330, y: 140 },
-          { id: 'service:realtime', x: 330, y: -220 },
-          { id: 'page:customer-dashboard', x: 520, y: -60 },
-          { id: 'component:active-booking-cards', x: 520, y: 140 },
-          { id: 'service:payouts', x: 710, y: -60 },
-          { id: 'model:review', x: 710, y: 140 },
-        ];
+        // Left Side Column: Knowledge Graph Subsystem
+        positions['kg:generator'] = { x: -680, y: 70 };
+        positions['kg:explorer'] = { x: -680, y: 220 };
 
-        workflowOrder.forEach(w => {
-          positions[w.id] = { x: w.x, y: w.y };
-        });
+        // Right Side Column: CI/CD & Deployments
+        positions['cicd:github-repo'] = { x: 680, y: -240 };
+        positions['cicd:guard'] = { x: 680, y: -140 };
+        positions['cicd:classifier'] = { x: 680, y: -40 };
+        positions['cicd:gate'] = { x: 680, y: 60 };
+        positions['deploy:vercel'] = { x: 680, y: 170 };
+        positions['deploy:northflank'] = { x: 680, y: 270 };
+        positions['deploy:github-pages'] = { x: 680, y: 370 };
+      } else if (viewId === 'frontend') {
+        // 2. FRONTEND ARCHITECTURE (13 nodes)
+        // Tier 1: User Actors
+        positions['user:customer'] = { x: -240, y: -240 };
+        positions['user:provider'] = { x: 0, y: -240 };
+        positions['user:admin'] = { x: 240, y: -240 };
 
-        let remIdx = 0;
-        viewNodes.forEach(n => {
-          if (!positions[n.id]) {
-            positions[n.id] = { x: -400 + remIdx * 180, y: 280 };
-            remIdx++;
-          }
-        });
+        // Tier 2: Portals & Presentation Pages
+        positions['page:login-signup'] = { x: -400, y: -80 };
+        positions['page:book-service'] = { x: -200, y: -80 };
+        positions['page:customer-dashboard'] = { x: 0, y: -80 };
+        positions['page:provider-dashboard'] = { x: 200, y: -80 };
+        positions['page:admin-dashboard'] = { x: 400, y: -80 };
 
-        return positions;
-      }
+        // Tier 3: Core Components & Realtime Hook
+        positions['component:require-auth'] = { x: -300, y: 80 };
+        positions['component:session-animation'] = { x: -100, y: 80 };
+        positions['component:active-booking-cards'] = { x: 100, y: 80 };
+        positions['hook:use-realtime'] = { x: 300, y: 80 };
 
-      if (viewId === 'realtime') {
-        // Central hub broadcaster layout
+        // Tier 4: Client API Bridge
+        positions['service:frontend-api'] = { x: 0, y: 240 };
+      } else if (viewId === 'backend') {
+        // 3. BACKEND & API GATEWAY (27 nodes)
+        // Tier 1: Client & Admin Entrypoints
+        positions['service:frontend-api'] = { x: -220, y: -280 };
+        positions['user:admin'] = { x: 0, y: -280 };
+        positions['page:admin-dashboard'] = { x: 220, y: -280 };
+
+        // Tier 2: Express Application Server
+        positions['server:express-app'] = { x: 0, y: -170 };
+
+        // Tier 3: Security & Role Middleware Pipeline
+        positions['middleware:rate-limit'] = { x: -360, y: -60 };
+        positions['middleware:auth'] = { x: -120, y: -60 };
+        positions['middleware:require-role'] = { x: 120, y: -60 };
+        positions['middleware:kyc-guard'] = { x: 360, y: -60 };
+
+        // Tier 4: Mounted REST Routers (Staggered into 2 readable rows)
+        positions['route:auth'] = { x: -500, y: 60 };
+        positions['route:customer'] = { x: -300, y: 60 };
+        positions['route:provider'] = { x: -100, y: 60 };
+        positions['route:bookings'] = { x: 100, y: 60 };
+        positions['route:services'] = { x: 300, y: 60 };
+        positions['route:admin'] = { x: 500, y: 60 };
+
+        positions['route:integrations'] = { x: -500, y: 170 };
+        positions['route:uploads'] = { x: -300, y: 170 };
+        positions['route:notifications'] = { x: -100, y: 170 };
+        positions['route:reviews'] = { x: 100, y: 170 };
+        positions['route:complaints'] = { x: 300, y: 170 };
+        positions['route:profile'] = { x: 500, y: 170 };
+
+        // Tier 5: Domain Services & Automated Schedulers
+        positions['service:scheduling'] = { x: -540, y: 300 };
+        positions['service:booking-timeouts'] = { x: -360, y: 300 };
+        positions['service:realtime'] = { x: -180, y: 300 };
+        positions['service:banking-crypto'] = { x: 0, y: 300 };
+        positions['service:integrations'] = { x: 180, y: 300 };
+        positions['service:payouts'] = { x: 360, y: 300 };
+        positions['service:storage'] = { x: 540, y: 300 };
+      } else if (viewId === 'database') {
+        // 4. DATABASE ARCHITECTURE (24 nodes) - 4-Column Clean ER Domain Layout
+        // PostgreSQL Database Hub
+        positions['ext:postgresql'] = { x: 0, y: -360 };
+
+        // Column 1: Identity, Auth & Admin
+        positions['model:user'] = { x: -510, y: -220 };
+        positions['model:passwordresettoken'] = { x: -510, y: -110 };
+        positions['model:notification'] = { x: -510, y: 0 };
+        positions['model:supportticket'] = { x: -510, y: 110 };
+        positions['model:adminauditlog'] = { x: -510, y: 220 };
+
+        // Column 2: Provider & Compliance
+        positions['model:provider'] = { x: -170, y: -220 };
+        positions['model:kycdocument'] = { x: -170, y: -110 };
+        positions['model:providerbankaccount'] = { x: -170, y: 0 };
+        positions['model:providerpayout'] = { x: -170, y: 110 };
+
+        // Column 3: Catalog & Subscriptions
+        positions['model:category'] = { x: 170, y: -220 };
+        positions['model:service'] = { x: 170, y: -120 };
+        positions['model:subscriptionplan'] = { x: 170, y: -20 };
+        positions['model:subscriptionentitlement'] = { x: 170, y: 80 };
+        positions['model:promotion'] = { x: 170, y: 180 };
+        positions['model:promotionplan'] = { x: 170, y: 280 };
+
+        // Column 4: Bookings, Payments & Ledger
+        positions['model:usersubscription'] = { x: 510, y: -260 };
+        positions['model:usersubscriptionentitlement'] = { x: 510, y: -170 };
+        positions['model:payment'] = { x: 510, y: -80 };
+        positions['model:booking'] = { x: 510, y: 10 };
+        positions['model:servicephoto'] = { x: 510, y: 100 };
+        positions['model:review'] = { x: 510, y: 190 };
+        positions['model:complaint'] = { x: 510, y: 280 };
+        positions['model:platformsetting'] = { x: 510, y: 370 };
+      } else if (viewId === 'booking') {
+        // 5. BOOKING LIFECYCLE (24 nodes) - 5-Phase Chronological Workflow (Left-to-Right)
+        // Phase 1: Customer Initiation
+        positions['user:customer'] = { x: -580, y: -180 };
+        positions['page:book-service'] = { x: -580, y: -60 };
+        positions['component:session-animation'] = { x: -580, y: 60 };
+        positions['route:customer'] = { x: -580, y: 180 };
+
+        // Phase 2: Dispatch & Provider Eligibility
+        positions['route:bookings'] = { x: -290, y: -180 };
+        positions['service:scheduling'] = { x: -290, y: -60 };
+        positions['middleware:kyc-guard'] = { x: -290, y: 60 };
+        positions['model:kycdocument'] = { x: -290, y: 180 };
+
+        // Phase 3: Active Job Execution & Dual PIN Cryptography
+        positions['service:booking-timeouts'] = { x: 0, y: -240 };
+        positions['model:booking'] = { x: 0, y: -110 };
+        positions['sec:bcrypt'] = { x: 0, y: 10 };
+        positions['model:servicephoto'] = { x: 0, y: 130 };
+        positions['model:provider'] = { x: 0, y: 250 };
+
+        // Phase 4: Provider Action & Realtime Telemetry
+        positions['service:realtime'] = { x: 290, y: -180 };
+        positions['hook:use-realtime'] = { x: 290, y: -60 };
+        positions['user:provider'] = { x: 290, y: 60 };
+        positions['page:provider-dashboard'] = { x: 290, y: 180 };
+        positions['route:provider'] = { x: 290, y: 290 };
+
+        // Phase 5: Completion, Settlements & Feedback
+        positions['page:customer-dashboard'] = { x: 580, y: -240 };
+        positions['component:active-booking-cards'] = { x: 580, y: -140 };
+        positions['service:payouts'] = { x: 580, y: -40 };
+        positions['model:providerbankaccount'] = { x: 580, y: 60 };
+        positions['model:providerpayout'] = { x: 580, y: 150 };
+        positions['route:reviews'] = { x: 580, y: 240 };
+        positions['route:complaints'] = { x: 580, y: 330 };
+      } else if (viewId === 'realtime') {
+        // 6. REALTIME / SSE ARCHITECTURE (8 nodes)
+        // Hub Broadcaster
         positions['service:realtime'] = { x: 0, y: 0 };
+
+        // Event Ingestion Sources
+        positions['route:bookings'] = { x: -160, y: -180 };
+        positions['route:notifications'] = { x: 160, y: -180 };
+
+        // Client Realtime Hook
+        positions['hook:use-realtime'] = { x: 0, y: 130 };
+
+        // Dashboards & Consumers
+        positions['page:customer-dashboard'] = { x: -260, y: 260 };
+        positions['page:provider-dashboard'] = { x: 0, y: 260 };
+        positions['user:provider'] = { x: 260, y: 260 };
+
+        // UI Cards Sync
+        positions['component:active-booking-cards'] = { x: -260, y: 390 };
+      } else if (viewId === 'payments') {
+        // 7. PAYMENTS ENGINE (15 nodes) - 5-Tier Transaction Lifecycle
+        // Row 1: Customer & Catalog Ingestion
+        positions['user:customer'] = { x: -240, y: -240 };
+        positions['page:customer-dashboard'] = { x: 0, y: -240 };
+        positions['route:services'] = { x: 240, y: -240 };
+
+        // Row 2: Plans & Admin Configuration
+        positions['model:subscriptionplan'] = { x: -240, y: -110 };
+        positions['model:subscriptionentitlement'] = { x: 0, y: -110 };
+        positions['route:admin'] = { x: 240, y: -110 };
+
+        // Row 3: Transaction Router & Ledger
+        positions['model:payment'] = { x: -240, y: 30 };
+        positions['route:integrations'] = { x: 0, y: 30 };
+        positions['service:integrations'] = { x: 240, y: 30 };
+
+        // Row 4: Multi-Gateway Verification
+        positions['ext:payhere'] = { x: -240, y: 170 };
+        positions['service:banking-crypto'] = { x: 0, y: 170 };
+        positions['ext:nowpayments'] = { x: 240, y: 170 };
+
+        // Row 5: Active Subscriptions & Provider Settlement
+        positions['model:usersubscription'] = { x: -240, y: 310 };
+        positions['model:usersubscriptionentitlement'] = { x: 0, y: 310 };
+        positions['service:payouts'] = { x: 240, y: 310 };
+      } else if (viewId === 'email') {
+        // 8. EMAIL & EXTERNAL CLOUD SERVICES (9 nodes)
+        // Tier 1: Backend Routes
+        positions['route:integrations'] = { x: -180, y: -180 };
+        positions['route:uploads'] = { x: 180, y: -180 };
+
+        // Tier 2: Domain Services
+        positions['service:integrations'] = { x: -180, y: 0 };
+        positions['service:storage'] = { x: 180, y: 0 };
+
+        // Tier 3: External Cloud APIs
+        positions['ext:resend'] = { x: -360, y: 200 };
+        positions['ext:google-oauth'] = { x: -180, y: 200 };
+        positions['ext:payhere'] = { x: 0, y: 200 };
+        positions['ext:nowpayments'] = { x: 180, y: 200 };
+        positions['ext:s3'] = { x: 360, y: 200 };
+      } else if (viewId === 'cicd') {
+        // 9. CI/CD PIPELINE (9 nodes)
+        // Stage 1: GitHub Repository Commit
+        positions['cicd:github-repo'] = { x: 0, y: -220 };
+
+        // Stage 2: Selective Filter & Security Guard
+        positions['cicd:guard'] = { x: -200, y: -90 };
+        positions['cicd:classifier'] = { x: 200, y: -90 };
+
+        // Stage 3: Parallel Quality Checks
+        positions['cicd:quality'] = { x: -380, y: 60 };
+        positions['cicd:kg'] = { x: -190, y: 60 };
+        positions['cicd:backend'] = { x: 0, y: 60 };
+        positions['cicd:audit'] = { x: 190, y: 60 };
+        positions['cicd:docker'] = { x: 380, y: 60 };
+
+        // Stage 4: Hardened Production Gate
+        positions['cicd:gate'] = { x: 0, y: 210 };
+      } else if (viewId === 'deployment') {
+        // 10. PRODUCTION DEPLOYMENTS (11 nodes)
+        // Tier 1: User Actors
+        positions['user:customer'] = { x: -240, y: -260 };
+        positions['user:provider'] = { x: 0, y: -260 };
+        positions['user:admin'] = { x: 240, y: -260 };
+
+        // Tier 2: Source Control & Edge CDN
+        positions['cicd:github-repo'] = { x: -320, y: -100 };
+        positions['deploy:vercel'] = { x: 0, y: -100 };
+        positions['deploy:github-pages'] = { x: 320, y: -100 };
+
+        // Tier 3: Compute & API Container
+        positions['deploy:northflank'] = { x: -200, y: 80 };
+        positions['server:express-app'] = { x: 0, y: 80 };
+        positions['service:storage'] = { x: 220, y: 80 };
+
+        // Tier 4: Managed Cloud Data
+        positions['ext:postgresql'] = { x: -120, y: 250 };
+        positions['ext:s3'] = { x: 140, y: 250 };
+      } else if (viewId === 'kg') {
+        // 11. KNOWLEDGE GRAPH SUBSYSTEM (5 nodes) - Symmetrical dual pipeline
+        positions['kg:generator'] = { x: 0, y: -220 };
+        positions['kg:validator'] = { x: -200, y: -60 };
+        positions['kg:explorer'] = { x: 200, y: -60 };
+        positions['cicd:kg'] = { x: -200, y: 120 };
+        positions['deploy:github-pages'] = { x: 200, y: 120 };
+      } else if (viewId === 'security') {
+        // 12. SECURITY ARCHITECTURE (32 nodes) - 6 Defense-in-Depth Tiers
+        // Tier 1: Client Entrypoints & Guards
+        positions['user:customer'] = { x: -450, y: -320 };
+        positions['user:provider'] = { x: -270, y: -320 };
+        positions['user:admin'] = { x: -90, y: -320 };
+        positions['page:login-signup'] = { x: 90, y: -320 };
+        positions['page:admin-dashboard'] = { x: 270, y: -320 };
+        positions['component:require-auth'] = { x: 450, y: -320 };
+
+        // Tier 2: Gateway & Traffic Protection
+        positions['cicd:guard'] = { x: -480, y: -180 };
+        positions['service:frontend-api'] = { x: -240, y: -180 };
         positions['server:express-app'] = { x: 0, y: -180 };
-        positions['route:bookings'] = { x: -260, y: -180 };
+        positions['sec:security-headers'] = { x: 240, y: -180 };
+        positions['middleware:rate-limit'] = { x: 480, y: -180 };
 
-        positions['hook:use-realtime'] = { x: 0, y: 160 };
-        positions['page:customer-dashboard'] = { x: -280, y: 290 };
-        positions['page:provider-dashboard'] = { x: 0, y: 290 };
-        positions['page:admin-dashboard'] = { x: 280, y: 290 };
-        positions['component:active-booking-cards'] = { x: -280, y: 420 };
+        // Tier 3: Authentication & Role Enforcement
+        positions['ext:google-oauth'] = { x: -480, y: -30 };
+        positions['sec:jwt-revocation'] = { x: -240, y: -30 };
+        positions['middleware:auth'] = { x: 0, y: -30 };
+        positions['middleware:require-role'] = { x: 240, y: -30 };
+        positions['middleware:kyc-guard'] = { x: 480, y: -30 };
 
-        let unassigned = viewNodes.filter(n => !positions[n.id]);
-        unassigned.forEach((n, idx) => {
-          positions[n.id] = { x: -200 + idx * 200, y: 540 };
-        });
+        // Tier 4: Cryptographic Routers & Services
+        positions['route:auth'] = { x: -510, y: 110 };
+        positions['route:admin'] = { x: -340, y: 110 };
+        positions['route:provider'] = { x: -170, y: 110 };
+        positions['route:uploads'] = { x: 0, y: 110 };
+        positions['sec:magic-bytes'] = { x: 170, y: 110 };
+        positions['sec:bcrypt'] = { x: 340, y: 110 };
+        positions['service:banking-crypto'] = { x: 510, y: 110 };
 
-        return positions;
+        // Tier 5: Encrypted Identity, Secrets & Audit Vault (Staggered across 2 rows for ample horizontal spacing)
+        positions['model:passwordresettoken'] = { x: -450, y: 240 };
+        positions['model:user'] = { x: -150, y: 240 };
+        positions['model:kycdocument'] = { x: 150, y: 240 };
+        positions['model:providerbankaccount'] = { x: 450, y: 240 };
+
+        positions['model:adminauditlog'] = { x: -300, y: 340 };
+        positions['model:provider'] = { x: 0, y: 340 };
+        positions['model:providerpayout'] = { x: 300, y: 340 };
+
+        // Tier 6: Cloud Storage Security
+        positions['service:storage'] = { x: -110, y: 450 };
+        positions['ext:s3'] = { x: 110, y: 450 };
       }
 
-      if (viewId === 'payments') {
-        // Payment transaction flow layout
-        positions['user:customer'] = { x: -300, y: -240 };
-        positions['page:customer-dashboard'] = { x: -100, y: -240 };
-        positions['page:book-service'] = { x: 100, y: -240 };
-
-        positions['route:services'] = { x: 0, y: -90 };
-        positions['model:payment'] = { x: -260, y: 60 };
-        positions['ext:payhere'] = { x: -260, y: 200 };
-        positions['ext:nowpayments'] = { x: 260, y: 200 };
-
-        positions['route:integrations'] = { x: 0, y: 300 };
-        positions['model:usersubscription'] = { x: 0, y: 440 };
-        positions['model:usersubscriptionentitlement'] = { x: 0, y: 580 };
-
-        let remIdx = 0;
-        viewNodes.forEach(n => {
-          if (!positions[n.id]) {
-            positions[n.id] = { x: 450, y: -150 + remIdx * 110 };
-            remIdx++;
-          }
-        });
-
-        return positions;
-      }
-
-      if (viewId === 'cicd') {
-        // Vertical pipeline layout
-        positions['cicd:github-repo'] = { x: 0, y: -240 };
-        positions['cicd:guard'] = { x: -240, y: -100 };
-        positions['cicd:classifier'] = { x: 240, y: -100 };
-
-        const checks = ['cicd:quality', 'cicd:kg', 'cicd:backend', 'cicd:audit', 'cicd:docker'];
-        checks.forEach((id, idx) => {
-          positions[id] = { x: -360 + idx * 180, y: 70 };
-        });
-
-        positions['cicd:gate'] = { x: 0, y: 240 };
-
-        return positions;
-      }
-
-      // Default Clean Tiered Grid Layout for other views (database, frontend, backend, security, etc.)
-      const layerGroups = {};
+      // Safe 4-column 2D grid fallback for any unmapped or filtered nodes
+      let remIdx = 0;
       viewNodes.forEach(n => {
-        layerGroups[n.layer] = layerGroups[n.layer] || [];
-        layerGroups[n.layer].push(n);
-      });
-
-      let currentY = -((Object.keys(layerGroups).length - 1) * 160) / 2;
-      Object.keys(layerGroups).forEach(lKey => {
-        const group = layerGroups[lKey];
-        const count = group.length;
-        const spacing = Math.min(220, Math.max(140, 950 / Math.max(count, 1)));
-        const totalW = (count - 1) * spacing;
-        const startX = -totalW / 2;
-
-        group.forEach((node, idx) => {
-          positions[node.id] = {
-            x: Math.round(startX + idx * spacing),
-            y: Math.round(currentY)
+        if (!positions[n.id]) {
+          const col = remIdx % 4;
+          const row = Math.floor(remIdx / 4);
+          positions[n.id] = {
+            x: -300 + col * 200,
+            y: 450 + row * 120
           };
-        });
-
-        currentY += 160;
+          remIdx++;
+        }
       });
 
       return positions;
@@ -918,16 +1089,33 @@
         };
       });
 
-      const formattedEdges = viewEdges.map((e, idx) => ({
-        id: e.id || 'e_' + idx,
-        from: e.from,
-        to: e.to,
-        label: e.label,
-        arrows: 'to',
-        color: { color: 'rgba(148, 163, 184, 0.4)', highlight: '#c9a84c' },
-        font: { size: 9, color: '#e2e8f0', strokeWidth: 3, strokeColor: '#070b14', align: 'middle' },
-        smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.3 },
-      }));
+      const isHorizontalFlow = activeView === 'booking';
+      const formattedEdges = viewEdges.map((e, idx) => {
+        const fromPos = positions[e.from] || { x: 0, y: 0 };
+        const toPos = positions[e.to] || { x: 0, y: 0 };
+        const dx = Math.abs(toPos.x - fromPos.x);
+        const dy = Math.abs(toPos.y - fromPos.y);
+
+        let smoothConfig;
+        if (isHorizontalFlow) {
+          smoothConfig = { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.28 };
+        } else if (dx > dy * 1.6) {
+          smoothConfig = { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.32 };
+        } else {
+          smoothConfig = { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.35 };
+        }
+
+        return {
+          id: e.id || 'e_' + idx,
+          from: e.from,
+          to: e.to,
+          label: e.label,
+          arrows: 'to',
+          color: { color: 'rgba(148, 163, 184, 0.4)', highlight: '#c9a84c' },
+          font: { size: 9, color: '#e2e8f0', strokeWidth: 3, strokeColor: '#070b14', align: 'middle' },
+          smooth: smoothConfig,
+        };
+      });
 
       visNodes.add(formattedNodes);
       visEdges.add(formattedEdges);
