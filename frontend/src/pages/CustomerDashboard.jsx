@@ -2428,8 +2428,10 @@ const CustomerDashboard = () => {
             <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexWrap: 'wrap', background: '#141414', border: '1px solid #282828', padding: '0.85rem 1.1rem', borderRadius: '14px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
               {/* Filter by Booking ID */}
               <div>
-                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>SEARCH BOOKING ID:</label>
+                <label htmlFor="customer-active-booking-id-filter" style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>SEARCH BOOKING ID:</label>
                 <input
+                  id="customer-active-booking-id-filter"
+                  name="activeBookingIdFilter"
                   type="text"
                   placeholder="Filter ID (e.g. B-011)..."
                   value={activeBookingIdFilter}
@@ -2440,8 +2442,10 @@ const CustomerDashboard = () => {
 
               {/* Filter by Date */}
               <div>
-                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>FILTER BY DATE:</label>
+                <label htmlFor="customer-active-booking-date-filter" style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>FILTER BY DATE:</label>
                 <input
+                  id="customer-active-booking-date-filter"
+                  name="activeBookingDateFilter"
                   type="date"
                   value={activeBookingDateFilter}
                   onChange={(e) => setActiveBookingDateFilter(e.target.value)}
@@ -2660,8 +2664,10 @@ const CustomerDashboard = () => {
             <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexWrap: 'wrap', background: '#141414', border: '1px solid #282828', padding: '0.85rem 1.1rem', borderRadius: '14px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
               {/* Filter by Invoice Ref */}
               <div>
-                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>INVOICE NUMBER:</label>
+                <label htmlFor="customer-history-invoice-filter" style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>INVOICE NUMBER:</label>
                 <input
+                  id="customer-history-invoice-filter"
+                  name="historyInvoiceFilter"
                   type="text"
                   placeholder="Filter Invoice (e.g. INV-2026)..."
                   value={historySearchInvoice}
@@ -2674,8 +2680,10 @@ const CustomerDashboard = () => {
 
               {/* Filter by Date */}
               <div>
-                <label style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>FILTER BY DATE:</label>
+                <label htmlFor="customer-history-date-filter" style={{ display: 'block', color: '#aaa', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.25rem' }}>FILTER BY DATE:</label>
                 <input
+                  id="customer-history-date-filter"
+                  name="historyDateFilter"
                   type="date"
                   value={historySearchDate}
                   onChange={(e) => setHistorySearchDate(e.target.value)}
@@ -3015,8 +3023,10 @@ const CustomerDashboard = () => {
                 ))}
               </div>
 
-              <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em' }}>YOUR REVIEW (OPTIONAL)</span>
+              <label htmlFor="customer-review-comment" style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em' }}>YOUR REVIEW (OPTIONAL)</label>
               <textarea
+                id="customer-review-comment"
+                name="reviewComment"
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
                 maxLength={1000}
@@ -4229,7 +4239,7 @@ const CustomerDashboard = () => {
 
             {/* Interactive Billing Type Selector */}
             <div className="cd-billing-option-selector">
-              <label className="cd-billing-selector-label">SELECT BILLING TYPE:</label>
+              <div className="cd-billing-selector-label">SELECT BILLING TYPE:</div>
               <div className="cd-billing-option-grid">
                 <div
                   className={`cd-billing-option-card ${bookingBillingType === 'auto_renew' ? 'active' : ''}`}
@@ -4630,8 +4640,10 @@ const CustomerDashboard = () => {
 
             <form onSubmit={handleCustomRequestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>SERVICE SUBJECT / TITLE</label>
+                <label htmlFor="custom-request-title" style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>SERVICE SUBJECT / TITLE</label>
                 <input
+                  id="custom-request-title"
+                  name="customRequestTitle"
                   type="text"
                   required
                   placeholder="e.g. Villa Marble Floor Polishing & Restoration"
@@ -4643,8 +4655,10 @@ const CustomerDashboard = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>CATEGORY</label>
+                  <label htmlFor="custom-request-category" style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>CATEGORY</label>
                   <select
+                    id="custom-request-category"
+                    name="customRequestCategory"
                     value={customForm.category}
                     onChange={(e) => setCustomForm({ ...customForm, category: e.target.value })}
                     style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}
@@ -4656,8 +4670,10 @@ const CustomerDashboard = () => {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED DATE</label>
+                  <label htmlFor="custom-request-date" style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED DATE</label>
                   <input
+                    id="custom-request-date"
+                    name="customRequestDate"
                     type="date"
                     className="cd-custom-request-date"
                     required
@@ -4670,20 +4686,20 @@ const CustomerDashboard = () => {
               </div>
 
               <div>
-                <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED TIME</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem' }}>
-                  <label style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>HOUR
-                    <select aria-label="Preferred hour" value={customTimeHour} onChange={(e) => updateCustomRequestTime('hour', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>PREFERRED TIME</div>
+                <div role="group" aria-label="Preferred time" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem' }}>
+                  <label htmlFor="custom-request-hour" style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>HOUR
+                    <select id="custom-request-hour" name="customRequestHour" aria-label="Preferred hour" value={customTimeHour} onChange={(e) => updateCustomRequestTime('hour', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
                       {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0')).map((hour) => <option key={hour} value={hour}>{hour}</option>)}
                     </select>
                   </label>
-                  <label style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>MINUTES
-                    <select aria-label="Preferred minutes" value={customTimeMinute} onChange={(e) => updateCustomRequestTime('minute', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                  <label htmlFor="custom-request-minute" style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>MINUTES
+                    <select id="custom-request-minute" name="customRequestMinute" aria-label="Preferred minutes" value={customTimeMinute} onChange={(e) => updateCustomRequestTime('minute', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
                       {['00', '15', '30', '45'].map((minute) => <option key={minute} value={minute}>{minute}</option>)}
                     </select>
                   </label>
-                  <label style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>PERIOD
-                    <select aria-label="Preferred time period" value={customTimePeriod} onChange={(e) => updateCustomRequestTime('period', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                  <label htmlFor="custom-request-period" style={{ color: '#777', fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.06em' }}>PERIOD
+                    <select id="custom-request-period" name="customRequestPeriod" aria-label="Preferred time period" value={customTimePeriod} onChange={(e) => updateCustomRequestTime('period', e.target.value)} style={{ width: '100%', marginTop: '0.3rem', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}>
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
                     </select>
@@ -4692,8 +4708,10 @@ const CustomerDashboard = () => {
               </div>
 
               <div>
-                <label style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>SPECIAL REQUIREMENTS & DETAILS</label>
+                <label htmlFor="custom-request-notes" style={{ fontSize: '0.78rem', color: '#aaa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>SPECIAL REQUIREMENTS & DETAILS</label>
                 <textarea
+                  id="custom-request-notes"
+                  name="customRequestNotes"
                   rows="4"
                   required
                   placeholder="Describe your custom service requirements, estate dimensions, specialized instructions, or urgency..."
