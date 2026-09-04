@@ -944,7 +944,7 @@ const ProviderDashboard = () => {
 
               <div className="pd-stats" style={{ marginBottom: '1.5rem' }}>
                 <div className="pd-stat">
-                  <p className="pd-stat__label">TOTAL EARNINGS</p>
+                  <p className="pd-stat__label">AVAILABLE BALANCE</p>
                   <p className="pd-stat__value pd-stat__value--gold">{formatRupees(earnings?.earnings)}</p>
                 </div>
                 <div className="pd-stat">
@@ -1181,7 +1181,7 @@ const ProviderDashboard = () => {
                     <p className="pd-stat__value">{activeRows.length}</p>
                   </div>
                   <div className="pd-stat">
-                    <p className="pd-stat__label">TOTAL EARNINGS</p>
+                    <p className="pd-stat__label">AVAILABLE BALANCE</p>
                     <p className="pd-stat__value pd-stat__value--gold">{formatRupees(earnings?.earnings)}</p>
                   </div>
                   <div className="pd-stat">
