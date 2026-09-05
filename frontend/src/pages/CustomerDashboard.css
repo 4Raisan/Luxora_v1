@@ -2452,6 +2452,10 @@
    the header actions group is the one that renders. */
 .cd-header-tokens--mobile { display: none; }
 
+/* Mobile pill nav: hidden on desktop (the header nav shows there);
+   the <=760px block turns it on as a compact segmented control. */
+.cd-nav--mobile { display: none; }
+
 /* Pet Care expands into a second, concise choice only after the customer
    selects the Pet Care category in the concierge scheduler. */
 .cd-pet-type-picker {
@@ -2709,62 +2713,68 @@
    targets meet the 40px minimum.
    ═══════════════════════════════════════════════════════════════════ */
 @media (max-width: 760px) {
-  /* ── Header: static; tokens on top, then logo+actions, then nav ── */
+  /* ── Header: ONE compact bar — logo, coins, and icons on a single row.
+     Tab switching moved to the pill nav below the bar so nothing wraps
+     into a second header strip. ── */
   .cd-header { position: static; }
   .cd-page { padding-top: 0 !important; }
   .cd-header__inner {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     height: auto;
-    padding: 0.8rem 0.85rem;
-    gap: 0.55rem;
-    row-gap: 0.7rem;
+    padding: 0.55rem 0.6rem;
+    gap: 0.5rem;
   }
   .cd-header__left { flex: 0 0 auto; min-width: 0; order: 1; }
-  .cd-logo-img { height: 26px; }
-  .cd-header__right { gap: 0.6rem; order: 3; flex: 0 0 auto; }
-  .cd-btn-notif { width: 44px; height: 44px; }
-  .cd-btn-support { min-width: 44px; min-height: 44px; }
-  .cd-user-info { min-height: 44px; padding: 0.35rem 0.5rem !important; }
-  .cd-avatar { min-width: 40px; min-height: 40px; }
+  .cd-logo-img { height: 22px; }
+  .cd-header-tokens--mobile { order: 2; }
+  .cd-header__right { gap: 0.35rem; flex: 0 0 auto; order: 3; }
+  .cd-btn-notif { width: 36px; height: 36px; }
+  .cd-btn-support { min-width: 36px; min-height: 36px; font-size: 0; padding: 0.35rem; gap: 0; }
+  .cd-user-info { min-height: 34px; padding: 0.25rem 0.4rem !important; }
+  .cd-avatar { min-width: 30px; min-height: 30px; }
   /* Log out moved into the profile drawer on phones. */
   .cd-btn-logout { display: none !important; }
 
-  /* Coin counters share the action row: [logo][coins][icons]. The strip
-     flexes into the space between the logo and the icon group and scrolls
-     horizontally on very narrow screens instead of wrapping. */
+  /* Coin chips flex into the space between the logo and the icon group,
+     scrolling horizontally on very narrow screens instead of wrapping. */
   .cd-header-tokens--desktop { display: none !important; }
   .cd-header-tokens--mobile {
     display: flex !important;
-    order: 2;
     flex: 1 1 auto;
     min-width: 0;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
-    gap: 0.4rem;
-    padding: 0.2rem 0;
+    gap: 0.35rem;
+    padding: 0.15rem 0;
     scrollbar-width: none;
   }
   .cd-header-tokens--mobile::-webkit-scrollbar { display: none; }
-  .cd-htoken { font-size: 0.72rem; padding: 0.34rem 0.55rem; flex-shrink: 0; }
+  .cd-htoken { font-size: 0.7rem; padding: 0.28rem 0.45rem; flex-shrink: 0; }
 
-  /* Navigation: visible full-width segmented row (restored, not hidden) */
-  .cd-nav {
-    display: flex !important;
-    order: 4;
-    flex-basis: 100%;
-    gap: 0 !important;
-    height: auto;
-    border-top: 1px solid #1e1e1e;
-    margin-top: 0.15rem;
+  /* In-header nav stays hidden on phones; the compact pill nav rendered
+     right under the bar handles tab switching as page content. The :not()
+     keeps the !important from also hiding the pill nav, which shares the
+     .cd-nav class. */
+  .cd-nav:not(.cd-nav--mobile) { display: none !important; }
+  .cd-nav--mobile {
+    display: flex;
+    gap: 0.45rem;
+    justify-content: center;
+    padding: 0.55rem 0.75rem 0.1rem;
   }
-  .cd-nav__tab {
-    flex: 1;
-    text-align: center;
-    padding: 0.9rem 0.4rem !important;
-    font-size: 0.82rem;
+  .cd-nav--mobile .cd-nav__tab {
+    padding: 0.4rem 0.95rem;
+    font-size: 0.76rem;
+    border: 1px solid var(--dark-border);
+    border-radius: 999px;
+    background: #101012;
   }
-  .cd-nav__tab.active::after { height: 3px; }
+  .cd-nav--mobile .cd-nav__tab.active {
+    border-color: var(--gold);
+    background: rgba(201, 168, 76, 0.12);
+  }
+  .cd-nav--mobile .cd-nav__tab.active::after { display: none; }
 
   /* ── Page rhythm ── */
   .cd-main-container { padding-left: 0.75rem; padding-right: 0.75rem; }

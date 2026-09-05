@@ -1804,6 +1804,23 @@ const CustomerDashboard = () => {
         </div>
       </header>
 
+      {/* Mobile tab navigation — compact pills in the content flow, so the
+          phone header stays a single bar (desktop keeps the in-header nav). */}
+      <nav className="cd-nav cd-nav--mobile" aria-label="Portal sections">
+        <button
+          className={`cd-nav__tab ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          Booking
+        </button>
+        <button
+          className={`cd-nav__tab ${activeTab === 'booking' ? 'active' : ''}`}
+          onClick={() => setActiveTab('booking')}
+        >
+          Subscription Plans
+        </button>
+      </nav>
+
       {/* ── TAB 1: OVERVIEW ── */}
       {activeTab === 'overview' && (
         <div className="cd-tab-content animate-fade-in">
