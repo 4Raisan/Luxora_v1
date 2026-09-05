@@ -55,6 +55,12 @@ const authJson = (token, apiPath, options = {}) => json(apiPath, {
 const dateStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const timeStr = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const plusMs = (ms) => new Date(Date.now() + ms);
+// Tomorrow at a fixed in-window hour: always >4h out regardless of the
+// current time of day, and always inside 07:00-16:00 for auto-assignment.
+const tomorrowAt = (hh, mm) => {
+  const d = new Date(Date.now() + 24 * 3600 * 1000);
+  return { date: dateStr(d), time: `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` };
+};
 const quarterFloor = (d) => {
   const c = new Date(d);
   c.setMinutes(Math.floor(c.getMinutes() / 15) * 15, 0, 0);
@@ -249,10 +255,10 @@ test('Customer cancel: PENDING and ASSIGNED restore the coin; IN_PROGRESS/COMPLE
   const full = await remainingUnits(cust.id, fixtures.category.id);
   // PENDING booking (provider temporarily offline so nothing auto-assigns).
   await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: 'offline' } });
-  const slot = quarterFloor(plusMs(26 * 3600 * 1000));
+  const slot = tomorrowAt(9, 0);
   const pending = await authJson(token, '/bookings', {
     method: 'POST',
-    body: JSON.stringify({ service_id: fixtures.service.id, booking_date: dateStr(slot), booking_time: timeStr(slot) }),
+    body: JSON.stringify({ service_id: fixtures.service.id, booking_date: slot.date, booking_time: slot.time }),
   });
   assert.equal(pending.status, 201, pending.text);
   assert.equal(pending.body.status, 'pending');
@@ -266,10 +272,10 @@ test('Customer cancel: PENDING and ASSIGNED restore the coin; IN_PROGRESS/COMPLE
 
   // ASSIGNED booking.
   await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: 'available' } });
-  const slot2 = quarterFloor(plusMs(28 * 3600 * 1000));
+  const slot2 = tomorrowAt(11, 0);
   const assigned = await authJson(token, '/bookings', {
     method: 'POST',
-    body: JSON.stringify({ service_id: fixtures.service.id, booking_date: dateStr(slot2), booking_time: timeStr(slot2) }),
+    body: JSON.stringify({ service_id: fixtures.service.id, booking_date: slot2.date, booking_time: slot2.time }),
   });
   assert.equal(assigned.status, 201, assigned.text);
   assert.equal(assigned.body.status, 'assigned');
@@ -400,7 +406,15 @@ test('Offline: IN_PROGRESS blocks; <=4h stays; >4h reroutes; IN_PROGRESS never s
   await prisma.booking.update({ where: { id: near.id }, data: { status: 'COMPLETED' } });
 
   // ASSIGNED beyond 4h: offline allowed, rerouted to p2, stays ASSIGNED.
-  const far = await mkBooking('ASSIGNED', Date.now() + 30 * 3600 * 1000);
+  // Fixed in-window slot so rerouting never depends on time of day.
+  const farSlot = tomorrowAt(10, 0);
+  const far = await prisma.booking.create({
+    data: {
+      userId: cust.id, providerId: p1.provider.id, serviceId: fixtures.service.id,
+      subscriptionId: null, bookingDate: farSlot.date, bookingTime: farSlot.time,
+      town, status: 'ASSIGNED', totalPrice: 5000, providerEarning: 3000,
+    },
+  });
   const offRes = await authJson(p1.token, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'offline' }) });
   assert.equal(offRes.status, 200, offRes.text);
   const farFresh = await prisma.booking.findUnique({ where: { id: far.id } });
@@ -490,7 +504,15 @@ test('Provider HOLD: IN_PROGRESS untouched; <=4h cancels+restores; >4h reroutes;
   };
   const bProg = await mk('IN_PROGRESS', Date.now() + 30 * 3600 * 1000);
   const bNear = await mk('ASSIGNED', Date.now() + 2 * 3600 * 1000);
-  const bFar = await mk('ASSIGNED', Date.now() + 30 * 3600 * 1000);
+  // Far slot pinned in-window so the reroute assertion is time-of-day proof.
+  const farSlot = tomorrowAt(10, 0);
+  const bFar = await prisma.booking.create({
+    data: {
+      userId: cust.id, providerId: p1.provider.id, serviceId: fixtures.service.id,
+      subscriptionId: subId, bookingDate: farSlot.date, bookingTime: farSlot.time,
+      town, status: 'ASSIGNED', totalPrice: 5000, providerEarning: 3000,
+    },
+  });
   assert.equal(await remainingUnits(cust.id, fixtures.category.id), full - 3);
 
   const hold = await authJson(adminToken, `/admin/users/${p1.user.id}`, { method: 'PUT', body: JSON.stringify({ active: false }) });
