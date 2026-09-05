@@ -53,7 +53,7 @@ Two manual operator batch files are provided in the repository root for manual e
 | --- | --- |
 | Documentation only | Classification, Gitleaks, final gate |
 | Frontend | Lint and production frontend build |
-| Normal backend | Lint and the backend smoke suite |
+| Normal backend | Lint and the full backend suite |
 | Booking/provider work | Booking suite |
 | Payments, refunds, subscriptions, promotions | Payment and security suites plus Docker smoke |
 | Authentication, uploads, storage, KYC, bank data | Security and smoke suites plus Docker smoke |

@@ -38,9 +38,9 @@ The browser talks to `VITE_API_URL` when it is set; otherwise `frontend/src/serv
 | `/login` | `pages/Login.jsx` | none | `POST /auth/login`, password-reset request |
 | `/signup` | `pages/Signup.jsx` | none | customer registration |
 | `/provider-register` | `pages/ProviderRegister.jsx` | categories where required | provider registration and uploads |
-| `/customer-dashboard` | `pages/CustomerDashboard.jsx` | dashboard, services, subscriptions, entitlements, payments, payment mode, notifications, support, complaints, refunds, profile | booking, membership controls, payment completion, refund, support, complaint, profile, OTP, notification actions |
+| `/customer-dashboard` | `pages/CustomerDashboard.jsx` | dashboard, services, subscriptions, entitlements, payments, payment mode, notifications, support, complaints, profile | booking, membership controls, payment completion, support, complaint, profile, OTP, notification actions |
 | `/provider-dashboard` | `pages/ProviderDashboard.jsx` | provider dashboard, assigned/claimable bookings, availability, towns, earnings | availability, booking status/PIN/proof actions, uploads |
-| `/admin-dashboard` | `pages/AdminDashboard.jsx` | stats, reports, users, providers, bookings, categories, packages, complaints, promotions, support, refunds, scheduling | user/KYC/booking/refund/support/package/promotion/scheduling actions |
+| `/admin-dashboard` | `pages/AdminDashboard.jsx` | stats, reports, users, providers, bookings, categories, packages, complaints, promotions, support, payouts, scheduling | user/KYC/booking/payout/support/package/promotion/scheduling actions |
 | `/book-service` | `pages/BookService.jsx` | services and customer data as implemented | booking action |
 | public routes | `components/*`, `pages/Reviews.jsx` | only their present reads | only their present actions |
 
@@ -52,7 +52,7 @@ The browser talks to `VITE_API_URL` when it is set; otherwise `frontend/src/serv
 2. The dashboard loads its existing data with one grouped request cycle. The header, membership cards, booking form, package catalogue, service history, support, and profile sections render from that data.
 3. A package choice opens the existing payment flow. In `demo` mode it stays in Luxora and calls the existing demo order/completion endpoints. In PayHere mode it uses the existing server-supplied checkout form.
 4. Booking controls only show services backed by the existing entitlement data. Do not fake an available balance in the UI.
-5. Refund eligibility/status comes from `/refunds/my`; the UI must not calculate a different business rule in the browser.
+5. There are no customer cash refunds in V1 and no `/refunds` endpoints exist. Eligible cancellations restore service coins server-side; the UI must not calculate or display a different refund rule in the browser.
 
 ## Provider flow
 
@@ -63,7 +63,7 @@ The browser talks to `VITE_API_URL` when it is set; otherwise `frontend/src/serv
 ## Admin flow
 
 1. The dashboard groups its existing reads to reduce backend connection pressure; preserve those groups rather than adding per-card fetches.
-2. Metrics, reports, member management, KYC, bookings, plans, support, refunds, promotions, and scheduling show server data only.
+2. Metrics, reports, member management, KYC, bookings, plans, support, payouts, promotions, and scheduling show server data only.
 3. Admin prompts are intentionally backed by current update endpoints. If replacing a prompt with a modal, call the same endpoint/body and show the server error beside the field.
 
 ## Error, loading, and empty-state rules
@@ -85,7 +85,7 @@ The browser talks to `VITE_API_URL` when it is set; otherwise `frontend/src/serv
 | Sample membership, bookings, notifications, and analytics | current API response fields | Do not copy OG sample data |
 | Old role-by-email login fallback | current backend role from `/auth/login` | Not permitted |
 | Old local password/profile persistence | current auth/profile endpoints | Not permitted |
-| Old mock payment/refund shortcuts | current payment/refund endpoints | Not permitted |
+| Old mock payment shortcuts | current payment endpoints | Not permitted |
 
 ## Change checklist
 
