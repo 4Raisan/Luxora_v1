@@ -1,7 +1,14 @@
-const ESCALATION_CHANNELS = [
-  { id: 'phone', label: '📞 Direct Concierge Line', desc: '+94 11 234 5678 (Instant Call)' },
-  { id: 'whatsapp', label: '💬 WhatsApp Concierge', desc: '+94 77 123 4567 (Chat with agent)' }
-];
+// Single source for concierge escalation contacts. Operations can override the
+// numbers with env vars without a code change; the defaults match the frontend
+// chatbot config so both ends never drift apart again.
+function getChannels() {
+  const phone = process.env.CHATBOT_CONCIERGE_PHONE || '+94 11 234 5678';
+  const whatsapp = process.env.CHATBOT_CONCIERGE_WHATSAPP || '+94 77 100 0001';
+  return [
+    { id: 'phone', label: '📞 Direct Concierge Line', desc: `${phone} (Instant Call)` },
+    { id: 'whatsapp', label: '💬 WhatsApp Concierge', desc: `${whatsapp} (Chat with agent)` },
+  ];
+}
 
 function getEscalationPrompt(reason = 'Talk to our team') {
   return {
@@ -11,12 +18,12 @@ function getEscalationPrompt(reason = 'Talk to our team') {
       type: 'ESCALATION_MODAL',
       title: 'Talk to Us',
       reason,
-      channels: ESCALATION_CHANNELS
-    }
+      channels: getChannels(),
+    },
   };
 }
 
 module.exports = {
-  ESCALATION_CHANNELS,
-  getEscalationPrompt
+  getEscalationPrompt,
+  getChannels,
 };

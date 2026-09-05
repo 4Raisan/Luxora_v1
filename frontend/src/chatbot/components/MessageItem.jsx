@@ -4,7 +4,6 @@ import ServiceCarousel from './ServiceCarousel'
 import PackageCard from './PackageCard'
 import PackageComparison from './PackageComparison'
 import SpecialAskCard from './SpecialAskCard'
-import BookingStatusCard from './BookingStatusCard'
 import EscalationModal from './EscalationModal'
 import QuickActions from './QuickActions'
 
@@ -134,12 +133,6 @@ export function MessageItem({
       {message.cardType === 'special_ask' && (
         <div style={{ marginTop: '6px' }}>
           <SpecialAskCard onSubmitSpecialAsk={onSubmitSpecialAsk} />
-        </div>
-      )}
-
-      {message.cardType === 'booking_status' && (
-        <div style={{ marginTop: '6px' }}>
-          <BookingStatusCard booking={message.cardData} />
         </div>
       )}
 

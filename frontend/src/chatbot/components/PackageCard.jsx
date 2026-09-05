@@ -40,6 +40,11 @@ export function PackageCard({ pkg, onSelect }) {
         onClick={() => {
           const pkgTitle = pkg.title || pkg.name || 'Selected Package'
           const categoryKey = pkg.categoryKey || (pkgTitle.toLowerCase().includes('auto') ? 'auto' : pkgTitle.toLowerCase().includes('garden') ? 'garden' : pkgTitle.toLowerCase().includes('pet') ? 'pet' : 'auto')
+          if (pkg.planId !== undefined && pkg.planId !== null) {
+            sessionStorage.setItem('selectedPlanId', String(pkg.planId))
+          } else {
+            sessionStorage.removeItem('selectedPlanId')
+          }
           sessionStorage.setItem('selectedCategory', categoryKey)
           sessionStorage.setItem('selectedPlanName', pkgTitle)
           sessionStorage.setItem('loginRedirect', '/book-service')

@@ -1,35 +1,17 @@
-const { getSimplifiedRecommendation } = require('./recommendation.service');
+const { getSimplifiedRecommendation, loadActivePlans, formatPrice } = require('./recommendation.service');
 const { startSpecialAskWizard, handleSpecialAskStep, getSpecialAskPrompt } = require('./requestedService.service');
-const { startComplaintWizard, handleComplaintStep, getComplaintPrompt } = require('./complaint.service');
-const storage = require('./storage.service');
-const catalog = require('../data/catalog.json');
-const policies = require('../data/policies.json');
+const { getEscalationPrompt } = require('./escalation.service');
 
 // In-memory conversation sessions
 const sessions = new Map();
-
-// Mock Member Token Wallet for Self-Care
-const mockWallet = {
-  planName: 'Luxora Home Membership',
-  status: 'Active',
-  renewalDate: '2026-09-15',
-  tokens: {
-    auto: { total: 2, remaining: 2, label: 'Auto Care Tokens', icon: '🚗' },
-    garden: { total: 1, remaining: 1, label: 'Garden Care Tokens', icon: '🌿' },
-    pet: { total: 1, remaining: 1, label: 'Pet Care Tokens', icon: '🐾' }
-  }
-};
 
 function getSession(sessionId) {
   if (!sessions.has(sessionId)) {
     sessions.set(sessionId, {
       id: sessionId,
-      activeWizard: null, // 'SPECIAL_ASK', 'COMPLAINT', 'SIZING', 'BOOKING'
+      activeWizard: null, // 'SPECIAL_ASK', 'SIZING'
       specialAskDraft: null,
-      customRequestDraft: null,
-      complaintDraft: null,
       sizingDraft: null,
-      bookingDraft: null,
       history: []
     });
   }
@@ -63,23 +45,45 @@ function extractEntities(text) {
   return { cars, perches, pets };
 }
 
-function getMainServiceGrid() {
-  return {
-    type: 'SERVICE_GRID',
-    title: 'How can I assist you today?',
-    items: [
-      { id: 'auto', title: 'Auto Care', subtitle: 'Wash & Detailing', icon: '🚗', action: 'SELECT_AUTO' },
-      { id: 'garden', title: 'Garden Care', subtitle: 'Lawn & Pruning', icon: '🌿', action: 'SELECT_GARDEN' },
-      { id: 'pet', title: 'Pet Care', subtitle: 'Spa & Grooming', icon: '🐾', action: 'SELECT_PET' },
-      { id: 'combos', title: 'Combo Plans', subtitle: 'All-in-One Bundles', icon: '👑', action: 'VIEW_COMBOS' },
-      { id: 'tokens', title: 'My Tokens', subtitle: 'Check Balance & Use', icon: '🪙', action: 'CHECK_BALANCE' },
-      { id: 'book', title: 'Book Service', subtitle: 'Schedule Visit', icon: '📅', action: 'START_BOOKING' },
-      { id: 'special_ask', title: 'Special Ask', subtitle: 'Custom Solutions', icon: '📋', action: 'START_SPECIAL_ASK' },
-      { id: 'track', title: 'Track Request', subtitle: 'Tickets & Status', icon: '🔍', action: 'TRACK_STATUS' },
-      { id: 'sizing', title: 'Find My Package', subtitle: 'Step-by-Step Sizing', icon: '🎯', action: 'START_SIZING' },
-      { id: 'support', title: 'Talk to Us', subtitle: 'Live Concierge', icon: '💬', action: 'CONTACT_SUPPORT' }
-    ]
-  };
+// Remaining tokens per category across the customer's active subscriptions.
+// Mirrors the entitlement service: usage is the count of non-cancelled
+// bookings tied to each subscription, so cancellations restore tokens
+// implicitly and no balance is ever invented here.
+async function getTokenSnapshot(prisma, userId) {
+  const [subscriptions, bookings] = await Promise.all([
+    prisma.userSubscription.findMany({
+      where: { userId, status: 'active', endDate: { gt: new Date() } },
+      include: { plan: { include: { entitlements: { include: { category: true } } } } },
+      orderBy: { startDate: 'desc' },
+    }),
+    prisma.booking.findMany({
+      where: { userId, subscriptionId: { not: null }, status: { not: 'CANCELLED' } },
+      select: { subscriptionId: true, service: { select: { categoryId: true } } },
+    }),
+  ]);
+
+  const used = new Map();
+  for (const booking of bookings) {
+    const key = `${booking.subscriptionId}:${booking.service.categoryId}`;
+    used.set(key, (used.get(key) || 0) + 1);
+  }
+
+  const byCategory = new Map();
+  for (const subscription of subscriptions) {
+    const entitlements = (subscription.entitlements?.length ? subscription.entitlements : subscription.plan?.entitlements) || [];
+    for (const entitlement of entitlements) {
+      const aggregate = byCategory.get(entitlement.categoryId) || {
+        name: entitlement.category?.name || 'Service',
+        total: 0,
+        used: 0,
+      };
+      aggregate.total += entitlement.units;
+      aggregate.used += used.get(`${subscription.id}:${entitlement.categoryId}`) || 0;
+      byCategory.set(entitlement.categoryId, aggregate);
+    }
+  }
+
+  return { subscriptions, tokens: [...byCategory.values()] };
 }
 
 async function processMessage(session, userMessage, structuredPayload = null, context = {}) {
@@ -95,14 +99,16 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   // 1. STRUCTURED PAYLOAD HANDLING
   // ===========================================================================
   if (structuredPayload) {
-    const { wizardType, stepAction, value, text: payloadText, title, category, notes, date, timeSlot, address } = structuredPayload;
+    const { wizardType, stepAction, value, text: payloadText, title, category, notes, date } = structuredPayload;
 
-    // A. Special Ask / Custom Request Flow
+    // A. Special Ask / Custom Request Flow (hands off to the real bespoke
+    //    submission on the customer dashboard — nothing is persisted here)
     if (wizardType === 'SPECIAL_ASK' || wizardType === 'CUSTOM_REQUEST' || (!wizardType && (session.activeWizard === 'SPECIAL_ASK' || session.activeWizard === 'CUSTOM_REQUEST'))) {
       if (!session.specialAskDraft || stepAction === 'START') {
+        session.activeWizard = 'SPECIAL_ASK';
         session.specialAskDraft = startSpecialAskWizard({
           title: title || '',
-          category: category || 'Home & Estate Care',
+          category: category || 'Auto Care',
           date: date || '',
           notes: notes || payloadText || text || ''
         });
@@ -118,51 +124,24 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       if (wizardResp.completed) {
         session.activeWizard = null;
         session.specialAskDraft = null;
-        session.customRequestDraft = null;
       }
       session.history.push(wizardResp);
       return wizardResp;
     }
 
-    // B. Booking Wizard Flow
-    if (wizardType === 'BOOKING' || (!wizardType && session.activeWizard === 'BOOKING')) {
-      return handleBookingStep(session, stepAction, { category, date, timeSlot, address, value });
-    }
-
-    // C. Complaint Wizard Flow
-    if (wizardType === 'COMPLAINT' || (!wizardType && session.activeWizard === 'COMPLAINT')) {
-      if (!session.complaintDraft) {
-        session.complaintDraft = startComplaintWizard();
-      }
-      const complaintResp = handleComplaintStep(session.complaintDraft, {
-        action: stepAction,
-        value,
-        text,
-        files
-      });
-      if (complaintResp.completed || complaintResp.cancelled) {
-        session.activeWizard = null;
-        session.complaintDraft = null;
-      }
-      session.history.push(complaintResp);
-      return complaintResp;
-    }
-
-    // D. Sizing Wizard Flow
+    // B. Sizing Wizard Flow
     if (wizardType === 'SIZING_WIZARD') {
-      return handleSizingStep(session, stepAction, value);
+      return handleSizingStep(session, prisma, stepAction, value);
     }
 
-    // E. Single Category Auto Care Sizing
+    // C. Single Category Auto Care Sizing
     if (wizardType === 'AUTO_SIZING') {
       const count = parseInt(value, 10) || 1;
       if (count > 6) {
         session.activeWizard = 'SPECIAL_ASK';
         session.specialAskDraft = startSpecialAskWizard({
           category: 'AUTO_CARE',
-          quantity: `${count} vehicles`,
-          scope: `${count} vehicles`,
-          requiredServices: 'Multi-vehicle fleet detailing & doorstep maintenance'
+          notes: `${count} vehicles — multi-vehicle fleet detailing & doorstep maintenance`
         });
         const prompt = getSpecialAskPrompt(session.specialAskDraft);
         const reply = {
@@ -177,20 +156,18 @@ async function processMessage(session, userMessage, structuredPayload = null, co
         session.history.push(reply);
         return reply;
       }
-      const rec = generateFinalRecommendation(count, 0, 0);
+      const rec = await generateFinalRecommendation(prisma, count, 0, 0);
       session.history.push(rec);
       return rec;
     }
 
-    // F. Single Category Garden Care Sizing
+    // D. Single Category Garden Care Sizing
     if (wizardType === 'GARDEN_SIZING') {
       if (value === 'over_30' || parseFloat(value) > 30) {
         session.activeWizard = 'SPECIAL_ASK';
         session.specialAskDraft = startSpecialAskWizard({
           category: 'GARDEN_CARE',
-          quantity: 'More than 30 perches',
-          scope: 'Estate > 30 perches',
-          requiredServices: 'Large-scale estate grounds maintenance & landscaping'
+          notes: 'More than 30 perches — large-scale estate grounds maintenance & landscaping'
         });
         const prompt = getSpecialAskPrompt(session.specialAskDraft);
         const reply = {
@@ -208,21 +185,19 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       let perches = 8;
       if (value === '10_to_20') perches = 15;
       else if (value === '20_to_30') perches = 25;
-      const rec = generateFinalRecommendation(0, perches, 0);
+      const rec = await generateFinalRecommendation(prisma, 0, perches, 0);
       session.history.push(rec);
       return rec;
     }
 
-    // G. Single Category Pet Care Sizing
+    // E. Single Category Pet Care Sizing
     if (wizardType === 'PET_SIZING') {
       const count = parseInt(value, 10) || 1;
       if (count > 5) {
         session.activeWizard = 'SPECIAL_ASK';
         session.specialAskDraft = startSpecialAskWizard({
           category: 'PET_CARE',
-          quantity: `${count} pets`,
-          scope: `${count} pets`,
-          requiredServices: 'Multi-pet spa & grooming management'
+          notes: `${count} pets — multi-pet spa & grooming management`
         });
         const prompt = getSpecialAskPrompt(session.specialAskDraft);
         const reply = {
@@ -237,7 +212,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
         session.history.push(reply);
         return reply;
       }
-      const rec = generateFinalRecommendation(0, 0, count);
+      const rec = await generateFinalRecommendation(prisma, 0, 0, count);
       session.history.push(rec);
       return rec;
     }
@@ -256,38 +231,27 @@ async function processMessage(session, userMessage, structuredPayload = null, co
     return wizardResp;
   }
 
-  if (session.activeWizard === 'COMPLAINT' && session.complaintDraft) {
-    const complaintResp = handleComplaintStep(session.complaintDraft, { text });
-    if (complaintResp.completed || complaintResp.cancelled) {
-      session.activeWizard = null;
-      session.complaintDraft = null;
-    }
-    session.history.push(complaintResp);
-    return complaintResp;
+  if (session.activeWizard === 'SIZING' && session.sizingDraft) {
+    return handleSizingStep(session, prisma, 'NEXT', text);
   }
 
-  if (session.activeWizard === 'BOOKING' && session.bookingDraft) {
-    return handleBookingStep(session, 'NEXT', { value: text });
-  }
-
-  // ===========================================================================
-  // 3. INTENT: MY TOKENS & WALLET BALANCE (Self-Care)
-  // ===========================================================================
   // ===========================================================================
   // 3. INTENT: MY TOKENS & WALLET BALANCE (Real Database Self-Care)
   // ===========================================================================
   if (lower.includes('token') && (lower.includes('my') || lower.includes('balance') || lower.includes('check') || lower.includes('left') || lower.includes('wallet')) || lower === 'check_balance' || lower === 'my tokens') {
     if (user && prisma) {
       try {
-        const sub = await prisma.userSubscription.findFirst({
-          where: { userId: user.id, status: 'active' },
-          include: { plan: { include: { entitlements: { include: { category: true } } } } }
-        });
-        if (sub) {
-          const entLines = (sub.plan?.entitlements || []).map(e => `* **${e.units} × ${e.category?.name || 'Service'} Tokens** / month`).join('\n');
+        const { subscriptions, tokens } = await getTokenSnapshot(prisma, user.id);
+        if (subscriptions.length > 0) {
+          const tokenLines = tokens.length > 0
+            ? tokens.map((token) => {
+                const remaining = Math.max(0, token.total - token.used);
+                return `* **${remaining} of ${token.total} ${token.name} token${token.total === 1 ? '' : 's'} remaining** this cycle`;
+              }).join('\n')
+            : '* No category entitlements on your current plan';
           const reply = {
             role: 'assistant',
-            text: `### 🪙 Active Membership: ${sub.plan?.title || 'Luxora Plan'}\n\nHello **${user.name}**!\n\n* **Status:** Active\n* **Renewal Date:** ${sub.endDate ? new Date(sub.endDate).toLocaleDateString() : 'N/A'}\n\n**Your Monthly Entitlements:**\n${entLines || '* Standard service tokens included'}\n\nYou can use your tokens directly to book doorstep services.`,
+            text: `### 🪙 Active Membership: ${subscriptions[0].plan?.title || 'Luxora Plan'}\n\nHello **${user.name}**!\n\n* **Status:** Active\n* **Renews:** ${subscriptions[0].endDate ? new Date(subscriptions[0].endDate).toLocaleDateString() : 'N/A'}\n* **Your Token Balance:**\n${tokenLines}\n\nA token is consumed when your booking is placed, and restored automatically if the booking is cancelled before the service starts.`,
             actionButtons: [
               { label: '📅 Book Service with Token', action: 'START_BOOKING' },
               { label: '👤 View Full Dashboard', action: 'VIEW_DASHBOARD' },
@@ -297,20 +261,19 @@ async function processMessage(session, userMessage, structuredPayload = null, co
           };
           session.history.push(reply);
           return reply;
-        } else {
-          const reply = {
-            role: 'assistant',
-            text: `### 🪙 Token Wallet\n\nHello **${user.name}**! You do not currently have an active membership subscription.\n\nSubscribe to any Luxora plan to receive monthly tokens:`,
-            actionButtons: [
-              { label: '🎯 Explore Membership Plans', action: 'START_SIZING' },
-              { label: '📅 Book Pay-As-You-Go Service', action: 'START_BOOKING' },
-              { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
-            ],
-            quickReplies: ['🚗 Auto Care', '🌿 Garden Care', '🐾 Pet Care']
-          };
-          session.history.push(reply);
-          return reply;
         }
+        const reply = {
+          role: 'assistant',
+          text: `### 🪙 Token Wallet\n\nHello **${user.name}**! You do not currently have an active membership subscription.\n\nSubscribe to any Luxora plan to receive monthly tokens:`,
+          actionButtons: [
+            { label: '🎯 Explore Membership Plans', action: 'START_SIZING' },
+            { label: '📅 Book Pay-As-You-Go Service', action: 'START_BOOKING' },
+            { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
+          ],
+          quickReplies: ['🚗 Auto Care', '🌿 Garden Care', '🐾 Pet Care']
+        };
+        session.history.push(reply);
+        return reply;
       } catch (dbErr) {
         console.error('Error fetching user subscription:', dbErr);
       }
@@ -318,7 +281,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
 
     const reply = {
       role: 'assistant',
-      text: `### 🪙 Luxora Token Wallet\n\nTokens are automatically added to your membership account on each monthly renewal cycle:\n\n* **1 Auto Care Token** = 1 Vehicle Service\n* **1 Garden Care Token** = 1 Garden Visit\n* **1 Pet Care Token** = 1 Pet Grooming Visit\n\nTo view your live active token balance, please sign in to your account.`,
+      text: `### 🪙 Luxora Token Wallet\n\nTokens come from your package entitlements:\n\n* **1 Auto Care Token** = 1 Vehicle Service\n* **1 Garden Care Token** = 1 Garden Visit\n* **1 Pet Care Token** = 1 Pet Grooming Visit\n\nTo view your live active token balance, please sign in to your account.`,
       actionButtons: [
         { label: '🔑 Sign In to View Tokens', action: 'VIEW_DASHBOARD' },
         { label: '🎯 Explore Membership Plans', action: 'START_SIZING' },
@@ -331,25 +294,9 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 4. INTENT: BOOK A SERVICE (Direct Booking Portal)
-  // ===========================================================================
-  if (lower.includes('book') || lower.includes('schedule') || lower.includes('appointment') || lower === 'start_booking') {
-    const reply = {
-      role: 'assistant',
-      text: `### 📅 Reserve a Luxora Concierge Service\n\nChoose a category to start your booking:`,
-      actionButtons: [
-        { label: '🚗 Book Auto Care', action: 'START_BOOKING', category: 'auto' },
-        { label: '🌿 Book Garden Care', action: 'START_BOOKING', category: 'garden' },
-        { label: '🐾 Book Pet Care', action: 'START_BOOKING', category: 'pet' },
-        { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
-      ]
-    };
-    session.history.push(reply);
-    return reply;
-  }
-
-  // ===========================================================================
-  // 5. INTENT: TRACK REQUESTS / TICKETS (Real Database Status)
+  // 4. INTENT: TRACK REQUESTS / TICKETS (checked before booking — a message
+  //    like "track my booking status" contains the word "book" but is a
+  //    tracking request, not a new booking)
   // ===========================================================================
   if (lower.includes('track') || lower.includes('status') || lower.includes('my request') || lower.includes('ticket') || lower === 'track_status') {
     if (user && prisma) {
@@ -410,6 +357,25 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
+  // 5. INTENT: BOOK A SERVICE (Hands off to the real booking page — the
+  //    chatbot never creates bookings or PINs itself)
+  // ===========================================================================
+  if (lower.includes('book') || lower.includes('schedule') || lower.includes('appointment') || lower === 'start_booking') {
+    const reply = {
+      role: 'assistant',
+      text: `### 📅 Reserve a Luxora Concierge Service\n\nBookings are confirmed on our secure booking page with your entitlement tokens. Choose a category and I'll take you there:`,
+      actionButtons: [
+        { label: '🚗 Book Auto Care', action: 'START_BOOKING', category: 'auto' },
+        { label: '🌿 Book Garden Care', action: 'START_BOOKING', category: 'garden' },
+        { label: '🐾 Book Pet Care', action: 'START_BOOKING', category: 'pet' },
+        { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
+      ]
+    };
+    session.history.push(reply);
+    return reply;
+  }
+
+  // ===========================================================================
   // 6. INTENT: "TALK TO US" / HUMAN HELP
   // ===========================================================================
   if (lower.includes('human') || lower.includes('agent') || lower.includes('person') || lower.includes('speak to someone') || lower.includes('talk to us') || lower.includes('call us') || lower.includes('contact us') || lower.includes('helpdesk') || lower.includes('support')) {
@@ -419,7 +385,28 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 7. INTENT: SPECIFIC NON-STANDARD SERVICE QUESTIONS (Strict clarification + Special Ask)
+  // 7. INTENT: COMPLAINTS / NO-SHOWS (Honest handoff — the chatbot does not
+  //    fabricate ticket numbers; complaints are filed from the dashboard so
+  //    they link to the real booking and reach the admin queue)
+  // ===========================================================================
+  const isComplaint = ['complain', 'complaint', 'no show', 'no-show', 'not arrived', 'never arrived', 'not arrive', 'was late', 'damaged', 'damage', 'broken', 'unsatisfied', 'unhappy', 'not happy']
+    .some((keyword) => lower.includes(keyword));
+  if (isComplaint) {
+    const reply = {
+      role: 'assistant',
+      text: `I'm sorry to hear that — I've noted what you told me.\n\nTo make sure our admin team properly reviews it, please file it from your dashboard: the complaint form links the issue to the exact booking and reaches the team directly.`,
+      actionButtons: [
+        { label: '👤 Open Dashboard & File Complaint', action: 'VIEW_DASHBOARD' },
+        { label: '💬 Talk to Concierge', action: 'CONTACT_SUPPORT' },
+        { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
+      ]
+    };
+    session.history.push(reply);
+    return reply;
+  }
+
+  // ===========================================================================
+  // 8. INTENT: SPECIFIC NON-STANDARD SERVICE QUESTIONS (Strict clarification + Special Ask)
   // ===========================================================================
   const isAskingLandscaping = lower.includes('landscaping') || lower.includes('lawn redesign');
   const isAskingTreeCutting = lower.includes('tree cutting') || lower.includes('tree trimming') || lower.includes('tree removal') || lower.includes('trees');
@@ -483,7 +470,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 8. INTENT: TRIGGER SPECIAL ASK SERVICE
+  // 9. INTENT: TRIGGER SPECIAL ASK SERVICE
   // ===========================================================================
   if (lower.includes('special ask') || lower.includes('special service') || lower.includes('custom request') || lower.includes('custom service') || lower.includes('tell us what you need') || lower.includes('requested service') || lower.includes('requested services') || lower.includes('request service') || lower === 'start_special_ask' || lower === 'requested_service') {
     let cat = 'GARDEN_CARE';
@@ -499,7 +486,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 9. INTENT: AUTO CARE CATEGORY DISCOVERY & SIZING
+  // 10. INTENT: AUTO CARE CATEGORY DISCOVERY & SIZING
   // ===========================================================================
   if (lower.includes('auto care') || lower.includes('car wash') || lower.includes('view auto packages') || lower === 'car' || lower === 'auto' || lower === 'select_auto') {
     const reply = {
@@ -526,7 +513,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 10. INTENT: GARDEN CARE CATEGORY DISCOVERY & SIZING
+  // 11. INTENT: GARDEN CARE CATEGORY DISCOVERY & SIZING
   // ===========================================================================
   if (lower.includes('garden care') || lower.includes('lawn') || lower.includes('view garden packages') || lower === 'garden' || lower === 'select_garden') {
     const reply = {
@@ -555,7 +542,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 11. INTENT: PET CARE CATEGORY DISCOVERY & SIZING
+  // 12. INTENT: PET CARE CATEGORY DISCOVERY & SIZING
   // ===========================================================================
   if (lower.includes('pet care') || lower.includes('grooming') || lower.includes('dog') || lower.includes('cat') || lower.includes('view pet packages') || lower === 'select_pet') {
     const reply = {
@@ -582,16 +569,53 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 12. INTENT: ALL-IN-ONE COMBOS
+  // 13. INTENT: ALL-IN-ONE COMBOS (Live catalog — titles, prices, and coin
+  //     splits always come from the admin-managed SubscriptionPlan table)
   // ===========================================================================
   if (lower.includes('prestige') || lower.includes('luxora home') || lower.includes('luxora family') || lower.includes('combo')) {
+    let combos = null;
+    try {
+      const plans = prisma ? await loadActivePlans(prisma) : [];
+      combos = plans.filter((plan) => plan.categoryKey === 'combo');
+    } catch (dbErr) {
+      console.error('[chatbot] combo catalog lookup failed:', dbErr.message);
+    }
+
+    if (combos && combos.length > 0) {
+      const cards = combos.slice(0, 3).map((plan, index) => ({
+        badge: index === 0 ? '⭐ Recommended Combo' : `Combo option ${index + 1}`,
+        name: plan.title,
+        planId: plan.id,
+        planType: 'Combo Package',
+        categoryKey: 'combo',
+        price: formatPrice(plan.discounted) + (plan.discountPct > 0 ? ` (${plan.discountPct}% promo applied)` : ''),
+        features: plan.units.map((unit) => `${unit.units} ${unit.category || 'Service'} visit${unit.units === 1 ? '' : 's'} / month`),
+        why: 'Bundled care visits in one membership — 1 token is consumed per booking.',
+      }));
+      const reply = {
+        role: 'assistant',
+        text: `### 👑 Luxora Combo Memberships\n\nThese are the combo packages currently active in our catalog — select one to continue:`,
+        inlineComponent: {
+          type: 'RECOMMENDATION_CARDS',
+          cards
+        },
+        actionButtons: [
+          { label: 'Find the Right Package', action: 'START_SIZING' },
+          { label: '📅 Book Service with Token', action: 'START_BOOKING' },
+          { label: 'Talk to Us', action: 'CONTACT_SUPPORT' }
+        ]
+      };
+      session.history.push(reply);
+      return reply;
+    }
+
     const reply = {
       role: 'assistant',
-      text: `### 👑 Luxora Combo Memberships\n\nCombo memberships use the same standard service features as individual plans, bundled for convenience:\n\n* **Luxora Home — LKR 18,000/month:** 4 Total Tokens (2 Auto + 1 Garden + 1 Pet)\n* **Luxora Family — LKR 28,000/month:** 8 Total Tokens (4 Auto + 2 Garden + 2 Pet)\n* **Luxora Prestige — LKR 40,000/month:** 12 Total Tokens (4 Auto + 4 Garden + 4 Pet)`,
+      text: `### 👑 Luxora Combo Memberships\n\nI can't retrieve the live combo catalog right now, so I won't quote prices from memory. You can see current packages with exact prices on our homepage, or ask our team directly.`,
       actionButtons: [
-        { label: 'Find the Right Package', action: 'START_SIZING' },
-        { label: '📅 Book Service with Token', action: 'START_BOOKING' },
-        { label: 'Talk to Us', action: 'CONTACT_SUPPORT' }
+        { label: '🎯 Find the Right Package', action: 'START_SIZING' },
+        { label: 'Talk to Us', action: 'CONTACT_SUPPORT' },
+        { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
       ]
     };
     session.history.push(reply);
@@ -599,12 +623,12 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 13. INTENT: HOW TOKENS WORK / POLICIES
+  // 14. INTENT: HOW TOKENS WORK
   // ===========================================================================
   if (lower.includes('token') || lower.includes('how do tokens work') || lower.includes('tokens work')) {
     const reply = {
       role: 'assistant',
-      text: `### 🪙 How Tokens Work\n\n* **1 Auto Care Token** = 1 Vehicle Service\n* **1 Garden Care Token** = 1 Garden Visit\n* **1 Pet Care Token** = 1 Pet Service Session\n\nTokens are added to your account each month. When our verified provider completes your service, 1 token is consumed.`,
+      text: `### 🪙 How Tokens Work\n\n* **1 Auto Care Token** = 1 Vehicle Service\n* **1 Garden Care Token** = 1 Garden Visit\n* **1 Pet Care Token** = 1 Pet Service Session\n\nTokens come from your package entitlements and are valid while your 30-day plan is active. A token is consumed when your booking is placed — and restored automatically if the booking is cancelled before the service starts.`,
       actionButtons: [
         { label: '🪙 Check My Balance', action: 'CHECK_BALANCE' },
         { label: 'Find My Package', action: 'START_SIZING' },
@@ -615,10 +639,13 @@ async function processMessage(session, userMessage, structuredPayload = null, co
     return reply;
   }
 
+  // ===========================================================================
+  // 15. INTENT: CANCELLATION & REFUND POLICIES (Confirmed V1 product rules)
+  // ===========================================================================
   if (lower.includes('cancel') || lower.includes('refund') || lower.includes('policy')) {
     const reply = {
       role: 'assistant',
-      text: `### 🛡️ Cancellation & Guarantee Policies\n\n* **Flexible Memberships:** You can cancel or pause your subscription anytime with 1 click in your dashboard.\n* **100% Satisfaction Guarantee:** If you are ever unsatisfied with any service, we provide a free re-service or full token credit.\n* **No Hidden Fees:** Prices are transparent with provider payout and margin fully visible.`,
+      text: `### 🛡️ Cancellation & Refund Policies\n\n* **No refunds in V1:** all package purchases are final.\n* **Subscriptions:** you can cancel or turn off auto-renewal anytime from your dashboard — this stops future renewals for the next cycle.\n* **Booking cancellation:** you can cancel a booking while it is pending or assigned. Once a service is in progress it cannot be cancelled.\n* **Provider cancellations:** providers may cancel assigned future jobs with at least 4 hours' notice. If no replacement provider is found, your booking is cancelled and the token returns to your balance automatically.`,
       actionButtons: [
         { label: '👤 Member Dashboard', action: 'VIEW_DASHBOARD' },
         { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
@@ -629,7 +656,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   }
 
   // ===========================================================================
-  // 14. INTENT: START STEP-BY-STEP SIZING
+  // 16. INTENT: START STEP-BY-STEP SIZING
   // ===========================================================================
   const entities = extractEntities(text);
   if (lower.includes('what should i get') || lower.includes('recommend') || lower.includes('find my package') || lower.includes('find the right package') || lower.includes('package recommendation') || lower.includes('new house') || lower.includes('package for my home') || lower.includes('packages for my home')) {
@@ -645,16 +672,17 @@ async function processMessage(session, userMessage, structuredPayload = null, co
     const cars = entities.cars || 0;
     const perches = entities.perches || 0;
     const pets = entities.pets || 0;
-    return generateFinalRecommendation(cars, perches, pets);
+    const rec = await generateFinalRecommendation(prisma, cars, perches, pets);
+    session.history.push(rec);
+    return rec;
   }
 
   // ===========================================================================
-  // 15. DEFAULT WELCOME / MAIN MENU (MyDialog Grid Assistant)
+  // 17. DEFAULT WELCOME / MAIN MENU
   // ===========================================================================
   const welcomeReply = {
     role: 'assistant',
     text: `Hello! I am your **Luxora Concierge**.\n\nI can help you explore packages, check your tokens, book services, or submit special requests.`,
-    inlineComponent: getMainServiceGrid(),
     actionButtons: [
       { label: '🪙 My Tokens', action: 'CHECK_BALANCE' },
       { label: '📅 Book Service', action: 'START_BOOKING' },
@@ -675,142 +703,16 @@ async function processMessage(session, userMessage, structuredPayload = null, co
 }
 
 // =============================================================================
-// BOOKING WIZARD HANDLERS
-// =============================================================================
-function handleBookingStep(session, action, payload = {}) {
-  const { category, date, timeSlot, address, value } = payload;
-  if (!session.bookingDraft) {
-    session.bookingDraft = { step: 1, category: category || 'Auto Care', date: 'Tomorrow, 10:00 AM', address: '14/2 Alfred House Gardens, Colombo 03' };
-  }
-  const draft = session.bookingDraft;
-
-  if (action === 'CANCEL') {
-    session.activeWizard = null;
-    session.bookingDraft = null;
-    return {
-      role: 'assistant',
-      text: 'Booking cancelled. What else can I help you with?',
-      inlineComponent: getMainServiceGrid(),
-      actionButtons: [
-        { label: '🪙 Check Tokens', action: 'CHECK_BALANCE' },
-        { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
-      ]
-    };
-  }
-
-  if (action === 'CONFIRM') {
-    const bookingRef = 'BK-2026-' + Math.floor(1000 + Math.random() * 9000);
-    const servicePin = Math.floor(1000 + Math.random() * 9000);
-    session.activeWizard = null;
-    session.bookingDraft = null;
-
-    return {
-      role: 'assistant',
-      text: `### ✦ Booking Confirmed!\n\nYour service visit has been scheduled successfully.\n\n* **Booking Ref:** **#${bookingRef}**\n* **Service:** ${draft.category}\n* **Scheduled For:** ${draft.date || 'Tomorrow, 10:00 AM'}\n* **Service PIN:** **${servicePin}** *(Share with provider upon arrival)*\n* **Token Consumed:** 1 ${draft.category} Token deducted from your wallet.`,
-      inlineComponent: {
-        type: 'BOOKING_CONFIRMATION_CARD',
-        bookingRef,
-        servicePin,
-        category: draft.category,
-        date: draft.date || 'Tomorrow, 10:00 AM',
-        address: draft.address || 'Colombo'
-      },
-      actionButtons: [
-        { label: '🔍 Track Booking Status', action: 'TRACK_STATUS' },
-        { label: '🪙 View Remaining Tokens', action: 'CHECK_BALANCE' },
-        { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
-      ]
-    };
-  }
-
-  if (action === 'START') {
-    draft.step = 1;
-    if (category) draft.category = category;
-    return getBookingStepPrompt(draft);
-  }
-
-  if (draft.step === 1) {
-    if (category) draft.category = category;
-    draft.step = 2;
-    return getBookingStepPrompt(draft);
-  }
-
-  if (draft.step === 2) {
-    if (date) draft.date = date;
-    if (timeSlot) draft.timeSlot = timeSlot;
-    if (address) draft.address = address;
-    draft.step = 3;
-    return getBookingStepPrompt(draft);
-  }
-
-  return getBookingStepPrompt(draft);
-}
-
-function getBookingStepPrompt(draft) {
-  if (draft.step === 1) {
-    return {
-      role: 'assistant',
-      text: `### 📅 Book a Service Visit\n\nWhich service would you like to schedule?`,
-      inlineComponent: {
-        type: 'OPTION_CHIPS',
-        name: 'booking_service_chips',
-        options: [
-          { id: 'Auto Care', label: '🚗 Auto Care (1 Token)' },
-          { id: 'Garden Care', label: '🌿 Garden Care (1 Token)' },
-          { id: 'Pet Care', label: '🐾 Pet Care (1 Token)' }
-        ],
-        selected: draft.category
-      },
-      actionButtons: [
-        { label: 'Cancel', action: 'CANCEL_BOOKING' }
-      ]
-    };
-  }
-
-  if (draft.step === 2) {
-    return {
-      role: 'assistant',
-      text: `### 📅 Select Preferred Date & Slot for ${draft.category}`,
-      inlineComponent: {
-        type: 'BOOKING_FORM',
-        category: draft.category,
-        availableSlots: [
-          'Tomorrow, 09:00 AM - 11:00 AM',
-          'Tomorrow, 02:00 PM - 04:00 PM',
-          'This Saturday, 10:00 AM - 12:00 PM',
-          'This Sunday, 03:00 PM - 05:00 PM'
-        ],
-        currentAddress: draft.address || '14/2 Alfred House Gardens, Colombo 03'
-      },
-      actionButtons: [
-        { label: 'Cancel', action: 'CANCEL_BOOKING' }
-      ]
-    };
-  }
-
-  if (draft.step === 3) {
-    return {
-      role: 'assistant',
-      text: `### ✦ Confirm Your Booking Details`,
-      inlineComponent: {
-        type: 'BOOKING_REVIEW_CARD',
-        category: draft.category,
-        date: draft.date || 'Tomorrow, 10:00 AM',
-        address: draft.address || 'Colombo 03',
-        tokenCost: '1 Token'
-      },
-      actionButtons: [
-        { label: '✓ Confirm & Schedule', action: 'CONFIRM_BOOKING' },
-        { label: 'Cancel', action: 'CANCEL_BOOKING' }
-      ]
-    };
-  }
-}
-
-// =============================================================================
 // SIZING WIZARD STEP HANDLER
 // =============================================================================
-function handleSizingStep(session, action, value) {
+function handleSizingStep(session, prisma, action, value) {
+  // A SIZING_WIZARD payload can arrive on a fresh session (widget replay or
+  // direct API call) — initialize the draft instead of crashing on null.
+  if (!session.sizingDraft) {
+    session.sizingDraft = { step: 1, cars: 2, pets: 0, perches: 0 };
+    session.activeWizard = 'SIZING';
+  }
+
   if (action === 'GO_BACK') {
     if (session.sizingDraft.step > 1) {
       session.sizingDraft.step -= 1;
@@ -839,8 +741,10 @@ function handleSizingStep(session, action, value) {
     else perches = 0;
 
     session.sizingDraft.perches = perches;
+    const { cars, pets } = session.sizingDraft;
     session.activeWizard = null;
-    return generateFinalRecommendation(session.sizingDraft.cars, session.sizingDraft.perches, session.sizingDraft.pets);
+    session.sizingDraft = null;
+    return generateFinalRecommendation(prisma, cars, perches, pets);
   }
 
   return getSizingStepPrompt(session.sizingDraft);
@@ -901,8 +805,8 @@ function getSizingStepPrompt(draft) {
   }
 }
 
-function generateFinalRecommendation(cars, perches, pets) {
-  const result = getSimplifiedRecommendation({ cars, perches, pets });
+async function generateFinalRecommendation(prisma, cars, perches, pets) {
+  const result = await getSimplifiedRecommendation(prisma, { cars, perches, pets });
 
   if (result.invalid) {
     return {
@@ -915,16 +819,26 @@ function generateFinalRecommendation(cars, perches, pets) {
     };
   }
 
+  if (result.unavailable) {
+    return {
+      role: 'assistant',
+      text: `### 📦 Package Catalog Unavailable\n\nI can't reach our live package catalog right now, so I won't quote prices from memory. You can view current packages with exact prices on our homepage, or ask our team directly.`,
+      actionButtons: [
+        { label: 'Talk to Us', action: 'CONTACT_SUPPORT' },
+        { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
+      ]
+    };
+  }
+
   // When customer requirement exceeds standard coverage
   if (result.exceedsLimit) {
     const cat = result.categoryKey || 'GARDEN_CARE';
-    const draft = startSpecialAskWizard({
+    session.activeWizard = 'SPECIAL_ASK';
+    session.specialAskDraft = startSpecialAskWizard({
       category: cat,
-      quantity: result.enteredQuantity || '',
-      scope: result.enteredQuantity || '',
-      requiredServices: cat === 'AUTO_CARE' ? 'Multi-vehicle fleet detailing & doorstep maintenance' : cat === 'GARDEN_CARE' ? 'Large estate landscaping & groundskeeping' : 'Multi-pet concierge grooming'
+      notes: result.enteredQuantity ? `${result.enteredQuantity} — beyond standard package coverage` : ''
     });
-    const prompt = getSpecialAskPrompt(draft);
+    const prompt = getSpecialAskPrompt(session.specialAskDraft);
     return {
       role: 'assistant',
       text: `### ✦ Need something beyond our standard coverage?\n\n> ${result.noticeText}\n\nI've opened the **Special Ask / Requested Service** form for you below so our concierge operations team can review your requirements and provide a bespoke proposal:`,
@@ -936,10 +850,10 @@ function generateFinalRecommendation(cars, perches, pets) {
     };
   }
 
-  // When within standard limits: show standard packages AND offer optional Special Ask
+  // When within standard limits: show live catalog matches AND offer optional Special Ask
   return {
     role: 'assistant',
-    text: `Based on what you told me, here are our standard package recommendations:`,
+    text: `Based on what you told me, here are the closest matches from our current catalog:`,
     inlineComponent: {
       type: 'RECOMMENDATION_CARDS',
       cards: result.recommendations
@@ -953,29 +867,7 @@ function generateFinalRecommendation(cars, perches, pets) {
   };
 }
 
-function getEscalationPrompt(reason) {
-  return {
-    role: 'assistant',
-    text: `### 💬 Speak with a Luxora Concierge Specialist\n\nOur team is available 24/7 to answer custom inquiries, assist with bookings, or coordinate special services.`,
-    inlineComponent: {
-      type: 'ESCALATION_MODAL',
-      title: 'Dedicated Concierge Desk',
-      reason: 'Choose how you would like to connect with our senior concierge team:',
-      channels: [
-        { id: 'phone', label: '📞 Direct Concierge Line', desc: '+94 11 234 5678 (Instant Call)' },
-        { id: 'whatsapp', label: '💬 WhatsApp Concierge', desc: '+94 77 123 4567 (Chat with agent)' }
-      ]
-    },
-    actionButtons: [
-      { label: '🏠 Main Menu', action: 'SHOW_MAIN_MENU' }
-    ]
-  };
-}
-
 module.exports = {
   getSession,
-  processMessage,
-  storage,
-  catalog,
-  policies
+  processMessage
 };

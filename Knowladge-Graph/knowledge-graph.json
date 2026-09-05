@@ -4901,6 +4901,20 @@
       }
     },
     {
+      "id": "frontend:BookService->endpoint:GET_/api/subscriptions:FETCHES_API",
+      "from": "frontend:BookService",
+      "to": "endpoint:GET_/api/subscriptions",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:BookService",
+      "target": "endpoint:GET_/api/subscriptions",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/BookService.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:BookService->endpoint:POST_/api/bookings:FETCHES_API",
       "from": "frontend:BookService",
       "to": "endpoint:POST_/api/bookings",
@@ -8422,20 +8436,6 @@
       "label": "prisma.supportTicket",
       "source": "routefile:chat",
       "target": "model:SupportTicket",
-      "kind": "QUERIES_DB",
-      "evidence": {
-        "path": "backend/src/routes/chat.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:chat->model:User:QUERIES_DB",
-      "from": "routefile:chat",
-      "to": "model:User",
-      "type": "QUERIES_DB",
-      "label": "prisma.user",
-      "source": "routefile:chat",
-      "target": "model:User",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/chat.js",

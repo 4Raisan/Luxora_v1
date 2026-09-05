@@ -42,23 +42,19 @@ router.get('/chatbot/catalog', async (_req, res) => {
   }
 });
 
-// Live Database Special Ask Submission
+// Live Database Special Ask Submission. Tickets must belong to the signed-in
+// customer — guests are asked to sign in rather than having their request
+// attributed to an arbitrary account.
 router.post('/chatbot/special-ask', optionalAuthentication, async (req, res) => {
   try {
-    const user = req.user || null;
+    if (!req.user) return res.status(401).json({ error: 'Sign in to submit a Special Ask request' });
     const { details, name, phone, email, category } = req.body;
-
-    let targetUserId = user ? user.id : null;
-    if (!targetUserId) {
-      const defaultCustomer = await prisma.user.findFirst({ where: { role: 'CUSTOMER' } });
-      targetUserId = defaultCustomer ? defaultCustomer.id : 1;
-    }
 
     const ticket = await prisma.supportTicket.create({
       data: {
-        userId: targetUserId,
+        userId: req.user.id,
         subject: `[Special Ask] ${category || 'Custom Service'}`,
-        message: `Customer: ${name || (user ? user.name : 'Guest')} | Phone: ${phone || ''} | Email: ${email || ''}\nDetails: ${details || 'No additional details provided'}`
+        message: `Customer: ${name || req.user.name} | Phone: ${phone || ''} | Email: ${email || ''}\nDetails: ${details || 'No additional details provided'}`
       }
     });
 

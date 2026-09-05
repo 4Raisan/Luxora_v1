@@ -170,3 +170,55 @@
     font-size: 1.4rem;
   }
 }
+
+/* Selected package banner — synced live from the subscription plan catalog */
+.bs-plan-banner {
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  background: linear-gradient(160deg, rgba(201, 168, 76, 0.12), rgba(201, 168, 76, 0.04));
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.bs-plan-banner__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.bs-plan-banner__eyebrow {
+  font-size: 0.62rem;
+  letter-spacing: 0.25em;
+  color: var(--gold);
+  font-weight: 700;
+}
+.bs-plan-banner__title {
+  font-family: var(--font-display);
+  color: var(--white);
+  font-size: 1.05rem;
+}
+.bs-plan-banner__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.bs-plan-banner__price {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.bs-plan-banner__coins {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.bs-plan-banner__note {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  margin: 0;
+  font-style: italic;
+}

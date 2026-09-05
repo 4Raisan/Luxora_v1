@@ -1,22 +1,19 @@
-const storage = require('./storage.service');
-
+// Only real catalog categories — the bespoke submission on the customer
+// dashboard and POST /support/service-requests both validate against these.
 const VALID_CATEGORIES = [
-  'Home & Estate Care',
   'Auto Care',
   'Garden Care',
-  'Pet Care',
-  'VIP Concierge'
+  'Pet Care'
 ];
 
 function normalizeCategory(cat) {
-  if (!cat) return 'Home & Estate Care';
+  if (!cat) return 'Auto Care';
   const match = VALID_CATEGORIES.find(c => c.toLowerCase() === String(cat).toLowerCase() || c.toLowerCase().includes(String(cat).toLowerCase()));
   if (match) return match;
   if (cat === 'AUTO_CARE' || cat === 'auto') return 'Auto Care';
   if (cat === 'GARDEN_CARE' || cat === 'garden') return 'Garden Care';
   if (cat === 'PET_CARE' || cat === 'pet') return 'Pet Care';
-  if (cat === 'VIP_CONCIERGE' || cat === 'vip') return 'VIP Concierge';
-  return 'Home & Estate Care';
+  return 'Auto Care';
 }
 
 function startSpecialAskWizard(initialData = {}) {

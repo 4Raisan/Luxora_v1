@@ -12,6 +12,7 @@ export default function BookService() {
   const [services, setServices] = useState([])
   const [categories, setCategories] = useState([])
   const [serviceId, setServiceId] = useState('')
+  const [selectedPlan, setSelectedPlan] = useState(null)
   const [petType, setPetType] = useState('dog')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('09:00')
@@ -21,30 +22,71 @@ export default function BookService() {
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
-    apiRequest('/services').then((data) => {
-      setServices(data || [])
-      const selectedPlan = sessionStorage.getItem('selectedPlanName')
+    let cancelled = false
+    Promise.all([
+      apiRequest('/services').catch(() => null),
+      apiRequest('/subscriptions').catch(() => null),
+    ]).then(([serviceData, planData]) => {
+      if (cancelled) return
+      setServices(serviceData || [])
+
+      // Chatbot/package handoffs pass selectedPlanId. Resolve it against the
+      // live catalog so the pre-selection and package details shown are
+      // always the admin-managed database record, never stale UI state.
+      const planId = sessionStorage.getItem('selectedPlanId')
+      const planName = sessionStorage.getItem('selectedPlanName')
       const selectedCat = sessionStorage.getItem('selectedCategory')
-      if (data && data.length > 0) {
-        if (selectedPlan) {
-          const match = data.find((s) =>
-            s.title?.toLowerCase().includes(selectedPlan.toLowerCase()) ||
-            selectedPlan.toLowerCase().includes(s.title?.toLowerCase())
+
+      let resolvedPlan = null
+      if (planData && planId) {
+        resolvedPlan = planData.find((p) => String(p.id) === String(planId)) || null
+      }
+      if (!resolvedPlan && planData && planName) {
+        resolvedPlan = planData.find((p) => p.title?.toLowerCase() === planName.toLowerCase()) || null
+      }
+
+      let matched = false
+      if (serviceData && serviceData.length > 0) {
+        if (resolvedPlan) {
+          const firstEntitlement = (resolvedPlan.entitlements || []).find((e) => Number(e.units) > 0)
+          if (firstEntitlement) {
+            const match = serviceData.find((s) => s.category_id === firstEntitlement.category_id)
+              || serviceData.find((s) => (s.category_name || '') === firstEntitlement.category_name)
+            if (match) {
+              setServiceId(String(match.id))
+              matched = true
+            }
+          }
+        }
+        if (!matched && planName) {
+          const match = serviceData.find((s) =>
+            s.title?.toLowerCase().includes(planName.toLowerCase()) ||
+            planName.toLowerCase().includes(s.title?.toLowerCase())
           )
           if (match) {
             setServiceId(String(match.id))
-            return
+            matched = true
           }
         }
-        if (selectedCat) {
-          const catMatch = data.find((s) =>
+        if (!matched && selectedCat && selectedCat !== 'combo') {
+          const catMatch = serviceData.find((s) =>
             (s.category_name || '').toLowerCase().includes(selectedCat.toLowerCase())
           )
-          if (catMatch) setServiceId(String(catMatch.id))
+          if (catMatch) {
+            setServiceId(String(catMatch.id))
+            matched = true
+          }
         }
       }
+
+      if (resolvedPlan) setSelectedPlan(resolvedPlan)
+      // Consume the handoff keys so stale selections never resurface later.
+      sessionStorage.removeItem('selectedPlanId')
+      sessionStorage.removeItem('selectedPlanName')
+      sessionStorage.removeItem('selectedCategory')
     }).catch(() => {})
     apiRequest('/categories').then(setCategories).catch(() => {})
+    return () => { cancelled = true }
   }, [token, navigate])
 
   const selectedService = services.find(s => s.id === Number(serviceId))
@@ -114,6 +156,28 @@ export default function BookService() {
           </motion.div>
         ) : (
           <form className="bs-form" onSubmit={submit}>
+            {selectedPlan && (
+              <div className="bs-plan-banner" data-testid="selected-package-banner">
+                <div className="bs-plan-banner__head">
+                  <span className="bs-plan-banner__eyebrow">SELECTED PACKAGE</span>
+                  <strong className="bs-plan-banner__title">{selectedPlan.title}</strong>
+                </div>
+                <div className="bs-plan-banner__meta">
+                  <span className="bs-plan-banner__price">
+                    LKR {Number(selectedPlan.discountedPriceMonthly ?? selectedPlan.priceMonthly).toLocaleString()}/month
+                  </span>
+                  <span className="bs-plan-banner__coins">
+                    {(selectedPlan.entitlements || [])
+                      .filter((e) => Number(e.units) > 0)
+                      .map((e) => `${e.units} ${e.category_name} coin${Number(e.units) === 1 ? '' : 's'}`)
+                      .join(' · ')}
+                  </span>
+                </div>
+                <p className="bs-plan-banner__note">
+                  Bookings under this package consume 1 coin per service visit.
+                </p>
+              </div>
+            )}
             {error && (
               <div className="bs-error">
                 {error}

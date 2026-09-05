@@ -1,357 +1,296 @@
-const catalog = require('../data/catalog.json');
+// Package recommendations are computed from the live admin-managed catalog
+// (SubscriptionPlan + entitlements + active promotions). No plan name, price,
+// or coin allocation is ever hardcoded here: if the catalog is empty or the
+// database is unreachable the caller gets an honest "unavailable" result
+// instead of fabricated numbers.
+
+// Product coverage limits used by the sizing wizards (6 vehicles / 30 perches
+// / 5 pets); anything beyond opens a Special Ask instead of a package match.
+const LIMITS = { auto: 6, garden: 30, pet: 5 };
+
+const CATEGORY_KEYS = {
+  'Auto Care': 'auto',
+  'Garden Care': 'garden',
+  'Pet Care': 'pet',
+};
 
 function validateInputs({ cars = 0, perches = 0, pets = 0 }) {
   const errors = [];
-
-  // Check cars
   if (cars !== undefined && cars !== null) {
     if (isNaN(cars)) errors.push('Please enter a valid number of vehicles.');
     else if (cars < 0) errors.push('Number of vehicles cannot be negative.');
     else if (!Number.isInteger(Number(cars))) errors.push('Number of vehicles must be a whole number.');
   }
-
-  // Check pets
   if (pets !== undefined && pets !== null) {
     if (isNaN(pets)) errors.push('Please enter a valid number of pets.');
     else if (pets < 0) errors.push('Number of pets cannot be negative.');
     else if (!Number.isInteger(Number(pets))) errors.push('Number of pets must be a whole number.');
   }
-
-  // Check perches
   if (perches !== undefined && perches !== null) {
     if (isNaN(perches)) errors.push('Please enter a valid garden size in perches.');
     else if (perches < 0) errors.push('Garden size cannot be negative.');
   }
-
   return errors;
 }
 
-function getSimplifiedRecommendation({ cars = 0, perches = 0, pets = 0 }) {
+function formatPrice(amount) {
+  return `LKR ${Number(amount).toLocaleString('en-US')}/month`;
+}
+
+// Monthly visit need derived from the customer's answers.
+function needFor(categoryKey, { cars, perches, pets }) {
+  if (categoryKey === 'auto') return Math.max(0, Number(cars) || 0);
+  if (categoryKey === 'pet') return Math.max(0, Number(pets) || 0);
+  if (categoryKey === 'garden') {
+    const size = Math.max(0, Number(perches) || 0);
+    if (size <= 0) return 0;
+    if (size < 10) return 1;
+    if (size <= 20) return 2;
+    return 4;
+  }
+  return 0;
+}
+
+// Legacy plans may still carry the generic "Single Package" type, so the
+// effective category falls back to the plan's single entitlement.
+function classifyPlan(plan) {
+  const type = String(plan.type || '').trim();
+  if (CATEGORY_KEYS[type]) return CATEGORY_KEYS[type];
+  if (/combo/i.test(type)) return 'combo';
+  const categories = plan.units.map((unit) => unit.category).filter(Boolean);
+  const unique = [...new Set(categories.map((name) => name.toLowerCase()))];
+  if (unique.length === 1) return CATEGORY_KEYS[Object.keys(CATEGORY_KEYS).find((name) => name.toLowerCase() === unique[0])] || null;
+  return unique.length > 1 ? 'combo' : null;
+}
+
+async function loadActivePlans(prisma) {
+  const now = new Date();
+  const [plans, promotions] = await Promise.all([
+    prisma.subscriptionPlan.findMany({
+      where: { active: true },
+      include: { entitlements: { include: { category: true } } },
+      orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+    }),
+    // Same promotion resolution as the public catalog endpoint: catalogue-wide
+    // campaigns (no assignments) apply everywhere, assigned ones only to their
+    // plans, and the highest percentage wins.
+    prisma.promotion.findMany({
+      where: {
+        active: true,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+        ],
+      },
+      include: { planAssignments: { select: { planId: true } } },
+      orderBy: [{ discountPct: 'desc' }, { createdAt: 'desc' }],
+    }),
+  ]);
+
+  return plans.map((plan) => {
+    const promotion = promotions.find(
+      (candidate) => candidate.planAssignments.length === 0
+        || candidate.planAssignments.some((assignment) => assignment.planId === plan.id)
+    ) || null;
+    const discountPct = promotion ? Number(promotion.discountPct) : 0;
+    const price = Number(plan.priceMonthly);
+    const discounted = discountPct > 0 ? Math.round(price * (100 - discountPct)) / 100 : price;
+    return {
+      id: plan.id,
+      title: plan.title,
+      type: plan.type,
+      price,
+      discounted,
+      discountPct,
+      units: (plan.entitlements || []).map((entitlement) => ({
+        category: entitlement.category?.name || null,
+        units: Number(entitlement.units) || 0,
+      })),
+    };
+  }).map((plan) => ({ ...plan, categoryKey: classifyPlan(plan) }));
+}
+
+function unitsFor(plan, categoryName) {
+  const unit = plan.units.find((item) => String(item.category || '').toLowerCase() === String(categoryName).toLowerCase());
+  return unit ? unit.units : 0;
+}
+
+function featureLines(plan, categoryName) {
+  const visits = unitsFor(plan, categoryName);
+  const lines = visits > 0 ? [`${visits} ${categoryName} visit${visits === 1 ? '' : 's'} per month`] : [];
+  return lines;
+}
+
+function buildCard(plan, { badge, why, categoryName }) {
+  return {
+    badge,
+    name: plan.title,
+    // Real subscription-plan identity so downstream flows (booking page
+    // pre-selection, purchase) resolve the exact admin-managed DB record.
+    planId: plan.id,
+    planType: plan.categoryKey === 'combo' ? 'Combo Package' : (categoryName || plan.type),
+    categoryKey: plan.categoryKey === 'combo' ? 'combo' : plan.categoryKey,
+    price: formatPrice(plan.discounted),
+    features: plan.categoryKey === 'combo'
+      ? plan.units.map((unit) => `${unit.units} ${unit.category || 'Service'} visit${unit.units === 1 ? '' : 's'} / month`)
+      : featureLines(plan, categoryName),
+    why,
+  };
+}
+
+function exceedsLimitResult(categoryKey, quantity, limitText) {
+  return {
+    exceedsLimit: true,
+    categoryKey,
+    categoryName: Object.keys(CATEGORY_KEYS).find((name) => CATEGORY_KEYS[name] === categoryKey),
+    enteredQuantity: quantity,
+    noticeTitle: 'Need something beyond our standard coverage?',
+    noticeText: `Your requirement exceeds the standard service range (${limitText}). If you'd like Luxora to handle this, you can submit a Special Ask and our team will review your requirements individually.`,
+    recommendations: [],
+  };
+}
+
+async function getSimplifiedRecommendation(prisma, { cars = 0, perches = 0, pets = 0 } = {}) {
   const validationErrors = validateInputs({ cars, perches, pets });
   if (validationErrors.length > 0) {
-    return {
-      invalid: true,
-      error: validationErrors.join(' '),
-      recommendations: []
-    };
+    return { invalid: true, error: validationErrors.join(' '), recommendations: [] };
   }
 
   const numCars = Math.max(0, parseInt(cars, 10) || 0);
   const numPets = Math.max(0, parseInt(pets, 10) || 0);
   const numPerches = Math.max(0, parseFloat(perches) || 0);
 
-  // 1. Check Maximum Limits
-  // Auto Care: Maximum 6 vehicles (7+ -> Outside standard coverage)
-  if (numCars > 6) {
+  if (numCars > LIMITS.auto) return exceedsLimitResult('auto', `${numCars} vehicles`, `up to ${LIMITS.auto} vehicles`);
+  if (numPets > LIMITS.pet) return exceedsLimitResult('pet', `${numPets} pets`, `up to ${LIMITS.pet} pets`);
+  if (numPerches > LIMITS.garden) return exceedsLimitResult('garden', `${numPerches} perches`, `up to ${LIMITS.garden} perches`);
+
+  if (numCars === 0 && numPerches === 0 && numPets === 0) {
     return {
-      exceedsLimit: true,
-      categoryKey: 'AUTO_CARE',
-      categoryName: 'Auto Care',
-      enteredQuantity: `${numCars} vehicles`,
-      noticeTitle: 'Need something beyond our standard coverage?',
-      noticeText: "Your requirement exceeds the standard service range (up to 6 vehicles). If you'd like Luxora to handle this, you can submit a Special Ask and our team will review your requirements individually.",
-      specialAskOption: {
-        title: 'Special Ask Service',
-        description: "Have a requirement that doesn't fit our standard packages? Submit a special request and our Luxora team will review your requirements and get back to you with the appropriate solution.",
-        buttonLabel: 'Request Special Service'
-      },
-      recommendations: []
+      invalid: true,
+      error: 'Tell me about at least one of your vehicles, garden size, or pets so I can recommend a package.',
+      recommendations: [],
     };
   }
 
-  // Pet Care: Maximum 5 pets (6+ -> Outside standard coverage)
-  if (numPets > 5) {
-    return {
-      exceedsLimit: true,
-      categoryKey: 'PET_CARE',
-      categoryName: 'Pet Care',
-      enteredQuantity: `${numPets} pets`,
-      noticeTitle: 'Need something beyond our standard coverage?',
-      noticeText: "Your requirement exceeds the standard service range (up to 5 pets). If you'd like Luxora to handle this, you can submit a Special Ask and our team will review your requirements individually.",
-      specialAskOption: {
-        title: 'Special Ask Service',
-        description: "Have a requirement that doesn't fit our standard packages? Submit a special request and our Luxora team will review your requirements and get back to you with the appropriate solution.",
-        buttonLabel: 'Request Special Service'
-      },
-      recommendations: []
-    };
+  let plans;
+  try {
+    plans = await loadActivePlans(prisma);
+  } catch (error) {
+    console.error('[chatbot] could not load plan catalog:', error.message);
+    return { unavailable: true, recommendations: [] };
   }
+  if (!plans.length) return { unavailable: true, recommendations: [] };
 
-  // Garden Care: Maximum 30 perches (31+ -> Outside standard coverage)
-  if (numPerches > 30) {
-    return {
-      exceedsLimit: true,
-      categoryKey: 'GARDEN_CARE',
-      categoryName: 'Garden Care',
-      enteredQuantity: `${numPerches} perches`,
-      noticeTitle: 'Need something beyond our standard coverage?',
-      noticeText: "Your property exceeds the standard service range (up to 30 perches). If you'd like Luxora to handle this, you can submit a Special Ask and our team will review your requirements individually.",
-      specialAskOption: {
-        title: 'Special Ask Service',
-        description: "Have a requirement that doesn't fit our standard packages? Submit a special request and our Luxora team will review your requirements and get back to you with the appropriate solution.",
-        buttonLabel: 'Request Special Service'
-      },
-      recommendations: []
-    };
-  }
-
-  const recommendations = [];
-  const defaultSpecialAsk = {
-    title: 'Special Ask Service',
-    description: "Have a requirement that doesn't fit our standard packages? Submit a special request and our Luxora team will review your requirements and get back to you with the appropriate solution.",
-    buttonLabel: 'Make a Special Ask'
+  const needs = {
+    auto: needFor('auto', { cars: numCars }),
+    garden: needFor('garden', { perches: numPerches }),
+    pet: needFor('pet', { pets: numPets }),
   };
+  const activeNeeds = Object.entries(needs).filter(([, need]) => need > 0);
 
-  // 2. Check if Combo is best (multiple services within limits)
-  const isMultiService = (numCars > 0 ? 1 : 0) + (numPerches > 0 ? 1 : 0) + (numPets > 0 ? 1 : 0) >= 2;
+  // Multi-service households: prefer a combo plan that covers every need.
+  if (activeNeeds.length >= 2) {
+    const combos = plans.filter((plan) => plan.categoryKey === 'combo');
+    const scored = combos.map((plan) => {
+      const shortfall = activeNeeds.reduce((total, [categoryKey, need]) => {
+        const categoryName = Object.keys(CATEGORY_KEYS).find((name) => CATEGORY_KEYS[name] === categoryKey);
+        return total + Math.max(0, need - unitsFor(plan, categoryName));
+      }, 0);
+      const excess = activeNeeds.reduce((total, [categoryKey, need]) => {
+        const categoryName = Object.keys(CATEGORY_KEYS).find((name) => CATEGORY_KEYS[name] === categoryKey);
+        return total + Math.max(0, unitsFor(plan, categoryName) - need);
+      }, 0);
+      return { plan, shortfall, excess };
+    });
 
-  if (isMultiService) {
-    if (numCars <= 2 && numPerches > 0 && numPerches < 10 && numPets <= 1) {
-      // Luxora Home
-      recommendations.push({
+    const covering = scored.filter((item) => item.shortfall === 0)
+      .sort((a, b) => a.excess - b.excess || a.plan.discounted - b.plan.discounted);
+    const partial = scored.filter((item) => item.shortfall > 0)
+      .sort((a, b) => a.shortfall - b.shortfall || a.plan.discounted - b.plan.discounted);
+
+    if (covering.length > 0) {
+      const needSummary = activeNeeds
+        .map(([categoryKey, need]) => `${need} ${categoryKey} visit${need === 1 ? '' : 's'}`)
+        .join(' + ');
+      const recommendations = [buildCard(covering[0].plan, {
         badge: '⭐ Best Match',
-        name: 'Luxora Home',
-        categoryKey: 'combo',
-        price: 'LKR 18,000/month',
-        features: ['2 Auto Care visits', '1 Garden Care visit', '1 Pet Care visit'],
-        why: 'You have up to 2 cars, a small garden, and 1 pet.'
-      });
-      recommendations.push({
-        badge: 'Another good option',
-        name: 'Auto Care Standard + Garden Care Basic',
-        categoryKey: 'combo',
-        price: 'LKR 16,500/month',
-        features: ['2 Auto Care visits', '1 Garden Care visit'],
-        why: 'A slightly lower-cost choice if you want to care for your cars and garden first.'
-      });
-    } else if (numCars <= 4 && numPerches <= 20 && numPets <= 2) {
-      // Luxora Family
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Luxora Family',
-        categoryKey: 'combo',
-        price: 'LKR 28,000/month',
-        features: ['4 Auto Care visits', '2 Garden Care visits', '2 Pet Care visits'],
-        why: 'You have 2–4 cars, a medium-sized garden (10–20 perches), and up to 2 pets.'
-      });
-      recommendations.push({
-        badge: 'Lower-cost option',
-        name: 'Luxora Home',
-        categoryKey: 'combo',
-        price: 'LKR 18,000/month',
-        features: ['2 Auto Care visits', '1 Garden Care visit', '1 Pet Care visit'],
-        why: 'A budget-friendly option with fewer monthly service visits.'
-      });
-    } else {
-      // Luxora Prestige
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Luxora Prestige',
-        categoryKey: 'combo',
-        price: 'LKR 40,000/month',
-        features: ['4 Auto Care visits', '4 Garden Care visits', '4 Pet Care visits'],
-        why: 'You have a large garden (20–30 perches), multiple vehicles (up to 6), and up to 5 pets.'
-      });
-      recommendations.push({
-        badge: 'Another good option',
-        name: 'Luxora Family',
-        categoryKey: 'combo',
-        price: 'LKR 28,000/month',
-        features: ['4 Auto Care visits', '2 Garden Care visits', '2 Pet Care visits'],
-        why: 'Covers all services with moderate monthly visits at a lower price.'
-      });
+        why: `One bundle covering your full monthly need: ${needSummary}.`,
+      })];
+      if (covering[1]) {
+        recommendations.push(buildCard(covering[1].plan, {
+          badge: 'Another good option',
+          why: 'Also covers everything you need — compare the monthly coin split before choosing.',
+        }));
+      }
+      return { exceedsLimit: false, recommendations };
     }
-    return { exceedsLimit: false, recommendations, specialAskOption: defaultSpecialAsk };
+
+    // No combo covers everything (or none exists at all): offer the closest
+    // combo if one exists, then the best single plan for each needed category.
+    const recommendations = partial.length > 0 ? [buildCard(partial[0].plan, {
+      badge: '⭐ Closest Combo',
+      why: `Covers most of your needs, but falls short on ${partial[0].shortfall} visit${partial[0].shortfall === 1 ? '' : 's'} — make a Special Ask for the remainder.`,
+    })] : [];
+    const singleCards = activeNeeds.map(([categoryKey, need], index) => {
+      const categoryName = Object.keys(CATEGORY_KEYS).find((name) => CATEGORY_KEYS[name] === categoryKey);
+      const singles = plans.filter((plan) => plan.categoryKey === categoryKey)
+        .sort((a, b) => unitsFor(a, categoryName) - unitsFor(b, categoryName) || a.discounted - b.discounted);
+      const best = singles.find((plan) => unitsFor(plan, categoryName) >= need) || singles[singles.length - 1];
+      if (!best) return null;
+      return buildCard(best, {
+        badge: index === 0 ? (recommendations.length === 0 ? '⭐ Best Match' : 'Separate plans option') : `For your ${categoryName.toLowerCase()}`,
+        why: `A dedicated ${categoryName} plan sized for ${need} visit${need === 1 ? '' : 's'} per month.`,
+        categoryName,
+        need,
+      });
+    }).filter(Boolean);
+    return { exceedsLimit: false, recommendations: [...recommendations, ...singleCards].slice(0, 3) };
   }
 
-  // 3. Single Service: Auto Care only (1 to 6 vehicles)
-  if (numCars > 0 && numPerches === 0 && numPets === 0) {
-    if (numCars === 1) {
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Auto Care Basic',
-        categoryKey: 'auto',
-        price: 'LKR 5,000/month',
-        features: ['1 Full Car Wash & Interior Vacuum'],
-        why: 'Ideal for maintaining 1 car once a month.'
-      });
-      recommendations.push({
+  // Single-service need: pick the smallest plan that covers it.
+  const [categoryKey, need] = activeNeeds[0];
+  const categoryName = Object.keys(CATEGORY_KEYS).find((name) => CATEGORY_KEYS[name] === categoryKey);
+  const candidates = plans.filter((plan) => plan.categoryKey === categoryKey)
+    .sort((a, b) => unitsFor(a, categoryName) - unitsFor(b, categoryName) || a.discounted - b.discounted);
+
+  if (candidates.length === 0) {
+    return { exceedsLimit: false, recommendations: [] };
+  }
+
+  const covering = candidates.filter((plan) => unitsFor(plan, categoryName) >= need);
+  const recommendations = [];
+
+  if (covering.length > 0) {
+    recommendations.push(buildCard(covering[0], {
+      badge: '⭐ Best Match',
+      why: `Covers your ${need} monthly ${categoryName.toLowerCase()} visit${need === 1 ? '' : 's'}.`,
+      categoryName,
+      need,
+    }));
+    if (covering[1]) {
+      recommendations.push(buildCard(covering[1], {
         badge: 'More visits',
-        name: 'Auto Care Standard',
-        categoryKey: 'auto',
-        price: 'LKR 9,000/month',
-        features: ['2 Full Car Washes & Interior Vacuums'],
-        why: 'Gives you 2 washes per month to keep your car cleaner.'
-      });
-    } else if (numCars === 2) {
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Auto Care Standard',
-        categoryKey: 'auto',
-        price: 'LKR 9,000/month',
-        features: ['2 Car Washes (1 per car each month)'],
-        why: 'Covers both of your cars each month.'
-      });
-      recommendations.push({
-        badge: 'More frequent care',
-        name: 'Auto Care Premium',
-        categoryKey: 'auto',
-        price: 'LKR 15,000/month',
-        features: ['4 Car Washes & Detailing'],
-        why: 'Gives you 2 washes for each car every month.'
-      });
-    } else {
-      // 3 to 6 vehicles
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Auto Care Premium',
-        categoryKey: 'auto',
-        price: 'LKR 15,000/month',
-        features: ['4 Car Washes, Vacuuming & Detailing'],
-        why: `Covers your ${numCars} vehicles with weekly doorstep washes.`
-      });
-      recommendations.push({
-        badge: 'Lower-cost option',
-        name: 'Auto Care Standard',
-        categoryKey: 'auto',
-        price: 'LKR 9,000/month',
-        features: ['2 Car Washes & Vacuums'],
-        why: 'Covers 2 vehicle washes per month.'
-      });
+        why: `Adds extra ${categoryName.toLowerCase()} visits each month if you want more frequent care.`,
+        categoryName,
+        need,
+      }));
     }
-    return { exceedsLimit: false, recommendations, specialAskOption: defaultSpecialAsk };
+  } else {
+    const largest = candidates[candidates.length - 1];
+    recommendations.push(buildCard(largest, {
+      badge: '⭐ Closest Match',
+      why: `Our largest ${categoryName} plan covers ${unitsFor(largest, categoryName)} of your ${need} monthly visits — for full coverage, make a Special Ask.`,
+      categoryName,
+      need,
+    }));
   }
 
-  // 4. Single Service: Garden Care only (1 to 30 perches)
-  if (numPerches > 0 && numCars === 0 && numPets === 0) {
-    if (numPerches < 10) {
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Garden Care Basic',
-        categoryKey: 'garden',
-        price: 'LKR 7,500/month',
-        features: ['1 Garden Visit (Lawn mowing, edging, weeding, fertilizer, pruning)'],
-        why: 'Covers gardens under 10 perches.'
-      });
-      recommendations.push({
-        badge: 'More visits',
-        name: 'Garden Care Standard',
-        categoryKey: 'garden',
-        price: 'LKR 14,000/month',
-        features: ['2 Garden Visits per month'],
-        why: 'Keep your lawn manicured with visits every 2 weeks.'
-      });
-    } else if (numPerches <= 20) {
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Garden Care Standard',
-        categoryKey: 'garden',
-        price: 'LKR 14,000/month',
-        features: ['2 Garden Visits (Lawn mowing, edging, weeding, fertilizer, pruning)'],
-        why: 'Best for 10–20 perch gardens.'
-      });
-      recommendations.push({
-        badge: 'Weekly care',
-        name: 'Garden Care Premium',
-        categoryKey: 'garden',
-        price: 'LKR 24,000/month',
-        features: ['4 Garden Visits per month'],
-        why: 'Weekly care for your lawn and plants.'
-      });
-    } else {
-      // 21 to 30 perches
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Garden Care Premium',
-        categoryKey: 'garden',
-        price: 'LKR 24,000/month',
-        features: ['4 Garden Visits per month (Weekly lawn care)'],
-        why: `Best for large ${numPerches}-perch gardens (within our 30-perch limit).`
-      });
-      recommendations.push({
-        badge: 'Lower-cost option',
-        name: 'Garden Care Standard',
-        categoryKey: 'garden',
-        price: 'LKR 14,000/month',
-        features: ['2 Garden Visits per month'],
-        why: 'Bi-weekly garden care for larger estates.'
-      });
-    }
-    return { exceedsLimit: false, recommendations, specialAskOption: defaultSpecialAsk };
-  }
-
-  // 5. Single Service: Pet Care only (1 to 5 pets)
-  if (numPets > 0 && numCars === 0 && numPerches === 0) {
-    if (numPets === 1) {
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Pet Care Basic',
-        categoryKey: 'pet',
-        price: 'LKR 6,000/month',
-        features: ['1 Full Grooming Session (Spa wash, dry, nails, ears, brushing, coat fluff)'],
-        why: 'Perfect for 1 pet once a month.'
-      });
-      recommendations.push({
-        badge: 'More grooming',
-        name: 'Pet Care Standard',
-        categoryKey: 'pet',
-        price: 'LKR 11,000/month',
-        features: ['2 Grooming Sessions per month'],
-        why: 'Groom your pet twice a month.'
-      });
-    } else if (numPets === 2) {
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Pet Care Standard',
-        categoryKey: 'pet',
-        price: 'LKR 11,000/month',
-        features: ['2 Grooming Sessions (1 per pet)'],
-        why: 'Covers both of your pets each month.'
-      });
-      recommendations.push({
-        badge: 'More frequent care',
-        name: 'Pet Care Premium',
-        categoryKey: 'pet',
-        price: 'LKR 18,000/month',
-        features: ['4 Grooming Sessions per month'],
-        why: 'Covers 2 grooming sessions for each pet.'
-      });
-    } else {
-      // 3 to 5 pets
-      recommendations.push({
-        badge: '⭐ Best Match',
-        name: 'Pet Care Premium',
-        categoryKey: 'pet',
-        price: 'LKR 18,000/month',
-        features: ['4 Grooming Sessions per month'],
-        why: `Covers your ${numPets} pets comfortably (within our 5-pet limit).`
-      });
-      recommendations.push({
-        badge: 'Lower-cost option',
-        name: 'Pet Care Standard',
-        categoryKey: 'pet',
-        price: 'LKR 11,000/month',
-        features: ['2 Grooming Sessions per month'],
-        why: '2 grooming sessions shared across your pets.'
-      });
-    }
-    return { exceedsLimit: false, recommendations, specialAskOption: defaultSpecialAsk };
-  }
-
-  // Default clean recommendation
-  recommendations.push({
-    badge: '⭐ Best Match',
-    name: 'Luxora Family',
-    categoryKey: 'combo',
-    price: 'LKR 28,000/month',
-    features: ['4 Auto Care', '2 Garden Care', '2 Pet Care'],
-    why: 'Our most popular all-inclusive home care package.'
-  });
-
-  return { exceedsLimit: false, recommendations, specialAskOption: defaultSpecialAsk };
+  return { exceedsLimit: false, recommendations };
 }
 
 module.exports = {
   validateInputs,
-  getSimplifiedRecommendation
+  getSimplifiedRecommendation,
+  loadActivePlans,
+  formatPrice,
 };

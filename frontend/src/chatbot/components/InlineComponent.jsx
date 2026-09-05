@@ -146,8 +146,14 @@ function RecommendationCardsWidget({ comp, onSendMessage }) {
 
   const handleSelectAndBook = (card) => {
     const categoryKey = card.categoryKey || (card.name.toLowerCase().includes('auto') ? 'auto' : card.name.toLowerCase().includes('garden') ? 'garden' : card.name.toLowerCase().includes('pet') ? 'pet' : 'auto')
-    
-    // Store customer intent for website booking
+
+    // Store customer intent for website booking; the plan id ties the
+    // selection to the exact database subscription plan.
+    if (card.planId !== undefined && card.planId !== null) {
+      sessionStorage.setItem('selectedPlanId', String(card.planId))
+    } else {
+      sessionStorage.removeItem('selectedPlanId')
+    }
     sessionStorage.setItem('selectedCategory', categoryKey)
     sessionStorage.setItem('selectedPlanName', card.name)
     sessionStorage.setItem('loginRedirect', '/book-service')
@@ -206,16 +212,16 @@ function RecommendationCardsWidget({ comp, onSendMessage }) {
 }
 
 function SpecialAskFormWidget({ comp, onSendPayload }) {
+  // Only real catalog categories — these are the values the dashboard bespoke
+  // form and POST /support/service-requests accept.
   const categories = comp.categories || [
-    'Home & Estate Care',
     'Auto Care',
     'Garden Care',
-    'Pet Care',
-    'VIP Concierge'
+    'Pet Care'
   ]
 
   const [title, setTitle] = useState(comp.title || '')
-  const [category, setCategory] = useState(comp.category || 'Home & Estate Care')
+  const [category, setCategory] = useState(comp.category || 'Auto Care')
   const [date, setDate] = useState(comp.date || '')
   const [notes, setNotes] = useState(comp.notes || '')
   const [validationError, setValidationError] = useState(comp.error || '')
@@ -342,7 +348,7 @@ function SummaryCardWidget({ comp, onSendPayload }) {
     // 1. Store request data in sessionStorage to prevent any data loss
     const requestData = {
       title: comp.title || '',
-      category: comp.category || 'Home & Estate Care',
+      category: comp.category || 'Auto Care',
       date: comp.date || '',
       notes: comp.notes || ''
     }
@@ -415,7 +421,7 @@ function SummaryCardWidget({ comp, onSendPayload }) {
 function EscalationWidget({ comp, onSendMessage }) {
   const channels = comp.channels || [
     { id: 'phone', label: '📞 Direct Concierge Line', desc: '+94 11 234 5678 (Instant Call)' },
-    { id: 'whatsapp', label: '💬 WhatsApp Concierge', desc: '+94 77 123 4567 (Chat with agent)' }
+    { id: 'whatsapp', label: '💬 WhatsApp Concierge', desc: '+94 77 100 0001 (Chat with agent)' }
   ]
 
   return (

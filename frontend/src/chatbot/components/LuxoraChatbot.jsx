@@ -143,7 +143,7 @@ export function LuxoraChatbot() {
         handleSendMessage('', {
           wizardType: 'SPECIAL_ASK',
           stepAction: 'START',
-          category: btn.category || 'Home & Estate Care'
+          category: btn.category || 'Auto Care'
         })
         break
       case 'CONTINUE_BESPOKE': {
@@ -244,6 +244,11 @@ export function LuxoraChatbot() {
   const handleSelectPackage = (pkg) => {
     const pkgTitle = pkg?.title || pkg?.name || 'Selected Package'
     const categoryKey = pkg?.categoryKey || (pkgTitle.toLowerCase().includes('auto') ? 'auto' : pkgTitle.toLowerCase().includes('garden') ? 'garden' : pkgTitle.toLowerCase().includes('pet') ? 'pet' : 'auto')
+    if (pkg?.planId !== undefined && pkg?.planId !== null) {
+      sessionStorage.setItem('selectedPlanId', String(pkg.planId))
+    } else {
+      sessionStorage.removeItem('selectedPlanId')
+    }
     sessionStorage.setItem('selectedCategory', categoryKey)
     sessionStorage.setItem('selectedPlanName', pkgTitle)
     sessionStorage.setItem('loginRedirect', '/book-service')
