@@ -707,7 +707,11 @@ const ProviderDashboard = () => {
   const nextServiceStr = nextService ? nextService.bookingDate.replaceAll('-', '.') : '—'
   const historyRows = (earnings?.history || [])
     .filter((h) => String(h.status).toLowerCase() === 'completed')
-    .slice().sort((a, b) => String(b.booking_date).localeCompare(String(a.booking_date)))
+    .slice().sort((a, b) => {
+      const completedA = Date.parse(a.completed_at || `${a.booking_date}T${String(a.booking_time || '00:00').slice(0, 5)}`) || 0
+      const completedB = Date.parse(b.completed_at || `${b.booking_date}T${String(b.booking_time || '00:00').slice(0, 5)}`) || 0
+      return (completedB - completedA) || (Number(b.id) - Number(a.id))
+    })
 
   const filteredBookings = bookingFilter === 'PENDING'
     ? pendingBookingsList

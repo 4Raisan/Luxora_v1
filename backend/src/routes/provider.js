@@ -207,14 +207,14 @@ router.get('/earnings', async (req, res) => {
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   const completedJobs = await prisma.booking.count({ where: { providerId: provider.id, status: 'COMPLETED' } });
   const history = await prisma.booking.findMany({
-    where: { providerId: provider.id },
+    where: { providerId: provider.id, status: 'COMPLETED' },
     include: {
       service: { include: { category: true } },
       user: { select: { name: true, phone: true } },
       payments: { where: { status: 'COMPLETED' }, select: { status: true } },
       review: { select: { rating: true, comment: true, createdAt: true } },
     },
-    orderBy: { bookingDate: 'desc' },
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     take: 50,
   });
   const [bankAccounts, payouts, categories, overallEarnings, redeemedPayouts, ratingSummary] = await Promise.all([
@@ -246,7 +246,7 @@ router.get('/earnings', async (req, res) => {
     average_rating: ratingSummary._avg.rating || 0,
     rating_count: ratingSummary._count.rating,
     history: history.map((h) => ({
-      id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime,
+      id: h.id, booking_date: h.bookingDate, booking_time: h.bookingTime, completed_at: h.updatedAt,
       service_title: h.service?.title, category_name: h.service?.category?.name, customer_name: h.user?.name, customer_phone: h.user?.phone || '', total_price: h.totalPrice, job_earnings: h.status === 'COMPLETED' ? h.providerEarning : 0, payment_status: h.payments[0]?.status?.toLowerCase() || 'not_applicable', status: h.status.toLowerCase(),
       rating: h.review?.rating || null,
       review_comment: h.review?.comment || null,
