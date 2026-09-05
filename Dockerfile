@@ -12,6 +12,12 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 
+# Luxora booking rules (lead times, auto-assignment window, timeouts) are
+# defined in Asia/Colombo wall-clock time. Pin the container timezone so the
+# scheduler behaves identically regardless of host default (usually UTC).
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Colombo
+
 # Backend deps + Prisma client
 COPY backend/package*.json ./backend/
 RUN npm --prefix backend ci

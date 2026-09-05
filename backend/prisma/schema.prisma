@@ -237,7 +237,7 @@ model Booking {
 
 model PlatformSetting {
   id                          Int      @id @default(1)
-  autoAssignmentCooldownHours Int      @default(6)
+  autoAssignmentCooldownHours Int      @default(5)
   autoAssignmentStartHour     Int      @default(7)
   autoAssignmentEndHour       Int      @default(16)
   paymentMode                 String   @default("payhere")
