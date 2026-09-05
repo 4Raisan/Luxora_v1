@@ -12,7 +12,11 @@
   padding-top: 64px;
 }
 
-.cd-page > :not(.particle-atmosphere) {
+/* Content sits at z-index 1; the fixed header keeps its own z-index: 100.
+   The header must be excluded here — this rule has higher specificity than
+   .cd-header, and without :not(.cd-header) it clobbers the header's
+   z-index down to 1, letting scrolled content paint over the bar. */
+.cd-page > :not(.particle-atmosphere):not(.cd-header) {
   z-index: 1;
 }
 

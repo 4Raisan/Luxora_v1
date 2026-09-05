@@ -241,6 +241,7 @@ const CustomerDashboard = () => {
   const [activePackages, setActivePackages] = useState([])
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
+  const [pendingPurchasePlan, setPendingPurchasePlan] = useState(null)
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
   const [paymentSuccess, setPaymentSuccess] = useState(null)
 
@@ -256,6 +257,32 @@ const CustomerDashboard = () => {
         setTimeout(() => setBookingSuccessMsg(''), 6000)
       }
     } catch {}
+  }, [])
+
+  // Chatbot package handoff: /customer-dashboard?buyPlan=<id> opens the real
+  // checkout for that exact catalog plan. Guests reach this after signing in
+  // from the booking page's "Buy This Package" hand-off. No cleanup-cancel
+  // here: StrictMode double-invokes effects and the URL is already consumed
+  // by the second run, which would silently drop the handoff.
+  useEffect(() => {
+    const buyParam = new URLSearchParams(window.location.search).get('buyPlan')
+    const planId = buyParam || sessionStorage.getItem('buyPlanId')
+    if (!planId) return
+    sessionStorage.removeItem('buyPlanId')
+    if (buyParam) window.history.replaceState({}, '', '/customer-dashboard')
+    apiRequest('/subscriptions').then((plans) => {
+      const plan = (plans || []).find((p) => String(p.id) === String(planId))
+      if (!plan) return
+      if (!userAddress || (!userAddress.street && !userAddress.city)) {
+        setPendingPurchasePlan(plan)
+        setShowAddressModal(true)
+        setBookingSuccessMsg('📍 One step left: save your Service Delivery Address to buy ' + plan.title + '.')
+        setTimeout(() => setBookingSuccessMsg(''), 8000)
+        return
+      }
+      openPurchaseForServerPlan(plan)
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Real booking coins from the server entitlement snapshot — declared before
@@ -385,9 +412,7 @@ const CustomerDashboard = () => {
   /* ── Server-synced proposal features: memberships, notifications,
         payments history, reviews, profile management ── */
   const [serverSubscriptions, setServerSubscriptions] = useState([])
-  const [paymentMode, setPaymentMode] = useState('demo')
-  // Membership opened in the manage popup (renewal + cancel actions).
-  const [selectedMembership, setSelectedMembership] = useState(null)
+  const [selectedMembership, setSelectedMembership] = useState(null)  // Membership opened in the manage popup (renewal + cancel actions).
   const [reviewTarget, setReviewTarget] = useState(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
@@ -472,14 +497,12 @@ const CustomerDashboard = () => {
           })))
       }
 
-      // Tier 2: Deferred secondary data (Payment history, Available packages catalogue, payment mode)
-      const [paymentRows, planRows, mode] = await Promise.all([
+      // Tier 2: Deferred secondary data (Payment history, Available packages catalogue)
+      const [paymentRows, planRows] = await Promise.all([
         apiRequest('/payments/my', 'GET', null, token).catch(() => null),
         apiRequest('/subscriptions').catch(() => null),
-        apiRequest('/payments/mode', 'GET', null, token).catch(() => null),
       ])
 
-      if (mode?.mode) setPaymentMode(mode.mode)
       if (Array.isArray(paymentRows?.payments)) {
         const paid = paymentRows.payments
             .filter(p => p.status === 'COMPLETED')
@@ -1097,54 +1120,6 @@ const CustomerDashboard = () => {
     setShowCancelledSuccessModal(true)
   }
 
-  // Real checkout: in demo mode this creates a server-side payment and
-  // activates the subscription through the backend; in PayHere mode it
-  // delegates to the hosted checkout. No local-only subscription state.
-  const handleConfirmBooking = async (pkg) => {
-    if (!userAddress || (!userAddress.street && !userAddress.city)) {
-      setSelectedPackageToBook(null)
-      setShowAddressModal(true)
-      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before completing this purchase.')
-      setTimeout(() => setBookingSuccessMsg(''), 6000)
-      return
-    }
-
-    const token = sessionStorage.getItem('token')
-    if (!token || token === 'demo-token') {
-      alert('Please log in with a live backend account before subscribing.')
-      return
-    }
-
-    setPaymentBusy(true)
-    try {
-      const plans = await apiRequest('/subscriptions')
-      const plan = plans.find((p) => p.id === pkg.serverId) || plans.find((p) => p.title === pkg.title || p.title.endsWith(pkg.title))
-      if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
-
-      if (paymentMode === 'payhere') {
-        await startPayment('payhere', { ...pkg, title: plan.title })
-        return
-      }
-
-      const order = await apiRequest('/payments/demo/order', 'POST', {
-        plan_id: plan.id,
-        auto_renew: bookingBillingType === 'auto_renew',
-      }, token)
-      const completed = await apiRequest(`/payments/demo/${order.payment_id}/complete`, 'POST', { outcome: 'success' }, token)
-
-      // Refresh coins, memberships, payments history and notifications from the server.
-      await loadServerData()
-      setSelectedPackageToBook(null)
-      const coins = completed.receipt?.coins_granted || 0
-      setActiveTab('overview')
-      setPaymentSuccess({ planTitle: plan.title, coins, emailDelivery: completed.email_delivery })
-    } catch (error) {
-      alert(error.message || 'Subscription could not be completed. Please try again.')
-    } finally {
-      setPaymentBusy(false)
-    }
-  }
-
   const startPayment = async (provider, pkg) => {
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') { alert('Please log in with a live backend account before paying.'); return }
@@ -1366,6 +1341,10 @@ const CustomerDashboard = () => {
     }
     sessionStorage.removeItem('isFirstTimeSignup')
     setShowAddressModal(false)
+    // Resume a chatbot ?buyPlan handoff that was waiting on the address.
+    if (pendingPurchasePlan) {
+      openPurchaseForServerPlan(pendingPurchasePlan)
+    }
   }
 
   const isGoldMember = serverSubscriptions.some((sub) => {
@@ -1453,6 +1432,29 @@ const CustomerDashboard = () => {
       promotion: plan.promotion,
       cat: category,
       duration: plan.duration || 30,
+      service_id: 1,
+    })
+  }
+
+  // Maps a raw server catalog plan (from /subscriptions) straight into the
+  // purchase confirmation modal — used by the chatbot ?buyPlan= handoff.
+  const openPurchaseForServerPlan = (plan) => {
+    const planType = String(plan.type || '').toLowerCase()
+    const firstCategory = String((plan.entitlements || [])[0]?.category_name || '').toLowerCase()
+    const category = planType.includes('combo') ? 'system'
+      : firstCategory.includes('garden') ? 'garden'
+        : firstCategory.includes('pet') ? 'pet'
+          : 'auto'
+    setPendingPurchasePlan(null)
+    setSelectedPackageToBook({
+      title: plan.title,
+      serverId: plan.id,
+      tier: plan.type || 'Luxora Package',
+      price: `LKR ${Number(plan.discountedPriceMonthly ?? plan.priceMonthly).toLocaleString()}`,
+      originalPrice: plan.originalPriceMonthly,
+      promotion: plan.promotion,
+      cat: category,
+      duration: plan.durationDays || 30,
       service_id: 1,
     })
   }
@@ -4415,21 +4417,6 @@ const CustomerDashboard = () => {
                   Live LKR to USD conversion with instant crypto invoice. Settles strictly after full blockchain finality.
                 </small>
               </div>
-
-              {/* Demo fallback if PAYMENT_MODE=demo */}
-              {paymentMode === 'demo' && (
-                <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    className="cd-support-send-btn"
-                    style={{ background: '#333', color: '#ccc', fontSize: '0.8rem' }}
-                    disabled={paymentBusy}
-                    onClick={() => handleConfirmBooking(selectedPackageToBook)}
-                  >
-                    DEMO INSTANT PASS (DEVELOPMENT ONLY)
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>

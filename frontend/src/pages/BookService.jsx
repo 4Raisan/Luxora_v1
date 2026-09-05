@@ -13,6 +13,7 @@ export default function BookService() {
   const [categories, setCategories] = useState([])
   const [serviceId, setServiceId] = useState('')
   const [selectedPlan, setSelectedPlan] = useState(null)
+  const [needsPurchase, setNeedsPurchase] = useState(false)
   const [petType, setPetType] = useState('dog')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('09:00')
@@ -26,7 +27,7 @@ export default function BookService() {
     Promise.all([
       apiRequest('/services').catch(() => null),
       apiRequest('/subscriptions').catch(() => null),
-    ]).then(([serviceData, planData]) => {
+    ]).then(async ([serviceData, planData]) => {
       if (cancelled) return
       setServices(serviceData || [])
 
@@ -79,7 +80,21 @@ export default function BookService() {
         }
       }
 
-      if (resolvedPlan) setSelectedPlan(resolvedPlan)
+      if (resolvedPlan) {
+        setSelectedPlan(resolvedPlan)
+        // A package selection is only bookable when the account actually has
+        // coins for the plan's category. Without them, offer the real
+        // purchase flow on the dashboard instead of a guaranteed failure.
+        try {
+          const ent = await apiRequest('/subscriptions/entitlements', 'GET', null, token)
+          if (cancelled) return
+          const firstCategoryId = (resolvedPlan.entitlements || [])[0]?.category_id
+          const match = (ent?.entitlements || []).find((e) => e.category_id === firstCategoryId)
+          setNeedsPurchase(!match || Number(match.remaining_units) <= 0)
+        } catch {
+          if (!cancelled) setNeedsPurchase(false)
+        }
+      }
       // Consume the handoff keys so stale selections never resurface later.
       sessionStorage.removeItem('selectedPlanId')
       sessionStorage.removeItem('selectedPlanName')
@@ -174,8 +189,20 @@ export default function BookService() {
                   </span>
                 </div>
                 <p className="bs-plan-banner__note">
-                  Bookings under this package consume 1 coin per service visit.
+                  {needsPurchase
+                    ? 'This package is not active on your account yet — buy it to unlock bookings with its coins.'
+                    : 'Bookings under this package consume 1 coin per service visit.'}
                 </p>
+                {needsPurchase && (
+                  <button
+                    type="button"
+                    className="bs-btn-gold"
+                    style={{ marginTop: '0.7rem', width: '100%' }}
+                    onClick={() => navigate('/customer-dashboard?buyPlan=' + selectedPlan.id)}
+                  >
+                    ✦ Buy This Package →
+                  </button>
+                )}
               </div>
             )}
             {error && (
