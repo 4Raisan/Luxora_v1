@@ -22,19 +22,19 @@
 
 ## Overview
 
-Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet Care**. It coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, refunds, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state.
+Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet Care**. It coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state. There are no customer cash refunds in V1; eligible cancellations restore service coins only.
 
 | Role | Main capabilities |
 | --- | --- |
 | Customer | Manage a profile, buy a subscription, create bookings, pay, review services, and open complaints |
 | Provider | Complete KYC, manage availability and bank details, fulfil assigned work, and track earnings |
-| Admin | Manage users, services, plans, promotions, bookings, KYC, complaints, refunds, and platform reporting |
+| Admin | Manage users, services, plans, promotions, bookings, KYC, complaints, payouts, and platform reporting |
 
 There is no separate Super Admin role; Admin is the platform-administration role.
 
 ## MVP demo flow
 
-The clearest end-to-end demo is: customer signs up or signs in, purchases a package in demo-payment mode, creates a booking, and follows its status. An approved provider then records before evidence, starts and completes the work with the required PINs and after evidence. Admin can oversee KYC, bookings, plans, refunds, promotions, and reports.
+The clearest end-to-end demo is: customer signs up or signs in, purchases a package in demo-payment mode, creates a booking, and follows its status. An approved provider then records before evidence, starts and completes the work with the required PINs and after evidence. Admin can oversee KYC, bookings, plans, payouts, promotions, and reports.
 
 The application demonstrates the agreed MVP scope. External production services such as live payment-gateway settlement, verified email-domain delivery, durable S3 storage, Google OAuth, and managed runtime logging still need authorised live-environment validation; see the [roadmap](docs/planning/roadmap.md).
 

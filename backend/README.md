@@ -1,6 +1,6 @@
 # Luxora API
 
-The Luxora backend is an Express and Prisma API backed by PostgreSQL. It owns authentication, authorization, bookings, subscriptions, payments, provider fulfilment, earnings, complaints, refunds, notifications, and administrative operations.
+The Luxora backend is an Express and Prisma API backed by PostgreSQL. It owns authentication, authorization, bookings, subscriptions, payments, provider fulfilment, earnings, complaints, payout review, notifications, and administrative operations. There are no customer cash refunds in V1; eligible cancellations restore service coins only.
 
 ## Common commands
 

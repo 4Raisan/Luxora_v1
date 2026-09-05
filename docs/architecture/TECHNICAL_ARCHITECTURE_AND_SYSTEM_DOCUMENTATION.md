@@ -77,7 +77,7 @@ Every assertion, schema model, API route, and security control documented herein
 Repository Audit Surface:
 ├── frontend/src/                  # React 19 SPA (Pages, Components, Services, Chatbot)
 ├── backend/src/                   # Express 5 API (Routes, Middleware, Domain Services)
-├── backend/prisma/                # Schema definitions, 22 versioned migrations, seed scripts
+├── backend/prisma/                # Schema definitions, 25 versioned migrations, seed scripts
 ├── Knowladge-Graph/               # generate-graph.js, validate-graph.js, knowledge-graph.json
 ├── scripts/ci/                    # plan-checks.mjs, guard-protected-files.mjs, test runners
 ├── .github/workflows/             # ci.yml (8 CI jobs), knowledge-graph-pages.yml
@@ -93,9 +93,10 @@ Through exhaustive file analysis, the following baseline facts are confirmed:
 3. **Server-Authoritative Balances**: Client applications have zero authority over coins, pricing, or status transitions. All entitlement consumption, deductions, and restorations are validated within Prisma database transactions.
 4. **Provider Operational KYC Gate**: All operational routes in `backend/src/routes/provider.js` and `backend/src/routes/bookings.js` enforce `kycStatus === 'APPROVED'`. Providers with pending or rejected status are barred from receiving auto-assignments, entering start/completion PINs, or viewing job addresses.
 5. **Dual-PIN Physical Evidence Verification**: Service execution requires mutual physical confirmation. The provider cannot start service without the customer providing the 6-digit cryptographically secure Start PIN (verified via bcrypt against `startPinHash`) along with an uploaded `BEFORE` photo. The provider cannot complete service without the 6-digit cryptographically secure Completion PIN (verified against `completionPinHash`) along with an uploaded `AFTER` photo.
-6. **Automatic Dispatch & Timeout Cancellation**: The backend scheduler runs continuous checks. Bookings unassigned after 30 minutes, or unstarted after 2 hours, or uncompleted after 2 hours past scheduled end, are automatically cancelled and their token units restored via PostgreSQL advisory locks.
+6. **Automatic Dispatch & Timeout Cancellation**: The backend scheduler runs continuous checks. Bookings still unassigned at their scheduled start, or unstarted 2 hours after start, or uncompleted 2 hours past scheduled end, are automatically cancelled and their token units restored via PostgreSQL advisory locks. There is no grace period past the scheduled start for unassigned bookings.
 7. **Monthly Provider Payout Ledger**: Provider earnings accumulate per completed booking based on a fixed configured rate per service. An idempotent scheduler queues monthly payouts on the 31st for admin review and bank settlement.
 8. **Provider Booking Cancellation & Atomic Redispatch**: A provider can cancel only their own assigned future booking with at least 4 hours notice before scheduled start. Cancellation is strictly blocked within 4 hours, or once `IN_PROGRESS`/`COMPLETED`. No admin cancellation request or cancellation-reason form is used. When allowed, the backend transaction automatically reassigns the booking to an eligible replacement provider, or transitions to `CANCELLED` and restores the customer's subscription entitlement coin.
+9. **V1 Booking Rules**: New and rescheduled bookings require a server-enforced minimum lead time of 4 hours. Customers may cancel `PENDING`/`ASSIGNED` bookings before start with no fee; `IN_PROGRESS`/`COMPLETED`/`CANCELLED` are terminal. Providers cannot go offline with an `IN_PROGRESS` job or an assigned booking within 4 hours; further-out assignments reroute. Admin customer HOLD cancels `PENDING`/`ASSIGNED` (never `IN_PROGRESS`) and blocks new bookings; admin provider HOLD cancels ≤4h assignments with coin restore and reroutes later ones, leaving `IN_PROGRESS` untouched — both idempotent. Auto-assignment runs 07:00–16:00 Asia/Colombo (container pins `TZ=Asia/Colombo`) with a 5-hour per-provider cooldown; manual claims bypass the cooldown and urgent recovery paths bypass window/cooldown checks. Entitlement coins restore exactly once per eligible cancellation because usage excludes `CANCELLED` rows and every mutation re-reads state under advisory locks.
 
 ---
 
@@ -330,7 +331,7 @@ All communication with the backend passes through a single unified wrapper funct
   3. *Active Bookings*: Real-time job cards showing assigned provider name and contact phone number, Start PIN and Completion PIN reveal buttons, status timeline, and cancel/reschedule actions.
   4. *Transaction History*: Comprehensive billing history, payment status badges, downloadable PDF invoices generated on-the-fly via `jsPDF`, and complaint submission dialogs.
 - **Provider Dashboard**:
-  - Availability toggle (`ONLINE` vs `OFFLINE`) enforcing the strict 6-hour job safety window.
+  - Availability toggle (`ONLINE` vs `OFFLINE`) enforcing the 4-hour job notice window: `IN_PROGRESS` jobs and assigned bookings within 4 hours stay with the provider; further-out assignments reroute.
   - Interactive calendar displaying assigned daily appointments.
   - Customer contact phone numbers explicitly exposed on assigned job cards for service coordination.
   - Autonomous assigned booking cancellation up to 4 hours before job start with automated replacement dispatch (no cancellation-reason forms required).
