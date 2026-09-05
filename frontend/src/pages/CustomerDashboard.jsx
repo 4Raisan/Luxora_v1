@@ -565,9 +565,9 @@ const CustomerDashboard = () => {
               id: 'pay-' + p.id,
               date: new Date(p.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
               service: p.plan?.title || 'Luxora package',
-              tier: 'Server payment',
+              tier: p.gateway === 'DEMO' ? 'Demo Payment' : p.gateway === 'NOWPAYMENTS' ? 'NOWPayments' : p.gateway === 'PAYHERE' ? 'PayHere' : 'Server payment',
               ref: p.gatewayOrderId || ('PAY-' + p.id),
-              amount: (p.expectedCurrency || 'LKR') + ' ' + Number(p.expectedAmount).toLocaleString(),
+              amount: p.gateway === 'DEMO' ? 'No real charge' : (p.expectedCurrency || 'LKR') + ' ' + Number(p.expectedAmount).toLocaleString(),
               status: 'Completed',
               cat: 'system'
             }))
@@ -1210,6 +1210,71 @@ const CustomerDashboard = () => {
       document.body.appendChild(form); form.submit()
     } catch (error) {
       alert(error.message || 'Payment could not be started.')
+    } finally {
+      setPaymentBusy(false)
+    }
+  }
+
+  // Demo Payment — an independent gateway that needs no external credentials
+  // and never touches PayHere or NOWPayments. Each purchase attempt carries
+  // its own idempotency reference, so retries never grant tokens twice.
+  const demoCheckoutKeyRef = useRef(null)
+  const postDemoWithRetry = async (path, body, token, attempts = 3) => {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await apiRequest(path, 'POST', body, token)
+      } catch (error) {
+        const message = String(error?.message || '')
+        const transient = attempt < attempts && (
+          message.includes('timed out') ||
+          message.includes('Network error') ||
+          /failed \(5\d\d\)/.test(message)
+        )
+        if (!transient) throw error
+        await new Promise((resolve) => setTimeout(resolve, 600 * attempt))
+      }
+    }
+  }
+
+  const handleDemoCheckout = async () => {
+    if (paymentBusy) return
+    if (!userAddress || (!userAddress.street && !userAddress.city)) {
+      setShowAddressModal(true)
+      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before completing this purchase.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      return
+    }
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') { alert('Please log in with a live backend account before subscribing.'); return }
+    if (!demoCheckoutKeyRef.current) {
+      demoCheckoutKeyRef.current = window.crypto?.randomUUID
+        ? crypto.randomUUID()
+        : 'demo-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12)
+    }
+    setPaymentBusy(true)
+    try {
+      const plans = await apiRequest('/subscriptions')
+      const plan = plans.find((p) => p.id === selectedPackageToBook?.serverId) || plans.find((p) => p.title === selectedPackageToBook?.title)
+      if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
+
+      // The server calculates the price, completes the payment, activates the
+      // subscription, and grants the tokens. The same idempotency reference is
+      // reused across retries so a retried request can never pay twice.
+      const result = await postDemoWithRetry('/payments/demo/checkout', {
+        plan_id: plan.id,
+        billing_option: bookingBillingType,
+        idempotency_key: demoCheckoutKeyRef.current,
+      }, token)
+
+      await loadServerData()
+      setSelectedPackageToBook(null)
+      demoCheckoutKeyRef.current = null
+      setPaymentSuccess({ planTitle: plan.title, coins: result.receipt?.coins_granted || 0, emailDelivery: result.email_delivery })
+    } catch (error) {
+      // Keep the idempotency reference on failure: if the server actually
+      // completed the payment but the response was lost, retrying with the
+      // same reference returns the completed result instead of paying twice.
+      alert(error.message || 'Demo payment could not be completed. Please try again.')
     } finally {
       setPaymentBusy(false)
     }
@@ -4467,6 +4532,27 @@ const CustomerDashboard = () => {
                   {paymentGateways.nowpayments.enabled
                     ? 'Live LKR to USD conversion with instant crypto invoice. Settles strictly after full blockchain finality.'
                     : 'Configure the NOWPayments API key and IPN secret to enable this gateway.'}
+                </small>
+              </div>
+
+              {/* Option 3: Demo Payment — independent gateway, always available */}
+              <div className="cd-easypay" style={{ borderColor: 'rgba(95, 189, 139, 0.35)' }}>
+                <div className="cd-easypay__head">
+                  <span className="cd-easypay__title">DEMO PAYMENT</span>
+                  <span className="cd-easypay__badge" style={{ background: 'rgba(95, 189, 139, 0.15)', color: '#5FBD8B' }}>DEMO — NO REAL CHARGE</span>
+                </div>
+                <ActionButton
+                  type="button"
+                  className="cd-support-send-btn"
+                  loading={paymentBusy}
+                  loadingText="Processing demo payment..."
+                  disabled={paymentBusy}
+                  onClick={handleDemoCheckout}
+                >
+                  PAY WITH DEMO
+                </ActionButton>
+                <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
+                  Complete this purchase without a real financial charge. The selected package and service tokens will be added to your account.
                 </small>
               </div>
 

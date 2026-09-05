@@ -7,13 +7,13 @@
   },
   "stats": {
     "totalNodes": 210,
-    "totalEdges": 443,
+    "totalEdges": 450,
     "nodesByGroup": {
-      "api": 105,
+      "api": 104,
       "database": 33,
       "frontend": 37,
       "middleware": 3,
-      "routes": 16,
+      "routes": 17,
       "service": 16
     }
   },
@@ -964,33 +964,18 @@
       }
     },
     {
-      "id": "endpoint:POST_/api/payments/demo/:id/complete",
-      "label": "POST /api/payments/demo/:id/complete",
+      "id": "endpoint:POST_/api/payments/demo/checkout",
+      "label": "POST /api/payments/demo/checkout",
       "type": "ApiEndpoint",
       "group": "api",
-      "file": "backend/src/routes/integrations.js",
+      "file": "backend/src/routes/demoPayments.js",
       "metadata": {
         "method": "POST",
-        "path": "/api/payments/demo/:id/complete",
-        "routeFile": "integrations.js"
+        "path": "/api/payments/demo/checkout",
+        "routeFile": "demoPayments.js"
       },
       "source": {
-        "path": "backend/src/routes/integrations.js"
-      }
-    },
-    {
-      "id": "endpoint:POST_/api/payments/demo/order",
-      "label": "POST /api/payments/demo/order",
-      "type": "ApiEndpoint",
-      "group": "api",
-      "file": "backend/src/routes/integrations.js",
-      "metadata": {
-        "method": "POST",
-        "path": "/api/payments/demo/order",
-        "routeFile": "integrations.js"
-      },
-      "source": {
-        "path": "backend/src/routes/integrations.js"
+        "path": "backend/src/routes/demoPayments.js"
       }
     },
     {
@@ -3899,6 +3884,19 @@
       }
     },
     {
+      "id": "routefile:demoPayments",
+      "label": "demoPayments.js",
+      "type": "RouteModule",
+      "group": "routes",
+      "file": "backend/src/routes/demoPayments.js",
+      "metadata": {
+        "baseMount": "/api"
+      },
+      "source": {
+        "path": "backend/src/routes/demoPayments.js"
+      }
+    },
+    {
       "id": "routefile:docs",
       "label": "docs.js",
       "type": "RouteModule",
@@ -4110,19 +4108,6 @@
       }
     },
     {
-      "id": "service:paymentAvailability",
-      "label": "paymentAvailability.js",
-      "type": "Service",
-      "group": "service",
-      "file": "backend/src/services/paymentAvailability.js",
-      "metadata": {
-        "modelsAccessed": []
-      },
-      "source": {
-        "path": "backend/src/services/paymentAvailability.js"
-      }
-    },
-    {
       "id": "service:paymentContracts",
       "label": "paymentContracts.js",
       "type": "Service",
@@ -4133,6 +4118,22 @@
       },
       "source": {
         "path": "backend/src/services/paymentContracts.js"
+      }
+    },
+    {
+      "id": "service:paymentFulfilment",
+      "label": "paymentFulfilment.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/paymentFulfilment.js",
+      "metadata": {
+        "modelsAccessed": [
+          "payment",
+          "user"
+        ]
+      },
+      "source": {
+        "path": "backend/src/services/paymentFulfilment.js"
       }
     },
     {
@@ -5215,6 +5216,20 @@
       "label": "POST",
       "source": "frontend:CustomerDashboard",
       "target": "endpoint:POST_/api/complaints",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:CustomerDashboard->endpoint:POST_/api/payments/demo/checkout:FETCHES_API",
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:POST_/api/payments/demo/checkout",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:CustomerDashboard",
+      "target": "endpoint:POST_/api/payments/demo/checkout",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
@@ -8666,6 +8681,104 @@
       }
     },
     {
+      "id": "routefile:demoPayments->endpoint:POST_/api/payments/demo/checkout:EXPOSES_ENDPOINT",
+      "from": "routefile:demoPayments",
+      "to": "endpoint:POST_/api/payments/demo/checkout",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:demoPayments",
+      "target": "endpoint:POST_/api/payments/demo/checkout",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/demoPayments.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:demoPayments->middleware:auth:USES_AUTH",
+      "from": "routefile:demoPayments",
+      "to": "middleware:auth",
+      "type": "USES_AUTH",
+      "label": "authenticateToken",
+      "source": "routefile:demoPayments",
+      "target": "middleware:auth",
+      "kind": "USES_AUTH",
+      "evidence": {
+        "path": "backend/src/routes/demoPayments.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:demoPayments->middleware:auth:USES_RBAC",
+      "from": "routefile:demoPayments",
+      "to": "middleware:auth",
+      "type": "USES_RBAC",
+      "label": "requireRole",
+      "source": "routefile:demoPayments",
+      "target": "middleware:auth",
+      "kind": "USES_RBAC",
+      "evidence": {
+        "path": "backend/src/routes/demoPayments.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:demoPayments->middleware:rateLimit:USES_RATE_LIMIT",
+      "from": "routefile:demoPayments",
+      "to": "middleware:rateLimit",
+      "type": "USES_RATE_LIMIT",
+      "label": "",
+      "source": "routefile:demoPayments",
+      "target": "middleware:rateLimit",
+      "kind": "USES_RATE_LIMIT",
+      "evidence": {
+        "path": "backend/src/routes/demoPayments.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:demoPayments->middleware:validators:USES_VALIDATION",
+      "from": "routefile:demoPayments",
+      "to": "middleware:validators",
+      "type": "USES_VALIDATION",
+      "label": "",
+      "source": "routefile:demoPayments",
+      "target": "middleware:validators",
+      "kind": "USES_VALIDATION",
+      "evidence": {
+        "path": "backend/src/routes/demoPayments.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:demoPayments->model:Payment:QUERIES_DB",
+      "from": "routefile:demoPayments",
+      "to": "model:Payment",
+      "type": "QUERIES_DB",
+      "label": "prisma.payment",
+      "source": "routefile:demoPayments",
+      "target": "model:Payment",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/demoPayments.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:demoPayments->service:entitlements:CALLS_SERVICE",
+      "from": "routefile:demoPayments",
+      "to": "service:entitlements",
+      "type": "CALLS_SERVICE",
+      "label": "",
+      "source": "routefile:demoPayments",
+      "target": "service:entitlements",
+      "kind": "CALLS_SERVICE",
+      "evidence": {
+        "path": "backend/src/routes/demoPayments.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:docs->endpoint:GET_/api/docs:EXPOSES_ENDPOINT",
       "from": "routefile:docs",
       "to": "endpoint:GET_/api/docs",
@@ -8757,34 +8870,6 @@
       "label": "POST",
       "source": "routefile:integrations",
       "target": "endpoint:POST_/api/payments/:id/receipt/resend",
-      "kind": "EXPOSES_ENDPOINT",
-      "evidence": {
-        "path": "backend/src/routes/integrations.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:integrations->endpoint:POST_/api/payments/demo/:id/complete:EXPOSES_ENDPOINT",
-      "from": "routefile:integrations",
-      "to": "endpoint:POST_/api/payments/demo/:id/complete",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST",
-      "source": "routefile:integrations",
-      "target": "endpoint:POST_/api/payments/demo/:id/complete",
-      "kind": "EXPOSES_ENDPOINT",
-      "evidence": {
-        "path": "backend/src/routes/integrations.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:integrations->endpoint:POST_/api/payments/demo/order:EXPOSES_ENDPOINT",
-      "from": "routefile:integrations",
-      "to": "endpoint:POST_/api/payments/demo/order",
-      "type": "EXPOSES_ENDPOINT",
-      "label": "POST",
-      "source": "routefile:integrations",
-      "target": "endpoint:POST_/api/payments/demo/order",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/integrations.js",
@@ -8968,20 +9053,6 @@
       "source": "routefile:integrations",
       "target": "model:UserSubscription",
       "kind": "QUERIES_DB",
-      "evidence": {
-        "path": "backend/src/routes/integrations.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:integrations->service:entitlements:CALLS_SERVICE",
-      "from": "routefile:integrations",
-      "to": "service:entitlements",
-      "type": "CALLS_SERVICE",
-      "label": "",
-      "source": "routefile:integrations",
-      "target": "service:entitlements",
-      "kind": "CALLS_SERVICE",
       "evidence": {
         "path": "backend/src/routes/integrations.js",
         "extractor": "generate-graph.js:static-analysis"
@@ -10440,6 +10511,34 @@
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/services/notify.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "service:paymentFulfilment->model:Payment:QUERIES_DB",
+      "from": "service:paymentFulfilment",
+      "to": "model:Payment",
+      "type": "QUERIES_DB",
+      "label": "prisma.payment",
+      "source": "service:paymentFulfilment",
+      "target": "model:Payment",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/services/paymentFulfilment.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "service:paymentFulfilment->model:User:QUERIES_DB",
+      "from": "service:paymentFulfilment",
+      "to": "model:User",
+      "type": "QUERIES_DB",
+      "label": "prisma.user",
+      "source": "service:paymentFulfilment",
+      "target": "model:User",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/services/paymentFulfilment.js",
         "extractor": "generate-graph.js:static-analysis"
       }
     }

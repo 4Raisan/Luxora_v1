@@ -236,17 +236,15 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   const token = reg.token;
 
   // B12: demo checkout serializes money as JSON numbers with exact values
-  const order = await authJson(token, '/payments/demo/order', { method: 'POST', body: JSON.stringify({ plan_id: 1 }) });
-  assert.equal(order.status, 201);
-  assert.equal(typeof order.body.plan.amount, 'number');
-  assert.ok([4250, 5000].includes(order.body.plan.amount), `Expected 5000 or 4250, got ${order.body.plan.amount}`);
-  const complete = await authJson(token, `/payments/demo/${order.body.payment_id}/complete`, { method: 'POST', body: JSON.stringify({ outcome: 'success' }) });
-  assert.equal(complete.status, 200);
-  assert.equal(complete.body.receipt.plan_id, 1);
-  assert.equal(complete.body.receipt.coins_granted, 1);
-  assert.ok(complete.body.subscription.id);
-  assert.ok(Array.isArray(complete.body.entitlement_snapshot));
-  assert.ok(complete.body.entitlement_snapshot.some((item) => item.remaining_units >= 1));
+  const checkout = await authJson(token, '/payments/demo/checkout', { method: 'POST', body: JSON.stringify({ plan_id: 1, billing_option: 'one_time', idempotency_key: `api_fixes_b12_${Date.now()}_${RND}` }) });
+  assert.equal(checkout.status, 201);
+  assert.equal(typeof checkout.body.payment.amount, 'number');
+  assert.ok([4250, 5000].includes(checkout.body.payment.amount), `Expected 5000 or 4250, got ${checkout.body.payment.amount}`);
+  assert.equal(checkout.body.receipt.plan_id, 1);
+  assert.equal(checkout.body.receipt.coins_granted, 1);
+  assert.ok(checkout.body.subscription.id);
+  assert.ok(Array.isArray(checkout.body.entitlement_snapshot));
+  assert.ok(checkout.body.entitlement_snapshot.some((item) => item.remaining_units >= 1));
 
   // Full booking lifecycle: book (server auto-assigns) -> photo -> PIN start -> photo -> PIN complete -> review
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);

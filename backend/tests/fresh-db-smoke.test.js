@@ -127,27 +127,17 @@ test('2. Complete Booking Flow on Fresh DB: Purchase, Auto-Assignment, Service P
   const plan = await prisma.subscriptionPlan.findFirst({ where: { title: 'Basic Package' } });
   assert.ok(plan, 'Plan must exist');
 
-  const checkoutRes = await fetch(`${BASE}/payments/demo/order`, {
+  const checkoutRes = await fetch(`${BASE}/payments/demo/checkout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${customerLogin.token}`,
     },
-    body: JSON.stringify({ plan_id: plan.id }),
+    body: JSON.stringify({ plan_id: plan.id, billing_option: 'one_time', idempotency_key: `smoke_${Date.now()}` }),
   });
   assert.equal(checkoutRes.status, 201);
   const checkoutData = await checkoutRes.json();
-  assert.ok(checkoutData.payment_id);
-
-  // Complete payment
-  const completeRes = await fetch(`${BASE}/payments/demo/${checkoutData.payment_id}/complete`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${customerLogin.token}`,
-    },
-  });
-  assert.equal(completeRes.status, 200);
+  assert.ok(checkoutData.payment.id);
 
   // Verify entitlement granted
   const entRes = await fetch(`${BASE}/subscriptions/entitlements`, {

@@ -24,7 +24,7 @@ import { migrateBankAccounts } from '../prisma/migrate-bank-accounts.js';
 import { assertStorageConfigured, objectStorageEnabled } from '../src/services/storage.js';
 import { escapeHtml } from '../src/services/integrations.js';
 import { isOriginAllowed } from '../src/index.js';
-import { activateSubscription } from '../src/routes/integrations.js';
+import { activateSubscription } from '../src/services/paymentFulfilment.js';
 import { renewDueDemoSubscriptions } from '../src/routes/services.js';
 import { validatePassword, isPassword } from '../src/middleware/validators.js';
 import { resolveApiBase } from '../../frontend/src/services/api.js';
@@ -469,7 +469,7 @@ test('Release Hardening 8: Later admin plan price change does not alter subscrip
   });
 
   // User purchases subscription with autoRenew enabled
-  await prisma.userSubscription.create({
+  const demoSub = await prisma.userSubscription.create({
     data: {
       userId: cust.id,
       planId: plan.id,
@@ -503,12 +503,28 @@ test('Release Hardening 8: Later admin plan price change does not alter subscrip
     },
   });
 
-  // Run demo renewal
-  const originalEnv = process.env.PAYMENT_MODE;
-  try {
-    process.env.PAYMENT_MODE = 'demo';
-    const renewed = await renewDueDemoSubscriptions();
-    assert.ok(renewed.length >= 1);
+  // The subscription originated in the Demo Payment gateway — attach its
+  // DEMO payment so the demo renewal system owns this renewal.
+  await prisma.payment.create({
+    data: {
+      userId: cust.id,
+      planId: plan.id,
+      subscriptionId: demoSub.id,
+      gateway: 'DEMO',
+      gatewayOrderId: `LUX-DEMO-RH8-${rnd}`,
+      idempotencyKey: `IDEM-RH8-${rnd}`,
+      status: 'COMPLETED',
+      expectedAmount: 12000,
+      expectedCurrency: 'LKR',
+      capturedAmount: 12000,
+      capturedCurrency: 'LKR',
+    },
+  });
+
+  // Run demo renewal — no PAYMENT_MODE needed: the DEMO gateway origin
+  // decides which subscriptions the demo renewal system covers.
+  const renewed = await renewDueDemoSubscriptions();
+  assert.ok(renewed.length >= 1);
 
     // Verify the newly renewed subscription uses the snapshotted price (12000) and units (3), not the new plan values
     const renewedSub = await prisma.userSubscription.findFirst({
@@ -520,9 +536,6 @@ test('Release Hardening 8: Later admin plan price change does not alter subscrip
     assert.equal(renewedSub.currency, 'LKR');
     assert.equal(renewedSub.entitlements.length, 1);
     assert.equal(renewedSub.entitlements[0].units, 3, 'Renewed units must be 3 from snapshot, not 1');
-  } finally {
-    process.env.PAYMENT_MODE = originalEnv;
-  }
 });
 
 test('Release Hardening 9: CORS allowed origins in production and development', () => {

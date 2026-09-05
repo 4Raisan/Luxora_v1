@@ -10,6 +10,7 @@ const orderedTests = [
   'tests/nowpayments.test.js',
   'tests/nowpayments-e2e.test.js',
   'tests/payment-contract.test.js',
+  'tests/demo-payment.test.js',
   'tests/unit-fixes.test.js',
   'tests/api-fixes.test.js',
   'tests/booking-concurrency.test.js',
@@ -40,6 +41,7 @@ export const testSuites = {
     'tests/nowpayments.test.js',
     'tests/nowpayments-e2e.test.js',
     'tests/payment-contract.test.js',
+    'tests/demo-payment.test.js',
     'tests/release-hardening.test.js',
   ],
   bookings: [

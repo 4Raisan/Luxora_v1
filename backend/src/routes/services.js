@@ -6,7 +6,6 @@ import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { notify } from '../services/notify.js';
 import { activePromotionWhere, calculatePromotionPrice, serializePromotion } from '../services/promotions.js';
-import { demoPaymentsEnabled } from '../services/paymentAvailability.js';
 
 const router = Router();
 const planFeatures = (value) => {
@@ -103,8 +102,9 @@ router.get('/subscriptions', async (_req, res) => {
 });
 
 export async function renewDueDemoSubscriptions() {
-  if (!demoPaymentsEnabled()) return [];
-  const due = await prisma.userSubscription.findMany({ where: { status: 'active', autoRenew: true, nextRenewalDate: { lte: new Date() } }, include: { plan: true } });
+  // Only Demo-originated subscriptions renew here — the renewal always stays
+  // inside the Demo Payment system and never touches PayHere or NOWPayments.
+  const due = await prisma.userSubscription.findMany({ where: { status: 'active', autoRenew: true, nextRenewalDate: { lte: new Date() }, payments: { some: { gateway: 'DEMO' } } }, include: { plan: true } });
   const renewedSubscriptions = [];
   for (const subscription of due) {
     const renewedSubscription = await prisma.$transaction(async (tx) => {

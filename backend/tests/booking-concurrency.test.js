@@ -418,38 +418,30 @@ test('Audit Verification: Concurrent Payment Settlement Idempotency', async () =
   const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
   assert.ok(plan, 'Plan must exist');
 
-  // Create demo order
-  const orderRes = await authJson(token, '/payments/demo/order', {
-    method: 'POST',
-    body: JSON.stringify({ plan_id: plan.id }),
-  });
-  assert.equal(orderRes.status, 201);
-  const paymentId = orderRes.body.payment_id;
-
-  // Execute 5 concurrent completion requests
-  const completionPromises = Array.from({ length: 5 }, () =>
-    authJson(token, `/payments/demo/${paymentId}/complete`, {
+  // Five concurrent Demo Payment checkouts sharing one idempotency reference
+  const idempotencyKey = `conc_pay_${Date.now()}_${RND}`;
+  const checkoutPromises = Array.from({ length: 5 }, () =>
+    authJson(token, '/payments/demo/checkout', {
       method: 'POST',
-      body: JSON.stringify({ outcome: 'success' }),
+      body: JSON.stringify({ plan_id: plan.id, billing_option: 'one_time', idempotency_key: idempotencyKey }),
     })
   );
 
-  const results = await Promise.all(completionPromises);
-  const successCount = results.filter((r) => r.status === 200).length;
-  const conflictCount = results.filter((r) => r.status === 409).length;
+  const results = await Promise.all(checkoutPromises);
+  const completedCount = results.filter((r) => r.status === 200 || r.status === 201).length;
+  assert.equal(completedCount, 5, 'Every concurrent checkout with the same reference must resolve successfully');
 
-  assert.equal(successCount, 1, 'Exactly one concurrent completion must succeed with 200');
-  assert.equal(conflictCount, 4, 'Other 4 concurrent completions must receive 409 (already completed)');
+  // Verify exactly 1 payment record exists for the reference, completed once
+  const payments = await prisma.payment.findMany({ where: { idempotencyKey } });
+  assert.equal(payments.length, 1, 'Exactly 1 payment record must exist for the checkout reference');
+  assert.equal(payments[0].status, 'COMPLETED');
+  assert.equal(payments[0].gateway, 'DEMO');
 
   // Verify only 1 subscription record exists for this payment
   const subscriptions = await prisma.userSubscription.findMany({
     where: { userId: customer.id, planId: plan.id },
   });
   assert.equal(subscriptions.length, 1, 'Exactly 1 subscription record must be created');
-
-  // Verify payment status is COMPLETED
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-  assert.equal(payment.status, 'COMPLETED');
 });
 
 test('Audit Verification: Payment Receipt Resend & Failure Recovery', async () => {
@@ -474,16 +466,13 @@ test('Audit Verification: Payment Receipt Resend & Failure Recovery', async () =
 
   const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
 
-  // Create and complete demo payment
-  const orderRes = await authJson(token, '/payments/demo/order', {
+  // Create and complete demo payment in one checkout call
+  const checkoutRes = await authJson(token, '/payments/demo/checkout', {
     method: 'POST',
-    body: JSON.stringify({ plan_id: plan.id }),
+    body: JSON.stringify({ plan_id: plan.id, billing_option: 'one_time', idempotency_key: `receipt_retry_${Date.now()}_${RND}` }),
   });
-  const paymentId = orderRes.body.payment_id;
-  await authJson(token, `/payments/demo/${paymentId}/complete`, {
-    method: 'POST',
-    body: JSON.stringify({ outcome: 'success' }),
-  });
+  assert.equal(checkoutRes.status, 201);
+  const paymentId = checkoutRes.body.payment.id;
 
   // 1. Resend receipt authorized customer call
   const resendRes = await authJson(token, `/payments/${paymentId}/receipt/resend`, { method: 'POST' });
@@ -542,5 +531,5 @@ test('Audit Verification: IDOR and Role Access Boundary Enforcement', async () =
   const providerUser = await prisma.user.create({ data: { email: `payment_role_${Date.now()}@example.com`, passwordHash: 'fakehash', role: 'PROVIDER', name: 'Payment Role Provider' } });
   const providerToken = jwt.sign({ id: providerUser.id, email: providerUser.email, role: 'PROVIDER', tokenVersion: providerUser.tokenVersion }, JWT_SECRET, { expiresIn: '1h' });
   const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true } });
-  assert.equal((await authJson(providerToken, '/payments/demo/order', { method: 'POST', body: JSON.stringify({ plan_id: plan.id }) })).status, 403, 'Only customers may create package-payment orders');
+  assert.equal((await authJson(providerToken, '/payments/demo/checkout', { method: 'POST', body: JSON.stringify({ plan_id: plan.id, billing_option: 'one_time', idempotency_key: `role_${Date.now()}_${RND}` }) })).status, 403, 'Only customers may create package-payment checkouts');
 });

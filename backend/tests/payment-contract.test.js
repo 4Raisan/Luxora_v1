@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyPayHereWebhook } from '../src/services/paymentContracts.js';
-import { demoPaymentsEnabled } from '../src/services/paymentAvailability.js';
 
 const payHerePayment = {
   gateway: 'PAYHERE',
@@ -37,9 +36,3 @@ test('PayHere pending, failed, refunded, and successful states are distinct', ()
   assert.equal(classifyPayHereWebhook(payHerePayment, payHereSuccess), 'success');
 });
 
-test('Demo checkout has an independent enable flag with legacy compatibility', () => {
-  assert.equal(demoPaymentsEnabled({ DEMO_PAYMENTS_ENABLED: 'true', PAYMENT_MODE: 'payhere' }), true);
-  assert.equal(demoPaymentsEnabled({ DEMO_PAYMENTS_ENABLED: 'false', PAYMENT_MODE: 'demo' }), false);
-  assert.equal(demoPaymentsEnabled({ PAYMENT_MODE: 'demo' }), true);
-  assert.equal(demoPaymentsEnabled({ PAYMENT_MODE: 'payhere' }), false);
-});
