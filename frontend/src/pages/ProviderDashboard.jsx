@@ -396,6 +396,10 @@ const ProviderDashboard = () => {
 
   useRealtime({
     onEvent: (type, data) => {
+      if (data?.metadata?.rescheduled) {
+        void refreshBookingLists()
+        return
+      }
       if (type === 'PAYOUT_UPDATED') {
         const payoutId = Number(data?.payoutId || data?.id)
         setEarnings((current) => {

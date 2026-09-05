@@ -634,6 +634,10 @@ const CustomerDashboard = () => {
       return
     }
 
+    if (payload?.metadata?.rescheduled) {
+      void loadServerData()
+      return
+    }
     if (type === 'BOOKING_CREATED') {
       const id = b.id || b.bookingId
       setCustomerActiveBookings((prev) => {
@@ -929,7 +933,7 @@ const CustomerDashboard = () => {
           town: userAddress.city,
           address_street: userAddress.street,
           address_district: userAddress.district,
-        }, token).catch(() => {})
+        }, token)
       }
 
       let services = servicesCacheRef.current
