@@ -995,7 +995,7 @@ const ProviderDashboard = () => {
                         <span className="pd-booking__day">{String(new Date(`${h.booking_date}T00:00:00`).getDate())}</span>
                       </div>
                       <div style={{ flex: 1 }}>
-                        <h3 className="pd-all-booking-title">{h.service_title || 'Service booking'}</h3>
+                        <h3 className="pd-all-booking-title">{h.category_name || h.service_title || 'Service booking'}</h3>
                         <p className="pd-all-booking-sub">{h.customer_name || 'Customer'}{(h.petType || h.pet_type) ? ` • ${(h.petType || h.pet_type) === 'dog' ? '🐕 Dog Care' : '🐈 Cat Care'}` : ''}{h.customer_phone ? ` • 📞 ${formatMobileNumber(h.customer_phone)}` : ''} • {String(h.booking_time || '').slice(0, 5)}</p>
                       </div>
                       <span className="pd-booking__status" style={{ borderColor: STATUS_COLORS[String(h.status).toUpperCase()] || '#888', color: STATUS_COLORS[String(h.status).toUpperCase()] || '#888' }}>
