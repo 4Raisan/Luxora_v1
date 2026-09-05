@@ -200,8 +200,16 @@ test('Full remediation with a replacement admin: exposed credential dies, legiti
 
 test('Last active admin is held back while fixtures are still disabled', async () => {
   const snap = await snapshotSharedRows();
+  // Other test files may leave active admins behind; quarantine them so this
+  // test deterministically exercises the last-admin hold, then restore.
+  const otherAdmins = await prisma.user.findMany({
+    where: { role: 'ADMIN', active: true, email: { notIn: [...SEED_EMAILS, CONTROL_EMAIL] } },
+    select: { id: true },
+  });
+  const otherAdminIds = otherAdmins.map((a) => a.id);
   try {
     await installExposedFixture();
+    await prisma.user.updateMany({ where: { id: { in: otherAdminIds } }, data: { active: false } });
 
     await assert.rejects(
       () => disablePublicSeedAccounts(prisma),
@@ -214,7 +222,20 @@ test('Last active admin is held back while fixtures are still disabled', async (
     assert.equal(heldAdmin.active, true, 'last admin must stay active until replaced');
     assert.equal((await login('admin@luxora.lk', EXPOSED_PASSWORD)).status, 200, 'held admin keeps working until replaced');
   } finally {
+    await prisma.user.updateMany({ where: { id: { in: otherAdminIds } }, data: { active: true } });
     await cleanupExtras();
     await restoreSharedRows(snap);
   }
+});
+
+test('Login rate limiter trips under rapid attempts (production auth hardening)', async () => {
+  // loginLimiter allows 10 POST /login per 15 minutes per IP; a burst must
+  // eventually receive 429 instead of silently serving every attempt.
+  let lastStatus = null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const response = await login(`ratelimit.probe.${attempt}@example.com`, 'Wrong-Password-123!');
+    lastStatus = response.status;
+    if (lastStatus === 429) break;
+  }
+  assert.equal(lastStatus, 429, 'login endpoint must rate-limit rapid attempts with 429');
 });
