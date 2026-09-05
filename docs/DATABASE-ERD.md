@@ -40,11 +40,13 @@ erDiagram
 
     categories ||--o{ services : "contains"
     categories ||--o{ subscription_entitlements : "included in"
+    categories ||--o{ user_subscription_entitlements : "copied into"
     subscription_plans ||--o{ subscription_entitlements : "defines"
     subscription_plans ||--o{ promotion_plans : "discount eligibility"
     promotions ||--o{ promotion_plans : "targets packages"
     subscription_plans ||--o{ user_subscriptions : "selected by"
     subscription_plans ||--o{ payments : "paid through"
+    user_subscriptions ||--o{ user_subscription_entitlements : "copies units to"
 
     user_subscriptions ||--o{ bookings : "funds"
     user_subscriptions ||--o{ payments : "renewed through"
@@ -114,6 +116,12 @@ erDiagram
         int planId FK
         string status
         datetime endDate
+    }
+    user_subscription_entitlements {
+        int id PK
+        int subscriptionId FK
+        int categoryId FK
+        int units
     }
     bookings {
         int id PK
@@ -226,6 +234,7 @@ erDiagram
     categories ||--o{ subscription_entitlements : "allocates units"
     users ||--o{ user_subscriptions : "purchases"
     subscription_plans ||--o{ user_subscriptions : "plan"
+    user_subscriptions ||--o{ user_subscription_entitlements : "per-subscription units"
     users ||--o{ bookings : "books"
     providers ||--o{ bookings : "performs"
     services ||--o{ bookings : "service"
@@ -259,6 +268,7 @@ erDiagram
 | `subscription_plans` | Package/catalogue plan definition | Parent of entitlements, subscriptions, and plan payments |
 | `subscription_entitlements` | Category-specific service units included in a plan | Bridge between plans and categories; unique per plan/category |
 | `user_subscriptions` | A user’s purchased plan and membership status | Belongs to a user and a plan |
+| `user_subscription_entitlements` | Per-subscription copy of category units used for entitlement accounting | Belongs to a user subscription and a category; unique per subscription/category |
 | `bookings` | Scheduled service work | Belongs to user and service; optionally provider and subscription |
 | `service_photos` | Before/after evidence for a booking | Belongs to `bookings` |
 | `payments` | Payment intent, gateway response, and captured amount | Belongs to user; may reference plan, booking, or subscription |
@@ -278,7 +288,7 @@ erDiagram
 | Parent | Child | Database behaviour |
 | --- | --- | --- |
 | `users` | `providers`, password reset tokens, subscriptions, payments, support tickets, notifications, audit logs | Cascade delete where defined |
-| `providers` | KYC documents, bank accounts, payouts | Documents/accounts cascade; payout relationship is retained through provider reference rules |
+| `providers` | KYC documents, bank accounts, payouts | Cascade delete where defined |
 | `categories` | `services`, subscription entitlements | Cascade delete |
 | `subscription_plans` | Entitlements | Cascade delete |
 | `subscription_plans` | Payments | Restrict delete; preserve payment history |

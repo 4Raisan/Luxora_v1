@@ -39,11 +39,12 @@ All operational provider routes require provider role plus approved KYC. `/provi
 | GET | `/provider/earnings`, `/bookings/assigned` | Own work and payout data |
 | POST | `/provider/bank-accounts` | Create/select masked bank account |
 | PUT | `/bookings/:id/status`, `/bookings/:id/schedule` | Assigned booking lifecycle |
+| POST | `/provider/bookings/:id/cancel` | Own ASSIGNED booking cancellation (≥4h notice, auto-redispatch) |
 | POST | `/bookings/:id/photos` | Required before/after evidence |
 
 ## Admin
 
-There is no Super Admin. Every `/admin/*` route requires an Admin JWT. Admin covers users, providers/KYC, bookings, plans, complaints, reports, refunds, scheduling, payouts, and audit logs. Promotion and support mutation routes also require Admin.
+There is no Super Admin. Every `/admin/*` route requires an Admin JWT. Admin covers users, providers/KYC, bookings, plans, complaints, reports, payouts, scheduling, and audit logs. Promotion and support mutation routes also require Admin. There are no customer cash refunds in V1; gateway webhook `REFUNDED` states only synchronize externally reversed payments.
 
 ### Package promotions
 

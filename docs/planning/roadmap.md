@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-Implemented: role-scoped portals; Prisma/PostgreSQL migrations; demo, PayHere, and NOWPayments settlement; Resend receipt retry state; entitlements; server auto-assignment; serialized PIN/photo lifecycle; private local/S3-compatible upload storage; refunds; provider earnings/bank accounts/monthly payout ledger; admin audit log; isolated migration-built API tests; CI, lint, build, and generated knowledge graph.
+Implemented: role-scoped portals; Prisma/PostgreSQL migrations; demo, PayHere, and NOWPayments settlement; gateway webhook `REFUNDED`-status handling; Resend receipt retry state; entitlements; server auto-assignment; serialized PIN/photo lifecycle; private local/S3-compatible upload storage; provider earnings/bank accounts/monthly payout ledger; admin audit log; isolated migration-built API tests; CI, lint, build, and generated knowledge graph.
 
 ## Priority 1
 
@@ -13,7 +13,7 @@ Implemented: role-scoped portals; Prisma/PostgreSQL migrations; demo, PayHere, a
 
 ## Priority 2
 
-- Implement an explicit NOWPayments refund initiation/reconciliation workflow; current admin approval records intent and waits for gateway confirmation.
+- There is no customer refund-initiation flow in V1 by design (package purchases are final; eligible cancellations restore service coins). If a future NOWPayments refund capability is required, it needs a new admin-initiated gateway workflow; no admin approval records such intent today.
 - Add retry/requeue UI and history for failed provider bank transfers.
 - Add pagination and indexed filters for high-volume admin/history endpoints.
 - Add verified-email state and confirmation flow if product requirements require more than password ownership/reset email.

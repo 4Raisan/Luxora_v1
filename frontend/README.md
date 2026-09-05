@@ -67,7 +67,6 @@ Then run `npm run graph:verify` from the repository root so the Knowledge Graph 
 src/pages/           Route-level screens
 src/components/      Reusable UI components
 src/services/api.js  API base resolution and authenticated requests
-src/context/         Shared application state
 src/App.jsx           Routes and role entry points
 public/              Static public assets
 ```
