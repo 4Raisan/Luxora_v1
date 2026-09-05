@@ -112,12 +112,10 @@ export const CardSection = () => {
           paused: true,
         })
 
-        if (mobile) {
-          timeline.to(track, {
-            duration: 3.2,
-            x: () => -Math.max(0, track.scrollWidth - window.innerWidth + 24),
-          }, 0)
-        }
+        // Mobile keeps the card flip animation only. The strip itself is a
+        // native swipe surface (overflow-x + scroll-snap on the stage), so
+        // cards stay reachable without depending on a one-shot auto-pan
+        // whose final position could clip or strand cards.
 
         cards.forEach((card, index) => {
           const direction = index % 2 === 0 ? 1 : -1
