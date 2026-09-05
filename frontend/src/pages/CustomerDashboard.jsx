@@ -1176,6 +1176,26 @@ const CustomerDashboard = () => {
   // creates a server-side payment and activates the subscription directly.
   // Without a delivery address the checkout parks and resumes after the
   // address form is saved.
+  // Demo checkout calls retry themselves on transient failures (dropped
+  // connections, timeouts, 5xx) so a flaky moment cannot eat a payment.
+  // Client errors (4xx) fail fast — retrying cannot fix a bad request.
+  const postDemoWithRetry = async (path, body, token, attempts = 3) => {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await apiRequest(path, 'POST', body, token)
+      } catch (error) {
+        const message = String(error?.message || '')
+        const transient = attempt < attempts && (
+          message.includes('timed out') ||
+          message.includes('Network error') ||
+          /failed \(5\d\d\)/.test(message)
+        )
+        if (!transient) throw error
+        await new Promise((resolve) => setTimeout(resolve, 600 * attempt))
+      }
+    }
+  }
+
   const handleConfirmBooking = async (pkg) => {
     if (!userAddress || (!userAddress.street && !userAddress.city)) {
       setSelectedPackageToBook(null)
@@ -1198,11 +1218,11 @@ const CustomerDashboard = () => {
       const plan = plans.find((p) => p.id === pkg.serverId) || plans.find((p) => p.title === pkg.title || p.title.endsWith(pkg.title))
       if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
 
-      const order = await apiRequest('/payments/demo/order', 'POST', {
+      const order = await postDemoWithRetry('/payments/demo/order', {
         plan_id: plan.id,
         auto_renew: bookingBillingType === 'auto_renew',
       }, token)
-      const completed = await apiRequest(`/payments/demo/${order.payment_id}/complete`, 'POST', { outcome: 'success' }, token)
+      const completed = await postDemoWithRetry(`/payments/demo/${order.payment_id}/complete`, { outcome: 'success' }, token)
 
       // Refresh coins, memberships, payments history and notifications from the server.
       await loadServerData()
