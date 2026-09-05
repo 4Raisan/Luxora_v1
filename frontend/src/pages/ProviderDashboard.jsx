@@ -1007,7 +1007,6 @@ const ProviderDashboard = () => {
                       </span>
                     </div>
                     <div className="pd-all-booking-actions" style={{ alignItems: 'center' }}>
-                      <span style={{ color: '#888', fontSize: '0.75rem' }}>PAID: {String(h.payment_status || '—').toUpperCase()}</span>
                       <button type="button" className="pd-booking__details" onClick={() => openHistoryBooking(h)}>
                         VIEW PHOTOS
                       </button>
