@@ -8,7 +8,8 @@ Core relation groups:
 
 ```text
 User -> Provider -> KycDocument
-User -> UserSubscription -> SubscriptionEntitlement -> SubscriptionPlan
+User -> UserSubscription -> UserSubscriptionEntitlement -> Category
+SubscriptionPlan -> SubscriptionEntitlement -> Category (package template)
 User -> Booking -> Service -> Category
 Booking -> ServicePhoto / Payment / Review
 User -> Notification / SupportTicket / Complaint

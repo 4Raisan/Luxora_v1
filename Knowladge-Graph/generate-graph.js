@@ -358,10 +358,16 @@ function parseFrontend() {
       // route before matching backend endpoint nodes.
       const apiPathRegex = /(?:apiRequest|fetch)\(\s*['"`](\/[^'"`?]+)['"`]/g;
       const explicitApiPathRegex = /['"`](\/api\/[a-zA-Z0-9_\-/${}:]+)['"`]/g;
+      // Retry/API wrapper helpers (e.g. postDemoWithRetry('/payments/...'))
+      // forward to the shared client, so their first-argument API paths count
+      // too. Only literals starting with a real backend mount prefix qualify,
+      // which keeps navigation calls like navigate('/login') out of the graph.
+      const wrapperApiPathRegex = /\b[a-zA-Z_$][\w$]*\(\s*['"`](\/(?:api|auth|bookings|provider|admin|customer|profile|support|notifications|promotions|reviews|complaints|uploads|services|payments|categories|subscriptions)(?:\/[^'"`?]*)?)['"`]/g;
       let pathMatch;
       const apiMatches = [];
       while ((pathMatch = apiPathRegex.exec(content)) !== null) apiMatches.push(pathMatch[1]);
       while ((pathMatch = explicitApiPathRegex.exec(content)) !== null) apiMatches.push(pathMatch[1]);
+      while ((pathMatch = wrapperApiPathRegex.exec(content)) !== null) apiMatches.push(pathMatch[1]);
       for (const rawPath of apiMatches) {
         let endpointPath = rawPath.split('?')[0].replace(/[$][{][^}]+}/g, ':id');
         if (!endpointPath.startsWith('/api/')) endpointPath = `/api${endpointPath}`;
