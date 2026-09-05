@@ -242,6 +242,7 @@ const CustomerDashboard = () => {
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
   const [pendingPurchasePlan, setPendingPurchasePlan] = useState(null)
+  const [paymentSuccess, setPaymentSuccess] = useState(null)
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
 
   useEffect(() => {
@@ -1592,6 +1593,27 @@ const CustomerDashboard = () => {
       <ParticleAtmosphere />
       {/* 2-Second Polished Logout Overlay */}
       <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeLogout} />
+
+      {/* ── Demo Payment success — server-confirmed activation with granted tokens ── */}
+      {paymentSuccess && (
+        <div className="cd-support-overlay" style={{ zIndex: 1000 }}>
+          <div className="cd-support-modal animate-fade-in" style={{ maxWidth: '440px', textAlign: 'center' }} role="dialog" aria-modal="true" aria-label="Payment successful">
+            <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
+              <div className="cd-support-icon-box" style={{ background: 'rgba(34, 197, 94, 0.16)', color: '#4ade80' }}>✓</div>
+              <h2 className="cd-support-modal__title">Demo Payment Successful</h2>
+              <p className="cd-support-modal__subtitle">No real money was charged.</p>
+            </div>
+            <div className="cd-book-confirm-details" style={{ marginTop: '1rem', textAlign: 'left' }}>
+              <div className="cd-book-confirm-row"><span>Package</span><strong>{paymentSuccess.planTitle}</strong></div>
+              <div className="cd-book-confirm-row"><span>Coins added</span><strong className="gold-accent">{paymentSuccess.coins}</strong></div>
+              <div className="cd-book-confirm-row"><span>Receipt email</span><small>{paymentSuccess.emailDelivery === 'sent' ? 'Sent to your account email' : paymentSuccess.emailDelivery === 'not_configured' ? 'Email delivery is not configured' : 'Could not be delivered'}</small></div>
+            </div>
+            <button type="button" className="cd-support-send-btn" style={{ marginTop: '1.5rem', width: '100%' }} onClick={() => setPaymentSuccess(null)}>
+              VIEW MY PACKAGE
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── PayHere result — status read from the backend, never from the redirect ── */}
       {payhereResult && (
