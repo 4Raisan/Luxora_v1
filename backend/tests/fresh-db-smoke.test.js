@@ -16,6 +16,11 @@ const backendDir = path.resolve(__dirname, '..');
 
 const PORT = 5025;
 const BASE = `http://127.0.0.1:${PORT}/api`;
+const demoPasswords = {
+  customer: process.env.CUSTOMER_PASSWORD,
+  provider: process.env.PROVIDER_PASSWORD,
+  admin: process.env.ADMIN_PASSWORD,
+};
 
 const SERVER_ENV = {
   ...process.env,
@@ -55,14 +60,15 @@ test('1. Demo Accounts, Bcrypt Hashes, and Authenticated Logins', async () => {
 
   for (const u of users) {
     assert.ok(u.passwordHash.startsWith('$2a$') || u.passwordHash.startsWith('$2b$'), `Password must be bcrypt hash for ${u.email}`);
-    assert.ok(bcrypt.compareSync('luxora123', u.passwordHash), `Bcrypt hash must verify against luxora123 for ${u.email}`);
+    const password = u.role === 'ADMIN' ? demoPasswords.admin : u.role === 'PROVIDER' ? demoPasswords.provider : demoPasswords.customer;
+    assert.ok(password && bcrypt.compareSync(password, u.passwordHash), `Password must verify against the isolated test credential for ${u.email}`);
   }
 
   // Admin login
   const adminRes = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@luxora.lk', password: 'luxora123' }),
+    body: JSON.stringify({ email: 'admin@luxora.lk', password: demoPasswords.admin }),
   });
   assert.equal(adminRes.status, 200);
   const adminData = await adminRes.json();
@@ -74,7 +80,7 @@ test('1. Demo Accounts, Bcrypt Hashes, and Authenticated Logins', async () => {
   const providerRes = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'provider@luxora.lk', password: 'luxora123' }),
+    body: JSON.stringify({ email: 'provider@luxora.lk', password: demoPasswords.provider }),
   });
   assert.equal(providerRes.status, 200);
   const providerData = await providerRes.json();
@@ -85,7 +91,7 @@ test('1. Demo Accounts, Bcrypt Hashes, and Authenticated Logins', async () => {
   const customerRes = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'customer@luxora.lk', password: 'luxora123' }),
+    body: JSON.stringify({ email: 'customer@luxora.lk', password: demoPasswords.customer }),
   });
   assert.equal(customerRes.status, 200);
   const customerData = await customerRes.json();
@@ -106,14 +112,14 @@ test('2. Complete Booking Flow on Fresh DB: Purchase, Auto-Assignment, Service P
   const customerLogin = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'customer@luxora.lk', password: 'luxora123' }),
+    body: JSON.stringify({ email: 'customer@luxora.lk', password: demoPasswords.customer }),
   }).then(r => r.json());
 
   // Login provider
   const providerLogin = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'provider@luxora.lk', password: 'luxora123' }),
+    body: JSON.stringify({ email: 'provider@luxora.lk', password: demoPasswords.provider }),
   }).then(r => r.json());
 
   // 1. Customer purchases Basic Package plan
@@ -275,7 +281,7 @@ test('3. Admin Audit Trail Logging on Fresh DB', async () => {
   const adminLogin = await fetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@luxora.lk', password: 'luxora123' }),
+    body: JSON.stringify({ email: 'admin@luxora.lk', password: demoPasswords.admin }),
   }).then(r => r.json());
 
   // Admin updates scheduling window
@@ -303,4 +309,20 @@ test('3. Admin Audit Trail Logging on Fresh DB', async () => {
   assert.ok(logsData.length >= 1, 'Audit log must record admin action');
   assert.equal(logsData[0].action, 'UPDATE_SCHEDULING_SETTINGS');
   assert.equal(logsData[0].admin.email, 'admin@luxora.lk');
+});
+
+test('4. Login attempts are rate limited', async () => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(`${BASE}/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'customer@luxora.lk', password: 'not-the-seed-password' }),
+    });
+    assert.equal(response.status, 401);
+  }
+  const limited = await fetch(`${BASE}/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'customer@luxora.lk', password: 'not-the-seed-password' }),
+  });
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get('ratelimit-limit'), '10');
 });

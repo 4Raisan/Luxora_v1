@@ -37,7 +37,7 @@ Copy `.env.example` to `.env` for local development. Keep real values in the hos
 | NOWPayments | `NOWPAYMENTS_API_KEY`, `NOWPAYMENTS_IPN_SECRET`, `NOWPAYMENTS_BASE_URL` |
 | Email and sign-in | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `GOOGLE_CLIENT_ID` |
 | Payout worker | `PAYOUT_SCHEDULER_ENABLED` |
-| Local seed accounts | `CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, `ADMIN_PASSWORD` |
+| Local/test seed fixtures | `CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, `ADMIN_PASSWORD` |
 
 Production requirements:
 
@@ -45,6 +45,7 @@ Production requirements:
 - Use a separate `BANK_ENCRYPTION_KEY`; never reuse the JWT secret.
 - Configure S3-compatible storage. Local disk uploads are development-only.
 - Use explicit public origins in `CORS_ORIGIN` or `FRONTEND_URL`, and configure `TRUST_PROXY` for the real ingress topology.
+- `npm run seed` never creates demo accounts when `NODE_ENV=production`; production accounts must be created through the application or approved operations workflow.
 - The current single-instance production setup uses bounded in-memory rate limiting and SSE state with zero external broker dependencies. `REDIS_URL` is optional and only required if scaling to multi-instance distributed rate limiting in the future.
 
 ## Database and bank-account migration

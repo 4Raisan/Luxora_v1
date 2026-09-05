@@ -17,6 +17,7 @@
     "test:bookings": "node tests/run-tests.js --suite=bookings",
     "test:security": "node tests/run-tests.js --suite=security",
     "seed": "node prisma/seed.js",
+    "security:disable-public-seed-accounts": "node prisma/disable-public-seed-accounts.js",
     "demo:seed": "node prisma/demo-bookings.js seed",
     "demo:clean": "node prisma/demo-bookings.js clean",
     "preflight:bank-accounts": "node prisma/migrate-bank-accounts.js --dry-run",

@@ -1,7 +1,10 @@
 #!/bin/bash
-# Luxora API smoke test — full durability suite (demo accounts: @luxora.lk)
+# Luxora API smoke test — full durability suite (isolated local fixture accounts)
 # Target is overridable, e.g. SMOKE_BASE=http://127.0.0.1:5010/api bash smoke-test.sh
 B=${SMOKE_BASE:-http://localhost:5000/api}
+: "${CUSTOMER_PASSWORD:?Set CUSTOMER_PASSWORD for the isolated local seed account}"
+: "${PROVIDER_PASSWORD:?Set PROVIDER_PASSWORD for the isolated local seed account}"
+: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD for the isolated local seed account}"
 pass=0; fail=0
 RND=$RANDOM
 check() {
@@ -11,9 +14,9 @@ check() {
 jget() { python -c "import sys,json;d=json.loads(sys.argv[1]);print(d.get(sys.argv[2],''))" "$1" "$2" 2>/dev/null; }
 
 # Tokens
-CTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"customer@luxora.lk","password":"luxora123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
-PTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"provider@luxora.lk","password":"luxora123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
-ATOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@luxora.lk","password":"luxora123"}' | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
+CTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d "{\"email\":\"customer@luxora.lk\",\"password\":\"$CUSTOMER_PASSWORD\"}" | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
+PTOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d "{\"email\":\"provider@luxora.lk\",\"password\":\"$PROVIDER_PASSWORD\"}" | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
+ATOK=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d "{\"email\":\"admin@luxora.lk\",\"password\":\"$ADMIN_PASSWORD\"}" | python -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
 [ -n "$CTOK" ] && [ -n "$PTOK" ] && [ -n "$ATOK" ] && { pass=$((pass+1)); echo "PASS: all three demo logins"; } || { fail=$((fail+1)); echo "FAIL: demo logins"; }
 
 echo "=== Catalog ==="
