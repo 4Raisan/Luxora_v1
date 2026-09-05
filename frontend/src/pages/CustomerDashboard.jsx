@@ -242,9 +242,7 @@ const CustomerDashboard = () => {
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
   const [pendingPurchasePlan, setPendingPurchasePlan] = useState(null)
-  const [resumePurchaseAfterAddress, setResumePurchaseAfterAddress] = useState(null)
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
-  const [paymentSuccess, setPaymentSuccess] = useState(null)
 
   useEffect(() => {
     try {
@@ -459,7 +457,6 @@ const CustomerDashboard = () => {
   const [paymentGateways, setPaymentGateways] = useState({
     payhere: { enabled: true, environment: 'SANDBOX' },
     nowpayments: { enabled: true, environment: 'LIVE' },
-    demo: { enabled: false, environment: 'DEMO' },
   })
   const [selectedMembership, setSelectedMembership] = useState(null)  // Membership opened in the manage popup (renewal + cancel actions).
   const [reviewTarget, setReviewTarget] = useState(null)
@@ -557,15 +554,8 @@ const CustomerDashboard = () => {
         setPaymentGateways((current) => ({
           payhere: { ...current.payhere, ...mode.gateways.payhere },
           nowpayments: { ...current.nowpayments, ...mode.gateways.nowpayments },
-          demo: { ...current.demo, ...mode.gateways.demo },
         }))
         if (mode.gateways.payhere?.environment) setPayhereEnv(mode.gateways.payhere.environment)
-      } else if (mode?.mode) {
-        // Compatibility with older backends that returned one exclusive mode.
-        setPaymentGateways((current) => ({
-          ...current,
-          demo: { ...current.demo, enabled: mode.mode === 'demo' },
-        }))
       }
 
       if (Array.isArray(paymentRows?.payments)) {
@@ -1189,75 +1179,6 @@ const CustomerDashboard = () => {
     setShowCancelledSuccessModal(true)
   }
 
-  // Independent Demo checkout: when enabled by the backend this creates a
-  // server-side test payment without disabling either real payment gateway.
-  // Without a delivery address the checkout parks and resumes after the
-  // address form is saved.
-  // Demo checkout calls retry themselves on transient failures (dropped
-  // connections, timeouts, 5xx) so a flaky moment cannot eat a payment.
-  // Client errors (4xx) fail fast — retrying cannot fix a bad request.
-  const postDemoWithRetry = async (path, body, token, attempts = 3) => {
-    for (let attempt = 1; ; attempt += 1) {
-      try {
-        return await apiRequest(path, 'POST', body, token)
-      } catch (error) {
-        const message = String(error?.message || '')
-        const transient = attempt < attempts && (
-          message.includes('timed out') ||
-          message.includes('Network error') ||
-          /failed \(5\d\d\)/.test(message)
-        )
-        if (!transient) throw error
-        await new Promise((resolve) => setTimeout(resolve, 600 * attempt))
-      }
-    }
-  }
-
-  const handleConfirmBooking = async (pkg) => {
-    if (!paymentGateways.demo.enabled) {
-      alert('Demo payment is not enabled on this server.')
-      return
-    }
-    if (!userAddress || (!userAddress.street && !userAddress.city)) {
-      setSelectedPackageToBook(null)
-      setResumePurchaseAfterAddress(pkg)
-      setShowAddressModal(true)
-      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before completing this purchase.')
-      setTimeout(() => setBookingSuccessMsg(''), 6000)
-      return
-    }
-
-    const token = sessionStorage.getItem('token')
-    if (!token || token === 'demo-token') {
-      alert('Please log in with a live backend account before subscribing.')
-      return
-    }
-
-    setPaymentBusy(true)
-    try {
-      const plans = await apiRequest('/subscriptions')
-      const plan = plans.find((p) => p.id === pkg.serverId) || plans.find((p) => p.title === pkg.title || p.title.endsWith(pkg.title))
-      if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
-
-      const order = await postDemoWithRetry('/payments/demo/order', {
-        plan_id: plan.id,
-        auto_renew: bookingBillingType === 'auto_renew',
-      }, token)
-      const completed = await postDemoWithRetry(`/payments/demo/${order.payment_id}/complete`, { outcome: 'success' }, token)
-
-      // Refresh coins, memberships, payments history and notifications from the server.
-      await loadServerData()
-      setSelectedPackageToBook(null)
-      const coins = completed.receipt?.coins_granted || 0
-      setActiveTab('overview')
-      setPaymentSuccess({ planTitle: plan.title, coins, emailDelivery: completed.email_delivery })
-    } catch (error) {
-      alert(error.message || 'Subscription could not be completed. Please try again.')
-    } finally {
-      setPaymentBusy(false)
-    }
-  }
-
   const startPayment = async (provider, pkg) => {
     if (paymentGateways[provider]?.enabled === false) {
       alert(`${provider === 'payhere' ? 'PayHere' : 'NOWPayments'} is not configured on this server.`)
@@ -1483,12 +1404,8 @@ const CustomerDashboard = () => {
     }
     sessionStorage.removeItem('isFirstTimeSignup')
     setShowAddressModal(false)
-    // Resume an interrupted purchase: the checkout parked by the address gate
-    // or the chatbot ?buyPlan handoff that was waiting on the address.
-    if (resumePurchaseAfterAddress) {
-      setSelectedPackageToBook(resumePurchaseAfterAddress)
-      setResumePurchaseAfterAddress(null)
-    } else if (pendingPurchasePlan) {
+    // Resume the chatbot ?buyPlan handoff that was waiting on the address.
+    if (pendingPurchasePlan) {
       openPurchaseForServerPlan(pendingPurchasePlan)
     }
   }
@@ -1611,23 +1528,6 @@ const CustomerDashboard = () => {
       {/* 2-Second Polished Logout Overlay */}
       <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeLogout} />
 
-      {paymentSuccess && (
-        <div className="cd-support-overlay" style={{ zIndex: 1000 }}>
-          <div className="cd-support-modal animate-fade-in" style={{ maxWidth: '440px', textAlign: 'center' }} role="dialog" aria-modal="true" aria-label="Payment successful">
-            <div className="cd-support-modal__header" style={{ alignItems: 'center' }}>
-              <div className="cd-support-icon-box" style={{ background: 'rgba(34, 197, 94, 0.16)', color: '#4ade80' }}>✓</div>
-              <h2 className="cd-support-modal__title">Demo Payment Successful</h2>
-              <p className="cd-support-modal__subtitle">No real money was charged.</p>
-            </div>
-            <div className="cd-book-confirm-details" style={{ marginTop: '1rem', textAlign: 'left' }}>
-              <div className="cd-book-confirm-row"><span>Package</span><strong>{paymentSuccess.planTitle}</strong></div>
-              <div className="cd-book-confirm-row"><span>Coins added</span><strong className="gold-accent">{paymentSuccess.coins}</strong></div>
-              <div className="cd-book-confirm-row"><span>Receipt email</span><small>{paymentSuccess.emailDelivery === 'sent' ? 'Sent to your account email' : paymentSuccess.emailDelivery === 'not_configured' ? 'Email delivery is not configured' : 'Could not be delivered'}</small></div>
-            </div>
-            <button type="button" className="cd-support-send-btn" style={{ marginTop: '1.5rem' }} onClick={() => setPaymentSuccess(null)}>VIEW MY PACKAGE</button>
-          </div>
-        </div>
-      )}
       {/* ── PayHere result — status read from the backend, never from the redirect ── */}
       {payhereResult && (
         <div className="cd-support-overlay" style={{ zIndex: 1000 }} onClick={() => payhereResult.status !== 'checking' && setPayhereResult(null)}>
@@ -4570,30 +4470,6 @@ const CustomerDashboard = () => {
                 </small>
               </div>
 
-              {/* Independent development-only Demo gateway. It never changes
-                  the availability or labels of PayHere and NOWPayments. */}
-              {paymentGateways.demo.enabled && (
-                <div className="cd-easypay" style={{ borderColor: 'rgba(148, 163, 184, 0.35)' }}>
-                  <div className="cd-easypay__head">
-                    <span className="cd-easypay__title">DEVELOPMENT CHECKOUT</span>
-                    <span className="cd-easypay__badge" style={{ background: 'rgba(148, 163, 184, 0.16)', color: '#cbd5e1' }}>DEMO — NO REAL CHARGE</span>
-                  </div>
-                  <ActionButton
-                    type="button"
-                    className="cd-support-send-btn"
-                    style={{ background: '#333', color: '#ddd', fontSize: '0.8rem' }}
-                    loading={paymentBusy}
-                    loadingText="Activating demo payment..."
-                    disabled={paymentBusy}
-                    onClick={() => handleConfirmBooking(selectedPackageToBook)}
-                  >
-                    USE DEMO PAYMENT
-                  </ActionButton>
-                  <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
-                    Test-only payment. PayHere Sandbox and NOWPayments continue to operate independently.
-                  </small>
-                </div>
-              )}
             </div>
           </div>
         </div>
