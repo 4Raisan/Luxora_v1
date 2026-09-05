@@ -188,14 +188,14 @@ export function LuxoraChatbot() {
       case 'CONFIRM_BOOKING': {
         const categoryKey = btn.category || sessionStorage.getItem('selectedCategory') || 'auto'
         sessionStorage.setItem('selectedCategory', categoryKey)
-        sessionStorage.setItem('loginRedirect', '/book-service')
+        sessionStorage.setItem('loginRedirect', '/customer-dashboard?bookSession=1')
 
         const token = sessionStorage.getItem('token')
         const user = JSON.parse(sessionStorage.getItem('user') || '{}')
         if (!token || user?.role?.toLowerCase() !== 'customer') {
           window.location.href = '/login?role=customer'
         } else {
-          window.location.href = '/book-service'
+          window.location.href = '/customer-dashboard?bookSession=1'
         }
         break
       }
@@ -251,14 +251,14 @@ export function LuxoraChatbot() {
     }
     sessionStorage.setItem('selectedCategory', categoryKey)
     sessionStorage.setItem('selectedPlanName', pkgTitle)
-    sessionStorage.setItem('loginRedirect', '/book-service')
+    sessionStorage.setItem('loginRedirect', '/customer-dashboard?bookSession=1')
 
     const token = sessionStorage.getItem('token')
     const user = JSON.parse(sessionStorage.getItem('user') || '{}')
     if (!token || user?.role?.toLowerCase() !== 'customer') {
       window.location.href = '/login?role=customer'
     } else {
-      window.location.href = '/book-service'
+      window.location.href = '/customer-dashboard?bookSession=1'
     }
   }
 

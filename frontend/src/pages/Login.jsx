@@ -174,7 +174,9 @@ const Login = () => {
         </div>
 
         {/* Customer booking redirect notification banner */}
-        {(sessionStorage.getItem('loginRedirect') === '/book-service' || window.location.search.includes('role=customer')) && (
+        {(sessionStorage.getItem('loginRedirect') === '/book-service'
+          || sessionStorage.getItem('loginRedirect')?.startsWith('/customer-dashboard')
+          || window.location.search.includes('role=customer')) && (
           <div style={{
             background: 'rgba(201, 168, 76, 0.12)',
             border: '1px solid rgba(201, 168, 76, 0.3)',

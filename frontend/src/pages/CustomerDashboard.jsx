@@ -242,6 +242,7 @@ const CustomerDashboard = () => {
 
   const [selectedPackageToBook, setSelectedPackageToBook] = useState(null)
   const [pendingPurchasePlan, setPendingPurchasePlan] = useState(null)
+  const [resumePurchaseAfterAddress, setResumePurchaseAfterAddress] = useState(null)
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
   const [paymentSuccess, setPaymentSuccess] = useState(null)
 
@@ -282,6 +283,49 @@ const CustomerDashboard = () => {
       }
       openPurchaseForServerPlan(plan)
     }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Chatbot booking handoff: ?bookSession=1 lands on the Service Session
+  // Booking scheduler with the selected package's category preselected, so
+  // the member can book directly with their coins.
+  useEffect(() => {
+    const sessionParam = new URLSearchParams(window.location.search).get('bookSession')
+    if (!sessionParam) return
+    window.history.replaceState({}, '', '/customer-dashboard')
+    // The Service Session Booking scheduler lives in the overview tab (the
+    // header's "Booking" nav item).
+    setActiveTab('overview')
+    const planId = sessionStorage.getItem('selectedPlanId')
+    const planName = sessionStorage.getItem('selectedPlanName')
+    const fallbackCat = (sessionStorage.getItem('selectedCategory') || '').toLowerCase()
+    sessionStorage.removeItem('selectedPlanId')
+    sessionStorage.removeItem('selectedPlanName')
+    sessionStorage.removeItem('selectedCategory')
+    const applyCategory = (cat) => {
+      if (['auto', 'garden', 'pet'].includes(cat)) {
+        setServiceBookingForm(prev => ({ ...prev, packageId: cat }))
+      }
+    }
+    if (['auto', 'garden', 'pet'].includes(fallbackCat)) applyCategory(fallbackCat)
+    if (!planId) {
+      setBookingSuccessMsg('✨ Pick a date & time below to book a session with your coins.')
+      setTimeout(() => setBookingSuccessMsg(''), 8000)
+      return
+    }
+    // No cleanup-cancel: StrictMode double-invokes effects and the URL is
+    // consumed by the second run, which would silently drop the handoff.
+    apiRequest('/subscriptions').then((plans) => {
+      const plan = (plans || []).find((p) => String(p.id) === String(planId))
+      if (!plan) return
+      const firstCat = String((plan.entitlements || [])[0]?.category_name || '').toLowerCase()
+      applyCategory(firstCat.includes('garden') ? 'garden' : firstCat.includes('pet') ? 'pet' : firstCat.includes('auto') ? 'auto' : fallbackCat)
+      setBookingSuccessMsg('✨ ' + (plan.title || planName || 'Package') + ' selected — pick a date & time below to book a session with your coins.')
+    }).catch(() => {
+      setBookingSuccessMsg('✨ Pick a date & time below to book a session with your coins.')
+    }).finally(() => {
+      setTimeout(() => setBookingSuccessMsg(''), 8000)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -412,6 +456,7 @@ const CustomerDashboard = () => {
   /* ── Server-synced proposal features: memberships, notifications,
         payments history, reviews, profile management ── */
   const [serverSubscriptions, setServerSubscriptions] = useState([])
+  const [paymentMode, setPaymentMode] = useState('demo')
   const [selectedMembership, setSelectedMembership] = useState(null)  // Membership opened in the manage popup (renewal + cancel actions).
   const [reviewTarget, setReviewTarget] = useState(null)
   const [reviewRating, setReviewRating] = useState(5)
@@ -497,11 +542,14 @@ const CustomerDashboard = () => {
           })))
       }
 
-      // Tier 2: Deferred secondary data (Payment history, Available packages catalogue)
-      const [paymentRows, planRows] = await Promise.all([
+      // Tier 2: Deferred secondary data (Payment history, Available packages catalogue, payment mode)
+      const [paymentRows, planRows, mode] = await Promise.all([
         apiRequest('/payments/my', 'GET', null, token).catch(() => null),
         apiRequest('/subscriptions').catch(() => null),
+        apiRequest('/payments/mode', 'GET', null, token).catch(() => null),
       ])
+
+      if (mode?.mode) setPaymentMode(mode.mode)
 
       if (Array.isArray(paymentRows?.payments)) {
         const paid = paymentRows.payments
@@ -1120,6 +1168,51 @@ const CustomerDashboard = () => {
     setShowCancelledSuccessModal(true)
   }
 
+  // Demo instant checkout: when the backend runs PAYMENT_MODE=demo this
+  // creates a server-side payment and activates the subscription directly.
+  // Without a delivery address the checkout parks and resumes after the
+  // address form is saved.
+  const handleConfirmBooking = async (pkg) => {
+    if (!userAddress || (!userAddress.street && !userAddress.city)) {
+      setSelectedPackageToBook(null)
+      setResumePurchaseAfterAddress(pkg)
+      setShowAddressModal(true)
+      setBookingSuccessMsg('📍 Address Required: Please set your Service Delivery Address before completing this purchase.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      return
+    }
+
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') {
+      alert('Please log in with a live backend account before subscribing.')
+      return
+    }
+
+    setPaymentBusy(true)
+    try {
+      const plans = await apiRequest('/subscriptions')
+      const plan = plans.find((p) => p.id === pkg.serverId) || plans.find((p) => p.title === pkg.title || p.title.endsWith(pkg.title))
+      if (!plan) throw new Error('This package is not available on the server. Please contact Luxora support.')
+
+      const order = await apiRequest('/payments/demo/order', 'POST', {
+        plan_id: plan.id,
+        auto_renew: bookingBillingType === 'auto_renew',
+      }, token)
+      const completed = await apiRequest(`/payments/demo/${order.payment_id}/complete`, 'POST', { outcome: 'success' }, token)
+
+      // Refresh coins, memberships, payments history and notifications from the server.
+      await loadServerData()
+      setSelectedPackageToBook(null)
+      const coins = completed.receipt?.coins_granted || 0
+      setActiveTab('overview')
+      setPaymentSuccess({ planTitle: plan.title, coins, emailDelivery: completed.email_delivery })
+    } catch (error) {
+      alert(error.message || 'Subscription could not be completed. Please try again.')
+    } finally {
+      setPaymentBusy(false)
+    }
+  }
+
   const startPayment = async (provider, pkg) => {
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') { alert('Please log in with a live backend account before paying.'); return }
@@ -1341,8 +1434,12 @@ const CustomerDashboard = () => {
     }
     sessionStorage.removeItem('isFirstTimeSignup')
     setShowAddressModal(false)
-    // Resume a chatbot ?buyPlan handoff that was waiting on the address.
-    if (pendingPurchasePlan) {
+    // Resume an interrupted purchase: the checkout parked by the address gate
+    // or the chatbot ?buyPlan handoff that was waiting on the address.
+    if (resumePurchaseAfterAddress) {
+      setSelectedPackageToBook(resumePurchaseAfterAddress)
+      setResumePurchaseAfterAddress(null)
+    } else if (pendingPurchasePlan) {
       openPurchaseForServerPlan(pendingPurchasePlan)
     }
   }
@@ -4417,6 +4514,21 @@ const CustomerDashboard = () => {
                   Live LKR to USD conversion with instant crypto invoice. Settles strictly after full blockchain finality.
                 </small>
               </div>
+
+              {/* Demo instant pass — renders only while the backend runs PAYMENT_MODE=demo */}
+              {paymentMode === 'demo' && (
+                <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    className="cd-support-send-btn"
+                    style={{ background: '#333', color: '#ccc', fontSize: '0.8rem' }}
+                    disabled={paymentBusy}
+                    onClick={() => handleConfirmBooking(selectedPackageToBook)}
+                  >
+                    DEMO INSTANT PASS (DEVELOPMENT ONLY)
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
