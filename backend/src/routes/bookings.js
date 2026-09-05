@@ -160,6 +160,7 @@ router.post('/', async (req, res) => {
 
   const customer = await prisma.user.findUnique({ where: { id: userId }, select: { town: true, addressStreet: true, addressDistrict: true, email: true, name: true } });
   const town = normalizeTown(customer?.town);
+  if (!town) return res.status(400).json({ error: 'Add a town to your profile before booking a service' });
   const settings = await getPlatformSettings(prisma);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, booking_time, settings);
   const scheduled = bookingStart(booking_date, booking_time);
@@ -825,6 +826,7 @@ router.put('/:id/reschedule', async (req, res) => {
     select: { town: true, addressStreet: true, addressDistrict: true, email: true, name: true },
   });
   const town = normalizeTown(customer?.town);
+  if (!town) return res.status(400).json({ error: 'Add a town to your profile before rescheduling a service' });
   const settings = await getPlatformSettings(prisma);
   const shouldAutoAssign = Boolean(town) && isInAutoAssignmentWindow(booking_date, normalizedTime, settings);
   const scheduled = bookingStart(booking_date, normalizedTime);
@@ -912,6 +914,27 @@ router.put('/:id/reschedule', async (req, res) => {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     throw err;
   }
+
+  // Publish only committed state. Keep these invalidation events free of PINs
+  // and contact details; dashboards reload through their authorized API routes.
+  const providerUsers = await prisma.provider.findMany({
+    where: { id: { in: [previousProviderId, newBooking.providerId].filter(Boolean) } },
+    select: { id: true, userId: true },
+  });
+  const rescheduleMetadata = { rescheduled: true };
+  broadcastBookingEvent('BOOKING_CANCELLED', {
+    id: oldBooking.id, bookingId: oldBooking.id, userId: oldBooking.userId,
+    providerId: previousProviderId,
+    providerUserId: providerUsers.find((p) => p.id === previousProviderId)?.userId,
+    status: 'cancelled',
+  }, rescheduleMetadata);
+  broadcastBookingEvent('BOOKING_CREATED', {
+    id: newBooking.id, bookingId: newBooking.id, userId: newBooking.userId,
+    providerId: newBooking.providerId,
+    providerUserId: providerUsers.find((p) => p.id === newBooking.providerId)?.userId,
+    status: newBooking.status.toLowerCase(),
+    bookingDate: newBooking.bookingDate, bookingTime: newBooking.bookingTime,
+  }, rescheduleMetadata);
 
   if (previousProviderId) {
     const prevProvider = await prisma.provider.findUnique({ where: { id: previousProviderId } });

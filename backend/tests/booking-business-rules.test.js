@@ -145,6 +145,134 @@ after(async () => {
 
 // ---------- BOOKING CREATION LEAD TIME ----------
 
+test('B1: bookings inherit profile location and reject missing towns without consuming coins', async () => {
+  const cust = await mkUser('CUSTOMER', 'Colombo', 'Western', `location${RND}`);
+  await prisma.user.update({ where: { id: cust.id }, data: { addressStreet: '12 Test Street' } });
+  await giveSubscription(cust.id);
+  const provider = await mkProvider('Colombo', 'Western', `locationprovider${RND}`);
+  const token = tokenFor(cust);
+  const slot = tomorrowAt(9, 0);
+  // The booking contract uses the saved profile, not request-body overrides.
+  const created = await authJson(token, '/bookings', { method: 'POST', body: JSON.stringify({
+    service_id: fixtures.service.id, booking_date: slot.date, booking_time: slot.time, town: 'Galle',
+  }) });
+  assert.equal(created.status, 201, created.text);
+  const booking = await prisma.booking.findUnique({ where: { id: created.body.booking_id } });
+  assert.equal(booking.town, 'Colombo');
+  assert.equal(booking.addressStreet, '12 Test Street');
+  assert.equal(booking.addressDistrict, 'Western');
+  assert.equal(booking.providerId, provider.provider.id);
+  const balance = await remainingUnits(cust.id, fixtures.category.id);
+  for (const town of [null, '   ']) {
+    await prisma.user.update({ where: { id: cust.id }, data: { town } });
+    const rejected = await authJson(token, '/bookings', { method: 'POST', body: JSON.stringify({
+      service_id: fixtures.service.id, booking_date: slot.date, booking_time: '11:00',
+    }) });
+    assert.equal(rejected.status, 400, rejected.text);
+    assert.match(rejected.body.error, /town.*profile/i);
+  }
+  assert.equal(await prisma.booking.count({ where: { userId: cust.id } }), 1);
+  assert.equal(await remainingUnits(cust.id, fixtures.category.id), balance);
+  const rejectedReschedule = await authJson(token, `/bookings/${booking.id}/reschedule`, {
+    method: 'PUT', body: JSON.stringify({ booking_date: slot.date, booking_time: '14:00', confirmed: true, reason: 'Change schedule' }),
+  });
+  assert.equal(rejectedReschedule.status, 400, rejectedReschedule.text);
+  assert.equal((await prisma.booking.findUnique({ where: { id: booking.id } })).status, booking.status);
+  assert.equal(await remainingUnits(cust.id, fixtures.category.id), balance);
+  const updated = await authJson(token, '/profile', { method: 'PUT', body: JSON.stringify({ town: 'Galle' }) });
+  assert.equal(updated.status, 200, updated.text);
+  const next = await authJson(token, '/bookings', { method: 'POST', body: JSON.stringify({
+    service_id: fixtures.service.id, booking_date: slot.date, booking_time: '12:00',
+  }) });
+  assert.equal(next.status, 201, next.text);
+  assert.equal((await prisma.booking.findUnique({ where: { id: next.body.booking_id } })).town, 'Galle');
+});
+
+test('B2: committed reschedule reaches customer, old/new providers and admin over authenticated SSE', async () => {
+  const town = `Realtime ${RND}`;
+  const cust = await mkUser('CUSTOMER', town, 'Western', `ssec${RND}`);
+  const stranger = await mkUser('CUSTOMER', town, 'Western', `sses${RND}`);
+  await giveSubscription(cust.id);
+  const oldProvider = await mkProvider(town, 'Western', `ssep1${RND}`);
+  const newProvider = await mkProvider(town, 'Western', `ssep2${RND}`);
+  const outsider = await mkProvider('Unrelated town', 'Other', `ssep3${RND}`);
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+  const streams = [];
+  const connect = async (user) => {
+    const controller = new AbortController();
+    const response = await fetch(`${BASE}/realtime?token=${tokenFor(user)}`, { signal: controller.signal });
+    assert.equal(response.status, 200);
+    const stream = { controller, text: '' };
+    streams.push(stream);
+    stream.reading = (async () => {
+      try { for await (const chunk of response.body) stream.text += Buffer.from(chunk).toString(); } catch {}
+    })();
+    return stream;
+  };
+  try {
+    assert.equal((await fetch(`${BASE}/realtime?token=invalid`)).status, 403);
+    const clients = await Promise.all([cust, oldProvider.user, newProvider.user, admin, stranger, outsider.user].map(connect));
+    const slot = tomorrowAt(9, 0);
+    const created = await authJson(tokenFor(cust), '/bookings', { method: 'POST', body: JSON.stringify({
+      service_id: fixtures.service.id, booking_date: slot.date, booking_time: slot.time,
+    }) });
+    assert.equal(created.status, 201, created.text);
+    const old = await prisma.booking.findUnique({ where: { id: created.body.booking_id } });
+    assert.equal(old.providerId, oldProvider.provider.id);
+    await prisma.provider.update({ where: { id: oldProvider.provider.id }, data: { availabilityStatus: 'offline' } });
+    const beforeCoins = await remainingUnits(cust.id, fixtures.category.id);
+    const rescheduled = await authJson(tokenFor(cust), `/bookings/${old.id}/reschedule`, {
+      method: 'PUT', body: JSON.stringify({ booking_date: slot.date, booking_time: '14:00', confirmed: true, reason: 'New time please' }),
+    });
+    assert.equal(rescheduled.status, 200, rescheduled.text);
+    const fresh = await prisma.booking.findUnique({ where: { id: rescheduled.body.id } });
+    assert.equal(fresh.bookingDate, slot.date);
+    assert.equal(fresh.bookingTime, '14:00');
+    assert.equal(fresh.providerId, newProvider.provider.id);
+    assert.equal((await prisma.booking.findUnique({ where: { id: old.id } })).status, 'CANCELLED');
+    assert.equal(await remainingUnits(cust.id, fixtures.category.id), beforeCoins);
+    for (let attempt = 0; attempt < 50 && !clients[2].text.includes('"rescheduled":true'); attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    const events = clients.map(client => client.text.split('\n\n').filter(s => s.includes('"rescheduled":true')).map(s => JSON.parse(s.split('\ndata: ')[1])));
+    assert.deepEqual(events[0].map(e => e.type), ['BOOKING_CANCELLED', 'BOOKING_CREATED']);
+    assert.deepEqual(events[1].map(e => e.type), ['BOOKING_CANCELLED']);
+    assert.deepEqual(events[2].map(e => e.type), ['BOOKING_CREATED']);
+    assert.deepEqual(events[3].map(e => e.type), ['BOOKING_CANCELLED', 'BOOKING_CREATED']);
+    assert.deepEqual(events[4], []);
+    assert.deepEqual(events[5], []);
+    assert.equal(events[2][0].booking.bookingTime, '14:00');
+    assert.ok(!JSON.stringify(events).match(/pin|cipher|password|addressStreet|phone/i));
+    assert.ok(clients[0].text.includes('event: BOOKING_CREATED'), 'Existing creation event still works');
+    const list = await authJson(tokenFor(cust), '/bookings/my');
+    assert.equal(list.body.find(b => b.id === fresh.id).bookingTime, '14:00');
+    const assigned = await authJson(newProvider.token, '/bookings/assigned');
+    assert.ok(assigned.body.some(b => b.id === fresh.id));
+    const forbidden = await authJson(tokenFor(stranger), `/bookings/${fresh.id}/reschedule`, {
+      method: 'PUT', body: JSON.stringify({ booking_date: slot.date, booking_time: '15:00', confirmed: true, reason: 'Unauthorized attempt' }),
+    });
+    assert.equal(forbidden.status, 404);
+    // Unassigned replacements follow the existing provider invalidation convention,
+    // without exposing customer contact details or booking PINs to the wider audience.
+    for (const client of clients) client.text = '';
+    await prisma.provider.update({ where: { id: newProvider.provider.id }, data: { availabilityStatus: 'offline' } });
+    const pending = await authJson(tokenFor(cust), `/bookings/${fresh.id}/reschedule`, {
+      method: 'PUT', body: JSON.stringify({ booking_date: slot.date, booking_time: '15:00', confirmed: true, reason: 'Later appointment' }),
+    });
+    assert.equal(pending.status, 200, pending.text);
+    assert.equal((await prisma.booking.findUnique({ where: { id: pending.body.id } })).status, 'PENDING');
+    for (let attempt = 0; attempt < 50 && !clients[5].text.includes('"rescheduled":true'); attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.ok(clients[5].text.includes('event: BOOKING_CREATED'));
+    assert.ok(!clients[5].text.match(/pin|cipher|password|addressStreet|phone|email|customerName/i));
+    assert.equal(clients[4].text, '', 'Unrelated customer receives no reschedule events');
+  } finally {
+    for (const stream of streams) stream.controller.abort();
+    await Promise.all(streams.map(stream => stream.reading));
+  }
+});
+
 test('Creation: slot clearly beyond 4h is allowed; slot within 4h is rejected (server-side)', async () => {
   const town = `BRule Town C1 ${RND}`;
   const cust = await mkUser('CUSTOMER', town, 'Western', `c1${RND}`);
