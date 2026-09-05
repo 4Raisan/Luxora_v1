@@ -268,6 +268,7 @@ Required rules:
 - Valid `YYYY-MM-DD` date.
 - Today or a future date.
 - Time in a 15-minute interval.
+- Server-enforced minimum lead time: the scheduled start must be at least 4 hours from now (`BOOKING_LEAD_TIME_HOURS = 4`); exactly 4 hours ahead is allowed, less is rejected with HTTP 400.
 - Existing service record.
 - Active entitlement with remaining units in the service category.
 - No non-cancelled duplicate for the same customer, service, date, and time.
@@ -290,10 +291,10 @@ The server stores bcrypt hashes and encrypted customer copies. The customer rece
 Automatic assignment runs only inside the platform assignment window. Defaults are:
 
 - Start hour: 07:00
-- End hour: 16:00
-- Auto-assignment cooldown: 6 hours
+- End hour: 16:00 (4 PM; the full 16th hour is inside the window)
+- Auto-assignment cooldown: 5 hours per provider
 
-Admin may set a cooldown from 1–24 hours and valid start/end hours from 0–23, with start not after end.
+The window is interpreted in Asia/Colombo local time (parsed from the stored wall-clock strings; the production container pins `TZ=Asia/Colombo`). Admin may set a cooldown from 1–24 hours and valid start/end hours from 0–23, with start not after end.
 
 An automatically eligible provider must be:
 
@@ -352,7 +353,7 @@ The booking timeout service scans active bookings initially and every 60 seconds
 
 Timeouts:
 
-- `PENDING`: cancel 30 minutes after scheduled start if still unassigned.
+- `PENDING`: cancel immediately when real time reaches the scheduled start if still unassigned (no grace period).
 - `ASSIGNED`: cancel two hours after scheduled start if not started.
 - `IN_PROGRESS`: cancel two hours after expected service end if not completed.
 
@@ -367,6 +368,7 @@ Rescheduling requires:
 - Explicit confirmation;
 - Valid future date;
 - 15-minute time interval;
+- New slot at least 4 hours ahead (same server-enforced minimum as new bookings);
 - Reason of 3–500 characters;
 - No duplicate booking for the new slot.
 
@@ -384,9 +386,11 @@ Provider availability states are:
 Offline providers receive no new automatic assignments. A provider cannot switch offline while:
 
 - A service is in progress; or
-- An assigned booking starts within six hours.
+- An assigned booking starts within four hours.
 
-When a provider safely switches offline, future assigned bookings are reassigned or returned to the eligible pending pool.
+Assigned bookings starting within four hours stay with the provider and must be completed; going offline never strips or auto-cancels them (race-safe preserve).
+
+When a provider safely switches offline, assigned bookings starting more than four hours away are reassigned or returned to the eligible pending pool.
 
 Manual pending-booking claims still apply the category, town, active-account, KYC, and time-conflict checks. The online requirement is relaxed for this explicit manual claim path.
 
@@ -514,13 +518,18 @@ Admins cannot deactivate their own account through the user toggle.
 
 When a customer is deactivated:
 
-- Active pending/assigned/in-progress bookings are cancelled.
+- `PENDING` and `ASSIGNED` bookings are cancelled (each inside an advisory-locked transaction that re-reads state, so repeats and races cannot double-restore).
+- `IN_PROGRESS` bookings continue untouched; `COMPLETED` and `CANCELLED` bookings are untouched.
 - Customer and assigned provider are notified.
-- Cancelled bookings no longer consume entitlement units.
+- Cancelled bookings no longer consume entitlement units (exactly-once restoration).
+- The deactivated account fails authentication, so no new bookings can be created while held.
 
 When a provider is deactivated:
 
-- The provider’s future assignments are reassigned or unassigned.
+- `IN_PROGRESS` bookings continue untouched.
+- `ASSIGNED`/`PENDING` bookings starting within four hours are cancelled with exactly-once coin restoration and customer notice.
+- `ASSIGNED`/`PENDING` bookings starting further out are rerouted to another eligible provider, or left `PENDING`/unassigned for scheduler retry when none exists.
+- Each mutation re-reads state under an advisory lock, so concurrent admin/provider/customer actions and scheduler retries cannot double-restore or reroute moved bookings.
 - The provider cannot receive new operational work.
 
 ## 22. Upload and storage rules

@@ -6,7 +6,7 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 208,
+    "totalNodes": 209,
     "totalEdges": 444,
     "nodesByGroup": {
       "api": 105,
@@ -14,7 +14,7 @@
       "frontend": 37,
       "middleware": 3,
       "routes": 16,
-      "service": 14
+      "service": 15
     }
   },
   "nodes": [
@@ -4172,6 +4172,19 @@
       },
       "source": {
         "path": "backend/src/services/scheduling.js"
+      }
+    },
+    {
+      "id": "service:sessionAuth",
+      "label": "sessionAuth.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/sessionAuth.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/sessionAuth.js"
       }
     },
     {

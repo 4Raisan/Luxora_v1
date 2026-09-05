@@ -346,8 +346,8 @@ addNode({
   type: 'backend_service',
   views: ['system', 'backend', 'booking'],
   file: 'backend/src/services/scheduling.js',
-  description: 'Autonomous provider auto-assignment algorithm; evaluates category capability, geographic service town match, KYC=APPROVED status, ONLINE availability, 2-hour schedule non-overlap, and 6-hour safety windows.',
-  metadata: { strategy: 'least-loaded-provider', safetyWindowHours: 6 },
+  description: 'Autonomous provider auto-assignment algorithm; evaluates category capability, geographic service town match, KYC=APPROVED status, ONLINE availability, 2-hour schedule non-overlap, and 5-hour per-provider auto-assignment cooldown inside the 07:00-16:00 Asia/Colombo window.',
+  metadata: { strategy: 'least-loaded-provider', cooldownHours: 5, assignmentWindow: '07:00-16:00 Asia/Colombo' },
 });
 
 addNode({
@@ -357,8 +357,8 @@ addNode({
   type: 'backend_service',
   views: ['backend', 'booking'],
   file: 'backend/src/services/bookingTimeouts.js',
-  description: 'Continuous background scheduler asserting transactional advisory locks (pg_advisory_xact_lock) to auto-cancel unassigned bookings after 30 min or unstarted bookings after 2h, immediately restoring customer coin entitlements.',
-  metadata: { unassignedTimeoutMins: 30, unstartedTimeoutHours: 2, lockStrategy: 'pg_advisory_xact_lock' },
+  description: 'Continuous background scheduler asserting transactional advisory locks (pg_advisory_xact_lock) to auto-cancel bookings still unassigned at their scheduled start, unstarted bookings after 2h, or uncompleted bookings 2h past end, immediately restoring customer coin entitlements.',
+  metadata: { unassignedTimeout: 'at scheduled start', unstartedTimeoutHours: 2, lockStrategy: 'pg_advisory_xact_lock' },
 });
 
 addNode({
@@ -434,7 +434,7 @@ addEdge('service:scheduling', 'model:provider', 'queries', 'Evaluates Eligibilit
 addEdge('route:bookings', 'model:booking', 'mutates', 'Persists Booking States', 'Creates and updates booking status from PENDING to COMPLETED.', ['booking', 'database', 'system']);
 addEdge('route:bookings', 'model:usersubscriptionentitlement', 'deducts', 'Consumes 1 Coin Unit', 'Deducts 1 service coin from the active category wallet.', ['booking', 'payments', 'database']);
 addEdge('route:bookings', 'service:realtime', 'broadcasts', 'broadcastBookingEvent()', 'Dispatches BOOKING_CREATED, ASSIGNED, CLAIMED, and STATUS_CHANGED events.', ['booking', 'realtime']);
-addEdge('service:booking-timeouts', 'model:booking', 'auto_cancels', 'Cancels Stale Bookings', 'Cancels unassigned (30m) or unstarted (2h) bookings and restores coins.', ['booking', 'database']);
+addEdge('service:booking-timeouts', 'model:booking', 'auto_cancels', 'Cancels Stale Bookings', 'Cancels bookings unassigned at start or unstarted (2h) and restores coins.', ['booking', 'database']);
 
 // Payments Flow Connections
 addEdge('user:customer', 'page:book-service', 'selects_plan', 'Selects 30-Day Plan', 'Customer selects individual or combo subscription package.', ['payments']);

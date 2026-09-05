@@ -1399,9 +1399,9 @@
         "booking"
       ],
       "file": "backend/src/services/bookingTimeouts.js",
-      "description": "Continuous background scheduler asserting transactional advisory locks (pg_advisory_xact_lock) to auto-cancel unassigned bookings after 30 min or unstarted bookings after 2h, immediately restoring customer coin entitlements.",
+      "description": "Continuous background scheduler asserting transactional advisory locks (pg_advisory_xact_lock) to auto-cancel bookings still unassigned at their scheduled start, unstarted bookings after 2h, or uncompleted bookings 2h past end, immediately restoring customer coin entitlements.",
       "metadata": {
-        "unassignedTimeoutMins": 30,
+        "unassignedTimeout": "at scheduled start",
         "unstartedTimeoutHours": 2,
         "lockStrategy": "pg_advisory_xact_lock"
       }
@@ -1493,10 +1493,11 @@
         "booking"
       ],
       "file": "backend/src/services/scheduling.js",
-      "description": "Autonomous provider auto-assignment algorithm; evaluates category capability, geographic service town match, KYC=APPROVED status, ONLINE availability, 2-hour schedule non-overlap, and 6-hour safety windows.",
+      "description": "Autonomous provider auto-assignment algorithm; evaluates category capability, geographic service town match, KYC=APPROVED status, ONLINE availability, 2-hour schedule non-overlap, and 5-hour per-provider auto-assignment cooldown inside the 07:00-16:00 Asia/Colombo window.",
       "metadata": {
         "strategy": "least-loaded-provider",
-        "safetyWindowHours": 6
+        "cooldownHours": 5,
+        "assignmentWindow": "07:00-16:00 Asia/Colombo"
       }
     },
     {
@@ -2648,7 +2649,7 @@
       "to": "model:booking",
       "type": "auto_cancels",
       "label": "Cancels Stale Bookings",
-      "description": "Cancels unassigned (30m) or unstarted (2h) bookings and restores coins.",
+      "description": "Cancels bookings unassigned at start or unstarted (2h) and restores coins.",
       "views": [
         "booking",
         "database"

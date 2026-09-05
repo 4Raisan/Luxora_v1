@@ -10,7 +10,7 @@ Confirmed with the product owner on 2026-08-23. These rules override older notes
 - Customers can buy subscription plans and book services.
 - Providers fulfil automatically assigned customer bookings.
 - Providers must keep an approved KYC record to access operational work.
-- **Provider Availability**: Providers have two availability states: `ONLINE` (`available`) and `OFFLINE` (`offline`). When `OFFLINE`, no new jobs are auto-assigned. Providers cannot switch to `OFFLINE` if they have a service in progress or an assigned booking scheduled within 6 hours. When switching to `OFFLINE` (at least 6 hours before any assigned job), all future assigned bookings are automatically reassigned to other eligible online providers.
+- **Provider Availability**: Providers have two availability states: `ONLINE` (`available`) and `OFFLINE` (`offline`). When `OFFLINE`, no new jobs are auto-assigned. Providers cannot switch to `OFFLINE` while a service is in progress or when they hold an assigned booking starting within 4 hours. When switching to `OFFLINE` (more than 4 hours before any assigned job), future assigned bookings starting more than 4 hours away are automatically reassigned to other eligible online providers; assigned bookings starting within 4 hours stay with the provider and must be completed. Going offline never reroutes an `IN_PROGRESS` job.
 - **Customer Contact Information**: Customer phone numbers are visible on assigned booking cards across the Provider Dashboard so providers can coordinate service delivery.
 - **Pet Care Modes**: Pet care bookings support explicit `Dog Care` (`dog`) and `Cat Care` (`cat`) modes, persisted on the booking record (`petType`) and displayed across customer, provider, and admin dashboards.
 - **Provider Booking Cancellation**:
@@ -30,7 +30,7 @@ Confirmed with the product owner on 2026-08-23. These rules override older notes
 
 ```text
 Customer selects service
-  -> backend validates customer, town, entitlement/payment rules
+  -> backend validates customer, town, entitlement/payment rules and the 4-hour lead time
   -> Booking is persisted as PENDING
   -> scheduling logic automatically assigns an eligible provider
   -> ASSIGNED
@@ -42,6 +42,20 @@ Customer selects service
 ```
 
 Bookings cannot be cancelled once they are `IN_PROGRESS`. Customer cancellations are permitted while `PENDING` or `ASSIGNED`. Provider cancellations are permitted while `ASSIGNED` with at least 4 hours notice. Cancellation and entitlement restoration rules are enforced server-side within database transactions.
+
+## V1 booking rules (authoritative)
+
+- **Booking lead time**: new and rescheduled bookings must start at least 4 hours from the current time, enforced server-side (`BOOKING_LEAD_TIME_HOURS = 4` in `backend/src/services/scheduling.js`). Exactly 4 hours ahead is allowed; less is rejected with HTTP 400.
+- **Customer cancellation**: a customer may cancel `PENDING` or `ASSIGNED` bookings any time before start, with no fee or penalty. `IN_PROGRESS`, `COMPLETED`, and `CANCELLED` cannot be cancelled; `CANCELLED` is terminal. Eligible cancellation restores the service coin exactly once (repeat requests are rejected; entitlement usage excludes `CANCELLED` rows).
+- **Provider cancellation**: a provider may cancel only their own `ASSIGNED` future booking with at least 4 hours notice (`PROVIDER_CANCELLATION_NOTICE_HOURS = 4`; exactly 4 hours is allowed). No admin approval or reason text is required. A replacement is attempted immediately: if found the booking stays `ASSIGNED` with the coin consumed; otherwise it becomes `CANCELLED` and the coin is restored. All parties are notified via notifications and SSE.
+- **Provider OFFLINE boundary**: `IN_PROGRESS` jobs stay active and must be completed. `ASSIGNED` bookings starting within 4 hours stay assigned (offline is blocked while they exist). `ASSIGNED` bookings starting more than 4 hours away are rerouted to eligible providers, or left `PENDING` for scheduler retry when none is available. Near-term preserve is race-safe.
+- **Customer HOLD** (admin deactivation): `PENDING` and `ASSIGNED` bookings are cancelled with exactly-once coin restoration; `IN_PROGRESS` continues and `COMPLETED`/`CANCELLED` are untouched. Deactivated accounts fail authentication, so no new bookings can be created while held.
+- **Provider HOLD** (admin deactivation): `IN_PROGRESS` bookings continue untouched. `ASSIGNED` bookings starting within 4 hours are cancelled with coin restoration; bookings further out are rerouted, or left `PENDING` for scheduler retry when no replacement exists. Locked, re-reading, and idempotent under retries and concurrency.
+- **No-provider timeout**: a booking still `PENDING`/unassigned when real time reaches its scheduled start is cancelled immediately (no grace period), the coin is restored exactly once, and the customer is notified. Later `ASSIGNED` (2h no-start) and `IN_PROGRESS` (2h past end) system timeouts remain.
+- **Auto-assignment window**: 07:00 through 16:00 **Asia/Colombo** local time (16:00 is 4 PM; settings carry whole hours so the full 16th hour is inside the window). Parsed from stored wall-clock strings, independent of server timezone; the production container pins `TZ=Asia/Colombo`.
+- **Auto-assignment cooldown**: 5 hours per provider between successful automatic assignments (`autoAssignmentCooldownHours = 5`). Failed attempts create no cooldown state; manual claiming is never blocked by it; urgent recovery paths (provider cancel, HOLD, offline, timeout retry) intentionally bypass window/cooldown checks.
+- **Rescheduling**: the old booking becomes `CANCELLED` exactly once (coin restored), and a fully independent new booking is created. The new slot must satisfy the same >=4h lead time and goes through the normal assignment flow; `petType` and the entitlement subscription are preserved with net-zero coin effect.
+- **Refunds**: there are no customer cash refunds in V1; package purchases are final. Eligible cancellations restore service coins only. Gateway-initiated chargeback callbacks (PayHere `-3`, NOWPayments refunded IPN) only synchronize externally reversed payments and are not a customer refund flow.
 
 ## Plans, credits, and payments
 
