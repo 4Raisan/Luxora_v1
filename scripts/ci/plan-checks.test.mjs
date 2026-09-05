@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { allTests, testSuites, selectTests } from '../../backend/tests/suites.js';
 import { classifyChanges } from './plan-checks.mjs';
 
 test('documentation-only changes stay minimal', () => {
@@ -50,11 +51,11 @@ test('Prisma changes select full backend, database, and Docker checks', () => {
   assert.deepEqual(plan.backendSuites, ['full']);
 });
 
-test('payment changes select payment and security suites', () => {
+test('payment source changes select full backend coverage', () => {
   const plan = classifyChanges(['backend/src/services/paymentContracts.js']);
   assert.equal(plan.backend, true);
   assert.equal(plan.docker, true);
-  assert.deepEqual(new Set(plan.backendSuites), new Set(['payments', 'security']));
+  assert.deepEqual(plan.backendSuites, ['full']);
 });
 
 test('mixed changes combine their required checks', () => {
@@ -64,7 +65,7 @@ test('mixed changes combine their required checks', () => {
   ]);
   assert.equal(plan.frontend, true);
   assert.equal(plan.backend, true);
-  assert.deepEqual(plan.backendSuites, ['bookings']);
+  assert.deepEqual(plan.backendSuites, ['full']);
 });
 
 test('workflow and classifier changes fail closed to full CI', () => {
@@ -104,7 +105,7 @@ test('old and new paths of renames are both safety-relevant', () => {
   ]);
   assert.equal(plan.backend, true);
   assert.equal(plan.docker, true);
-  assert.ok(plan.backendSuites.includes('security'));
+  assert.deepEqual(plan.backendSuites, ['full']);
 });
 
 test('Knowledge Graph changes select quality verification', () => {
@@ -113,15 +114,15 @@ test('Knowledge Graph changes select quality verification', () => {
   assert.equal(plan.knowledgeGraph, true);
 });
 
-test('backend-only non-security non-booking changes select smoke and KG without docker or frontend', () => {
+test('backend source changes select full backend and Docker without frontend', () => {
   const plan = classifyChanges(['backend/src/routes/reviews.js']);
   assert.equal(plan.quality, true);
   assert.equal(plan.backend, true);
   assert.equal(plan.knowledgeGraph, true);
   assert.equal(plan.frontend, false);
-  assert.equal(plan.docker, false);
+  assert.equal(plan.docker, true);
   assert.equal(plan.audit, false);
-  assert.deepEqual(plan.backendSuites, ['smoke']);
+  assert.deepEqual(plan.backendSuites, ['full']);
 });
 
 test('Docker-only changes select docker smoke without frontend or backend tests', () => {
@@ -199,7 +200,40 @@ test('multiple commits in one push combine all touched domains', () => {
   assert.equal(plan.backend, true);
   assert.equal(plan.quality, true);
   assert.equal(plan.knowledgeGraph, true);
-  assert.equal(plan.docker, false);
+  assert.equal(plan.docker, true);
   assert.equal(plan.audit, false);
 });
 
+
+
+test('every existing changed test runs in its selected suite', () => {
+  for (const file of allTests) {
+    const plan = classifyChanges([{ status: 'M', path: `backend/${file}` }]);
+    assert.ok(plan.backendSuites.flatMap(name => testSuites[name]).includes(file), file);
+  }
+});
+
+test('unmapped modified tests fail closed to full discovery', () => {
+  assert.deepEqual(classifyChanges(['backend/tests/future.test.js']).backendSuites, ['full']);
+});
+
+test('cross-domain and structural backend changes select full coverage', () => {
+  for (const file of ['routes/services.js', 'routes/admin.js', 'routes/provider.js',
+    'routes/support.js', 'routes/bookings.js', 'services/scheduling.js',
+    'services/realtime.js', 'services/unknown.js', 'chatbot/data/catalog.json']) {
+    for (const status of ['M', 'A', 'D', 'R100-old', 'R100-new']) {
+      const plan = classifyChanges([{ path: `backend/src/${file}`, status }]);
+      assert.deepEqual(plan.backendSuites, ['full'], `${file}: ${status}`);
+    }
+  }
+});
+
+
+test('runner fails rather than silently dropping missing or empty selections', () => {
+  assert.throws(() => selectTests([]));
+  assert.throws(() => selectTests(['unknown']));
+  testSuites.testMissing = ['tests/missing.test.js'];
+  try { assert.throws(() => selectTests(['testMissing']), /missing/); }
+  finally { delete testSuites.testMissing; }
+  assert.deepEqual(selectTests(['full']), allTests);
+});

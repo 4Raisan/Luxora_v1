@@ -3,14 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { testSuites } from '../../backend/tests/suites.js';
+
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const DOCUMENT_EXTENSIONS = new Set([
   '.md', '.mdx', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp',
 ]);
-const PAYMENT_PATTERN = /(?:payment|payhere|nowpayments|refund|subscription|entitlement|promotion|integration)/i;
-const BOOKING_PATTERN = /(?:booking|provider|assignment|scheduling|timeout|earning|payout)/i;
-const SECURITY_PATTERN = /(?:auth|security|bank|upload|storage|evidence|kyc|password|token|middleware)/i;
-const GLOBAL_BACKEND_PATTERN = /^backend\/src\/(?:index\.js|config\/|middleware\/rateLimit\.js)/;
 
 function normalizePath(filePath) {
   return String(filePath || '').trim().replaceAll('\\', '/').replace(/^\.\//, '');
@@ -35,12 +33,11 @@ function isStructuralChange(status) {
 }
 
 function suitesForBackendTest(filePath) {
-  const name = path.posix.basename(filePath);
-  if (name === 'run-tests.js' || filePath.includes('/helpers/')) return ['full'];
-  if (/nowpayments|payment-contract|currency|release-hardening/.test(name)) return ['payments'];
-  if (/booking|new-flow|fresh-db|api-fixes|realtime-claim-lifecycle/.test(name)) return ['bookings'];
-  if (/security-audit/.test(name)) return ['security'];
-  return ['smoke'];
+  const relative = filePath.slice('backend/'.length);
+  const owners = Object.entries(testSuites)
+    .filter(([name, files]) => name !== 'full' && files.includes(relative))
+    .map(([name]) => name);
+  return owners.length ? owners : ['full'];
 }
 
 export function classifyChanges(entries, { forceFull = false } = {}) {
@@ -136,39 +133,11 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
         plan.reasons.push(file + ' requires its owning backend test suite.');
         continue;
       }
-      if (GLOBAL_BACKEND_PATTERN.test(file)) {
-        plan.docker = true;
-        plan.backendSuites.add('full');
-        plan.reasons.push(file + ' is a global backend runtime file.');
-        continue;
-      }
-      if (PAYMENT_PATTERN.test(file)) {
-        plan.docker = true;
-        plan.backendSuites.add('payments');
-        plan.backendSuites.add('security');
-        plan.reasons.push(file + ' affects money or entitlement state.');
-        continue;
-      }
-      if (BOOKING_PATTERN.test(file)) {
-        plan.backendSuites.add('bookings');
-        plan.reasons.push(file + ' affects booking or provider fulfilment.');
-        continue;
-      }
-      if (SECURITY_PATTERN.test(file)) {
-        plan.docker = true;
-        plan.backendSuites.add('security');
-        plan.backendSuites.add('smoke');
-        plan.reasons.push(file + ' affects authentication or sensitive data.');
-        continue;
-      }
-      if (file.startsWith('backend/src/') && isStructuralChange(entry.status)) {
-        plan.docker = true;
-        plan.backendSuites.add('full');
-        plan.reasons.push(file + ' is a structural backend source change; using full coverage.');
-        continue;
-      }
-      plan.backendSuites.add('smoke');
-      plan.reasons.push(file + ' requires backend smoke coverage.');
+      // Shared routes and helpers span multiple domains. Until dependencies
+      // have precise coverage, every backend source change runs every test.
+      plan.docker = true;
+      plan.backendSuites.add('full');
+      plan.reasons.push(file + ' requires full backend coverage.');
       continue;
     }
     if (isDocumentation(file)) {

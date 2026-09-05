@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
+import { selectTests, testSuites } from './suites.js';
+import { isolatedTestUrls } from './helpers/test-database.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
@@ -12,17 +13,12 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const databaseUrl = new URL(process.env.DATABASE_URL);
-if (!['127.0.0.1', 'localhost'].includes(databaseUrl.hostname)) {
-  console.error('Refusing to run destructive test setup against a non-local PostgreSQL host.');
-  process.exit(1);
-}
-databaseUrl.searchParams.set('schema', 'luxora_test');
+const isolatedUrls = isolatedTestUrls(process.env.DATABASE_URL);
+const databaseUrl = new URL(isolatedUrls.DATABASE_URL);
 
 const testEnv = {
   ...process.env,
-  DATABASE_URL: databaseUrl.toString(),
-  DIRECT_URL: process.env.DIRECT_URL || databaseUrl.toString(),
+  ...isolatedUrls,
   JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-for-ci-runs-1234567890',
   NODE_ENV: 'test',
   RESEND_API_KEY: '',
@@ -30,61 +26,6 @@ const testEnv = {
 };
 const prismaCli = path.join(backendDir, 'node_modules', 'prisma', 'build', 'index.js');
 
-const orderedTests = [
-  'tests/fresh-db-smoke.test.js',
-  'tests/security-audit.test.js',
-  'tests/currency.test.js',
-  'tests/nowpayments.test.js',
-  'tests/nowpayments-e2e.test.js',
-  'tests/payment-contract.test.js',
-  'tests/unit-fixes.test.js',
-  'tests/api-fixes.test.js',
-  'tests/booking-concurrency.test.js',
-  'tests/booking-lifecycle-timeouts.test.js',
-  'tests/new-flow-rules.test.js',
-  'tests/realtime-claim-lifecycle.test.js',
-  'tests/release-hardening.test.js',
-];
-const discoveredTests = fs.readdirSync(path.join(backendDir, 'tests'), { withFileTypes: true })
-  .filter((entry) => entry.isFile() && entry.name.endsWith('.test.js'))
-  .map((entry) => 'tests/' + entry.name)
-  .sort();
-const allTests = [
-  ...orderedTests.filter((file) => fs.existsSync(path.join(backendDir, file))),
-  ...discoveredTests.filter((file) => !orderedTests.includes(file)),
-];
-
-const testSuites = {
-  smoke: [
-    'tests/fresh-db-smoke.test.js',
-    'tests/security-audit.test.js',
-    'tests/payment-contract.test.js',
-    'tests/unit-fixes.test.js',
-    'tests/api-fixes.test.js',
-  ],
-  payments: [
-    'tests/currency.test.js',
-    'tests/nowpayments.test.js',
-    'tests/nowpayments-e2e.test.js',
-    'tests/payment-contract.test.js',
-    'tests/release-hardening.test.js',
-  ],
-  bookings: [
-    'tests/fresh-db-smoke.test.js',
-    'tests/service-photo-flow.test.js',
-    'tests/api-fixes.test.js',
-    'tests/booking-concurrency.test.js',
-    'tests/booking-lifecycle-timeouts.test.js',
-    'tests/new-flow-rules.test.js',
-    'tests/booking-business-rules.test.js',
-    'tests/realtime-claim-lifecycle.test.js',
-  ],
-  security: [
-    'tests/security-audit.test.js',
-    'tests/release-hardening.test.js',
-  ],
-  full: allTests,
-};
 
 function selectedTests() {
   const suiteArg = process.argv.find((arg) => arg.startsWith('--suite='));
@@ -98,8 +39,7 @@ function selectedTests() {
     console.error('Available suites: ' + Object.keys(testSuites).join(', '));
     process.exit(1);
   }
-  const wanted = new Set(requested.flatMap((suite) => testSuites[suite]));
-  const selected = allTests.filter((file) => wanted.has(file));
+  const selected = selectTests(requested);
   console.log(
     'Running backend test suite(s): '
       + requested.join(', ')
@@ -118,6 +58,9 @@ function run(command, args) {
 
 import { PrismaClient } from '@prisma/client';
 
+// Validate coverage before any destructive setup.
+const testsToRun = selectedTests();
+
 const resetPrisma = new PrismaClient({ datasources: { db: { url: databaseUrl.toString() } } });
 try {
   await resetPrisma.$executeRawUnsafe('DROP SCHEMA IF EXISTS luxora_test CASCADE;');
@@ -133,6 +76,6 @@ run(process.execPath, [
   '--test-force-exit',
   '--test-concurrency=1',
   '--test-timeout=120000',
-  ...selectedTests(),
+  ...testsToRun,
 ]);
 process.exit(0);
