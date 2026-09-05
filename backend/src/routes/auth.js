@@ -12,7 +12,8 @@ import { getSriLankaLocation } from '../services/sriLankaLocations.js';
 
 const router = Router();
 
-const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000 });
+const authLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000, keyPrefix: 'auth-general' });
+const loginLimiter = rateLimit({ max: 10, windowMs: 15 * 60 * 1000, keyPrefix: 'auth-login' });
 
 // Register (customer or provider — admin accounts are seeded, never self-registered)
 router.post('/register', authLimiter, async (req, res) => {
@@ -227,7 +228,7 @@ router.post('/google', authLimiter, async (req, res) => {
 });
 
 // Login
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 

@@ -6,6 +6,7 @@ const testsDir = path.dirname(fileURLToPath(import.meta.url));
 const orderedTests = [
   'tests/fresh-db-smoke.test.js',
   'tests/security-audit.test.js',
+  'tests/seed-security.test.js',
   'tests/currency.test.js',
   'tests/nowpayments.test.js',
   'tests/nowpayments-e2e.test.js',
@@ -56,6 +57,8 @@ export const testSuites = {
   ],
   security: [
     'tests/security-audit.test.js',
+    'tests/seed-security.test.js',
+    'tests/disable-seed-accounts.test.js',
     'tests/release-hardening.test.js',
   ],
   full: allTests,

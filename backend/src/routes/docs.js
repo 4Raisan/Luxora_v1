@@ -36,7 +36,7 @@ const spec = {
     },
     '/auth/login': {
       post: {
-        tags: ['Auth'], summary: 'Login (demo accounts are seeded — see README)',
+        tags: ['Auth'], summary: 'Login with an existing account',
         requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: {
           email: { type: 'string' }, password: { type: 'string' },
         } } } } },

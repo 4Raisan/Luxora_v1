@@ -1,13 +1,31 @@
 // Seed script: categories, services, subscription plans, and demo accounts.
-// Demo passwords come from environment variables (backend/.env) — see .env.example.
+// Demo accounts are local/test fixtures. Production seeds catalogue data only.
 // Run with: node backend/prisma/seed.js  (after `prisma db push`)
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';
 
-const CUSTOMER_PASSWORD = process.env.CUSTOMER_PASSWORD || 'luxora123';
-const PROVIDER_PASSWORD = process.env.PROVIDER_PASSWORD || 'luxora123';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'luxora123';
+const seedAccountPasswords = () => {
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.SEED_DEMO_ACCOUNTS === 'true') {
+      throw new Error('Production seeding cannot create demo accounts. Create real accounts through the application instead.');
+    }
+    return null;
+  }
+
+  const required = ['CUSTOMER_PASSWORD', 'PROVIDER_PASSWORD', 'ADMIN_PASSWORD'];
+  const missing = required.filter((name) => !process.env[name]);
+  if (missing.length) {
+    throw new Error(`Local/test demo seeding requires explicit environment values: ${missing.join(', ')}`);
+  }
+  return {
+    customer: process.env.CUSTOMER_PASSWORD,
+    provider: process.env.PROVIDER_PASSWORD,
+    admin: process.env.ADMIN_PASSWORD,
+  };
+};
+
+const DEMO_PASSWORDS = seedAccountPasswords();
 
 async function main() {
   // Categories (upsert so a renamed/missing row never crashes the seed)
@@ -145,9 +163,11 @@ async function main() {
     }
   };
 
-  await ensure('Luxora Customer', 'customer@luxora.lk', '0771000001', 'CUSTOMER', null, null, CUSTOMER_PASSWORD, 'Colombo');
-  await ensure('Luxora Provider', 'provider@luxora.lk', '0771000002', 'PROVIDER', '123456789V', 'Auto Care', PROVIDER_PASSWORD, null, 'Colombo, Colombo 03');
-  await ensure('Luxora Admin', 'admin@luxora.lk', '0771000003', 'ADMIN', null, null, ADMIN_PASSWORD);
+  if (DEMO_PASSWORDS) {
+    await ensure('Luxora Customer', 'customer@luxora.lk', '0771000001', 'CUSTOMER', null, null, DEMO_PASSWORDS.customer, 'Colombo');
+    await ensure('Luxora Provider', 'provider@luxora.lk', '0771000002', 'PROVIDER', '123456789V', 'Auto Care', DEMO_PASSWORDS.provider, null, 'Colombo, Colombo 03');
+    await ensure('Luxora Admin', 'admin@luxora.lk', '0771000003', 'ADMIN', null, null, DEMO_PASSWORDS.admin);
+  }
 
   console.log('Seed complete.');
 }

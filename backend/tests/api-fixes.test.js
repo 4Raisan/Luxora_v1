@@ -76,10 +76,10 @@ after(async () => {
 });
 
 const demoPasswordFor = (email) => {
-  if (email === 'customer@luxora.lk') return process.env.CUSTOMER_PASSWORD || 'luxora123';
-  if (email === 'provider@luxora.lk') return process.env.PROVIDER_PASSWORD || 'luxora123';
-  if (email === 'admin@luxora.lk') return process.env.ADMIN_PASSWORD || 'luxora123';
-  return 'luxora123';
+  if (email === 'customer@luxora.lk') return process.env.CUSTOMER_PASSWORD;
+  if (email === 'provider@luxora.lk') return process.env.PROVIDER_PASSWORD;
+  if (email === 'admin@luxora.lk') return process.env.ADMIN_PASSWORD;
+  throw new Error(`No test seed password configured for ${email}`);
 };
 async function login(email, password = demoPasswordFor(email)) {
   const { status, body } = await json('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });

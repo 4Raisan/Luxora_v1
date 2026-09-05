@@ -30,7 +30,7 @@ export const isTodayOrFuture = (dateStr) => {
 const COMMON_PASSWORDS = new Set([
   'password', 'password1', 'password12', 'password123', '12345678', '123456789',
   '1234567890', 'qwerty123', 'qwertyuiop', 'letmein123', 'iloveyou123',
-  'admin123', 'admin1234', 'welcome123', 'luxora12345', 'pass1234',
+  'admin123', 'admin1234', 'welcome123', 'luxora123', 'luxora12345', 'pass1234',
 ]);
 
 export function validatePassword(v) {

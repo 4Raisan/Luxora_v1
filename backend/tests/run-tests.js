@@ -4,6 +4,7 @@ import { isolatedTestUrls } from './helpers/test-database.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
+import crypto from 'node:crypto';
 
 const backendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: path.join(backendDir, '.env') });
@@ -15,6 +16,7 @@ if (!process.env.DATABASE_URL) {
 
 const isolatedUrls = isolatedTestUrls(process.env.DATABASE_URL);
 const databaseUrl = new URL(isolatedUrls.DATABASE_URL);
+const testSeedPassword = crypto.randomBytes(32).toString('base64url');
 
 const testEnv = {
   ...process.env,
@@ -24,6 +26,9 @@ const testEnv = {
   TZ: 'Asia/Colombo',
   RESEND_API_KEY: '',
   PAYOUT_SCHEDULER_ENABLED: 'false',
+  CUSTOMER_PASSWORD: testSeedPassword,
+  PROVIDER_PASSWORD: testSeedPassword,
+  ADMIN_PASSWORD: testSeedPassword,
 };
 const prismaCli = path.join(backendDir, 'node_modules', 'prisma', 'build', 'index.js');
 
