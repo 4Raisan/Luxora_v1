@@ -73,6 +73,8 @@ Both explorers are deployed together to GitHub Pages by `.github/workflows/knowl
 - Demo, PayHere, and NOWPayments are the supported payment flows.
 - PayHere and NOWPayments checkouts require valid public HTTPS callback URLs.
 - Entitlements and booking state are server-authoritative.
+- Customer booking cancellation is permitted while `PENDING` or `ASSIGNED`, never `IN_PROGRESS`.
+- Provider booking cancellation is permitted only on `ASSIGNED` future jobs with at least 4 hours notice; Luxora automatically reassigns an eligible replacement or cancels the booking and restores the customer token.
 
 ## Core models
 

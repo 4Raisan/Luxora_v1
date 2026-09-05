@@ -95,6 +95,7 @@ Through exhaustive file analysis, the following baseline facts are confirmed:
 5. **Dual-PIN Physical Evidence Verification**: Service execution requires mutual physical confirmation. The provider cannot start service without the customer providing the 6-digit cryptographically secure Start PIN (verified via bcrypt against `startPinHash`) along with an uploaded `BEFORE` photo. The provider cannot complete service without the 6-digit cryptographically secure Completion PIN (verified against `completionPinHash`) along with an uploaded `AFTER` photo.
 6. **Automatic Dispatch & Timeout Cancellation**: The backend scheduler runs continuous checks. Bookings unassigned after 30 minutes, or unstarted after 2 hours, or uncompleted after 2 hours past scheduled end, are automatically cancelled and their token units restored via PostgreSQL advisory locks.
 7. **Monthly Provider Payout Ledger**: Provider earnings accumulate per completed booking based on a fixed configured rate per service. An idempotent scheduler queues monthly payouts on the 31st for admin review and bank settlement.
+8. **Provider Booking Cancellation & Atomic Redispatch**: A provider can cancel only their own assigned future booking with at least 4 hours notice before scheduled start. Cancellation is strictly blocked within 4 hours, or once `IN_PROGRESS`/`COMPLETED`. No admin cancellation request or cancellation-reason form is used. When allowed, the backend transaction automatically reassigns the booking to an eligible replacement provider, or transitions to `CANCELLED` and restores the customer's subscription entitlement coin.
 
 ---
 
@@ -332,10 +333,11 @@ All communication with the backend passes through a single unified wrapper funct
   - Availability toggle (`ONLINE` vs `OFFLINE`) enforcing the strict 6-hour job safety window.
   - Interactive calendar displaying assigned daily appointments.
   - Customer contact phone numbers explicitly exposed on assigned job cards for service coordination.
+  - Autonomous assigned booking cancellation up to 4 hours before job start with automated replacement dispatch (no cancellation-reason forms required).
   - Double-PIN verification modals with `BEFORE` and `AFTER` photo upload inputs.
   - Earnings tracker displaying historical job payouts and linked bank account details.
 - **Admin Dashboard (13 Operational Modules)**:
-  - Global overview metrics, user activation toggles, provider KYC approval/rejection review with document preview, 30-day package creation, monthly session payout ledger execution, booking oversight, cancellation requests, complaints resolution desk, support ticket replies, promotions manager, and platform operation settings.
+  - Global overview metrics, user activation toggles, provider KYC approval/rejection review with document preview, 30-day package creation, monthly session payout ledger execution, booking oversight, complaints resolution desk, support ticket replies, promotions manager, and platform operation settings.
 
 ---
 

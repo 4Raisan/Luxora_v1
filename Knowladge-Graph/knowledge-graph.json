@@ -6,12 +6,12 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 204,
+    "totalNodes": 205,
     "totalEdges": 434,
     "nodesByGroup": {
       "api": 104,
       "database": 33,
-      "frontend": 34,
+      "frontend": 35,
       "middleware": 3,
       "routes": 16,
       "service": 14
@@ -1084,14 +1084,14 @@
       }
     },
     {
-      "id": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
-      "label": "POST /api/provider/bookings/:id/cancellation-request",
+      "id": "endpoint:POST_/api/provider/bookings/:id/cancel",
+      "label": "POST /api/provider/bookings/:id/cancel",
       "type": "ApiEndpoint",
       "group": "api",
       "file": "backend/src/routes/provider.js",
       "metadata": {
         "method": "POST",
-        "path": "/api/provider/bookings/:id/cancellation-request",
+        "path": "/api/provider/bookings/:id/cancel",
         "routeFile": "provider.js"
       },
       "source": {
@@ -1840,6 +1840,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/CursorGlow.jsx"
+      }
+    },
+    {
+      "id": "frontend:CustomerCustomRequests",
+      "label": "CustomerCustomRequests.jsx",
+      "type": "FrontendPage",
+      "group": "frontend",
+      "file": "frontend/src/pages/CustomerCustomRequests.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/pages/CustomerCustomRequests.jsx"
       }
     },
     {
@@ -4826,6 +4837,34 @@
       }
     },
     {
+      "id": "frontend:CustomerCustomRequests->endpoint:GET_/api/support/service-requests/my:FETCHES_API",
+      "from": "frontend:CustomerCustomRequests",
+      "to": "endpoint:GET_/api/support/service-requests/my",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:CustomerCustomRequests",
+      "target": "endpoint:GET_/api/support/service-requests/my",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerCustomRequests.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:CustomerCustomRequests->frontend:api_client:USES_CLIENT",
+      "from": "frontend:CustomerCustomRequests",
+      "to": "frontend:api_client",
+      "type": "USES_CLIENT",
+      "label": "",
+      "source": "frontend:CustomerCustomRequests",
+      "target": "frontend:api_client",
+      "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerCustomRequests.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:CustomerDashboard->endpoint:GET_/api/bookings/my:FETCHES_API",
       "from": "frontend:CustomerDashboard",
       "to": "endpoint:GET_/api/bookings/my",
@@ -4833,6 +4872,20 @@
       "label": "GET",
       "source": "frontend:CustomerDashboard",
       "target": "endpoint:GET_/api/bookings/my",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:CustomerDashboard->endpoint:GET_/api/complaints/my:FETCHES_API",
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:GET_/api/complaints/my",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:CustomerDashboard",
+      "target": "endpoint:GET_/api/complaints/my",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
@@ -5114,20 +5167,6 @@
       "source": "frontend:CustomerDashboard",
       "target": "endpoint:PUT_/api/profile",
       "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/CustomerDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:CustomerDashboard->frontend:AccountVerificationPanel:RENDERS_COMPONENT",
-      "from": "frontend:CustomerDashboard",
-      "to": "frontend:AccountVerificationPanel",
-      "type": "RENDERS_COMPONENT",
-      "label": "",
-      "source": "frontend:CustomerDashboard",
-      "target": "frontend:AccountVerificationPanel",
-      "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
         "extractor": "generate-graph.js:static-analysis"
@@ -5428,20 +5467,6 @@
       }
     },
     {
-      "id": "frontend:ProviderDashboard->endpoint:GET_/api/support/my:FETCHES_API",
-      "from": "frontend:ProviderDashboard",
-      "to": "endpoint:GET_/api/support/my",
-      "type": "FETCHES_API",
-      "label": "GET",
-      "source": "frontend:ProviderDashboard",
-      "target": "endpoint:GET_/api/support/my",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/ProviderDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
       "id": "frontend:ProviderDashboard->endpoint:POST_/api/bookings/:id/claim:FETCHES_API",
       "from": "frontend:ProviderDashboard",
       "to": "endpoint:POST_/api/bookings/:id/claim",
@@ -5484,13 +5509,13 @@
       }
     },
     {
-      "id": "frontend:ProviderDashboard->endpoint:POST_/api/provider/bookings/:id/cancellation-request:FETCHES_API",
+      "id": "frontend:ProviderDashboard->endpoint:POST_/api/provider/bookings/:id/cancel:FETCHES_API",
       "from": "frontend:ProviderDashboard",
-      "to": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "to": "endpoint:POST_/api/provider/bookings/:id/cancel",
       "type": "FETCHES_API",
       "label": "POST",
       "source": "frontend:ProviderDashboard",
-      "target": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "target": "endpoint:POST_/api/provider/bookings/:id/cancel",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",
@@ -9194,13 +9219,13 @@
       }
     },
     {
-      "id": "routefile:provider->endpoint:POST_/api/provider/bookings/:id/cancellation-request:EXPOSES_ENDPOINT",
+      "id": "routefile:provider->endpoint:POST_/api/provider/bookings/:id/cancel:EXPOSES_ENDPOINT",
       "from": "routefile:provider",
-      "to": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "to": "endpoint:POST_/api/provider/bookings/:id/cancel",
       "type": "EXPOSES_ENDPOINT",
       "label": "POST",
       "source": "routefile:provider",
-      "target": "endpoint:POST_/api/provider/bookings/:id/cancellation-request",
+      "target": "endpoint:POST_/api/provider/bookings/:id/cancel",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/provider.js",
@@ -9383,20 +9408,6 @@
       "label": "prisma.review",
       "source": "routefile:provider",
       "target": "model:Review",
-      "kind": "QUERIES_DB",
-      "evidence": {
-        "path": "backend/src/routes/provider.js",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "routefile:provider->model:SupportTicket:QUERIES_DB",
-      "from": "routefile:provider",
-      "to": "model:SupportTicket",
-      "type": "QUERIES_DB",
-      "label": "prisma.supportTicket",
-      "source": "routefile:provider",
-      "target": "model:SupportTicket",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/provider.js",

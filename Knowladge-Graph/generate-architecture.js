@@ -110,8 +110,8 @@ addNode({
   type: 'user_actor',
   views: ['system', 'frontend', 'booking', 'realtime', 'security', 'deployment'],
   file: 'backend/prisma/schema.prisma',
-  description: 'Submits KYC identity proofs, manages coverage towns and live availability, receives auto-assigned bookings, claims pending jobs, verifies Start and Completion PINs with photographic evidence, and tracks earnings.',
-  metadata: { role: 'PROVIDER', capabilities: ['kyc_submission', 'availability_toggle', 'booking_fulfillment', 'double_pin_verification'] },
+  description: 'Submits KYC identity proofs, manages coverage towns and live availability, receives auto-assigned bookings, claims pending jobs, cancels assigned bookings with >=4h notice, verifies Start and Completion PINs with photographic evidence, and tracks earnings.',
+  metadata: { role: 'PROVIDER', capabilities: ['kyc_submission', 'availability_toggle', 'booking_fulfillment', 'double_pin_verification', 'assigned_cancellation'] },
 });
 
 addNode({

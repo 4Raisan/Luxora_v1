@@ -13,6 +13,18 @@ Confirmed with the product owner on 2026-08-23. These rules override older notes
 - **Provider Availability**: Providers have two availability states: `ONLINE` (`available`) and `OFFLINE` (`offline`). When `OFFLINE`, no new jobs are auto-assigned. Providers cannot switch to `OFFLINE` if they have a service in progress or an assigned booking scheduled within 6 hours. When switching to `OFFLINE` (at least 6 hours before any assigned job), all future assigned bookings are automatically reassigned to other eligible online providers.
 - **Customer Contact Information**: Customer phone numbers are visible on assigned booking cards across the Provider Dashboard so providers can coordinate service delivery.
 - **Pet Care Modes**: Pet care bookings support explicit `Dog Care` (`dog`) and `Cat Care` (`cat`) modes, persisted on the booking record (`petType`) and displayed across customer, provider, and admin dashboards.
+- **Provider Booking Cancellation**:
+  - A provider can cancel only their own **assigned** future booking (`status === 'ASSIGNED'`).
+  - Cancellation is blocked when fewer than **4 hours** remain before the scheduled booking time (`PROVIDER_CANCELLATION_NOTICE_HOURS = 4`).
+  - Providers cannot cancel bookings that are in progress or completed.
+  - Direct cancellation action: No admin cancellation request or cancellation-reason form is used.
+  - When a valid provider cancellation occurs:
+    1. Luxora searches for another eligible, approved, available provider who serves the same category and area and has no schedule conflict.
+    2. If found, the booking is automatically reassigned and remains `ASSIGNED`.
+    3. If none is found, the booking becomes `CANCELLED`.
+    4. A cancelled booking no longer consumes the customer’s subscription entitlement, so the token is restored automatically.
+    5. The provider, customer, and admin dashboards receive updates and notifications via Server-Sent Events (SSE).
+- **Customer Custom Requests**: Customers can submit and track bespoke concierge service requests via `/customer-requests`, monitoring status progression across `Awaiting Provider`, `Provider Assigned`, and `Completed`.
 
 ## Booking flow
 
@@ -29,7 +41,7 @@ Customer selects service
   -> provider earnings are credited
 ```
 
-Bookings cannot be cancelled once they are `IN_PROGRESS`. Cancellation and entitlement restoration rules must be enforced server-side.
+Bookings cannot be cancelled once they are `IN_PROGRESS`. Customer cancellations are permitted while `PENDING` or `ASSIGNED`. Provider cancellations are permitted while `ASSIGNED` with at least 4 hours notice. Cancellation and entitlement restoration rules are enforced server-side within database transactions.
 
 ## Plans, credits, and payments
 
