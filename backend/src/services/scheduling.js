@@ -1,14 +1,57 @@
 // Shared scheduling rules.  All assignment paths use these helpers so a manual
 // assignment cannot bypass the same safety checks used by automatic matching.
-export function bookingStart(date, time) {
+//
+// TIME MODEL: bookingDate/bookingTime are Asia/Colombo wall-clock strings
+// (customers pick local time; Sri Lanka observes UTC+5:30 with no DST).
+// All rule comparisons below are Colombo-explicit so they hold regardless of
+// the server/container timezone. Do not compare naive wall-clock Dates
+// against `new Date()` directly.
+export const COLOMBO_TZ = 'Asia/Colombo';
+export const COLOMBO_OFFSET_MS = (5 * 60 + 30) * 60 * 1000; // UTC+5:30, no DST
+
+export function parseBookingTime(time) {
   const match = String(time || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
   if (!match) return null;
   let hour = Number(match[1]);
   const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour > 23 || minute > 59) return null;
   const meridiem = match[3]?.toUpperCase();
   if (meridiem === 'AM' && hour === 12) hour = 0;
   if (meridiem === 'PM' && hour !== 12) hour += 12;
-  return new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+  return { hour, minute };
+}
+
+export function bookingStart(date, time) {
+  const parsed = parseBookingTime(time);
+  if (!parsed) return null;
+  return new Date(`${date}T${String(parsed.hour).padStart(2, '0')}:${String(parsed.minute).padStart(2, '0')}:00`);
+}
+
+// Wall-clock hour (0-23) of a booking slot, parsed from the stored strings so
+// the auto-assignment window never depends on server timezone.
+export function bookingWallHour(date, time) {
+  void date;
+  const parsed = parseBookingTime(time);
+  return parsed ? parsed.hour : null;
+}
+
+// Colombo wall-clock "now", expressed in the server frame so it can be
+// compared against naive wall-clock Dates from bookingStart().
+export function colomboNow(now = new Date()) {
+  const current = now instanceof Date ? now : new Date(now);
+  return new Date(current.getTime() + current.getTimezoneOffset() * 60000 + COLOMBO_OFFSET_MS);
+}
+
+// V1 lead-time rule: a new/rescheduled booking must start at least
+// `hours` after now. Exactly on the boundary is allowed.
+export const BOOKING_LEAD_TIME_HOURS = 4;
+
+export function meetsLeadTimeHours(date, time, hours = BOOKING_LEAD_TIME_HOURS, now = new Date()) {
+  const scheduledStart = bookingStart(date, time);
+  if (!scheduledStart || Number.isNaN(scheduledStart.getTime())) return false;
+  const current = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(current.getTime())) return false;
+  return scheduledStart.getTime() - colomboNow(current).getTime() >= hours * 60 * 60 * 1000;
 }
 
 export const PROVIDER_CANCELLATION_NOTICE_HOURS = 4;
@@ -23,7 +66,7 @@ export function providerCancellationPolicy(date, time, now = new Date()) {
   );
   const currentTime = now instanceof Date ? now : new Date(now);
   return {
-    canCancel: !Number.isNaN(currentTime.getTime()) && currentTime <= cancellationDeadline,
+    canCancel: !Number.isNaN(currentTime.getTime()) && colomboNow(currentTime) <= cancellationDeadline,
     scheduledStart,
     cancellationDeadline,
   };
@@ -53,8 +96,11 @@ export async function getPlatformSettings(client) {
 }
 
 export function isInAutoAssignmentWindow(date, time, settings) {
-  const start = bookingStart(date, time);
-  return Boolean(start) && start.getHours() >= settings.autoAssignmentStartHour && start.getHours() <= settings.autoAssignmentEndHour;
+  // Hour-granular by design: settings carry whole hours, so the full 16th
+  // hour (16:00-16:59) is inside a 07:00-16:00 window. Parsed from the stored
+  // Colombo wall-clock strings — never from server-local Date hours.
+  const hour = bookingWallHour(date, time);
+  return hour !== null && hour >= settings.autoAssignmentStartHour && hour <= settings.autoAssignmentEndHour;
 }
 
 export function bookingEndsAt(booking) {
@@ -149,7 +195,7 @@ export async function pickProvider(tx, categoryName, town, district, booking_dat
   return eligible[0];
 }
 
-export async function reassignOrUnassignProviderBookings(client, providerId, notifyFn) {
+export async function reassignOrUnassignProviderBookings(client, providerId, notifyFn, { preserveNearTerm = false } = {}) {
   const affectedBookings = await client.booking.findMany({
     where: {
       providerId,
@@ -161,13 +207,17 @@ export async function reassignOrUnassignProviderBookings(client, providerId, not
     },
   });
 
-  const now = new Date();
+  const wallNow = colomboNow(new Date());
   const settings = await getPlatformSettings(client);
 
   for (const booking of affectedBookings) {
     const scheduledStart = bookingStart(booking.bookingDate, booking.bookingTime);
-    const isFuture = scheduledStart && scheduledStart > now;
+    const isFuture = scheduledStart && scheduledStart > wallNow;
     if (!isFuture) continue;
+    // Race-safe near-term preserve (Rule 5B): an ASSIGNED booking starting
+    // within the notice window stays with its provider and must never be
+    // stripped or auto-cancelled by a concurrent availability change.
+    if (preserveNearTerm && scheduledStart.getTime() - wallNow.getTime() <= PROVIDER_CANCELLATION_NOTICE_HOURS * 60 * 60 * 1000) continue;
 
     let newProvider = null;
     if (booking.service) {
@@ -208,4 +258,78 @@ export async function reassignOrUnassignProviderBookings(client, providerId, not
       }
     }
   }
+}
+
+// Admin provider HOLD (Rule 7). IN_PROGRESS bookings are never touched here.
+// ASSIGNED/PENDING bookings starting within the 4-hour notice window are
+// CANCELLED (coin restores implicitly because usage excludes CANCELLED rows).
+// Bookings further out are rerouted; with no replacement they stay
+// PENDING/unassigned so the scheduler can retry. Every mutation re-reads
+// state inside an advisory-locked transaction: concurrent admin actions,
+// provider/customer cancels, or scheduler runs cannot double-restore a coin
+// or reroute a booking that already moved to IN_PROGRESS/COMPLETED/CANCELLED.
+export async function handleProviderHoldBookings(client, providerId, notifyFn, now = new Date()) {
+  const wallNow = colomboNow(now instanceof Date ? now : new Date(now));
+  const candidates = await client.booking.findMany({
+    where: { providerId, status: { in: ['ASSIGNED', 'PENDING'] } },
+    include: { service: { include: { category: true } } },
+  });
+  const settings = await getPlatformSettings(client);
+  const outcome = { cancelled: [], reassigned: [], leftPending: [], skipped: [] };
+
+  for (const booking of candidates) {
+    const scheduledStart = bookingStart(booking.bookingDate, booking.bookingTime);
+    if (!scheduledStart || scheduledStart <= wallNow) {
+      outcome.skipped.push(booking.id);
+      continue;
+    }
+    const withinNoticeWindow = scheduledStart.getTime() - wallNow.getTime() <= PROVIDER_CANCELLATION_NOTICE_HOURS * 60 * 60 * 1000;
+
+    const result = await client.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(booking.id)})`;
+      const fresh = await tx.booking.findUnique({ where: { id: booking.id } });
+      if (!fresh || fresh.providerId !== providerId || !['ASSIGNED', 'PENDING'].includes(fresh.status)) {
+        return 'stale';
+      }
+      if (withinNoticeWindow) {
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: { status: 'CANCELLED', cancellationReason: 'Cancelled because the assigned provider account was put on hold within four hours of the scheduled start; the service coin was restored.' },
+        });
+        return 'cancelled';
+      }
+      const service = booking.service || await tx.service.findUnique({ where: { id: fresh.serviceId }, include: { category: true } });
+      const replacement = service
+        ? await pickProvider(tx, service.category?.name, fresh.town, fresh.addressDistrict, fresh.bookingDate, fresh.bookingTime, service, settings)
+        : null;
+      if (replacement && replacement.id !== providerId) {
+        await tx.booking.update({ where: { id: booking.id }, data: { providerId: replacement.id, status: 'ASSIGNED' } });
+        return { rerouted: replacement };
+      }
+      await tx.booking.update({ where: { id: booking.id }, data: { providerId: null, status: 'PENDING' } });
+      return 'pending';
+    });
+
+    if (result === 'stale' || result === 'skipped') {
+      outcome.skipped.push(booking.id);
+    } else if (result === 'cancelled') {
+      outcome.cancelled.push(booking.id);
+      if (notifyFn) {
+        await notifyFn(booking.userId, `Booking #${booking.id} was cancelled because the provider account was put on hold. Your service coin has been restored.`, '/customer-dashboard').catch(() => {});
+      }
+    } else if (result === 'pending') {
+      outcome.leftPending.push(booking.id);
+      if (notifyFn) {
+        await notifyFn(booking.userId, `Your booking #${booking.id} is being reassigned to an available provider.`, '/customer-dashboard').catch(() => {});
+      }
+    } else if (result?.rerouted) {
+      outcome.reassigned.push(booking.id);
+      if (notifyFn) {
+        await notifyFn(booking.userId, `Your booking #${booking.id} has been reassigned to another provider.`, '/customer-dashboard').catch(() => {});
+        await notifyFn(result.rerouted.userId, `Booking #${booking.id} (${booking.service?.title || 'Service'}) has been assigned to you.`, '/provider-dashboard').catch(() => {});
+      }
+    }
+  }
+
+  return outcome;
 }

@@ -4,7 +4,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify, logAdminAction } from '../services/notify.js';
 import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
-import { getPlatformSettings, providerCanTakeBooking, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
+import { getPlatformSettings, handleProviderHoldBookings, providerCanTakeBooking, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookingsThrottled } from '../services/bookingTimeouts.js';
@@ -85,7 +85,7 @@ router.put('/settings/scheduling', async (req, res) => {
   res.json(setting);
 });
 router.post('/settings/scheduling/restore-defaults', async (req, res) => {
-  const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1 }, update: { autoAssignmentCooldownHours: 6, autoAssignmentStartHour: 7, autoAssignmentEndHour: 16 } });
+  const setting = await prisma.platformSetting.upsert({ where: { id: 1 }, create: { id: 1 }, update: { autoAssignmentCooldownHours: 5, autoAssignmentStartHour: 7, autoAssignmentEndHour: 16 } });
   logAdminAction({ adminId: req.user.id, action: 'RESTORE_SCHEDULING_DEFAULTS', targetType: 'PlatformSetting', targetId: '1', ipAddress: req.ip }).catch(() => {});
   res.json(setting);
 });
@@ -297,18 +297,29 @@ router.put('/users/:id', async (req, res) => {
   const user = await prisma.user.update({ where: { id }, data: { active: req.body.active }, select: { id: true, role: true, active: true } });
 
   if (user.role === 'CUSTOMER' && req.body.active === false) {
+    // HOLD rule: only bookings that have not started are cancelled.
+    // IN_PROGRESS work must continue (Rule 9); COMPLETED/CANCELLED are terminal.
+    // Coin restoration is implicit (usage excludes CANCELLED) and therefore
+    // exactly-once; repeat processing finds no PENDING/ASSIGNED rows left.
+    // New bookings are blocked because deactivated accounts fail auth (403).
     const activeBookings = await prisma.booking.findMany({
       where: {
         userId: user.id,
-        status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] },
+        status: { in: ['PENDING', 'ASSIGNED'] },
       },
       include: { service: true },
     });
     for (const b of activeBookings) {
-      await prisma.booking.update({
-        where: { id: b.id },
-        data: { status: 'CANCELLED', cancellationReason: 'Customer account was deactivated' },
+      const cancelled = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(b.id)})`;
+        const fresh = await tx.booking.findUnique({ where: { id: b.id } });
+        if (!fresh || !['PENDING', 'ASSIGNED'].includes(fresh.status)) return null;
+        return tx.booking.update({
+          where: { id: b.id },
+          data: { status: 'CANCELLED', cancellationReason: 'Customer account was deactivated' },
+        });
       });
+      if (!cancelled) continue;
       await notify(user.id, `Your active booking #${b.id} was cancelled because your account was deactivated.`, '/customer-dashboard').catch(() => {});
       if (b.providerId) {
         const prov = await prisma.provider.findUnique({ where: { id: b.providerId } });
@@ -320,7 +331,9 @@ router.put('/users/:id', async (req, res) => {
   } else if (user.role === 'PROVIDER' && req.body.active === false) {
     const prov = await prisma.provider.findUnique({ where: { userId: user.id } });
     if (prov) {
-      await reassignOrUnassignProviderBookings(prisma, prov.id, notify);
+      // Rule 7: <=4h assignments cancel (coin restores), >4h reroute,
+      // IN_PROGRESS untouched. Idempotent under retries/concurrency.
+      await handleProviderHoldBookings(prisma, prov.id, notify);
     }
   }
 

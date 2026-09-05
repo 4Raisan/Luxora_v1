@@ -76,6 +76,7 @@ const testSuites = {
     'tests/booking-concurrency.test.js',
     'tests/booking-lifecycle-timeouts.test.js',
     'tests/new-flow-rules.test.js',
+    'tests/booking-business-rules.test.js',
     'tests/realtime-claim-lifecycle.test.js',
   ],
   security: [

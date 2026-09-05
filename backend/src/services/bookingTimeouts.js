@@ -1,9 +1,14 @@
 import { prisma } from '../config/prisma.js';
-import { bookingStart, bookingEndsAt, pickProvider, getPlatformSettings } from './scheduling.js';
+import { bookingStart, bookingEndsAt, colomboNow, pickProvider, getPlatformSettings } from './scheduling.js';
 import { notify } from './notify.js';
 import { sendEmail, escapeHtml } from './integrations.js';
 
-export const PENDING_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes after start
+// V1 Rule 8: a PENDING/unassigned booking is cancelled as soon as real time
+// reaches its scheduled start. No grace period — stale PENDING rows must not
+// survive past their start time. Coin restoration is implicit (entitlement
+// usage excludes CANCELLED) and exactly-once via the guarded transition
+// below; repeat scheduler runs find no PENDING row left.
+export const PENDING_TIMEOUT_MS = 0;
 export const ASSIGNED_START_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours after start
 export const IN_PROGRESS_FINISH_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours after end
 
@@ -23,6 +28,9 @@ export function getInProgressDeadline(booking) {
 }
 
 export async function processExpiredBookings(client = prisma, now = new Date()) {
+  // Compare in Colombo wall-clock terms so scheduler behavior is identical
+  // regardless of the server/container timezone.
+  const wallNow = colomboNow(now instanceof Date ? now : new Date(now));
   const activeBookings = await client.booking.findMany({
     where: {
       status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] },
@@ -45,11 +53,11 @@ export async function processExpiredBookings(client = prisma, now = new Date()) 
 
     if (booking.status === 'PENDING') {
       deadline = getPendingDeadline(booking);
-      if (deadline && now > deadline) {
-        reason = 'Booking remained unassigned 30 minutes after scheduled start time (Auto-cancelled)';
-        notificationMsg = `Your booking #${booking.id} (${booking.service?.title || 'Service'}) was cancelled because no provider was assigned within 30 minutes of start time. Your entitlement unit has been restored.`;
+      if (deadline && wallNow >= deadline) {
+        reason = 'Booking reached its scheduled start time without a provider assignment (Auto-cancelled)';
+        notificationMsg = `Your booking #${booking.id} (${booking.service?.title || 'Service'}) was cancelled because no provider was assigned by the scheduled start time. Your entitlement unit has been restored.`;
         emailSubject = `Luxora Booking #${booking.id} - Unassigned Timeout`;
-        emailBody = `<p>Hi ${escapeHtml(booking.user?.name || 'Customer')},</p><p>Your booking #${booking.id} for <strong>${escapeHtml(booking.service?.title || 'Service')}</strong> could not be assigned to a provider within 30 minutes of the scheduled start time and has been cancelled.</p><p>Your subscription entitlement unit has been restored to your balance.</p>`;
+        emailBody = `<p>Hi ${escapeHtml(booking.user?.name || 'Customer')},</p><p>Your booking #${booking.id} for <strong>${escapeHtml(booking.service?.title || 'Service')}</strong> could not be assigned to a provider by the scheduled start time and has been cancelled.</p><p>Your subscription entitlement unit has been restored to your balance.</p>`;
       } else if (!booking.providerId && booking.service) {
         try {
           const settings = await getPlatformSettings(client);
@@ -77,7 +85,7 @@ export async function processExpiredBookings(client = prisma, now = new Date()) 
       }
     } else if (booking.status === 'ASSIGNED') {
       deadline = getAssignedDeadline(booking);
-      if (deadline && now > deadline) {
+      if (deadline && wallNow > deadline) {
         reason = 'Provider did not start service within 2 hours of scheduled time (Auto-cancelled)';
         notificationMsg = `Your booking #${booking.id} (${booking.service?.title || 'Service'}) was cancelled because service was not started within 2 hours of scheduled start time. Your entitlement unit has been restored.`;
         emailSubject = `Luxora Booking #${booking.id} - Provider No-Show / Start Timeout`;
@@ -85,7 +93,7 @@ export async function processExpiredBookings(client = prisma, now = new Date()) 
       }
     } else if (booking.status === 'IN_PROGRESS') {
       deadline = getInProgressDeadline(booking);
-      if (deadline && now > deadline) {
+      if (deadline && wallNow > deadline) {
         reason = 'Service was not completed within 2 hours after scheduled end time (Auto-cancelled)';
         notificationMsg = `Your booking #${booking.id} (${booking.service?.title || 'Service'}) timed out as it was not completed within 2 hours of scheduled end time. Your entitlement unit has been restored.`;
         emailSubject = `Luxora Booking #${booking.id} - Service Completion Timeout`;

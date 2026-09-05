@@ -67,7 +67,7 @@ after(async () => {
   await prisma.$disconnect();
 });
 
-test('Rule 1: PENDING booking timeout (> 30 mins after start) auto-cancels and restores entitlement', async () => {
+test('Rule 1: PENDING booking at scheduled start auto-cancels and restores entitlement', async () => {
   const category = await prisma.category.create({ data: { name: `TimeoutCat_${RND}_1` } });
   const service = await prisma.service.create({
     data: { categoryId: category.id, title: `Service Pending ${RND}`, price: 4000, providerEarning: 2500, durationMins: 60 },
@@ -108,18 +108,29 @@ test('Rule 1: PENDING booking timeout (> 30 mins after start) auto-cancels and r
   let snapshot = await getEntitlementSnapshot(prisma, customer.id);
   assert.equal(snapshot[0].remaining_units, 0, '1 unit should be consumed before expiry');
 
-  // Run timeout processing
+  // Run timeout processing 60 seconds BEFORE the scheduled start: still pending.
   const start1 = bookingStart('2026-01-01', '10:00 AM');
-  const expired1 = await processExpiredBookings(prisma, new Date(start1.getTime() + 45 * 60 * 1000));
-  assert.ok(expired1.some((b) => b.id === pastBooking.id), 'Pending booking should be expired');
+  const early = await processExpiredBookings(prisma, new Date(start1.getTime() - 60 * 1000));
+  assert.equal(early.some((b) => b.id === pastBooking.id), false, 'Pending booking must survive before its start');
+  assert.equal((await prisma.booking.findUnique({ where: { id: pastBooking.id } })).status, 'PENDING');
+
+  // Run timeout processing 5 seconds AFTER the scheduled start: cancelled at start (no grace period).
+  const expired1 = await processExpiredBookings(prisma, new Date(start1.getTime() + 5 * 1000));
+  assert.ok(expired1.some((b) => b.id === pastBooking.id), 'Pending booking should be expired at start');
 
   const updatedBooking = await prisma.booking.findUnique({ where: { id: pastBooking.id } });
   assert.equal(updatedBooking.status, 'CANCELLED');
-  assert.ok(updatedBooking.cancellationReason.includes('30 minutes'), 'Reason must mention 30 mins');
+  assert.ok(updatedBooking.cancellationReason.includes('scheduled start time'), 'Reason must mention scheduled start time');
 
   // Verify entitlement is safely restored
   snapshot = await getEntitlementSnapshot(prisma, customer.id);
   assert.equal(snapshot[0].remaining_units, 1, '1 unit should be restored to customer');
+
+  // Second scheduler run must not restore twice
+  const again = await processExpiredBookings(prisma, new Date(start1.getTime() + 3600 * 1000));
+  assert.equal(again.some((b) => b.id === pastBooking.id), false, 'Repeat run must not re-cancel');
+  snapshot = await getEntitlementSnapshot(prisma, customer.id);
+  assert.equal(snapshot[0].remaining_units, 1, 'Repeat run must not restore twice');
 
   // Verify notification was created
   const notif = await prisma.notification.findFirst({ where: { userId: customer.id } });

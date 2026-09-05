@@ -9,7 +9,7 @@ import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { toPositiveInt, isDate, isQuarterHourTime, isTodayOrFuture, toEnum, BOOKING_STATUSES } from '../middleware/validators.js';
 import { findBookableEntitlement } from '../services/entitlements.js';
 import { JWT_SECRET } from '../middleware/auth.js';
-import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, providerCancellationPolicy, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
+import { bookingStart, getPlatformSettings, isInAutoAssignmentWindow, meetsLeadTimeHours, BOOKING_LEAD_TIME_HOURS, providerCancellationPolicy, providerCanTakeBooking, providerOffersCategory, servesTown } from '../services/scheduling.js';
 import { processExpiredBookingsThrottled, getAssignedDeadline, getInProgressDeadline } from '../services/bookingTimeouts.js';
 import { broadcastBookingEvent } from '../services/realtime.js';
 
@@ -109,6 +109,12 @@ router.post('/', async (req, res) => {
   if (!isDate(booking_date)) return res.status(400).json({ error: 'booking_date must be YYYY-MM-DD' });
   if (!isQuarterHourTime(booking_time)) return res.status(400).json({ error: 'booking_time must use a 15-minute interval (for example, 09:00, 09:15, 09:30, or 09:45)' });
   if (!isTodayOrFuture(booking_date)) return res.status(400).json({ error: 'booking_date cannot be in the past' });
+
+  // V1 lead-time rule (server-authoritative): new bookings must start at
+  // least 4 hours from now. Exactly 4 hours ahead is allowed.
+  if (!meetsLeadTimeHours(booking_date, booking_time)) {
+    return res.status(400).json({ error: `Bookings must be scheduled at least ${BOOKING_LEAD_TIME_HOURS} hours in advance` });
+  }
 
   const service = await prisma.service.findUnique({
     where: { id: serviceId },
@@ -738,7 +744,7 @@ router.put('/:id/schedule', async (req, res) => {
   const settings = await getPlatformSettings(prisma);
   const latestAllowed = new Date(start.getTime() + settings.autoAssignmentCooldownHours * 60 * 60 * 1000);
   if (Number.isNaN(expectedEndTime.getTime()) || expectedEndTime <= start || expectedEndTime > latestAllowed) {
-    return res.status(400).json({ error: 'expected_end_time must be after the booking start and no later than its 6-hour cooldown end' });
+    return res.status(400).json({ error: `expected_end_time must be after the booking start and no later than its ${settings.autoAssignmentCooldownHours}-hour cooldown end` });
   }
   const service = await prisma.service.findUnique({ where: { id: booking.serviceId }, include: { category: true } });
   const eligibility = await providerCanTakeBooking(prisma, provider, { ...booking, service, expectedEndTime }, { ignoreBookingId: booking.id });
@@ -798,6 +804,10 @@ router.put('/:id/reschedule', async (req, res) => {
   const normalizedTime = String(booking_time).trim().toUpperCase();
   const reason = String(req.body.reason || '').trim();
   if (reason.length < 3 || reason.length > 500) return res.status(400).json({ error: 'reason must be 3-500 characters' });
+  // Rescheduled slots obey the same 4-hour minimum as new bookings.
+  if (!meetsLeadTimeHours(booking_date, normalizedTime)) {
+    return res.status(400).json({ error: `Rescheduled bookings must be at least ${BOOKING_LEAD_TIME_HOURS} hours in advance` });
+  }
 
   const bookingId = toPositiveInt(req.params.id);
   if (!bookingId) return res.status(400).json({ error: 'Valid booking ID is required' });

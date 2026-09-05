@@ -186,9 +186,11 @@ test('Rule 3 & 4: Provider deactivation/KYC rejection returns assigned bookings 
   const service = await prisma.service.findFirst({ where: { category: { name: 'Pet Care' } } });
   const custToken = jwt.sign({ id: cust.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
 
+  const soonDay = new Date(Date.now() + 2 * 86400 * 1000);
+  const soonDayStr = `${soonDay.getFullYear()}-${String(soonDay.getMonth() + 1).padStart(2, '0')}-${String(soonDay.getDate()).padStart(2, '0')}`;
   const bookRes = await authJson(custToken, '/bookings', {
     method: 'POST',
-    body: JSON.stringify({ service_id: service.id, booking_date: '2026-09-04', booking_time: '14:00' }),
+    body: JSON.stringify({ service_id: service.id, booking_date: soonDayStr, booking_time: '14:00' }),
   });
   assert.equal(bookRes.status, 201);
   const bookingId = bookRes.body.booking_id;
@@ -241,9 +243,11 @@ test('Rule 5: PIN visibility (Start PIN visible when ASSIGNED, End PIN hidden un
   const custToken = jwt.sign({ id: cust.id, role: 'CUSTOMER', tokenVersion: 0 }, JWT_SECRET);
   const provToken = jwt.sign({ id: provUser.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
 
+  const dayAfter = new Date(Date.now() + 2 * 86400 * 1000);
+  const dayAfterStr = `${dayAfter.getFullYear()}-${String(dayAfter.getMonth() + 1).padStart(2, '0')}-${String(dayAfter.getDate()).padStart(2, '0')}`;
   const bookRes = await authJson(custToken, '/bookings', {
     method: 'POST',
-    body: JSON.stringify({ service_id: service.id, booking_date: '2026-09-05', booking_time: '15:00' }),
+    body: JSON.stringify({ service_id: service.id, booking_date: dayAfterStr, booking_time: '15:00' }),
   });
   assert.equal(bookRes.status, 201);
   const bookingId = bookRes.body.booking_id;
@@ -621,7 +625,7 @@ test('Audit Fix 4: Customer registration and town update enforce canonical Sri L
   assert.equal(goodUpdate.body.address_district, 'Southern');
 });
 
-test('Rule 11: Provider availability online/offline workflow, 6-hour safeguard, automatic reassignment, and customer phone visibility', async () => {
+test('Rule 11: Provider availability online/offline workflow, 4-hour safeguard, automatic reassignment, and customer phone visibility', async () => {
   const testId = Date.now() + Math.floor(Math.random() * 1000);
   const custUser = await prisma.user.create({
     data: { name: `Phone Cust ${testId}`, email: `phonecust.${testId}@test.luxora`, phone: '0771234567', passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Colombo', addressDistrict: 'Western' },
@@ -660,7 +664,7 @@ test('Rule 11: Provider availability online/offline workflow, 6-hour safeguard, 
   // Create a service
   const service = await prisma.service.findFirst({ where: { category: { name: 'Auto Care' } } });
 
-  // 3. Create a booking scheduled 2 hours from now (within 6h window) assigned to prov1
+  // 3. Create a booking scheduled 2 hours from now (within 4h window) assigned to prov1
   const today = new Date();
   const twoHoursLater = new Date(Date.now() + 2 * 3600 * 1000);
   const hourStr = String(twoHoursLater.getHours()).padStart(2, '0');
@@ -682,10 +686,10 @@ test('Rule 11: Provider availability online/offline workflow, 6-hour safeguard, 
     },
   });
 
-  // Attempting to go offline must be blocked due to 6-hour rule
+  // Attempting to go offline must be blocked due to 4-hour rule
   const blockedOff = await authJson(token1, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'offline' }) });
   assert.equal(blockedOff.status, 400);
-  assert.match(blockedOff.body.error, /within 6 hours/i);
+  assert.match(blockedOff.body.error, /within 4 hours/i);
 
   // Verify /bookings/assigned returns customer_phone
   const assignedList = await authJson(token1, '/bookings/assigned');
@@ -695,7 +699,7 @@ test('Rule 11: Provider availability online/offline workflow, 6-hour safeguard, 
   assert.equal(foundBooking.customer_phone, '0771234567');
   assert.equal(foundBooking.customer_name, `Phone Cust ${testId}`);
 
-  // 4. Update booking to be 2 days in the future (>= 6 hours away)
+  // 4. Update booking to be 2 days in the future (more than 4 hours away)
   const future = new Date(Date.now() + 48 * 3600 * 1000);
   const futureDate = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
   await prisma.booking.update({

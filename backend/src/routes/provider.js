@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { encryptAccountNumber, maskAccountNumber, hashAccountNumber } from '../services/bankingCrypto.js';
-import { bookingStart, getPlatformSettings, pickProvider, providerCancellationPolicy, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
+import { bookingStart, colomboNow, getPlatformSettings, pickProvider, providerCancellationPolicy, reassignOrUnassignProviderBookings, PROVIDER_CANCELLATION_NOTICE_HOURS } from '../services/scheduling.js';
 import { notify } from '../services/notify.js';
 import { broadcastBookingEvent } from '../services/realtime.js';
 import { getSriLankaLocation, SRI_LANKA_TOWNS } from '../services/sriLankaLocations.js';
@@ -83,18 +83,20 @@ router.put('/availability', async (req, res) => {
     if (activeBookings.some((booking) => booking.status === 'IN_PROGRESS')) {
       return res.status(400).json({ error: 'Cannot go offline while a service is currently in progress. Please complete the active service first.' });
     }
-    const now = new Date();
+    // V1 notice anchor is 4 hours (same as provider cancellation): nearer
+    // ASSIGNED bookings stay with this provider and are never stripped.
+    const wallNow = colomboNow(new Date());
     const nearBooking = activeBookings.find((booking) => {
       const start = bookingStart(booking.bookingDate, booking.bookingTime);
-      return start && (start.getTime() - now.getTime()) / 3600000 < 6;
+      return start && (start.getTime() - wallNow.getTime()) / 3600000 < PROVIDER_CANCELLATION_NOTICE_HOURS;
     });
     if (nearBooking) {
-      return res.status(400).json({ error: `Cannot go offline: you have an assigned booking (#${nearBooking.id} for ${nearBooking.service?.title || 'Service'}) scheduled within 6 hours (${nearBooking.bookingDate} at ${nearBooking.bookingTime}). Please complete this booking, or cancel it from its details if at least four hours remain.` });
+      return res.status(400).json({ error: `Cannot go offline: you have an assigned booking (#${nearBooking.id} for ${nearBooking.service?.title || 'Service'}) scheduled within 4 hours (${nearBooking.bookingDate} at ${nearBooking.bookingTime}). Please complete this booking, or cancel it from its details if at least four hours remain.` });
     }
   }
 
   await prisma.provider.update({ where: { id: provider.id }, data: { availabilityStatus: targetStatus } });
-  if (targetStatus === 'offline') await reassignOrUnassignProviderBookings(prisma, provider.id, notify).catch(() => {});
+  if (targetStatus === 'offline') await reassignOrUnassignProviderBookings(prisma, provider.id, notify, { preserveNearTerm: true }).catch(() => {});
   res.json({ message: `Availability set to ${targetStatus}`, availability_status: targetStatus });
 });
 
