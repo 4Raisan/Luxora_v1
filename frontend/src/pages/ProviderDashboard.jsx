@@ -723,6 +723,10 @@ const ProviderDashboard = () => {
   const availableBalance = Number(earnings?.balance ?? earnings?.earnings ?? 0)
   const minimumRedemptionAmount = Number(earnings?.minimum_redemption_amount || 5000)
   const redemptionRows = (earnings?.payouts || []).filter((payout) => payout.kind === 'redemption')
+  // Money stats render '—' until the first /provider/earnings payload arrives:
+  // earnings === null means the initial load is still in flight, and a fabricated
+  // Rs. 0.00 balance must never paint during that window.
+  const formatMoneyStat = (value) => (earnings === null ? '—' : formatRupees(value))
   const pendingRedemptionTotal = redemptionRows
     .filter((payout) => payout.status === 'pending')
     .reduce((total, payout) => total + Number(payout.amount || 0), 0)
@@ -920,10 +924,10 @@ const ProviderDashboard = () => {
               </div>
 
               <div className="pd-stats" style={{ marginBottom: '1.25rem' }}>
-                <div className="pd-stat"><p className="pd-stat__label">OVERALL EARNINGS</p><p className="pd-stat__value">{formatRupees(earnings?.overall_earnings)}</p></div>
-                <div className="pd-stat"><p className="pd-stat__label">REDEEMED</p><p className="pd-stat__value">{formatRupees(earnings?.redeemed)}</p></div>
-                <div className="pd-stat"><p className="pd-stat__label">AVAILABLE BALANCE</p><p className="pd-stat__value pd-stat__value--gold">{formatRupees(availableBalance)}</p></div>
-                <div className="pd-stat"><p className="pd-stat__label">PENDING REDEMPTIONS</p><p className="pd-stat__value">{formatRupees(pendingRedemptionTotal)}</p></div>
+                <div className="pd-stat"><p className="pd-stat__label">OVERALL EARNINGS</p><p className="pd-stat__value">{formatMoneyStat(earnings?.overall_earnings)}</p></div>
+                <div className="pd-stat"><p className="pd-stat__label">REDEEMED</p><p className="pd-stat__value">{formatMoneyStat(earnings?.redeemed)}</p></div>
+                <div className="pd-stat"><p className="pd-stat__label">AVAILABLE BALANCE</p><p className="pd-stat__value pd-stat__value--gold">{formatMoneyStat(availableBalance)}</p></div>
+                <div className="pd-stat"><p className="pd-stat__label">PENDING REDEMPTIONS</p><p className="pd-stat__value">{formatMoneyStat(pendingRedemptionTotal)}</p></div>
               </div>
 
               <div className="pd-all-booking-card" style={{ marginBottom: '1.25rem' }}>
@@ -972,7 +976,7 @@ const ProviderDashboard = () => {
               <div className="pd-stats" style={{ marginBottom: '1.5rem' }}>
                 <div className="pd-stat">
                   <p className="pd-stat__label">AVAILABLE BALANCE</p>
-                  <p className="pd-stat__value pd-stat__value--gold">{formatRupees(earnings?.earnings)}</p>
+                  <p className="pd-stat__value pd-stat__value--gold">{formatMoneyStat(earnings?.earnings)}</p>
                 </div>
                 <div className="pd-stat">
                   <p className="pd-stat__label">COMPLETED JOBS</p>
@@ -1211,7 +1215,7 @@ const ProviderDashboard = () => {
                   </div>
                   <div className="pd-stat">
                     <p className="pd-stat__label">AVAILABLE BALANCE</p>
-                    <p className="pd-stat__value pd-stat__value--gold">{formatRupees(earnings?.earnings)}</p>
+                    <p className="pd-stat__value pd-stat__value--gold">{formatMoneyStat(earnings?.earnings)}</p>
                   </div>
                   <div className="pd-stat">
                     <p className="pd-stat__label">NEXT SERVICE</p>
