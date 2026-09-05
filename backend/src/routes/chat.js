@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../config/env.js';
+import { optionalAuthentication } from '../middleware/auth.js';
 import { prisma } from '../config/prisma.js';
 import { createRequire } from 'node:module';
 
@@ -9,28 +8,11 @@ const { getSession, processMessage } = require('../chatbot/services/engine.js');
 
 const router = Router();
 
-async function getOptionalUser(req) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return null;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (!decoded || !decoded.id) return null;
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, email: true, name: true, phone: true, role: true, active: true }
-    });
-    return user && user.active ? user : null;
-  } catch {
-    return null;
-  }
-}
-
 // Chat & Interactive Concierge Endpoint (Directly Connected to Live Database)
-router.post('/chat', async (req, res) => {
+router.post('/chat', optionalAuthentication, async (req, res) => {
   try {
     const { message, sessionId, structuredPayload } = req.body;
-    const user = await getOptionalUser(req);
+    const user = req.user || null;
     const session = getSession(sessionId || 'guest-session');
     const response = await processMessage(session, message, structuredPayload, { user, prisma });
     res.json({
@@ -61,9 +43,9 @@ router.get('/chatbot/catalog', async (_req, res) => {
 });
 
 // Live Database Special Ask Submission
-router.post('/chatbot/special-ask', async (req, res) => {
+router.post('/chatbot/special-ask', optionalAuthentication, async (req, res) => {
   try {
-    const user = await getOptionalUser(req);
+    const user = req.user || null;
     const { details, name, phone, email, category } = req.body;
 
     let targetUserId = user ? user.id : null;

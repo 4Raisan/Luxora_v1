@@ -12,7 +12,7 @@ const activeClients = new Map();
 /**
  * Register a new SSE client connection
  */
-export function registerRealtimeClient(userId, role, res) {
+export function registerRealtimeClient(userId, role, res, validateSession = null) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -23,7 +23,7 @@ export function registerRealtimeClient(userId, role, res) {
   // Initial connection handshake
   res.write(`event: connected\ndata: ${JSON.stringify({ status: 'connected', time: new Date().toISOString() })}\n\n`);
 
-  const clientInfo = { userId: Number(userId), role: String(role).toUpperCase(), res };
+  const clientInfo = { userId: Number(userId), role: String(role).toUpperCase(), res, validateSession };
   activeClients.set(res, clientInfo);
 
   res.on('close', () => {
@@ -136,13 +136,26 @@ export function broadcastBookingEvent(eventType, bookingData, metadata = {}) {
   }
 }
 
-// 25-second heartbeat ping to prevent proxy/browser timeout drops
-setInterval(() => {
-  for (const client of activeClients.values()) {
-    try {
-      client.res.write(': ping\n\n');
-    } catch {
-      activeClients.delete(client.res);
-    }
-  }
-}, 25000).unref();
+// Recheck open sessions on the existing heartbeat. Revocation is bounded by
+// one interval plus the database lookup; a failed lookup closes the stream.
+let checkingSessions = false;
+export async function refreshRealtimeSessions() {
+  if (checkingSessions) return;
+  checkingSessions = true;
+  try {
+    await Promise.all([...activeClients.values()].map(async (client) => {
+      try {
+        if (client.validateSession) {
+          const current = await client.validateSession();
+          client.role = String(current.role).toUpperCase();
+        }
+        if (activeClients.has(client.res)) client.res.write(': ping\n\n');
+      } catch {
+        activeClients.delete(client.res);
+        client.res.end();
+      }
+    }));
+  } finally { checkingSessions = false; }
+}
+
+setInterval(() => { void refreshRealtimeSessions(); }, 25000).unref();

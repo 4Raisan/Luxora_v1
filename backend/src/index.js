@@ -26,8 +26,7 @@ import { assertBankingKeyConfigured } from './services/bankingCrypto.js';
 import { startMonthlyPayoutScheduler } from './services/payouts.js';
 import { renewDueDemoSubscriptions } from './routes/services.js';
 import { startBookingTimeoutScheduler } from './services/bookingTimeouts.js';
-import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from './middleware/auth.js';
+import { verifySession } from './middleware/auth.js';
 import { registerRealtimeClient } from './services/realtime.js';
 
 // Enforce durable storage & banking key in production on startup
@@ -151,13 +150,14 @@ app.use('/api', chatRoutes);
 app.use('/api', docsRoutes);
 
 // Real-time Server-Sent Events (SSE) Stream
-app.get('/api/realtime', (req, res) => {
-  const token = req.query.token || (req.headers['authorization'] && req.headers['authorization'].split(' ')[1]);
-  if (!token) return res.status(401).json({ error: 'Access token required for real-time connection' });
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
-    registerRealtimeClient(user.id, user.role, res);
-  });
+app.get('/api/realtime', async (req, res) => {
+  const token = req.query.token || req.headers.authorization?.split(' ')[1];
+  try {
+    const user = await verifySession(token);
+    registerRealtimeClient(user.id, user.role, res, () => verifySession(token));
+  } catch (error) {
+    res.status(error.statusCode || 503).json({ error: error.message });
+  }
 });
 
 // Health check (used by docker-compose / load balancers)

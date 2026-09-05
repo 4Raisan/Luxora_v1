@@ -1,25 +1,26 @@
 import jwt from 'jsonwebtoken';
+import { verifySessionToken } from '../services/sessionAuth.js';
 import { JWT_SECRET } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 
-export function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+export const verifySession = (token) => verifySessionToken(token, {
+  verifyJwt: (value) => jwt.verify(value, JWT_SECRET),
+  findUser: (id) => prisma.user.findUnique({ where: { id }, select: {
+    id: true, email: true, name: true, phone: true, role: true, active: true, tokenVersion: true,
+  } }),
+});
 
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
+export async function authenticateToken(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  try { req.user = await verifySession(token); }
+  catch (error) { return res.status(error.statusCode || 503).json({ error: error.message }); }
+  next();
+}
 
-  jwt.verify(token, JWT_SECRET, async (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
-    try {
-      const current = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true, email: true, name: true, role: true, active: true, tokenVersion: true } });
-      if (!current || !current.active) return res.status(403).json({ error: 'Account is inactive or no longer exists' });
-      if (Number(user.tokenVersion || 0) !== current.tokenVersion) return res.status(403).json({ error: 'Session has been revoked. Please sign in again.' });
-      req.user = { ...user, ...current };
-    } catch { return res.status(503).json({ error: 'Authorization service unavailable' }); }
-    next();
-  });
+// Anonymous chat remains available; supplied credentials must be valid.
+export function optionalAuthentication(req, res, next) {
+  if (!req.headers.authorization) return next();
+  return authenticateToken(req, res, next);
 }
 
 export function requireRole(...roles) {
