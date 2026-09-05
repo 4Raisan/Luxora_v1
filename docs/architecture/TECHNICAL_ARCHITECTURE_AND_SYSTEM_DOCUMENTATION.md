@@ -596,7 +596,7 @@ Luxora implements a modular payment gateway abstraction supporting three indepen
                                             │
                ┌────────────────────────────┼────────────────────────────┐
                │                            │                            │
-        (Mode: demo)                 (Mode: payhere)             (Mode: nowpayments)
+      (Demo enabled)              (PayHere configured)        (NOWPayments configured)
                ▼                            ▼                            ▼
    ┌───────────────────────┐   ┌────────────────────────┐   ┌────────────────────────┐
    │ Instant Demo Checkout │   │ PayHere Form Fields    │   │ NOWPayments Invoice    │
@@ -638,7 +638,8 @@ Luxora implements a modular payment gateway abstraction supporting three indepen
 - **Status Mapping**: Transitions only on `payment_status === 'finished'`.
 
 ### 3. Demo Gateway (Local Staging & Testing)
-- Available strictly when `PAYMENT_MODE=demo` is set in backend environment.
+- Available when `DEMO_PAYMENTS_ENABLED=true`; legacy `PAYMENT_MODE=demo` deployments remain supported as a fallback.
+- Demo is an independent test gateway and never disables configured PayHere or NOWPayments checkout.
 - Allows developer and evaluator testing of full subscription workflows without real credit cards or test funds.
 
 ### Strict Non-Refundable Rule

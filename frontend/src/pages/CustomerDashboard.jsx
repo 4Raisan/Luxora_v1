@@ -456,7 +456,11 @@ const CustomerDashboard = () => {
   /* ── Server-synced proposal features: memberships, notifications,
         payments history, reviews, profile management ── */
   const [serverSubscriptions, setServerSubscriptions] = useState([])
-  const [paymentMode, setPaymentMode] = useState('demo')
+  const [paymentGateways, setPaymentGateways] = useState({
+    payhere: { enabled: true, environment: 'SANDBOX' },
+    nowpayments: { enabled: true, environment: 'LIVE' },
+    demo: { enabled: false, environment: 'DEMO' },
+  })
   const [selectedMembership, setSelectedMembership] = useState(null)  // Membership opened in the manage popup (renewal + cancel actions).
   const [reviewTarget, setReviewTarget] = useState(null)
   const [reviewRating, setReviewRating] = useState(5)
@@ -549,7 +553,20 @@ const CustomerDashboard = () => {
         apiRequest('/payments/mode', 'GET', null, token).catch(() => null),
       ])
 
-      if (mode?.mode) setPaymentMode(mode.mode)
+      if (mode?.gateways) {
+        setPaymentGateways((current) => ({
+          payhere: { ...current.payhere, ...mode.gateways.payhere },
+          nowpayments: { ...current.nowpayments, ...mode.gateways.nowpayments },
+          demo: { ...current.demo, ...mode.gateways.demo },
+        }))
+        if (mode.gateways.payhere?.environment) setPayhereEnv(mode.gateways.payhere.environment)
+      } else if (mode?.mode) {
+        // Compatibility with older backends that returned one exclusive mode.
+        setPaymentGateways((current) => ({
+          ...current,
+          demo: { ...current.demo, enabled: mode.mode === 'demo' },
+        }))
+      }
 
       if (Array.isArray(paymentRows?.payments)) {
         const paid = paymentRows.payments
@@ -1172,8 +1189,8 @@ const CustomerDashboard = () => {
     setShowCancelledSuccessModal(true)
   }
 
-  // Demo instant checkout: when the backend runs PAYMENT_MODE=demo this
-  // creates a server-side payment and activates the subscription directly.
+  // Independent Demo checkout: when enabled by the backend this creates a
+  // server-side test payment without disabling either real payment gateway.
   // Without a delivery address the checkout parks and resumes after the
   // address form is saved.
   // Demo checkout calls retry themselves on transient failures (dropped
@@ -1197,6 +1214,10 @@ const CustomerDashboard = () => {
   }
 
   const handleConfirmBooking = async (pkg) => {
+    if (!paymentGateways.demo.enabled) {
+      alert('Demo payment is not enabled on this server.')
+      return
+    }
     if (!userAddress || (!userAddress.street && !userAddress.city)) {
       setSelectedPackageToBook(null)
       setResumePurchaseAfterAddress(pkg)
@@ -1238,6 +1259,10 @@ const CustomerDashboard = () => {
   }
 
   const startPayment = async (provider, pkg) => {
+    if (paymentGateways[provider]?.enabled === false) {
+      alert(`${provider === 'payhere' ? 'PayHere' : 'NOWPayments'} is not configured on this server.`)
+      return
+    }
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') { alert('Please log in with a live backend account before paying.'); return }
     const amount = Number(String(pkg.price || '').replace(/[^\d.]/g, ''))
@@ -4488,19 +4513,22 @@ const CustomerDashboard = () => {
               <div className="cd-easypay">
                 <div className="cd-easypay__head">
                   <span className="cd-easypay__title">CREDIT / DEBIT CARD</span>
-                  <span className="cd-easypay__badge">{payhereEnv === 'LIVE' ? 'PAYHERE' : 'SANDBOX / DEMO PAYMENT'}</span>
+                  <span className="cd-easypay__badge">{payhereEnv === 'LIVE' ? 'PAYHERE LIVE' : 'PAYHERE SANDBOX'}</span>
                 </div>
                 <ActionButton
                   type="button"
                   className="cd-support-send-btn"
                   loading={paymentBusy}
                   loadingText="Preparing payment..."
+                  disabled={paymentBusy || !paymentGateways.payhere.enabled}
                   onClick={() => startPayment('payhere', selectedPackageToBook)}
                 >
-                  PAY WITH PAYHERE
+                  {paymentGateways.payhere.enabled ? 'PAY WITH PAYHERE' : 'PAYHERE NOT CONFIGURED'}
                 </ActionButton>
                 <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
-                  Redirects to PayHere {payhereEnv === 'LIVE' ? '' : 'sandbox '}hosted checkout. Package activates automatically upon verified server callback.
+                  {paymentGateways.payhere.enabled
+                    ? `Redirects to PayHere ${payhereEnv === 'LIVE' ? '' : 'sandbox '}hosted checkout. Package activates automatically upon verified server callback.`
+                    : 'Configure PayHere credentials and public HTTPS callback URLs to enable this gateway.'}
                 </small>
                 {payhereEnv !== 'LIVE' && (
                   <details className="cd-easypay__help" style={{ marginTop: '0.4rem' }}>
@@ -4530,27 +4558,40 @@ const CustomerDashboard = () => {
                   style={{ background: 'linear-gradient(135deg, #d4af37 0%, #aa8010 100%)', color: '#000', fontWeight: 'bold' }}
                   loading={paymentBusy}
                   loadingText="Preparing payment..."
+                  disabled={paymentBusy || !paymentGateways.nowpayments.enabled}
                   onClick={() => startPayment('nowpayments', selectedPackageToBook)}
                 >
-                  PAY WITH CRYPTO (NOWPAYMENTS)
+                  {paymentGateways.nowpayments.enabled ? 'PAY WITH CRYPTO (NOWPAYMENTS)' : 'NOWPAYMENTS NOT CONFIGURED'}
                 </ActionButton>
                 <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
-                  Live LKR to USD conversion with instant crypto invoice. Settles strictly after full blockchain finality.
+                  {paymentGateways.nowpayments.enabled
+                    ? 'Live LKR to USD conversion with instant crypto invoice. Settles strictly after full blockchain finality.'
+                    : 'Configure the NOWPayments API key and IPN secret to enable this gateway.'}
                 </small>
               </div>
 
-              {/* Demo instant pass — renders only while the backend runs PAYMENT_MODE=demo */}
-              {paymentMode === 'demo' && (
-                <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-                  <button
+              {/* Independent development-only Demo gateway. It never changes
+                  the availability or labels of PayHere and NOWPayments. */}
+              {paymentGateways.demo.enabled && (
+                <div className="cd-easypay" style={{ borderColor: 'rgba(148, 163, 184, 0.35)' }}>
+                  <div className="cd-easypay__head">
+                    <span className="cd-easypay__title">DEVELOPMENT CHECKOUT</span>
+                    <span className="cd-easypay__badge" style={{ background: 'rgba(148, 163, 184, 0.16)', color: '#cbd5e1' }}>DEMO — NO REAL CHARGE</span>
+                  </div>
+                  <ActionButton
                     type="button"
                     className="cd-support-send-btn"
-                    style={{ background: '#333', color: '#ccc', fontSize: '0.8rem' }}
+                    style={{ background: '#333', color: '#ddd', fontSize: '0.8rem' }}
+                    loading={paymentBusy}
+                    loadingText="Activating demo payment..."
                     disabled={paymentBusy}
                     onClick={() => handleConfirmBooking(selectedPackageToBook)}
                   >
-                    DEMO INSTANT PASS (DEVELOPMENT ONLY)
-                  </button>
+                    USE DEMO PAYMENT
+                  </ActionButton>
+                  <small style={{ display: 'block', marginTop: '0.4rem', color: '#888', fontSize: '0.72rem' }}>
+                    Test-only payment. PayHere Sandbox and NOWPayments continue to operate independently.
+                  </small>
                 </div>
               )}
             </div>

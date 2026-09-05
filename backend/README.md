@@ -66,7 +66,7 @@ Key rotation requires a controlled maintenance operation: decrypt each value wit
 
 ## Payments
 
-`PAYMENT_MODE=demo` keeps the local deterministic payment flow. Hosted checkout uses configured PayHere and NOWPayments credentials. Payment state and entitlements change only after the backend validates the callback signature, payment identity, expected amount and currency, and provider status.
+PayHere, NOWPayments, and Demo run as independent payment paths. Set `DEMO_PAYMENTS_ENABLED=true` for the local deterministic checkout; legacy `PAYMENT_MODE=demo` remains a supported fallback. Enabling Demo does not disable configured PayHere or NOWPayments. Payment state and entitlements change only after the backend validates the callback signature, payment identity, expected amount and currency, and provider status.
 
 For PayHere sandbox checkout, use PayHere’s documented test cards only. Never use a real card in a sandbox environment.
 

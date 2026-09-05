@@ -21,6 +21,7 @@ import { convertLkrToUsd } from '../services/currency.js';
 import { toPositiveInt } from '../middleware/validators.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { calculatePromotionPrice, findActivePromotionForPlan } from '../services/promotions.js';
+import { demoPaymentsEnabled } from '../services/paymentAvailability.js';
 
 const router = Router();
 // Money is normalized and compared as exact 2-decimal-place Decimals end to end.
@@ -61,9 +62,8 @@ const payHereIsReady = () => {
   return Boolean(process.env.PAYHERE_MERCHANT_ID && process.env.PAYHERE_MERCHANT_SECRET)
     && Object.values(urls).every(isPublicHttpsUrl);
 };
-// Demo checkout is opt-in at deployment time. It never calls PayHere and is
-// intentionally unavailable unless PAYMENT_MODE=demo is set on the backend.
-const paymentMode = () => String(process.env.PAYMENT_MODE || 'payhere').trim().toLowerCase() === 'demo' ? 'demo' : 'payhere';
+// Demo checkout is opt-in and independent from the configured real gateways.
+// Enabling it must never disable PayHere or NOWPayments.
 
 async function promotionPricingForPlan(plan) {
   const promotion = await findActivePromotionForPlan(prisma, plan.id);
@@ -337,7 +337,6 @@ router.post('/payments/payhere/webhook', async (req, res) => {
 
 router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
   try {
-    if (paymentMode() === 'demo') return res.status(409).json({ error: 'Demo payment mode is enabled; use the demo checkout.' });
     if (!payHereIsReady()) return res.status(503).json({ error: 'PayHere is not ready. Configure public HTTPS return, cancel, and webhook URLs before enabling checkout.' });
     const planId = toPositiveInt(req.body.plan_id);
     if (!planId) return res.status(400).json({ error: 'plan_id is required' });
@@ -376,7 +375,6 @@ router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'
 
 router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
   try {
-    if (paymentMode() === 'demo') return res.status(409).json({ error: 'Demo payment mode is enabled; use the demo checkout.' });
     if (!nowPaymentsConfigured()) {
       return res.status(503).json({ error: 'NOWPayments is not configured on the server. Please configure NOWPAYMENTS_API_KEY and NOWPAYMENTS_IPN_SECRET.' });
     }
@@ -606,10 +604,35 @@ async function handleNowPaymentsIpn(req, res) {
 router.post('/payments/nowpayments/ipn', handleNowPaymentsIpn);
 router.post('/payments/nowpayments/webhook', handleNowPaymentsIpn);
 
-router.get('/payments/mode', authenticateToken, (_req, res) => res.json({ mode: paymentMode(), label: paymentMode() === 'demo' ? 'DEMO / TEST — no real charge' : `PayHere ${environment()}` }));
+router.get('/payments/mode', authenticateToken, (_req, res) => {
+  const demoEnabled = demoPaymentsEnabled();
+  const payhereEnabled = payHereIsReady();
+  const nowpaymentsEnabled = nowPaymentsConfigured();
+  res.json({
+    mode: 'independent',
+    label: 'Independent payment gateways',
+    gateways: {
+      payhere: {
+        enabled: payhereEnabled,
+        environment: environment(),
+        label: `PayHere ${environment()}`,
+      },
+      nowpayments: {
+        enabled: nowpaymentsEnabled,
+        environment: 'LIVE',
+        label: 'NOWPayments cryptocurrency',
+      },
+      demo: {
+        enabled: demoEnabled,
+        environment: 'DEMO',
+        label: 'Demo payment — no real charge',
+      },
+    },
+  });
+});
 
 router.post('/payments/demo/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
-  if (paymentMode() !== 'demo') return res.status(403).json({ error: 'Demo payments are disabled for this deployment' });
+  if (!demoPaymentsEnabled()) return res.status(403).json({ error: 'Demo payments are disabled for this deployment' });
   const planId = toPositiveInt(req.body.plan_id);
   const plan = planId && await prisma.subscriptionPlan.findFirst({ where: { id: planId, active: true } });
   if (!plan) return res.status(404).json({ error: 'Active plan not found' });
@@ -625,7 +648,7 @@ router.post('/payments/demo/order', authenticateToken, requireRole('CUSTOMER'), 
 });
 
 router.post('/payments/demo/:id/complete', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
-  if (paymentMode() !== 'demo') return res.status(403).json({ error: 'Demo payments are disabled for this deployment' });
+  if (!demoPaymentsEnabled()) return res.status(403).json({ error: 'Demo payments are disabled for this deployment' });
   const payment = await prisma.payment.findFirst({ where: { id: toPositiveInt(req.params.id) || 0, userId: req.user.id, gateway: 'DEMO' } });
   if (!payment) return res.status(404).json({ error: 'Demo payment not found' });
   const outcome = String(req.body.outcome || 'success').toLowerCase();

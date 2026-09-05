@@ -4,7 +4,9 @@ All third-party credentials are backend-only. The active integrations are PayHer
 
 ## Payment settlement
 
-- `PAYMENT_MODE=demo` enables the local/test checkout and makes no financial transaction.
+- PayHere, NOWPayments, and Demo are independent payment paths; enabling one does not disable the others.
+- `DEMO_PAYMENTS_ENABLED=true` enables the local/test checkout and makes no financial transaction. Existing deployments using `PAYMENT_MODE=demo` remain supported as a fallback.
+- `GET /payments/mode` reports the availability and environment of each gateway so the frontend can label PayHere Sandbox separately from Demo checkout.
 - PayHere order creation requires public HTTPS return/cancel/notify URLs. The webhook verifies merchant/checksum, order, exact LKR amount/currency, and state before activating a package.
 - NOWPayments order creation records the LKR price plus the fixed invoice conversion. HMAC-SHA512 is mandatory. `waiting`, `confirming`, `confirmed`, and `sending` remain pending; `failed`/`expired` fail; `refunded` refunds; only `finished` can settle.
 - A `finished` NOWPayments IPN additionally requires exact price/currency and a matching authoritative `/payment/:id` response with the same order ID, payment ID, price contract, and `finished` state.

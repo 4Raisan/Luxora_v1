@@ -6,6 +6,7 @@ import { sendEmail, escapeHtml } from '../services/integrations.js';
 import { getEntitlementSnapshot } from '../services/entitlements.js';
 import { notify } from '../services/notify.js';
 import { activePromotionWhere, calculatePromotionPrice, serializePromotion } from '../services/promotions.js';
+import { demoPaymentsEnabled } from '../services/paymentAvailability.js';
 
 const router = Router();
 const planFeatures = (value) => {
@@ -102,7 +103,7 @@ router.get('/subscriptions', async (_req, res) => {
 });
 
 export async function renewDueDemoSubscriptions() {
-  if (String(process.env.PAYMENT_MODE || 'payhere').toLowerCase() !== 'demo') return [];
+  if (!demoPaymentsEnabled()) return [];
   const due = await prisma.userSubscription.findMany({ where: { status: 'active', autoRenew: true, nextRenewalDate: { lte: new Date() } }, include: { plan: true } });
   const renewedSubscriptions = [];
   for (const subscription of due) {

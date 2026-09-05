@@ -6,15 +6,15 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 209,
-    "totalEdges": 445,
+    "totalNodes": 210,
+    "totalEdges": 443,
     "nodesByGroup": {
       "api": 105,
       "database": 33,
       "frontend": 37,
       "middleware": 3,
       "routes": 16,
-      "service": 15
+      "service": 16
     }
   },
   "nodes": [
@@ -4110,6 +4110,19 @@
       }
     },
     {
+      "id": "service:paymentAvailability",
+      "label": "paymentAvailability.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/paymentAvailability.js",
+      "metadata": {
+        "modelsAccessed": []
+      },
+      "source": {
+        "path": "backend/src/services/paymentAvailability.js"
+      }
+    },
+    {
       "id": "service:paymentContracts",
       "label": "paymentContracts.js",
       "type": "Service",
@@ -5202,34 +5215,6 @@
       "label": "POST",
       "source": "frontend:CustomerDashboard",
       "target": "endpoint:POST_/api/complaints",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/CustomerDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:CustomerDashboard->endpoint:POST_/api/payments/demo/:id/complete:FETCHES_API",
-      "from": "frontend:CustomerDashboard",
-      "to": "endpoint:POST_/api/payments/demo/:id/complete",
-      "type": "FETCHES_API",
-      "label": "POST",
-      "source": "frontend:CustomerDashboard",
-      "target": "endpoint:POST_/api/payments/demo/:id/complete",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/CustomerDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:CustomerDashboard->endpoint:POST_/api/payments/demo/order:FETCHES_API",
-      "from": "frontend:CustomerDashboard",
-      "to": "endpoint:POST_/api/payments/demo/order",
-      "type": "FETCHES_API",
-      "label": "POST",
-      "source": "frontend:CustomerDashboard",
-      "target": "endpoint:POST_/api/payments/demo/order",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",

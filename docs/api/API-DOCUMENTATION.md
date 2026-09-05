@@ -19,11 +19,12 @@ Local base: `http://localhost:5000/api`. Protected calls use `Authorization: Bea
 | --- | --- | --- |
 | GET/PUT | `/profile` | Own profile |
 | GET | `/customer/dashboard`, `/bookings/my`, `/payments/my`, `/subscriptions/entitlements` | Own server state |
+| GET | `/payments/mode` | Independent PayHere, NOWPayments, and Demo availability |
 | POST | `/bookings`, `/reviews`, `/complaints`, `/support` | Customer mutations |
 | GET | `/bookings/:id/pins` | Active Service PINs for the booking customer only |
 | PUT | `/bookings/:id/cancel`, `/bookings/:id/reschedule` | Eligible own booking changes |
-| POST | `/payments/demo/order`, `/payments/demo/:id/complete` | Customer-only demo pipeline |
-| POST | `/payments/payhere/order`, `/payments/nowpayments/order` | Customer-only hosted checkout |
+| POST | `/payments/demo/order`, `/payments/demo/:id/complete` | Customer-only, opt-in Demo pipeline; no real charge |
+| POST | `/payments/payhere/order`, `/payments/nowpayments/order` | Independent customer-only hosted checkout paths |
 | POST | `/payments/:id/receipt/resend` | Owner/admin resend for completed payment |
 | GET/PUT/DELETE | `/notifications...` | Recipient-scoped notifications |
 
