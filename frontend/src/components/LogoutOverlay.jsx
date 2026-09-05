@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './LogoutOverlay.css'
 
 /**
@@ -13,6 +13,10 @@ import './LogoutOverlay.css'
 export default function LogoutOverlay({ isOpen, onComplete }) {
   const [progress, setProgress] = useState(0)
   const [stage, setStage] = useState(1) // 1 | 2 | 3
+  // Keep the latest callback in a ref so parent re-renders during the
+  // animation cannot restart the progress timer midway through the sequence.
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
 
   useEffect(() => {
     if (!isOpen) {
@@ -25,7 +29,7 @@ export default function LogoutOverlay({ isOpen, onComplete }) {
 
     if (prefersReducedMotion) {
       const timer = setTimeout(() => {
-        onComplete?.()
+        onCompleteRef.current?.()
       }, 500)
       return () => clearTimeout(timer)
     }
@@ -48,12 +52,12 @@ export default function LogoutOverlay({ isOpen, onComplete }) {
 
       if (elapsed >= DURATION) {
         clearInterval(interval)
-        onComplete?.()
+        onCompleteRef.current?.()
       }
     }, 40)
 
     return () => clearInterval(interval)
-  }, [isOpen, onComplete])
+  }, [isOpen])
 
   if (!isOpen) return null
 

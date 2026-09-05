@@ -12,11 +12,12 @@
   padding-top: 64px;
 }
 
-/* Content sits at z-index 1; the fixed header keeps its own z-index: 100.
-   The header must be excluded here — this rule has higher specificity than
-   .cd-header, and without :not(.cd-header) it clobbers the header's
-   z-index down to 1, letting scrolled content paint over the bar. */
-.cd-page > :not(.particle-atmosphere):not(.cd-header) {
+/* Content sits at z-index 1; fixed overlays keep their own z-index.
+   The header and the logout overlay must be excluded here — this rule has
+   higher specificity than their own z-index declarations, and without the
+   :not() exclusions it clobbers them down to z-index 1, letting scrolled
+   content paint over the header and the logout animation. */
+.cd-page > :not(.particle-atmosphere):not(.cd-header):not(.luxora-logout-overlay) {
   z-index: 1;
 }
 
