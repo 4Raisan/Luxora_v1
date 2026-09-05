@@ -879,15 +879,30 @@ const CustomerDashboard = () => {
       .catch((error) => alert(error.message || 'Could not cancel this booking.'))
   }
 
+  // Default session slot: the earliest bookable time — 4 hours ahead of now
+  // (the server enforces a 4-hour minimum lead time), snapped up to the next
+  // 15-minute slot so the lead time is never violated, rolling the date
+  // forward automatically when the slot crosses midnight.
+  const getDefaultSessionSlot = () => {
+    const slot = new Date(Math.ceil((Date.now() + 4 * 60 * 60 * 1000) / (15 * 60 * 1000)) * (15 * 60 * 1000))
+    const pad = (n) => String(n).padStart(2, '0')
+    const date = `${slot.getFullYear()}-${pad(slot.getMonth() + 1)}-${pad(slot.getDate())}`
+    const hour24 = slot.getHours()
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
+    return {
+      date,
+      hour: pad(hour12),
+      minute: pad(slot.getMinutes()),
+      ampm: hour24 >= 12 ? 'PM' : 'AM',
+    }
+  }
+
   // Service Booking State
-  const [serviceBookingForm, setServiceBookingForm] = useState({
+  const [serviceBookingForm, setServiceBookingForm] = useState(() => ({
     packageId: '',
     petType: '',
-    date: new Date().toISOString().split('T')[0],
-    hour: '09',
-    minute: '00',
-    ampm: 'AM'
-  })
+    ...getDefaultSessionSlot(),
+  }))
   const [showInsufficientTokensModal, setShowInsufficientTokensModal] = useState(false)
   const [insufficientTokenCategory, setInsufficientTokenCategory] = useState('')
   const [sessionBookingSuccessModal, setSessionBookingSuccessModal] = useState(null)
