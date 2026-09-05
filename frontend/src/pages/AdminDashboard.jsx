@@ -47,6 +47,10 @@ const NAV_ITEMS = [
 const fmtMoney = (v) => 'LKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 const fmtDateTime = (v) => (v ? new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')
+const matchesSearch = (query, ...values) => {
+  const normalizedQuery = String(query || '').trim().toLowerCase()
+  return !normalizedQuery || values.some((value) => String(value ?? '').toLowerCase().includes(normalizedQuery))
+}
 const bookingCareLabel = (booking) => {
   const base = booking?.category_name || booking?.service_title || '—'
   const pet = (booking?.petType || booking?.pet_type)
@@ -151,6 +155,17 @@ const AdminDashboard = () => {
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [userRoleView, setUserRoleView] = useState('CUSTOMER')
+  const [providerSearch, setProviderSearch] = useState('')
+  const [providerReviewSearch, setProviderReviewSearch] = useState('')
+  const [approvalSearch, setApprovalSearch] = useState('')
+  const [packageSearch, setPackageSearch] = useState('')
+  const [redemptionSearch, setRedemptionSearch] = useState('')
+  const [bookingSearch, setBookingSearch] = useState('')
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('all')
+  const [requestedServiceSearch, setRequestedServiceSearch] = useState('')
+  const [complaintSearch, setComplaintSearch] = useState('')
+  const [complaintStatusFilter, setComplaintStatusFilter] = useState('all')
+  const [supportSearch, setSupportSearch] = useState('')
   const [providerDetail, setProviderDetail] = useState(null)
   const [kycDecision, setKycDecision] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -520,6 +535,23 @@ const AdminDashboard = () => {
   const unreadNotifs = notifications.filter((n) => !n.read)
   const pendingKyc = providers.filter((p) => p.kyc_status === 'pending')
   const approvedProviders = providers.filter((p) => p.kyc_status === 'approved')
+  const filteredProviders = providers.filter((provider) => matchesSearch(providerSearch, provider.id, `#${provider.id}`, provider.name))
+  const filteredProviderRatings = providerReviews.providers.filter((provider) => matchesSearch(providerReviewSearch, provider.provider_name))
+  const filteredProviderReviews = providerReviews.reviews.filter((review) => matchesSearch(providerReviewSearch, review.provider_name))
+  const filteredPendingKyc = pendingKyc.filter((provider) => matchesSearch(approvalSearch, provider.name, provider.email))
+  const filteredPlans = plans.filter((plan) => matchesSearch(packageSearch, plan.title))
+  const redemptionRequests = providerPayouts.filter((payout) => payout.kind === 'redemption')
+  const filteredRedemptionRequests = redemptionRequests.filter((payout) => matchesSearch(redemptionSearch, payout.provider_name))
+  const filteredBookings = bookings.filter((booking) => {
+    const matchesStatus = bookingStatusFilter === 'all' || String(booking.status || '').toLowerCase() === bookingStatusFilter
+    return matchesStatus && matchesSearch(bookingSearch, booking.id, `#${booking.id}`, booking.customer_name, booking.provider_name)
+  })
+  const filteredRequestedServices = requestedServices.filter((request) => matchesSearch(requestedServiceSearch, request.subject, request.customer_name, request.provider_name))
+  const filteredComplaints = complaints.filter((complaint) => {
+    const matchesStatus = complaintStatusFilter === 'all' || String(complaint.status || '').toLowerCase() === complaintStatusFilter
+    return matchesStatus && matchesSearch(complaintSearch, complaint.customer_name)
+  })
+  const filteredSupportTickets = generalSupportTickets.filter((ticket) => matchesSearch(supportSearch, ticket.id, `#${ticket.id}`, ticket.user?.name))
   const filteredUsers = users.filter((u) => {
     const roleOk = (u.role || '').toUpperCase() === userRoleView
     const q = userSearch.trim().toLowerCase()
@@ -671,10 +703,13 @@ const AdminDashboard = () => {
           {activeNav === 'providers' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <h3 className="ad-table-title">PROVIDER NETWORK</h3>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '300px' }} aria-label="Filter providers by name or ID" placeholder="Search provider name or ID…" value={providerSearch} onChange={(e) => setProviderSearch(e.target.value)} />
+              </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>NAME</th><th>CATEGORY</th><th>TOWNS</th><th>EARNINGS</th><th>KYC</th><th>AVAILABILITY</th><th>ACTION</th></tr></thead>
                 <tbody>
-                  {providers.map((p) => (
+                  {filteredProviders.map((p) => (
                     <tr key={p.id}>
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
                       <td>{p.name}</td>
@@ -686,7 +721,7 @@ const AdminDashboard = () => {
                       <td><button style={ghostBtn} onClick={() => openProviderDetail(p.id)}>View</button></td>
                     </tr>
                   ))}
-                  {providers.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No providers registered.</td></tr>}
+                  {filteredProviders.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No providers match this search.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -702,28 +737,31 @@ const AdminDashboard = () => {
               </div>
 
               <div className="ad-table-card" style={{ marginTop: 0, marginBottom: '1.25rem' }}>
-                <h3 className="ad-table-title">PROVIDER RATING SUMMARY</h3>
+                <h3 className="ad-table-title">PROVIDER RATING SUMMARY ({filteredProviderRatings.length})</h3>
+                <div className="ad-filter-bar">
+                  <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '300px' }} aria-label="Filter provider reviews by provider name" placeholder="Search provider name…" value={providerReviewSearch} onChange={(e) => setProviderReviewSearch(e.target.value)} />
+                </div>
                 <table className="ad-data-table">
                   <thead><tr><th>PROVIDER</th><th>OVERALL RATING</th><th>REVIEWS</th></tr></thead>
                   <tbody>
-                    {providerReviews.providers.map((provider) => (
+                    {filteredProviderRatings.map((provider) => (
                       <tr key={provider.provider_id}>
                         <td><strong>{provider.provider_name}</strong><small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{provider.provider_email}</small></td>
                         <td><RatingStars value={provider.average_rating} /></td>
                         <td>{provider.review_count}</td>
                       </tr>
                     ))}
-                    {providerReviews.providers.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No providers have been rated yet.</td></tr>}
+                    {filteredProviderRatings.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No provider ratings match this search.</td></tr>}
                   </tbody>
                 </table>
               </div>
 
               <div className="ad-table-card" style={{ marginTop: 0 }}>
-                <h3 className="ad-table-title">BOOKING REVIEWS ({providerReviews.reviews.length})</h3>
+                <h3 className="ad-table-title">BOOKING REVIEWS ({filteredProviderReviews.length})</h3>
                 <table className="ad-data-table">
                   <thead><tr><th>BOOKING</th><th>PROVIDER</th><th>CUSTOMER</th><th>SERVICE</th><th>RATING</th><th>REVIEW</th><th>SUBMITTED</th></tr></thead>
                   <tbody>
-                    {providerReviews.reviews.map((review) => (
+                    {filteredProviderReviews.map((review) => (
                       <tr key={review.id}>
                         <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{review.booking_id}<small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{review.booking_date} {review.booking_time || ''}</small></td>
                         <td>{review.provider_name}<small style={{ display: 'block', color: '#777', marginTop: '0.2rem' }}>{review.provider_email}</small></td>
@@ -734,7 +772,7 @@ const AdminDashboard = () => {
                         <td>{fmtDateTime(review.created_at)}</td>
                       </tr>
                     ))}
-                    {providerReviews.reviews.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No booking reviews have been submitted.</td></tr>}
+                    {filteredProviderReviews.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No booking reviews match this provider name.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -744,11 +782,14 @@ const AdminDashboard = () => {
           {/* APPROVALS */}
           {activeNav === 'approvals' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <h3 className="ad-table-title">KYC APPROVAL QUEUE ({pendingKyc.length})</h3>
+              <h3 className="ad-table-title">KYC APPROVAL QUEUE ({filteredPendingKyc.length})</h3>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '320px' }} aria-label="Filter approvals by name or email" placeholder="Search provider name or email…" value={approvalSearch} onChange={(e) => setApprovalSearch(e.target.value)} />
+              </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>NAME</th><th>EMAIL</th><th>CATEGORY</th><th>ACTION</th></tr></thead>
                 <tbody>
-                  {pendingKyc.map((p) => (
+                  {filteredPendingKyc.map((p) => (
                     <tr key={p.id}>
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{p.id}</td>
                       <td>{p.name}</td>
@@ -761,7 +802,7 @@ const AdminDashboard = () => {
                       </td>
                     </tr>
                   ))}
-                  {pendingKyc.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>Queue is clear — no pending KYC.</td></tr>}
+                  {filteredPendingKyc.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No pending KYC approvals match this search.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -774,10 +815,13 @@ const AdminDashboard = () => {
                 <h3 className="ad-table-title">SUBSCRIPTION PACKAGES</h3>
                 <button style={goldBtn} onClick={() => setPlanEditor({ title: '', type: 'Auto Care', price: '', duration: 30, displayOrder: '', description: '', features: [], recommended: false, active: true, entitlements: {} })}>+ New Package</button>
               </div>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '300px' }} aria-label="Filter packages by name" placeholder="Search package name…" value={packageSearch} onChange={(e) => setPackageSearch(e.target.value)} />
+              </div>
               <table className="ad-data-table">
                 <thead><tr><th># (ORDER)</th><th>TITLE</th><th>TYPE</th><th>PRICE</th><th>COINS</th><th>RECOMMENDED</th><th>SUBSCRIBERS</th><th>STATUS</th><th>ACTION</th></tr></thead>
                 <tbody>
-                  {plans
+                  {filteredPlans
                     .slice()
                     .sort((a, b) => {
                       const typeComp = String(a.type || '').localeCompare(String(b.type || ''))
@@ -807,7 +851,7 @@ const AdminDashboard = () => {
                       </td>
                     </tr>
                   ))}
-                  {plans.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No packages defined.</td></tr>}
+                  {filteredPlans.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No packages match this search.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -816,11 +860,22 @@ const AdminDashboard = () => {
           {/* BOOKINGS */}
           {activeNav === 'bookings' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <h3 className="ad-table-title">ALL BOOKINGS ({bookings.length})</h3>
+              <h3 className="ad-table-title">ALL BOOKINGS ({filteredBookings.length})</h3>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '330px' }} aria-label="Filter bookings by ID or name" placeholder="Search ID, customer or provider name…" value={bookingSearch} onChange={(e) => setBookingSearch(e.target.value)} />
+                <select className="ad-filter-select" style={{ ...fieldStyle, maxWidth: '210px' }} aria-label="Filter bookings by status" value={bookingStatusFilter} onChange={(e) => setBookingStatusFilter(e.target.value)}>
+                  <option value="all">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>CUSTOMER</th><th>SERVICE</th><th>PROVIDER</th><th>SCHEDULE</th><th>VALUE</th><th>STATUS</th><th>ACTION</th></tr></thead>
                 <tbody>
-                  {bookings.map((b) => (
+                  {filteredBookings.map((b) => (
                     <tr key={b.id}>
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{b.id}</td>
                       <td>{b.customer_name || '—'}</td>
@@ -832,7 +887,7 @@ const AdminDashboard = () => {
                       <td><button style={ghostBtn} onClick={() => setBookingEdit({ booking: b, status: '', provider_id: '' })}>Manage</button></td>
                     </tr>
                   ))}
-                  {bookings.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No bookings.</td></tr>}
+                  {filteredBookings.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No bookings match the selected filters.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -841,11 +896,14 @@ const AdminDashboard = () => {
           {/* REQUESTED SERVICES */}
           {activeNav === 'requested_services' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <h3 className="ad-table-title">REQUESTED SERVICES ({requestedServices.length})</h3>
+              <h3 className="ad-table-title">REQUESTED SERVICES ({filteredRequestedServices.length})</h3>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '360px' }} aria-label="Filter requested services by name" placeholder="Search request, customer or provider name…" value={requestedServiceSearch} onChange={(e) => setRequestedServiceSearch(e.target.value)} />
+              </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>TITLE</th><th>CUSTOMER NAME</th><th>PROVIDER NAME</th><th>STATUS</th></tr></thead>
                 <tbody>
-                  {requestedServices.map((request) => (
+                  {filteredRequestedServices.map((request) => (
                     <tr key={request.id}>
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{request.id}</td>
                       <td style={{ maxWidth: '280px' }}>{request.subject || '—'}</td>
@@ -854,7 +912,7 @@ const AdminDashboard = () => {
                       <td><StatBadge value={request.assignment_status || request.status} /></td>
                     </tr>
                   ))}
-                  {requestedServices.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No requested services.</td></tr>}
+                  {filteredRequestedServices.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No requested services match this search.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -863,11 +921,20 @@ const AdminDashboard = () => {
           {/* COMPLAINTS */}
           {activeNav === 'complaints' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <h3 className="ad-table-title">CUSTOMER COMPLAINTS ({complaints.length})</h3>
+              <h3 className="ad-table-title">CUSTOMER COMPLAINTS ({filteredComplaints.length})</h3>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '300px' }} aria-label="Filter complaints by customer name" placeholder="Search customer name…" value={complaintSearch} onChange={(e) => setComplaintSearch(e.target.value)} />
+                <select className="ad-filter-select" style={{ ...fieldStyle, maxWidth: '210px' }} aria-label="Filter complaints by status" value={complaintStatusFilter} onChange={(e) => setComplaintStatusFilter(e.target.value)}>
+                  <option value="all">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="in_review">In review</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>CUSTOMER</th><th>SUBJECT</th><th>SERVICE</th><th>FILED</th><th>STATUS</th><th>ACTION</th></tr></thead>
                 <tbody>
-                  {complaints.map((c) => (
+                  {filteredComplaints.map((c) => (
                     <tr key={c.id}>
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{c.id}</td>
                       <td>{c.customer_name || '—'}</td>
@@ -878,7 +945,7 @@ const AdminDashboard = () => {
                       <td><button style={ghostBtn} onClick={() => { setComplaintOpen(c); setComplaintNote(c.adminNote || '') }}>Review</button></td>
                     </tr>
                   ))}
-                  {complaints.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No complaints filed.</td></tr>}
+                  {filteredComplaints.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No complaints match the selected filters.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -887,11 +954,14 @@ const AdminDashboard = () => {
           {/* SUPPORT DESK */}
           {activeNav === 'support' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
-              <h3 className="ad-table-title">SUPPORT TICKETS ({generalSupportTickets.length})</h3>
+              <h3 className="ad-table-title">SUPPORT TICKETS ({filteredSupportTickets.length})</h3>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '300px' }} aria-label="Filter support tickets by member name or ID" placeholder="Search member name or ticket ID…" value={supportSearch} onChange={(e) => setSupportSearch(e.target.value)} />
+              </div>
               <table className="ad-data-table">
                 <thead><tr><th>ID</th><th>MEMBER</th><th>SUBJECT</th><th>PRIORITY</th><th>UPDATED</th><th>STATUS</th><th>ACTION</th></tr></thead>
                 <tbody>
-                  {generalSupportTickets.map((t) => (
+                  {filteredSupportTickets.map((t) => (
                     <tr key={t.id}>
                       <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{t.id}</td>
                       <td>{t.user?.name || '—'}</td>
@@ -902,7 +972,7 @@ const AdminDashboard = () => {
                       <td><button style={ghostBtn} onClick={() => { setTicketOpen(t); setTicketResponse(t.adminResponse || '') }}>Respond</button></td>
                     </tr>
                   ))}
-                  {generalSupportTickets.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No support tickets.</td></tr>}
+                  {filteredSupportTickets.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No support tickets match this search.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -1017,13 +1087,16 @@ const AdminDashboard = () => {
               <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '0 0 1rem' }}>
                 Review provider withdrawal requests and update them only after the bank transfer succeeds or is declined.
               </p>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '300px' }} aria-label="Filter redemption requests by provider name" placeholder="Search provider name…" value={redemptionSearch} onChange={(e) => setRedemptionSearch(e.target.value)} />
+              </div>
               <div className="ad-table-scroll">
                 <table className="ad-data-table">
                   <thead>
                     <tr><th>PROVIDER</th><th>BANK</th><th>ACCOUNT NUMBER</th><th>ACCOUNT NAME</th><th>BRANCH</th><th>REQUESTED</th><th>AMOUNT</th><th>STATUS</th><th>ACTION</th></tr>
                   </thead>
                   <tbody>
-                    {providerPayouts.filter((payout) => payout.kind === 'redemption').map((payout) => (
+                    {filteredRedemptionRequests.map((payout) => (
                       <tr key={payout.id}>
                         <td><strong>{payout.provider_name}</strong><br /><small style={{ color: '#888' }}>{payout.provider_email}</small></td>
                         <td>{payout.bank_name || '—'}</td>
@@ -1043,8 +1116,8 @@ const AdminDashboard = () => {
                         </td>
                       </tr>
                     ))}
-                    {providerPayouts.filter((payout) => payout.kind === 'redemption').length === 0 && (
-                      <tr><td colSpan={9} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No redemption requests yet.</td></tr>
+                    {filteredRedemptionRequests.length === 0 && (
+                      <tr><td colSpan={9} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No redemption requests match this search.</td></tr>
                     )}
                   </tbody>
                 </table>

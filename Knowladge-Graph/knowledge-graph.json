@@ -6,12 +6,12 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 205,
-    "totalEdges": 434,
+    "totalNodes": 208,
+    "totalEdges": 444,
     "nodesByGroup": {
-      "api": 104,
+      "api": 105,
       "database": 33,
-      "frontend": 35,
+      "frontend": 37,
       "middleware": 3,
       "routes": 16,
       "service": 14
@@ -271,6 +271,21 @@
       },
       "source": {
         "path": "backend/src/routes/auth.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/bookings/:id/photos",
+      "label": "GET /api/bookings/:id/photos",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/uploads.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/bookings/:id/photos",
+        "routeFile": "uploads.js"
+      },
+      "source": {
+        "path": "backend/src/routes/uploads.js"
       }
     },
     {
@@ -1810,6 +1825,17 @@
       }
     },
     {
+      "id": "frontend:BookingPhotoGallery",
+      "label": "BookingPhotoGallery.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/BookingPhotoGallery.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/BookingPhotoGallery.jsx"
+      }
+    },
+    {
       "id": "frontend:BookService",
       "label": "BookService.jsx",
       "type": "FrontendPage",
@@ -1961,6 +1987,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/Navbar.jsx"
+      }
+    },
+    {
+      "id": "frontend:ParticleAtmosphere",
+      "label": "ParticleAtmosphere.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/ParticleAtmosphere.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/ParticleAtmosphere.jsx"
       }
     },
     {
@@ -4207,6 +4244,20 @@
       }
     },
     {
+      "id": "frontend:ActiveBookingCards->frontend:BookingPhotoGallery:RENDERS_COMPONENT",
+      "from": "frontend:ActiveBookingCards",
+      "to": "frontend:BookingPhotoGallery",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:ActiveBookingCards",
+      "target": "frontend:BookingPhotoGallery",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/components/ActiveBookingCards.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:AdminDashboard->endpoint:DELETE_/api/admin/subscriptions/:id:FETCHES_API",
       "from": "frontend:AdminDashboard",
       "to": "endpoint:DELETE_/api/admin/subscriptions/:id",
@@ -4725,6 +4776,20 @@
       }
     },
     {
+      "id": "frontend:AdminDashboard->frontend:BookingPhotoGallery:RENDERS_COMPONENT",
+      "from": "frontend:AdminDashboard",
+      "to": "frontend:BookingPhotoGallery",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:AdminDashboard",
+      "target": "frontend:BookingPhotoGallery",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:AdminDashboard->frontend:LogoutOverlay:RENDERS_COMPONENT",
       "from": "frontend:AdminDashboard",
       "to": "frontend:LogoutOverlay",
@@ -4749,6 +4814,48 @@
       "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:BookingPhotoGallery->endpoint:GET_/api/bookings/:id/photos:FETCHES_API",
+      "from": "frontend:BookingPhotoGallery",
+      "to": "endpoint:GET_/api/bookings/:id/photos",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:BookingPhotoGallery",
+      "target": "endpoint:GET_/api/bookings/:id/photos",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/components/BookingPhotoGallery.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:BookingPhotoGallery->endpoint:POST_/api/bookings/:id/photos:FETCHES_API",
+      "from": "frontend:BookingPhotoGallery",
+      "to": "endpoint:POST_/api/bookings/:id/photos",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:BookingPhotoGallery",
+      "target": "endpoint:POST_/api/bookings/:id/photos",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/components/BookingPhotoGallery.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:BookingPhotoGallery->frontend:api_client:USES_CLIENT",
+      "from": "frontend:BookingPhotoGallery",
+      "to": "frontend:api_client",
+      "type": "USES_CLIENT",
+      "label": "",
+      "source": "frontend:BookingPhotoGallery",
+      "target": "frontend:api_client",
+      "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/components/BookingPhotoGallery.jsx",
         "extractor": "generate-graph.js:static-analysis"
       }
     },
@@ -4859,6 +4966,20 @@
       "source": "frontend:CustomerCustomRequests",
       "target": "frontend:api_client",
       "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerCustomRequests.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:CustomerCustomRequests->frontend:ParticleAtmosphere:RENDERS_COMPONENT",
+      "from": "frontend:CustomerCustomRequests",
+      "to": "frontend:ParticleAtmosphere",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:CustomerCustomRequests",
+      "target": "frontend:ParticleAtmosphere",
+      "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/CustomerCustomRequests.jsx",
         "extractor": "generate-graph.js:static-analysis"
@@ -5215,6 +5336,20 @@
       }
     },
     {
+      "id": "frontend:CustomerDashboard->frontend:ParticleAtmosphere:RENDERS_COMPONENT",
+      "from": "frontend:CustomerDashboard",
+      "to": "frontend:ParticleAtmosphere",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:CustomerDashboard",
+      "target": "frontend:ParticleAtmosphere",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:CustomerDashboard->frontend:ui:RENDERS_COMPONENT",
       "from": "frontend:CustomerDashboard",
       "to": "frontend:ui",
@@ -5376,6 +5511,20 @@
       "label": "GET",
       "source": "frontend:ProviderDashboard",
       "target": "endpoint:GET_/api/auth/me",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->endpoint:GET_/api/bookings/:id/photos:FETCHES_API",
+      "from": "frontend:ProviderDashboard",
+      "to": "endpoint:GET_/api/bookings/:id/photos",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:ProviderDashboard",
+      "target": "endpoint:GET_/api/bookings/:id/photos",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",
@@ -5685,6 +5834,20 @@
       "source": "frontend:ProviderDashboard",
       "target": "frontend:api_client",
       "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/pages/ProviderDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:ProviderDashboard->frontend:BookingPhotoGallery:RENDERS_COMPONENT",
+      "from": "frontend:ProviderDashboard",
+      "to": "frontend:BookingPhotoGallery",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:ProviderDashboard",
+      "target": "frontend:BookingPhotoGallery",
+      "kind": "RENDERS_COMPONENT",
       "evidence": {
         "path": "frontend/src/pages/ProviderDashboard.jsx",
         "extractor": "generate-graph.js:static-analysis"
@@ -10069,6 +10232,20 @@
       "kind": "CALLS_SERVICE",
       "evidence": {
         "path": "backend/src/routes/support.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:uploads->endpoint:GET_/api/bookings/:id/photos:EXPOSES_ENDPOINT",
+      "from": "routefile:uploads",
+      "to": "endpoint:GET_/api/bookings/:id/photos",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:uploads",
+      "target": "endpoint:GET_/api/bookings/:id/photos",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/uploads.js",
         "extractor": "generate-graph.js:static-analysis"
       }
     },
