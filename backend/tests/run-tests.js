@@ -21,6 +21,7 @@ const testEnv = {
   ...isolatedUrls,
   JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-for-ci-runs-1234567890',
   NODE_ENV: 'test',
+  TZ: 'Asia/Colombo',
   RESEND_API_KEY: '',
   PAYOUT_SCHEDULER_ENABLED: 'false',
 };
