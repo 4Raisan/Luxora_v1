@@ -17,6 +17,10 @@ services:
       - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
       - S3_PREFIX=${S3_PREFIX:-uploads/}
       - TRUST_PROXY=${TRUST_PROXY:-true}
+      # Cross-origin deployments (e.g. Vercel frontend + this backend) must set
+      # this to the frontend origin list; same-origin SPA deployments need nothing.
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - FRONTEND_URL=${FRONTEND_URL:-}
     depends_on:
       postgres:
         condition: service_healthy

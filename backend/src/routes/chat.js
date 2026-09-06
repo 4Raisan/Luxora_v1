@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { optionalAuthentication } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 import { prisma } from '../config/prisma.js';
 import { createRequire } from 'node:module';
 
@@ -8,8 +9,11 @@ const { getSession, processMessage } = require('../chatbot/services/engine.js');
 
 const router = Router();
 
-// Chat & Interactive Concierge Endpoint (Directly Connected to Live Database)
-router.post('/chat', optionalAuthentication, async (req, res) => {
+// Chat & Interactive Concierge Endpoint (Directly Connected to Live Database).
+// Public endpoint backed by live DB queries and in-memory sessions: rate-limit
+// per IP so scripted traffic cannot exhaust memory or the database.
+const chatLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000, keyPrefix: 'chat', message: 'Too many chat messages, try again later' });
+router.post('/chat', chatLimiter, optionalAuthentication, async (req, res) => {
   try {
     const { message, sessionId, structuredPayload } = req.body;
     const user = req.user || null;

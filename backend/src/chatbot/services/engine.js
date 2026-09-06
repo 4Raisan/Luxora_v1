@@ -2,20 +2,42 @@ const { getSimplifiedRecommendation, loadActivePlans, formatPrice } = require('.
 const { startSpecialAskWizard, handleSpecialAskStep, getSpecialAskPrompt } = require('./requestedService.service');
 const { getEscalationPrompt } = require('./escalation.service');
 
-// In-memory conversation sessions
+// In-memory conversation sessions. The chat endpoint is public and the session
+// id is client-supplied, so both the number of sessions and each session's
+// history are bounded: without caps a script spamming unique session ids grows
+// this Map without limit and OOMs the backend.
+const MAX_CHAT_SESSIONS = 5000;
+const MAX_HISTORY_PER_SESSION = 40;
 const sessions = new Map();
 
 function getSession(sessionId) {
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, {
-      id: sessionId,
+  const safeId = String(sessionId || 'guest-session').slice(0, 128);
+  if (!sessions.has(safeId)) {
+    if (sessions.size >= MAX_CHAT_SESSIONS) {
+      // Evict the least recently touched session (Map iterates in insertion order).
+      const oldest = sessions.keys().next().value;
+      if (oldest !== undefined) sessions.delete(oldest);
+    }
+    sessions.set(safeId, {
+      id: safeId,
       activeWizard: null, // 'SPECIAL_ASK', 'SIZING'
       specialAskDraft: null,
       sizingDraft: null,
       history: []
     });
+  } else {
+    // Refresh recency so active conversations are not the ones evicted.
+    const existing = sessions.get(safeId);
+    sessions.delete(safeId);
+    sessions.set(safeId, existing);
   }
-  return sessions.get(sessionId);
+  return sessions.get(safeId);
+}
+
+function trimHistory(session) {
+  if (session.history.length > MAX_HISTORY_PER_SESSION) {
+    session.history.splice(0, session.history.length - MAX_HISTORY_PER_SESSION);
+  }
 }
 
 function extractEntities(text) {
@@ -93,6 +115,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
 
   if (text) {
     session.history.push({ role: 'user', content: text, timestamp: new Date().toISOString() });
+    trimHistory(session);
   }
 
   // ===========================================================================
@@ -126,6 +149,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
         session.specialAskDraft = null;
       }
       session.history.push(wizardResp);
+      trimHistory(session);
       return wizardResp;
     }
 
@@ -154,10 +178,12 @@ async function processMessage(session, userMessage, structuredPayload = null, co
           ]
         };
         session.history.push(reply);
+        trimHistory(session);
         return reply;
       }
       const rec = await generateFinalRecommendation(prisma, count, 0, 0);
       session.history.push(rec);
+      trimHistory(session);
       return rec;
     }
 
@@ -180,6 +206,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
           ]
         };
         session.history.push(reply);
+        trimHistory(session);
         return reply;
       }
       let perches = 8;
@@ -187,6 +214,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       else if (value === '20_to_30') perches = 25;
       const rec = await generateFinalRecommendation(prisma, 0, perches, 0);
       session.history.push(rec);
+      trimHistory(session);
       return rec;
     }
 
@@ -210,10 +238,12 @@ async function processMessage(session, userMessage, structuredPayload = null, co
           ]
         };
         session.history.push(reply);
+        trimHistory(session);
         return reply;
       }
       const rec = await generateFinalRecommendation(prisma, 0, 0, count);
       session.history.push(rec);
+      trimHistory(session);
       return rec;
     }
   }
@@ -228,6 +258,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       session.specialAskDraft = null;
     }
     session.history.push(wizardResp);
+    trimHistory(session);
     return wizardResp;
   }
 
@@ -260,6 +291,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
             quickReplies: ['📅 Book a Service', '🚗 Auto Care', '🌿 Garden Care']
           };
           session.history.push(reply);
+          trimHistory(session);
           return reply;
         }
         const reply = {
@@ -273,6 +305,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
           quickReplies: ['🚗 Auto Care', '🌿 Garden Care', '🐾 Pet Care']
         };
         session.history.push(reply);
+        trimHistory(session);
         return reply;
       } catch (dbErr) {
         console.error('Error fetching user subscription:', dbErr);
@@ -290,6 +323,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       quickReplies: ['🚗 Auto Care', '🌿 Garden Care', '🐾 Pet Care']
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -335,6 +369,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
           quickReplies: ['🪙 My Tokens', '🚗 Auto Care', '🌿 Garden Care']
         };
         session.history.push(reply);
+        trimHistory(session);
         return reply;
       } catch (dbErr) {
         console.error('Error fetching tracking status:', dbErr);
@@ -353,6 +388,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       quickReplies: ['🪙 My Tokens', '🚗 Auto Care', '🌿 Garden Care']
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -372,6 +408,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -381,6 +418,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
   if (lower.includes('human') || lower.includes('agent') || lower.includes('person') || lower.includes('speak to someone') || lower.includes('talk to us') || lower.includes('call us') || lower.includes('contact us') || lower.includes('helpdesk') || lower.includes('support')) {
     const reply = getEscalationPrompt('Talk to our team');
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -402,6 +440,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -424,6 +463,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -438,6 +478,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -452,6 +493,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -466,6 +508,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -482,6 +525,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
 
     const prompt = getSpecialAskPrompt(session.specialAskDraft);
     session.history.push(prompt);
+    trimHistory(session);
     return prompt;
   }
 
@@ -509,6 +553,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       quickReplies: ['1 Vehicle', '2 Vehicles', '3 Vehicles', '4 Vehicles', 'More than 6 Vehicles']
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -538,6 +583,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       quickReplies: ['Under 10 perches', '10-20 perches', '20-30 perches', 'More than 30 perches']
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -565,6 +611,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       quickReplies: ['1 Pet', '2 Pets', '3 Pets', 'More than 5 Pets']
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -606,6 +653,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
         ]
       };
       session.history.push(reply);
+      trimHistory(session);
       return reply;
     }
 
@@ -619,6 +667,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -636,6 +685,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -652,6 +702,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
       ]
     };
     session.history.push(reply);
+    trimHistory(session);
     return reply;
   }
 
@@ -665,6 +716,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
 
     const prompt = getSizingStepPrompt(session.sizingDraft);
     session.history.push(prompt);
+    trimHistory(session);
     return prompt;
   }
 
@@ -674,6 +726,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
     const pets = entities.pets || 0;
     const rec = await generateFinalRecommendation(prisma, cars, perches, pets);
     session.history.push(rec);
+    trimHistory(session);
     return rec;
   }
 
@@ -699,6 +752,7 @@ async function processMessage(session, userMessage, structuredPayload = null, co
     ]
   };
   session.history.push(welcomeReply);
+  trimHistory(session);
   return welcomeReply;
 }
 
