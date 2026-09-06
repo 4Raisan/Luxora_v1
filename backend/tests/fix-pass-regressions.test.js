@@ -16,7 +16,7 @@ dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
-import { toBoolean } from '../src/middleware/validators.js';
+import { toBoolean, toPositiveInt } from '../src/middleware/validators.js';
 import { selectSupersededPayHereOrders } from '../src/services/paymentContracts.js';
 import './assert-test-database.js';
 
@@ -218,7 +218,7 @@ test('C9: password reset never issues or accepts credentials for deactivated acc
   assert.ok(record, 'active account must receive a reset token');
 
   await prisma.user.update({ where: { id: active.id }, data: { active: false } });
-  const rawToken = 'fixpass-raw-token';
+  const rawToken = `fixpass-raw-${RND}`;
   await prisma.passwordResetToken.update({ where: { id: record.id }, data: { tokenHash: crypto.createHash('sha256').update(rawToken).digest('hex') } });
 
   const confirmed = await json('/auth/password-reset/confirm', { method: 'POST', body: JSON.stringify({ token: rawToken, password: 'NewPass123!x' }) });
@@ -247,6 +247,18 @@ test('C8: promotion-style boolean toggles parse every legitimate payload format'
   assert.equal(toBoolean('yes'), null);
   assert.equal(toBoolean(2), null);
   assert.equal(toBoolean(null), null);
+});
+
+test('toPositiveInt rejects array/boolean coercion into resource ids', () => {
+  assert.equal(toPositiveInt([7]), null);
+  assert.equal(toPositiveInt(true), null);
+  assert.equal(toPositiveInt('7'), 7);
+  assert.equal(toPositiveInt('007'), 7);
+  assert.equal(toPositiveInt(7), 7);
+  assert.equal(toPositiveInt(0), null);
+  assert.equal(toPositiveInt(-3), null);
+  assert.equal(toPositiveInt('abc'), null);
+  assert.equal(toPositiveInt('7.5'), null);
 });
 
 test('C6: stale pending PayHere orders are superseded by safe rules only', () => {

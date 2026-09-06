@@ -16,9 +16,18 @@ export const isQuarterHourTime = (v) => {
 export const isNonEmptyString = (v, max = 500) =>
   typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 
+// Strict positive-integer coercion. Only real numbers and digit strings are
+// accepted — arrays (Number([7]) === 7) and booleans (Number(true) === 1) must
+// not be silently converted into resource ids.
 export const toPositiveInt = (v) => {
-  const n = Number(v);
-  return Number.isInteger(n) && n > 0 ? n : null;
+  if (typeof v === 'number') {
+    return Number.isInteger(v) && v > 0 ? v : null;
+  }
+  if (typeof v === 'string' && /^\d+$/.test(v.trim())) {
+    const n = Number(v);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }
+  return null;
 };
 
 export const isTodayOrFuture = (dateStr) => {
