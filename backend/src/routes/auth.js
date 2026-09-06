@@ -127,7 +127,10 @@ router.post('/password-reset/request', resetLimiter, async (req, res) => {
   if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
   const user = await prisma.user.findUnique({ where: { email } });
   // Always return the same response to avoid account enumeration.
-  if (user) {
+  // Deactivated accounts must not receive reset credentials: their sessions are
+  // already revoked by the deactivation policy and login is blocked, so a live
+  // reset link would contradict that hold. The generic response is unchanged.
+  if (user && user.active) {
     const token = `${crypto.randomUUID()}-${crypto.randomUUID()}`;
     await prisma.passwordResetToken.create({
       data: {
@@ -174,6 +177,12 @@ router.post('/password-reset/confirm', resetLimiter, async (req, res) => {
         where: { userId: record.userId, usedAt: null },
         data: { usedAt },
       });
+      const target = await tx.user.findUnique({ where: { id: record.userId }, select: { active: true } });
+      if (!target?.active) {
+        const error = new Error('Invalid or expired reset token');
+        error.statusCode = 400;
+        throw error;
+      }
       await tx.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } });
     }, { isolationLevel: 'Serializable' });
   } catch (error) {

@@ -8,7 +8,7 @@ import { getPlatformSettings, handleProviderHoldBookings, providerCanTakeBooking
 import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookingsThrottled } from '../services/bookingTimeouts.js';
-import { broadcastBookingEvent, broadcastToUser } from '../services/realtime.js';
+import { broadcastBookingEvent, broadcastToRole, broadcastToUser } from '../services/realtime.js';
 import { invalidateSubscriptionsCache } from './services.js';
 
 const router = Router();
@@ -635,10 +635,23 @@ router.put('/complaints/:id', async (req, res) => {
 
   const adminNote = req.body.admin_note === undefined ? undefined : String(req.body.admin_note).trim();
   if (adminNote !== undefined && adminNote.length > 2000) return res.status(400).json({ error: 'admin_note must be at most 2000 characters' });
+
+  const statusChanged = complaint.status !== status;
   await prisma.complaint.update({ where: { id: complaint.id }, data: { status, adminNote } });
-  if (status === 'RESOLVED') {
+
+  // Customer is notified once per actual transition (OPEN -> IN_REVIEW -> RESOLVED);
+  // repeated PUTs that keep the same status never re-notify.
+  if (statusChanged && status === 'IN_REVIEW') {
+    await notify(complaint.userId, `Your complaint #${complaint.id} is now being reviewed by our team.`, `/customer-dashboard?complaint=${complaint.id}`);
+  }
+  if (statusChanged && status === 'RESOLVED') {
     await notify(complaint.userId, `Your complaint #${complaint.id} has been resolved. Tap to view the admin response.`, `/customer-dashboard?complaint=${complaint.id}`);
   }
+
+  // Keep open admin dashboards in sync without a manual reload.
+  broadcastToRole('ADMIN', 'COMPLAINT_UPDATED', { complaintId: complaint.id, status: status.toLowerCase() });
+  broadcastToUser(complaint.userId, 'COMPLAINT_UPDATED', { complaintId: complaint.id, status: status.toLowerCase() });
+
   logAdminAction({ adminId: req.user.id, action: `COMPLAINT_${status}`, targetType: 'Complaint', targetId: String(complaint.id), details: { status, adminNote }, ipAddress: req.ip }).catch(() => {});
   res.json({ message: `Complaint updated to ${status.toLowerCase()}` });
 });

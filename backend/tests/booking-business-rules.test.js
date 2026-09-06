@@ -310,8 +310,11 @@ test('Creation: exact 4h boundary allowed, 4h minus 1s rejected (unit-level, TZ-
     d.setSeconds(0, 0);
     return d;
   };
-  const over = mkSlot(4 * 3600 * 1000 + 8 * 60 * 1000);
-  over.setMinutes(Math.ceil(over.getMinutes() / 15) * 15 % 60);
+  // +15min headroom so the 15-minute ceiling can never round below the 4h line
+  // (setMinutes(60) rolls into the next hour; the old `% 60` dropped that roll
+  // and made the test fail whenever it ran between :46 and :59 past the hour).
+  const over = mkSlot(4 * 3600 * 1000 + 8 * 60 * 1000 + 15 * 60 * 1000);
+  over.setMinutes(Math.ceil(over.getMinutes() / 15) * 15);
   const overRes = await authJson(token, '/bookings', {
     method: 'POST',
     body: JSON.stringify({ service_id: fixtures.service.id, booking_date: dateStr(over), booking_time: timeStr(over) }),

@@ -437,7 +437,7 @@ const Footer = () => {
 
               <h3>5. Cancellations and Refunds</h3>
               <p>
-                Customers may cancel or reschedule services according to Luxora&apos;s cancellation policy. Refund eligibility depends on the type of service, timing of cancellation, and applicable subscription terms.
+                Customers may cancel or reschedule services according to Luxora&apos;s cancellation policy. Luxora V1 does not provide cash refunds: eligible cancellations restore the service entitlement (coins) to the customer&apos;s active package, in line with our subscription terms.
               </p>
 
               <h3>6. Service Availability</h3>

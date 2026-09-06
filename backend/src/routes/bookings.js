@@ -44,7 +44,7 @@ function cooldownEndsAt(booking, cooldownHours) {
 
 // Pick the least-loaded approved+available provider matching the booking town.
 // A provider's latest same-day auto assignment governs their cooldown.
-async function pickProvider(client, categoryName, town, addressDistrict, bookingDate, bookingTime, service, settings) {
+async function pickProvider(client, categoryName, town, addressDistrict, bookingDate, bookingTime, service, settings, extraPriorAssignments = []) {
   const candidates = await client.provider.findMany({
     where: { kycStatus: 'APPROVED', availabilityStatus: 'available' },
     select: { id: true, userId: true, category: true, serviceTowns: true },
@@ -62,8 +62,12 @@ async function pickProvider(client, categoryName, town, addressDistrict, booking
     },
     select: { providerId: true, bookingDate: true, bookingTime: true, expectedEndTime: true },
   });
+  // `extraPriorAssignments` lets the reschedule flow keep the ORIGINAL
+  // auto-assignment in the cooldown evaluation: the old row is already
+  // cancelled inside the caller's transaction, but releasing a slot must not
+  // also erase the cooldown that slot earned the provider.
   const latestAutoAssignmentByProvider = new Map();
-  for (const assignment of priorAutoAssignments) {
+  for (const assignment of [...priorAutoAssignments, ...extraPriorAssignments]) {
     const latest = latestAutoAssignmentByProvider.get(assignment.providerId);
     if (!latest || bookingStart(assignment.bookingDate, assignment.bookingTime) > bookingStart(latest.bookingDate, latest.bookingTime)) {
       latestAutoAssignmentByProvider.set(assignment.providerId, assignment);
@@ -880,9 +884,11 @@ router.put('/:id/reschedule', async (req, res) => {
         },
       });
 
-      // 2. Perform fresh auto-assignment for new slot
+      // 2. Perform fresh auto-assignment for new slot. The original booking
+      // counts toward the cooldown even though step 1 cancelled it, so a
+      // reschedule obeys the same provider eligibility rules as a new booking.
       const provider = shouldAutoAssign
-        ? await pickProvider(tx, oldBooking.service.category.name, town, customer?.addressDistrict, booking_date, normalizedTime, oldBooking.service, settings)
+        ? await pickProvider(tx, oldBooking.service.category.name, town, customer?.addressDistrict, booking_date, normalizedTime, oldBooking.service, settings, freshOld.autoAssigned ? [freshOld] : [])
         : null;
 
       // 3. Create new booking linked to the same entitlement subscription

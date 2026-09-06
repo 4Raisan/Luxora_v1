@@ -6,6 +6,7 @@ import LogoutOverlay from '../components/LogoutOverlay'
 import ActiveBookingCards from '../components/ActiveBookingCards'
 import ParticleAtmosphere from '../components/ParticleAtmosphere'
 import { useRealtime } from '../hooks/useRealtime'
+import { colomboToday, colomboSlotAfter } from '../utils/colomboTime'
 import './CustomerDashboard.css'
 
 /* ── SVG Icons ───────────────────────────────────────── */
@@ -823,11 +824,16 @@ const CustomerDashboard = () => {
       if (profileEdit.phone !== undefined && profileEdit.phone.trim() !== (currentUser.phone || '')) body.phone = profileEdit.phone.trim()
       if (!Object.keys(body).length) { setProfileSavedMsg('Nothing to update.'); return }
       const savedProfile = await apiRequest('/profile', 'PUT', body, token)
-      
-      const updated = { ...currentUser }
-      if (body.name) updated.name = body.name
-      if (body.phone !== undefined) {
-        updated.phone = savedProfile.phone
+
+      // Sync every authoritative field (including town/address) into the cached
+      // session user so the booking/address gates reflect the save immediately.
+      const updated = {
+        ...currentUser,
+        name: savedProfile.name || currentUser.name,
+        phone: savedProfile.phone ?? currentUser.phone,
+        town: savedProfile.town ?? currentUser.town,
+        addressStreet: savedProfile.addressStreet ?? currentUser.addressStreet,
+        addressDistrict: savedProfile.addressDistrict ?? currentUser.addressDistrict,
       }
       setCurrentUser(updated)
       try {
@@ -837,7 +843,7 @@ const CustomerDashboard = () => {
       localStorage.setItem('user_' + currentUser.email, JSON.stringify(updated))
 
       if (body.town) {
-        const newAddr = { ...userAddress, city: body.town }
+        const newAddr = { ...userAddress, city: savedProfile.town || body.town, district: savedProfile.addressDistrict || userAddress.district }
         setUserAddress(newAddr)
         localStorage.setItem('userAddress_' + userKey, JSON.stringify(newAddr))
       }
@@ -883,19 +889,7 @@ const CustomerDashboard = () => {
   // (the server enforces a 4-hour minimum lead time), snapped up to the next
   // 15-minute slot so the lead time is never violated, rolling the date
   // forward automatically when the slot crosses midnight.
-  const getDefaultSessionSlot = () => {
-    const slot = new Date(Math.ceil((Date.now() + 4 * 60 * 60 * 1000) / (15 * 60 * 1000)) * (15 * 60 * 1000))
-    const pad = (n) => String(n).padStart(2, '0')
-    const date = `${slot.getFullYear()}-${pad(slot.getMonth() + 1)}-${pad(slot.getDate())}`
-    const hour24 = slot.getHours()
-    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
-    return {
-      date,
-      hour: pad(hour12),
-      minute: pad(slot.getMinutes()),
-      ampm: hour24 >= 12 ? 'PM' : 'AM',
-    }
-  }
+  const getDefaultSessionSlot = () => colomboSlotAfter(4 * 60 * 60 * 1000)
 
   // Service Booking State
   const [serviceBookingForm, setServiceBookingForm] = useState(() => ({
@@ -904,6 +898,7 @@ const CustomerDashboard = () => {
     ...getDefaultSessionSlot(),
   }))
   const [showInsufficientTokensModal, setShowInsufficientTokensModal] = useState(false)
+  const [sessionBookingError, setSessionBookingError] = useState(null)
   const [insufficientTokenCategory, setInsufficientTokenCategory] = useState('')
   const [sessionBookingSuccessModal, setSessionBookingSuccessModal] = useState(null)
   const [bookingSessionBusy, setBookingSessionBusy] = useState(false)
@@ -918,7 +913,7 @@ const CustomerDashboard = () => {
     }
 
     if (!serviceBookingForm.packageId) {
-      alert('Please select a category to book a session.')
+      setSessionBookingError({ title: 'SELECT A CATEGORY', message: 'Please select a service category to book a session.' })
       return
     }
 
@@ -928,7 +923,7 @@ const CustomerDashboard = () => {
     const selectedPetType = PET_TYPE_OPTIONS.find((item) => item.id === serviceBookingForm.petType)
 
     if (cat === 'pet' && !selectedPetType) {
-      alert('Please choose Dog Care or Cat Care.')
+      setSessionBookingError({ title: 'PET CARE MODE REQUIRED', message: 'Please choose Dog Care or Cat Care for your Pet Care session.' })
       return
     }
 
@@ -941,7 +936,7 @@ const CustomerDashboard = () => {
     const selectedTimeFormatted = `${serviceBookingForm.hour}:${serviceBookingForm.minute} ${serviceBookingForm.ampm}`
     const token = sessionStorage.getItem('token')
     if (!token || token === 'demo-token') {
-      alert('Please sign in with your Luxora account to book a service.')
+      setSessionBookingError({ title: 'SIGN IN REQUIRED', message: 'Please sign in with your Luxora account to book a service.' })
       return
     }
     let created
@@ -980,7 +975,8 @@ const CustomerDashboard = () => {
         pet_type: cat === 'pet' ? serviceBookingForm.petType : null,
       }, token)
     } catch (error) {
-      alert(error.message || 'Could not create this booking.')
+      // Preserve the exact backend reason (past date, 4-hour lead time, duplicate slot...)
+      setSessionBookingError({ title: 'BOOKING NOT CONFIRMED', message: error.message || 'Could not create this booking.' })
       return
     } finally {
       setBookingSessionBusy(false)
@@ -1142,7 +1138,7 @@ const CustomerDashboard = () => {
         serverId: ticket.id,
         title: customForm.title,
         category: customForm.category,
-        date: customForm.date || new Date().toISOString().split('T')[0],
+        date: customForm.date || colomboToday(),
         time: customForm.time || '10:00 AM',
         notes: customForm.notes,
         providerName: ticket.provider_name,
@@ -1505,9 +1501,9 @@ const CustomerDashboard = () => {
 
   // Next upcoming session for the hero banner (earliest non-cancelled
   // booking dated today or later). Null → the banner invites a booking.
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = colomboToday()
   const nextBooking = [...customerActiveBookings]
-    .filter(b => b && b.status !== 'CANCELLED' && b.date && b.date >= todayStr)
+    .filter(b => b && ['PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(b.status) && b.date && b.date >= todayStr)
     .sort((a, b) => `${a.date} ${a.time || ''}`.localeCompare(`${b.date} ${b.time || ''}`))[0] || null
 
   const customerServiceBookings = customerActiveBookings
@@ -2086,7 +2082,7 @@ const CustomerDashboard = () => {
                       name="serviceBookingDate"
                       type="date"
                       value={serviceBookingForm.date}
-                      min={new Date().toISOString().split('T')[0]}
+                      min={colomboToday()}
                       onChange={(e) => setServiceBookingForm(prev => ({ ...prev, date: e.target.value }))}
                       style={{
                         width: '100%',
@@ -2232,7 +2228,7 @@ const CustomerDashboard = () => {
                     </thead>
                     <tbody>
                       {(() => {
-                        const sessionOnly = customerActiveBookings.filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
+                        const sessionOnly = customerActiveBookings.filter(b => ['PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(b.status)).filter(b => b.isSession || b.pin || b.location || (b.time && (b.time.includes('AM') || b.time.includes('PM'))))
                         const displayList = sessionOnly.slice(0, 6)
                         if (displayList.length === 0) {
                           return (
@@ -3591,6 +3587,96 @@ const CustomerDashboard = () => {
         </div>
       )}
 
+      {/* ── Service Session Booking Error Modal Popup (reuses the styled token-error pattern) ── */}
+      {sessionBookingError && (
+        <div className="cd-address-overlay" onClick={() => setSessionBookingError(null)}>
+          <div
+            className="cd-address-modal animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '480px',
+              textAlign: 'center',
+              padding: '2.5rem 2rem',
+              position: 'relative'
+            }}
+          >
+            <button
+              className="auth-card-close-btn"
+              onClick={() => setSessionBookingError(null)}
+              aria-label="Close"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem'
+              }}
+            >
+              ✕
+            </button>
+
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.8rem',
+                margin: '0 auto 1.25rem auto'
+              }}
+            >
+              ⚠
+            </div>
+
+            <h3 style={{ color: '#fff', fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.5rem 0', letterSpacing: '-0.01em' }}>
+              {sessionBookingError.title}
+            </h3>
+
+            <p style={{ color: '#aaa', fontSize: '0.88rem', lineHeight: '1.5', margin: '0 0 1.75rem 0' }}>
+              {sessionBookingError.message}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setSessionBookingError(null)}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, var(--gold, #c9a84c) 0%, #a68432 100%)',
+                  color: '#000',
+                  border: 'none',
+                  padding: '0.85rem 1.25rem',
+                  borderRadius: '10px',
+                  fontSize: '0.88rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(201, 168, 76, 0.25)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Service Session Confirmed Modal Popup ── */}
       {sessionBookingSuccessModal && (
         <div
@@ -4908,7 +4994,7 @@ const CustomerDashboard = () => {
                     type="date"
                     className="cd-custom-request-date"
                     required
-                    min={new Date().toISOString().split('T')[0]}
+                    min={colomboToday()}
                     value={customForm.date}
                     onChange={(e) => setCustomForm({ ...customForm, date: e.target.value })}
                     style={{ width: '100%', background: '#181818', color: '#fff', border: '1px solid #333', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.85rem' }}

@@ -227,9 +227,9 @@ Supported gateways/modes:
 
 ### Demo payments
 
-Demo mode creates a server-side payment order and completes it through the demo completion endpoint. No real money is charged. Demo completion calls the same subscription activation and receipt flow as a verified gateway payment.
+`POST /payments/demo/checkout` (`backend/src/routes/demoPayments.js`) settles the whole purchase — payment record, subscription, and service tokens — inside one database transaction. The client sends `plan_id`, a `billing_option` (`one_time` or `auto_renew`), and its own `idempotency_key` (10–100 chars); the server prices the plan itself and never trusts a client amount. Replaying a completed reference returns the stored result without granting twice. No real money is charged. Demo completion uses the same subscription activation and receipt flow as a verified gateway payment.
 
-When demo mode is enabled, due subscriptions with auto-renew enabled can be renewed by the demo renewal job. The old subscription becomes expired, a new 30-day subscription is created with copied entitlements, and a completed demo payment is recorded.
+Due subscriptions with auto-renew enabled that originated from Demo payments can be renewed by the demo renewal job. The old subscription becomes expired, a new 30-day subscription is created with copied entitlements, and a completed demo payment is recorded.
 
 ### PayHere
 
@@ -237,8 +237,7 @@ PayHere order creation requires:
 
 - Customer authentication
 - Active plan
-- Payment mode not set to demo
-- Configured public HTTPS return, cancel, and webhook URLs
+- Configured public HTTPS return, cancel, and webhook URLs (PayHere stays available regardless of Demo; there is no exclusive payment mode)
 
 PayHere webhooks require a valid signature. Status code `2` is a successful charge; `-1` and `-2` are failed states. Amount and currency must match the pending payment before activation.
 
@@ -579,13 +578,13 @@ Representative routes include:
 - Booking: create, own bookings, assigned bookings, pending bookings, claim, PIN retrieval, status, schedule, cancel, reschedule, photos.
 - Provider: availability, categories, towns, earnings, bank accounts, redemption requests, KYC documents.
 - Admin: settings, providers/KYC, users, plans, bookings, complaints, support, reports, reviews, payouts, audit logs.
-- Payments: PayHere order/webhook, NOWPayments order/IPN, demo order/completion, payment history, receipt resend.
+- Payments: PayHere order/webhook, NOWPayments order/IPN, demo checkout, payment history, receipt resend.
 
 ## 25. Background jobs and caches
 
 - Booking timeout scheduler scans every 60 seconds.
 - Read-triggered timeout scans are throttled to 30 seconds.
-- Demo renewal processing renews due auto-renew subscriptions only in demo mode.
+- Demo renewal processing renews due auto-renew subscriptions that originated from Demo payments.
 - Monthly payout scheduling runs hourly and queues payouts on the last day of each month when enabled.
 - Public subscription catalogue responses cache for 60 seconds.
 

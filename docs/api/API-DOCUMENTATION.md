@@ -56,6 +56,10 @@ There is no Super Admin. Every `/admin/*` route requires an Admin JWT. Admin cov
 
 `GET /uploads/photos/:id` permits the booking customer, assigned provider, or admin. `GET /uploads/kyc/:id` permits the provider owner or admin. Files are not exposed through static paths.
 
+## Realtime
+
+`GET /api/realtime` opens an authenticated Server-Sent Events stream. Booking, service-request, and payout events are broadcast as they happen; clients reload details through the authorized REST routes above.
+
 ## Errors
 
 `401` means missing credentials; `403` means invalid/revoked token, wrong role, KYC gate, or ownership denial; `404` means absent/hidden resource; `409` means state/concurrency conflict; `413` means upload too large; `5xx` indicates dependency/server failure. Frontends must not replace failures with invented success state.

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
-import { isNonEmptyString } from '../middleware/validators.js';
+import { isNonEmptyString, toBoolean } from '../middleware/validators.js';
 import { activePromotionWhere } from '../services/promotions.js';
 import { invalidateSubscriptionsCache } from './services.js';
 
@@ -83,8 +83,9 @@ router.put('/:id', async (req, res) => {
 
   const body = req.body || {};
   const requested = body.active !== undefined && body.active !== null && body.active !== ''
-    ? !!Number(body.active)
+    ? toBoolean(body.active)
     : !p.active;
+  if (requested === null) return res.status(400).json({ error: 'active must be a boolean (true/false, 1/0)' });
 
   const data = { active: requested };
   if (req.body.title !== undefined) data.title = String(req.body.title).trim();

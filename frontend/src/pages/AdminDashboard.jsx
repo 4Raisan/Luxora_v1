@@ -249,8 +249,26 @@ const AdminDashboard = () => {
   useEffect(() => { loadAll() }, [loadAll])
   useEffect(() => { loadScheduling() }, [loadScheduling])
 
+  // Targeted realtime refresh for complaint events: keeps the complaints list
+  // and the open-complaints stat current without a full loadAll().
+  const refreshComplaints = useCallback(async () => {
+    if (!token) return
+    try {
+      const [freshComplaints, freshStats] = await Promise.all([
+        apiRequest('/admin/complaints', 'GET', null, token),
+        apiRequest('/admin/stats', 'GET', null, token),
+      ])
+      setComplaints(freshComplaints)
+      setStats(freshStats)
+    } catch { /* non-fatal: next event or reload will sync */ }
+  }, [token])
+
   useRealtime({
     onEvent: (type, data) => {
+      if (['COMPLAINT_CREATED', 'COMPLAINT_UPDATED'].includes(type)) {
+        void refreshComplaints()
+        return
+      }
       if (data?.metadata?.rescheduled) {
         void loadAll()
         return

@@ -3,6 +3,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { toPositiveInt, isNonEmptyString } from '../middleware/validators.js';
 import { notify } from '../services/notify.js';
+import { broadcastToRole } from '../services/realtime.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -64,6 +65,7 @@ router.post('/', async (req, res) => {
   });
   const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true } });
   await Promise.all(admins.map((admin) => notify(admin.id, `New complaint #${complaint.id}: ${complaint.subject}`, '/admin-dashboard')));
+  broadcastToRole('ADMIN', 'COMPLAINT_CREATED', { complaintId: complaint.id, subject: complaint.subject });
   res.status(201).json({
     message: 'Complaint registered successfully. Admin will review shortly.',
     complaint: { id: complaint.id, subject: complaint.subject, description: complaint.description, status: complaint.status.toLowerCase(), created_at: complaint.createdAt },

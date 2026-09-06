@@ -54,7 +54,7 @@ Bookings cannot be cancelled once they are `IN_PROGRESS`. Customer cancellations
 - **No-provider timeout**: a booking still `PENDING`/unassigned when real time reaches its scheduled start is cancelled immediately (no grace period), the coin is restored exactly once, and the customer is notified. Later `ASSIGNED` (2h no-start) and `IN_PROGRESS` (2h past end) system timeouts remain.
 - **Auto-assignment window**: 07:00 through 16:00 **Asia/Colombo** local time (16:00 is 4 PM; settings carry whole hours so the full 16th hour is inside the window). Parsed from stored wall-clock strings, independent of server timezone; the production container pins `TZ=Asia/Colombo`.
 - **Auto-assignment cooldown**: 5 hours per provider between successful automatic assignments (`autoAssignmentCooldownHours = 5`). Failed attempts create no cooldown state; manual claiming is never blocked by it; urgent recovery paths (provider cancel, HOLD, offline, timeout retry) intentionally bypass window/cooldown checks.
-- **Rescheduling**: the old booking becomes `CANCELLED` exactly once (coin restored), and a fully independent new booking is created. The new slot must satisfy the same >=4h lead time and goes through the normal assignment flow; `petType` and the entitlement subscription are preserved with net-zero coin effect.
+- **Rescheduling**: the old booking becomes `CANCELLED` exactly once (coin restored), and a fully independent new booking is created. The new slot must satisfy the same >=4h lead time and goes through the normal assignment flow (including the auto-assignment cooldown: the original booking still counts toward the provider's cooldown even though it was just cancelled, so a reschedule can never jump the queue); `petType` and the entitlement subscription are preserved with net-zero coin effect.
 - **Refunds**: there are no customer cash refunds in V1; package purchases are final. Eligible cancellations restore service coins only. Gateway-initiated chargeback callbacks (PayHere `-3`, NOWPayments refunded IPN) only synchronize externally reversed payments and are not a customer refund flow.
 
 ## Plans, credits, and payments
@@ -66,11 +66,12 @@ Bookings cannot be cancelled once they are `IN_PROGRESS`. Customer cancellations
 - Buying or renewing a package creates or renews the corresponding credit entitlements.
 - Admin manages package title, type, price, description, coins, and recommendation badge; package duration is fixed at 30 days.
 - PayHere checkout requires public HTTPS return, cancel, and webhook URLs before it can be enabled.
+- Repeated PayHere checkouts supersede stale `PENDING` orders for the same customer and package (older than 30 minutes; newer ones may still be on the hosted payment page). Superseded orders are closed as `FAILED` and can never activate, because subscription activation only ever grants from a `PENDING` payment.
 - Official PayHere Sandbox testing instruments (non-production testing reference only): Visa (`4916217501611292`), MasterCard (`5307732125531191`), AMEX (`346781005510225`), Expiry: Any future date, CVV: Any 3 digits.
 
 ## Notifications & Account Verification
 
-Purchasing, booking, assignment, status changes, payment events, and other customer/provider/admin operational events create notifications through the backend notification flow. Confirmed integrations are Resend email and Google sign-in. Phone numbers are stored as standard profile contact info without SMS/OTP verification.
+Purchasing, booking, assignment, status changes, payment events, and other customer/provider/admin operational events create notifications through the backend notification flow. Complaint status changes notify the customer exactly once per actual transition (`OPEN` -> `IN_REVIEW` -> `RESOLVED`; repeated updates with the same status never re-notify) and push live `COMPLAINT_*` events to open admin dashboards. New complaints notify admins and refresh open admin complaint lists over SSE. Password reset never issues or accepts reset credentials for deactivated accounts, while responses stay identical so account existence is not revealed. Confirmed integrations are Resend email and Google sign-in. Phone numbers are stored as standard profile contact info without SMS/OTP verification.
 
 ## Provider earnings and profile data
 

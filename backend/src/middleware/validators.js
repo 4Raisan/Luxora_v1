@@ -67,6 +67,20 @@ export const toEnum = (value, allowed) => {
   return allowed.includes(upper) ? upper : null;
 };
 
+// Normalizes legit boolean payload formats (true/false, 1/0, "true"/"false",
+// "1"/"0") to a strict boolean. Returns null for anything else so callers can
+// reject ambiguous values instead of misreading them (Number("true") is NaN).
+export const toBoolean = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1 ? true : value === 0 ? false : null;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') return true;
+    if (normalized === 'false' || normalized === '0') return false;
+  }
+  return null;
+};
+
 export const BOOKING_STATUSES = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 export const KYC_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'];
 export const COMPLAINT_STATUSES = ['OPEN', 'IN_REVIEW', 'RESOLVED'];

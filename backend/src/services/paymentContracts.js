@@ -96,3 +96,26 @@ export function classifyNowPaymentsIpn(payment, payload = {}) {
 
   return 'unsupported';
 }
+
+/**
+ * Checkout retries must not accumulate stale payable orders. Returns the ids of
+ * PENDING PayHere orders that a new checkout for the same user+plan supersedes.
+ *
+ * Safety rules:
+ * - Only PENDING orders are superseded (a settled/failed/refunded payment is
+ *   historical truth and is never rewritten).
+ * - Only orders strictly older than `stalenessMs` are superseded: a checkout
+ *   the customer may currently have open on the hosted payment page stays
+ *   payable, so money can never be captured for a superseded order.
+ * - The just-created order is never superseded by itself.
+ */
+export function selectSupersededPayHereOrders(payments, { currentPaymentId, now = new Date(), stalenessMs = 30 * 60 * 1000 } = {}) {
+  const cutoff = new Date(now.getTime() - stalenessMs).getTime();
+  return (Array.isArray(payments) ? payments : [])
+    .filter((p) => p
+      && p.gateway === 'PAYHERE'
+      && p.status === 'PENDING'
+      && p.id !== currentPaymentId
+      && new Date(p.createdAt).getTime() <= cutoff)
+    .map((p) => p.id);
+}

@@ -50,6 +50,12 @@ Both explorers are deployed together to GitHub Pages by `.github/workflows/knowl
 | Services | `/api` | Categories, services, subscriptions, entitlements |
 | Bookings | `/api/bookings` | Booking, cancellation, provider status, PIN/photo lifecycle |
 | Customer | `/api/customer` | Dashboard data |
+| Profile | `/api/profile` | Customer/provider profile |
+| Reviews | `/api/reviews` | Customer reviews |
+| Complaints | `/api/complaints` | Customer complaints |
+| Notifications | `/api/notifications` | Role dashboards |
+| Promotions | `/api/promotions` | Catalogue and admin promotions |
+| Support | `/api/support` | Support tickets and bespoke requests |
 | Provider | `/api/provider` | Availability, towns, earnings, bank accounts |
 | Admin | `/api/admin` | Operations, plans, KYC, payouts, reports |
 | Integrations | `/api` | PayHere, NOWPayments, demo payments, transactional email |

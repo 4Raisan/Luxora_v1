@@ -18,6 +18,7 @@ import {
 } from '../services/paymentContracts.js';
 import { convertLkrToUsd } from '../services/currency.js';
 import { toPositiveInt } from '../middleware/validators.js';import { rateLimit } from '../middleware/rateLimit.js';
+import { selectSupersededPayHereOrders } from '../services/paymentContracts.js';
 import { calculatePromotionPrice, findActivePromotionForPlan } from '../services/promotions.js';
 import { activateSubscription, completePaymentExperience, buildReceiptHtml } from '../services/paymentFulfilment.js';
 
@@ -157,6 +158,23 @@ router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'
     if (!payment) {
       orderId = `LUX-PH-${user.id}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
       payment = await prisma.payment.create({ data: { userId: user.id, planId: plan.id, gateway: 'PAYHERE', gatewayOrderId: orderId, idempotencyKey: orderId, expectedAmount: amount, expectedCurrency: 'LKR', ...promotionPaymentData(pricing) } });
+    }
+
+    // Checkout retries supersede stale PENDING orders for the same user+plan so
+    // old checkouts do not accumulate. Only orders older than the supersession
+    // window are closed (a checkout possibly still open on the hosted payment
+    // page stays payable), and activation remains single-shot because
+    // activateSubscriptionInTx only grants from a PENDING payment.
+    const supersedeCandidates = await prisma.payment.findMany({
+      where: { userId: user.id, planId: plan.id, gateway: 'PAYHERE', status: 'PENDING' },
+      select: { id: true, gateway: true, status: true, createdAt: true },
+    });
+    const supersededIds = selectSupersededPayHereOrders(supersedeCandidates, { currentPaymentId: payment.id });
+    if (supersededIds.length) {
+      await prisma.payment.updateMany({
+        where: { id: { in: supersededIds } },
+        data: { status: 'FAILED', webhookPayload: { supersededBy: orderId, supersededAt: new Date().toISOString() } },
+      });
     }
 
     const promoLabel = pricing.promotion ? ` — ${Number(pricing.promotion.discountPct)}% off` : '';
