@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "stats": {
-    "totalNodes": 85,
+    "totalNodes": 86,
     "totalEdges": 107,
     "totalViews": 12
   },
@@ -668,7 +668,7 @@
       "file": "backend/prisma/schema.prisma",
       "description": "Financial ledger record maintaining 30-day billing cycles, PayHere/NOWPayments transaction tokens, and exact token coin wallet balances.",
       "metadata": {
-        "fieldsCount": 24,
+        "fieldsCount": 25,
         "fields": [
           "id",
           "userId",
@@ -833,6 +833,32 @@
           "idempotencyKey",
           "bankNameSnapshot",
           "accountHolderSnapshot"
+        ]
+      }
+    },
+    {
+      "id": "model:refundrequest",
+      "label": "🗄️ Model: RefundRequest",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing RefundRequest records.",
+      "metadata": {
+        "fieldsCount": 15,
+        "fields": [
+          "id",
+          "paymentId",
+          "payment",
+          "requestedBy",
+          "requester",
+          "amount",
+          "currency",
+          "status",
+          "reason",
+          "adminNote"
         ]
       }
     },
@@ -1003,7 +1029,7 @@
       "file": "backend/prisma/schema.prisma",
       "description": "Identity record holding bcrypt password hashes, tokenVersion for session invalidation, and administrative governance audit logs.",
       "metadata": {
-        "fieldsCount": 24,
+        "fieldsCount": 25,
         "fields": [
           "id",
           "name",

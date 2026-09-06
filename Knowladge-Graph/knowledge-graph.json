@@ -6,15 +6,15 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 210,
-    "totalEdges": 450,
+    "totalNodes": 213,
+    "totalEdges": 457,
     "nodesByGroup": {
       "api": 104,
-      "database": 33,
+      "database": 35,
       "frontend": 37,
       "middleware": 3,
       "routes": 17,
-      "service": 16
+      "service": 17
     }
   },
   "nodes": [
@@ -1700,6 +1700,28 @@
       }
     },
     {
+      "id": "enum:RefundStatus",
+      "label": "RefundStatus",
+      "type": "Enum",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "values": [
+          "APPROVED",
+          "CANCELLED",
+          "COMPLETED",
+          "FAILED",
+          "PROCESSING",
+          "REJECTED",
+          "REQUESTED",
+          "UNDER_REVIEW"
+        ]
+      },
+      "source": {
+        "path": "backend/prisma/schema.prisma"
+      }
+    },
+    {
       "id": "enum:Role",
       "label": "Role",
       "type": "Enum",
@@ -2770,6 +2792,10 @@
             "type": "Int?"
           },
           {
+            "name": "refunds",
+            "type": "RefundRequest[]"
+          },
+          {
             "name": "status",
             "type": "PaymentStatus"
           },
@@ -3178,6 +3204,81 @@
           {
             "name": "status",
             "type": "PayoutStatus"
+          }
+        ],
+        "relations": []
+      },
+      "source": {
+        "path": "backend/prisma/schema.prisma"
+      }
+    },
+    {
+      "id": "model:RefundRequest",
+      "label": "RefundRequest",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "adminNote",
+            "type": "String?"
+          },
+          {
+            "name": "amount",
+            "type": "Decimal"
+          },
+          {
+            "name": "completedAt",
+            "type": "DateTime?"
+          },
+          {
+            "name": "currency",
+            "type": "String"
+          },
+          {
+            "name": "decidedAt",
+            "type": "DateTime?"
+          },
+          {
+            "name": "id",
+            "type": "Int"
+          },
+          {
+            "name": "payment",
+            "type": "Payment"
+          },
+          {
+            "name": "paymentId",
+            "type": "Int"
+          },
+          {
+            "name": "providerRef",
+            "type": "String?"
+          },
+          {
+            "name": "reason",
+            "type": "String?"
+          },
+          {
+            "name": "requestedAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "requestedBy",
+            "type": "Int"
+          },
+          {
+            "name": "requester",
+            "type": "User"
+          },
+          {
+            "name": "status",
+            "type": "RefundStatus"
+          },
+          {
+            "name": "updatedAt",
+            "type": "DateTime"
           }
         ],
         "relations": []
@@ -3631,6 +3732,10 @@
           {
             "name": "provider",
             "type": "Provider?"
+          },
+          {
+            "name": "refundsRequested",
+            "type": "RefundRequest[]"
           },
           {
             "name": "reviews",
@@ -4173,6 +4278,21 @@
       },
       "source": {
         "path": "backend/src/services/realtime.js"
+      }
+    },
+    {
+      "id": "service:refunds",
+      "label": "refunds.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/refunds.js",
+      "metadata": {
+        "modelsAccessed": [
+          "refundRequest"
+        ]
+      },
+      "source": {
+        "path": "backend/src/services/refunds.js"
       }
     },
     {
@@ -6483,6 +6603,20 @@
       }
     },
     {
+      "id": "model:Payment->model:RefundRequest:DB_RELATION",
+      "from": "model:Payment",
+      "to": "model:RefundRequest",
+      "type": "DB_RELATION",
+      "label": "refunds",
+      "source": "model:Payment",
+      "target": "model:RefundRequest",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "model:Payment->model:SubscriptionPlan:DB_RELATION",
       "from": "model:Payment",
       "to": "model:SubscriptionPlan",
@@ -6756,6 +6890,48 @@
       "label": "bankAccount",
       "source": "model:ProviderPayout",
       "target": "model:ProviderBankAccount",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:RefundRequest->enum:RefundStatus:DB_RELATION",
+      "from": "model:RefundRequest",
+      "to": "enum:RefundStatus",
+      "type": "DB_RELATION",
+      "label": "status",
+      "source": "model:RefundRequest",
+      "target": "enum:RefundStatus",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:RefundRequest->model:Payment:DB_RELATION",
+      "from": "model:RefundRequest",
+      "to": "model:Payment",
+      "type": "DB_RELATION",
+      "label": "payment",
+      "source": "model:RefundRequest",
+      "target": "model:Payment",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:RefundRequest->model:User:DB_RELATION",
+      "from": "model:RefundRequest",
+      "to": "model:User",
+      "type": "DB_RELATION",
+      "label": "requester",
+      "source": "model:RefundRequest",
+      "target": "model:User",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
@@ -7106,6 +7282,20 @@
       "label": "provider",
       "source": "model:User",
       "target": "model:Provider",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:User->model:RefundRequest:DB_RELATION",
+      "from": "model:User",
+      "to": "model:RefundRequest",
+      "type": "DB_RELATION",
+      "label": "refundsRequested",
+      "source": "model:User",
+      "target": "model:RefundRequest",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
@@ -8395,6 +8585,20 @@
       "source": "routefile:chat",
       "target": "endpoint:POST_/api/chatbot/special-ask",
       "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/chat.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:chat->middleware:rateLimit:USES_RATE_LIMIT",
+      "from": "routefile:chat",
+      "to": "middleware:rateLimit",
+      "type": "USES_RATE_LIMIT",
+      "label": "",
+      "source": "routefile:chat",
+      "target": "middleware:rateLimit",
+      "kind": "USES_RATE_LIMIT",
       "evidence": {
         "path": "backend/src/routes/chat.js",
         "extractor": "generate-graph.js:static-analysis"
@@ -10539,6 +10743,20 @@
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/services/paymentFulfilment.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "service:refunds->model:RefundRequest:QUERIES_DB",
+      "from": "service:refunds",
+      "to": "model:RefundRequest",
+      "type": "QUERIES_DB",
+      "label": "prisma.refundRequest",
+      "source": "service:refunds",
+      "target": "model:RefundRequest",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/services/refunds.js",
         "extractor": "generate-graph.js:static-analysis"
       }
     }
