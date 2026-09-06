@@ -20,6 +20,10 @@
   <a href="docs/api/API-DOCUMENTATION.md">API documentation</a>
 </p>
 
+<p align="center">
+  <img src="docs/assets/Luxora-HAD.jpg" alt="Luxora high-level architecture diagram" width="100%">
+</p>
+
 ## Overview
 
 Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet Care**. It coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state. There are no customer cash refunds in V1; eligible cancellations restore service coins only.
