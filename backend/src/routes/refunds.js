@@ -7,7 +7,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { toPositiveInt } from '../middleware/validators.js';
-import { createRefundRequest } from '../services/refunds.js';
+import { createRefundRequest, transitionRefund } from '../services/refunds.js';
 import { notify } from '../services/notify.js';
 import { broadcastToRole } from '../services/realtime.js';
 
@@ -83,6 +83,23 @@ router.post('/payments/refunds', authenticateToken, requireRole('CUSTOMER'), ref
   }
 });
 
+// Requester cancellation — allowed only while the refund is still open
+// (REQUESTED/UNDER_REVIEW); the service enforces ownership and state.
+router.put('/payments/refunds/:id/cancel', authenticateToken, async (req, res) => {
+  try {
+    const updated = await transitionRefund({
+      refundId: req.params.id,
+      actorUserId: req.user.id,
+      actorRole: req.user.role,
+      action: 'cancel',
+    });
+    res.json({ message: 'Refund request cancelled.', refund: serializeCustomer(updated) });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    throw error;
+  }
+});
+
 router.get('/payments/refunds/my', authenticateToken, async (req, res) => {
   const refunds = await prisma.refundRequest.findMany({
     where: { requestedBy: req.user.id },
@@ -91,6 +108,7 @@ router.get('/payments/refunds/my', authenticateToken, async (req, res) => {
   });
   res.json(refunds.map((refund) => ({
     id: refund.id,
+    payment_id: refund.paymentId,
     payment: refund.payment && {
       id: refund.payment.id,
       gateway: refund.payment.gateway,

@@ -14,6 +14,7 @@ dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
+import { createRefundRequest } from '../src/services/refunds.js';
 import './assert-test-database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -283,6 +284,46 @@ test('C-S2: another customer’s refunds are never visible', async () => {
   const listBAgain = await authJson(tokenFor(customerB), '/payments/refunds/my');
   for (const row of listBAgain.body.filter((r) => r.id > refundIdFloor)) {
     assert.equal(idsA.includes(row.id), false);
+  }
+});
+
+test('C-S4: customer can cancel their own open refund; terminal states reject cancellation', async () => {
+  const payment = await mkPaymentFor(customerA.id, 100);
+  const tokenA = tokenFor(customerA);
+  const created = await authJson(tokenA, '/payments/refunds', {
+    method: 'POST', body: JSON.stringify({ payment_id: payment.id, reason: 'Cancel-me check' }),
+  });
+  assert.equal(created.status, 201);
+  const refundId = created.body.refund.id;
+
+  // Another customer cannot cancel it.
+  const foreign = await authJson(tokenFor(customerB), `/payments/refunds/${refundId}/cancel`, { method: 'PUT' });
+  assert.ok([403, 404].includes(foreign.status), `foreign cancel got ${foreign.status}`);
+
+  const cancelled = await authJson(tokenA, `/payments/refunds/${refundId}/cancel`, { method: 'PUT' });
+  assert.equal(cancelled.status, 200, cancelled.text);
+  assert.equal(cancelled.body.refund.status, 'cancelled');
+
+  // Terminal: second cancel is rejected by the state machine.
+  const again = await authJson(tokenA, `/payments/refunds/${refundId}/cancel`, { method: 'PUT' });
+  assert.equal(again.status, 409);
+
+  // After cancellation the amount is released: a new request is allowed.
+  const retry = await authJson(tokenA, '/payments/refunds', {
+    method: 'POST', body: JSON.stringify({ payment_id: payment.id, reason: 'Re-request after cancel' }),
+  });
+  assert.equal(retry.status, 201, retry.text);
+  const freshList = await authJson(tokenA, '/payments/refunds/my');
+  assert.equal(freshList.body.filter((r) => r.payment_id === payment.id).length, 2);
+});
+
+test('C-S4: refund list exposes only customer-safe fields', async () => {
+  const tokenA = tokenFor(customerA);
+  const list = await authJson(tokenA, '/payments/refunds/my');
+  for (const row of list.body) {
+    for (const forbidden of ['admin_note', 'provider_ref', 'requestedBy', 'adminNote', 'providerRef']) {
+      assert.equal(Object.keys(row).includes(forbidden) || JSON.stringify(row).includes(forbidden), false, `leaked ${forbidden}`);
+    }
   }
 });
 
