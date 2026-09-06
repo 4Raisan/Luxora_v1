@@ -20,6 +20,8 @@
   <a href="docs/api/API-DOCUMENTATION.md">API documentation</a>
 </p>
 
+<br>
+
 <p align="center">
   <img src="docs/assets/Luxora-HAD.jpg" alt="Luxora high-level architecture diagram" width="100%">
 </p>
