@@ -224,9 +224,13 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
     }),
   ]);
 
-  // One request must succeed with 201 (or 200 via 15s idempotency), neither should return 500 / P2028
+  // One request must succeed with 201 (or 200 via 15s idempotency) and the
+  // duplicate must be safely rejected with 409 — in EITHER arrival order
+  // (client dispatch order does not guarantee server arrival order).
+  const statuses = [concRes1.status, concRes2.status];
+  const safe = (s) => [200, 201, 409].includes(s);
   assert.ok(
-    [200, 201].includes(concRes1.status) && [200, 201, 409].includes(concRes2.status),
+    statuses.every(safe) && statuses.filter((s) => s === 201 || s === 200).length >= 1,
     `Both concurrent requests should be safely handled without 500. Got ${concRes1.status} and ${concRes2.status}`
   );
   assert.notEqual(concRes1.status, 500, 'concRes1 must not return HTTP 500');
