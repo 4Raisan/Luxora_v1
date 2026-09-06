@@ -364,6 +364,102 @@ const CustomerDashboard = () => {
   const [paymentBusy, setPaymentBusy] = useState(false)
   const [selectedReceiptItem, setSelectedReceiptItem] = useState(null)
 
+  // ── V2 Slice 4: customer refund requests + history ──
+  // Status labels map backend states to customer-friendly wording; the
+  // backend refund service remains the authority on eligibility and amounts.
+  const [myRefunds, setMyRefunds] = useState([])
+  const loadMyRefunds = useCallback(async () => {
+    const token = sessionStorage.getItem('token')
+    if (!token || token === 'demo-token') return
+    try {
+      const rows = await apiRequest('/payments/refunds/my', 'GET', null, token)
+      setMyRefunds(Array.isArray(rows) ? rows : [])
+    } catch {
+      // Non-fatal: the list refreshes on the next event or page load.
+    }
+  }, [])
+
+  const REFUND_STATUS_LABELS = {
+    requested: 'Request received',
+    under_review: 'Being reviewed',
+    approved: 'Approved',
+    processing: 'Refund being processed',
+    completed: 'Refund completed',
+    rejected: 'Refund declined',
+    failed: 'Refund failed',
+    cancelled: 'Cancelled',
+  }
+  const refundStatusLabel = (status) => REFUND_STATUS_LABELS[String(status).toLowerCase()] || String(status)
+  // Terminal states get muted styling; open states stay gold until resolved.
+  const REFUND_ACTIVE_STATUSES = ['requested', 'under_review', 'approved', 'processing']
+  const refundStatusClass = (status) => {
+    const normalized = String(status).toLowerCase()
+    if (normalized === 'completed') return 'cd-status-tag--completed'
+    if (normalized === 'failed' || normalized === 'rejected') return 'cd-status-tag--cancelled'
+    if (REFUND_ACTIVE_STATUSES.includes(normalized)) return 'cd-status-tag--active'
+    return 'cd-status-tag--cancelled'
+  }
+  const [refundRequestModal, setRefundRequestModal] = useState(null)
+  const [refundCancelConfirm, setRefundCancelConfirm] = useState(null)
+
+  const submitRefundRequest = async () => {
+    const modal = refundRequestModal
+    if (!modal || modal.busy) return
+    const amountDigits = String(modal.amount || '').replace(/[^0-9.]/g, '')
+    if (!amountDigits || Number(amountDigits) <= 0) {
+      setRefundRequestModal({ ...modal, error: 'Enter the refund amount.' })
+      return
+    }
+    const trimmedReason = (modal.reason || '').trim()
+    if (trimmedReason.length < 3 || trimmedReason.length > 500) {
+      setRefundRequestModal({ ...modal, error: 'Please describe the reason (3-500 characters).' })
+      return
+    }
+    setRefundRequestModal({ ...modal, error: '', busy: true })
+    const token = sessionStorage.getItem('token')
+    try {
+      const result = await apiRequest('/payments/refunds', 'POST', {
+        payment_id: modal.serverPaymentId,
+        amount: Number(amountDigits),
+        reason: trimmedReason,
+      }, token)
+      setRefundRequestModal(null)
+      setBookingSuccessMsg(result.message || 'Refund request submitted. Track it under My Refunds.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      void loadMyRefunds()
+    } catch (error) {
+      if (error.statusCode === 429) {
+        setRefundRequestModal({ ...modal, error: 'Too many requests. Please wait a few minutes and try again.' })
+      } else {
+        // Backend stays authoritative: eligibility, amount, and duplicate
+        // handling messages come straight from the refund service.
+        setRefundRequestModal({ ...modal, error: error.message || 'Could not submit the refund request.' })
+      }
+    }
+  }
+
+  const confirmRefundCancel = async () => {
+    const refund = refundCancelConfirm
+    if (!refund) return
+    const token = sessionStorage.getItem('token')
+    try {
+      const result = await apiRequest(`/payments/refunds/${refund.id}/cancel`, 'PUT', null, token)
+      setRefundCancelConfirm(null)
+      setBookingSuccessMsg(result.message || 'Refund request cancelled.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      void loadMyRefunds()
+    } catch (error) {
+      setRefundCancelConfirm(null)
+      // 409: the refund state changed elsewhere (e.g. admin already reviewed it).
+      setBookingSuccessMsg(error.message || 'Could not cancel the refund request.')
+      setTimeout(() => setBookingSuccessMsg(''), 6000)
+      void loadMyRefunds()
+    }
+  }
+
+  const refundHasOpenRequest = (serverPaymentId) =>
+    myRefunds.some((r) => r.payment_id === Number(serverPaymentId) && REFUND_ACTIVE_STATUSES.includes(String(r.status).toLowerCase()))
+
   // Easy Pay (PayHere) — backend-verified result shown after returning from
   // the hosted checkout. Never trusts the redirect itself: the status below is
   // always read from GET /payments/my, which only flips to COMPLETED when the
@@ -550,6 +646,7 @@ const CustomerDashboard = () => {
         apiRequest('/payments/my', 'GET', null, token).catch(() => null),
         apiRequest('/subscriptions').catch(() => null),
         apiRequest('/payments/mode', 'GET', null, token).catch(() => null),
+        loadMyRefunds(),
       ])
 
       if (mode?.gateways) {
@@ -565,6 +662,7 @@ const CustomerDashboard = () => {
             .filter(p => p.status === 'COMPLETED')
             .map(p => ({
               id: 'pay-' + p.id,
+              serverPaymentId: p.id,
               date: new Date(p.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
               service: p.plan?.title || 'Luxora package',
               tier: p.gateway === 'DEMO' ? 'Demo Payment' : p.gateway === 'NOWPAYMENTS' ? 'NOWPayments' : p.gateway === 'PAYHERE' ? 'PayHere' : 'Server payment',
@@ -640,6 +738,11 @@ const CustomerDashboard = () => {
       try { return JSON.parse(sessionStorage.getItem('user') || '{}').id } catch { return null }
     })()
     if (b.userId && currentUserId && b.userId !== currentUserId) {
+      return
+    }
+
+    if (['REFUND_CREATED', 'REFUND_UPDATED'].includes(type)) {
+      void loadMyRefunds()
       return
     }
 
@@ -2585,9 +2688,27 @@ const CustomerDashboard = () => {
                         </td>
                         <td>
                           {item.status === 'Completed' ? (
-                            <button className="cd-btn-view-receipt" onClick={() => setSelectedReceiptItem(item)}>
-                              Receipt 🧾
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'flex-start' }}>
+                              <button className="cd-btn-view-receipt" onClick={() => setSelectedReceiptItem(item)}>
+                                Receipt 🧾
+                              </button>
+                              {item.serverPaymentId && (
+                                refundHasOpenRequest(item.serverPaymentId) ? (
+                                  <span style={{ color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', fontWeight: 700 }}>Refund requested</span>
+                                ) : (
+                                  <button
+                                    className="cd-btn-view-receipt"
+                                    style={{ color: '#d4af37' }}
+                                    onClick={() => {
+                                      const digits = parseInt((item.amount || '').replace(/[^0-9]/g, '')) || 0
+                                      setRefundRequestModal({ row: item, serverPaymentId: item.serverPaymentId, amount: String(digits), reason: '', error: '' })
+                                    }}
+                                  >
+                                    Request refund ↩
+                                  </button>
+                                )
+                              )}
+                            </div>
                           ) : (
                             <span style={{ color: '#666', fontSize: '0.78rem' }}>N/A</span>
                           )}
@@ -2601,6 +2722,52 @@ const CustomerDashboard = () => {
           </div>
         </div>
       )}
+
+        {/* ── V2 Slice 4: Customer Refund History ── */}
+        <div style={{ marginTop: '2.5rem', paddingTop: '2rem', borderTop: '1px solid #282828' }}>
+          <div className="cd-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div>
+              <h2 className="cd-page-title" style={{ fontSize: '1.45rem', color: 'var(--gold, #c9a84c)' }}>My Refunds</h2>
+              <p className="cd-page-subtitle">Requests you have made and where they stand</p>
+            </div>
+          </div>
+
+          {refundsLoading ? (
+            <p style={{ color: '#888', fontSize: '0.85rem' }}>Loading your refund requests…</p>
+          ) : myRefunds.length === 0 ? (
+            <p style={{ color: '#888', fontSize: '0.85rem', fontStyle: 'italic' }}>No refund requests. If a service ever falls short, you can request a refund from a completed payment above.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.85rem' }}>
+              {myRefunds.map((refund) => {
+                const active = ['requested', 'under_review', 'approved', 'processing'].includes(String(refund.status).toLowerCase())
+                return (
+                  <div key={refund.id} style={{ background: '#141414', border: '1px solid #282828', borderRadius: '12px', padding: '1rem 1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem' }}>
+                        {refund.currency} {Number(refund.amount).toLocaleString()} · {refund.payment ? `payment #${refund.payment.id} (${refund.payment.gateway})` : `payment #${refund.payment_id}`}
+                      </div>
+                      <div style={{ color: '#888', fontSize: '0.78rem', marginTop: '0.2rem' }}>
+                        Requested {new Date(refund.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}{refund.reason ? ` · ${refund.reason}` : ''}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <span className={`cd-status-tag ${refundStatusClass(refund.status)}`}>{refundStatusLabel(refund.status)}</span>
+                      {active && (
+                        <button
+                          className="cd-btn-view-receipt"
+                          style={{ color: '#ef4444' }}
+                          onClick={() => setRefundCancelConfirm(refund)}
+                        >
+                          Cancel request
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
       {/* ── TAB: ACTIVE BOOKINGS (FULL DEDICATED VIEW WITH DATES & BOOKING ID FILTERS) ── */}
       {activeTab === 'active_bookings' && (
@@ -3671,6 +3838,146 @@ const CustomerDashboard = () => {
                 }}
               >
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── V2 Slice 4: Request Refund Modal (backend is authoritative) ── */}
+      {refundRequestModal && (
+        <div className="cd-address-overlay" onClick={() => !refundRequestModal.busy && setRefundRequestModal(null)}>
+          <div
+            className="cd-address-modal animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '460px', position: 'relative' }}
+          >
+            <button
+              className="auth-card-close-btn"
+              onClick={() => !refundRequestModal.busy && setRefundRequestModal(null)}
+              aria-label="Close"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                cursor: refundRequestModal.busy ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem'
+              }}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.4rem 0' }}>REQUEST A REFUND</h3>
+            <p style={{ color: '#bbb', fontSize: '0.84rem', margin: '0 0 1rem 0' }}>
+              {refundRequestModal.row.service} · {refundRequestModal.row.ref}
+            </p>
+
+            <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0 0 0.35rem' }}>REFUND AMOUNT (LKR)</label>
+            <input
+              type="number"
+              min="1"
+              className="cd-address-form-input"
+              value={refundRequestModal.amount}
+              onChange={(e) => setRefundRequestModal({ ...refundRequestModal, amount: e.target.value })}
+              style={{ width: '100%', marginBottom: '0.9rem' }}
+            />
+
+            <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0 0 0.35rem' }}>REASON (REQUIRED)</label>
+            <textarea
+              rows={3}
+              className="cd-address-form-input"
+              value={refundRequestModal.reason}
+              onChange={(e) => setRefundRequestModal({ ...refundRequestModal, reason: e.target.value })}
+              placeholder="Tell us briefly why you are requesting a refund…"
+              style={{ width: '100%', marginBottom: '0.9rem', resize: 'vertical' }}
+            />
+
+            {refundRequestModal.error && (
+              <p style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.82rem', margin: '0 0 0.9rem 0' }}>{refundRequestModal.error}</p>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                disabled={refundRequestModal.busy}
+                onClick={() => setRefundRequestModal(null)}
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#888', border: '1px solid rgba(255,255,255,0.1)', padding: '0.7rem 1.1rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={refundRequestModal.busy}
+                onClick={submitRefundRequest}
+                style={{ background: 'linear-gradient(135deg, var(--gold, #c9a84c) 0%, #a68432 100%)', color: '#000', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 900, cursor: 'pointer' }}
+              >
+                {refundRequestModal.busy ? 'SUBMITTING…' : 'SUBMIT REQUEST'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── V2 Slice 4: Cancel Refund Request Confirmation ── */}
+      {refundCancelConfirm && (
+        <div className="cd-address-overlay" onClick={() => setRefundCancelConfirm(null)}>
+          <div
+            className="cd-address-modal animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '440px', textAlign: 'center', padding: '2.2rem 1.8rem', position: 'relative' }}
+          >
+            <button
+              className="auth-card-close-btn"
+              onClick={() => setRefundCancelConfirm(null)}
+              aria-label="Close"
+              type="button"
+              style={{
+                position: 'absolute',
+                top: '1.1rem',
+                right: '1.1rem',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#aaa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ✕
+            </button>
+            <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, margin: '0 0 0.5rem 0' }}>CANCEL REFUND REQUEST</h3>
+            <p style={{ color: '#aaa', fontSize: '0.86rem', lineHeight: '1.5', margin: '0 0 1.4rem 0' }}>
+              Cancel your refund request of {refundCancelConfirm.currency} {Number(refundCancelConfirm.amount).toLocaleString()}?
+              You can submit a new request later while the payment remains eligible.
+            </p>
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setRefundCancelConfirm(null)}
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#888', border: '1px solid rgba(255,255,255,0.1)', padding: '0.7rem 1.2rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={confirmRefundCancel}
+                style={{ background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', color: '#fff', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer' }}
+              >
+                Yes, Cancel Request
               </button>
             </div>
           </div>

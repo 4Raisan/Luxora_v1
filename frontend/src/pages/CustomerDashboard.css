@@ -1100,6 +1100,18 @@
   color: var(--gold);
 }
 
+/* Refund status variants (V2 Slice 4): open states stay gold until resolved. */
+.cd-status-tag--active {
+  background: rgba(201, 168, 76, 0.14);
+  color: var(--gold, #c9a84c);
+  border: 1px solid rgba(201, 168, 76, 0.45);
+}
+.cd-status-tag--failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
 .cd-status-tag {
   display: inline-block;
   font-size: 0.65rem;
