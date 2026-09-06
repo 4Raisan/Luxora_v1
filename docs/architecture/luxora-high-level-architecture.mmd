@@ -1,0 +1,85 @@
+flowchart TB
+    subgraph CLIENT["BROWSER / CLIENT BOUNDARY"]
+        direction LR
+        CUSTOMER["Customer"]
+        PROVIDER["Provider"]
+        ADMIN["Admin"]
+        SPA["React + Vite SPA\nRole-based portals"]
+        CUSTOMER --> SPA
+        PROVIDER --> SPA
+        ADMIN --> SPA
+    end
+
+    subgraph FRONTEND["FRONTEND HOSTING"]
+        VERCEL["Vercel\nluxora.bond\nStatic SPA + edge delivery"]
+    end
+
+    subgraph BACKEND["BACKEND RUNTIME"]
+        NORTHFLANK["Northflank\nDocker · Node.js · Express"]
+        API["REST API\nJWT + role/KYC gates\nBusiness services"]
+        REALTIME["SSE realtime\n/api/realtime"]
+        PRISMA["Prisma ORM\nRuntime queries + migrations"]
+        NORTHFLANK --> API
+        API --> PRISMA
+        API --> REALTIME
+    end
+
+    subgraph DATA["DATABASE BOUNDARY"]
+        NEON["Neon PostgreSQL 15\nManaged relational data"]
+    end
+
+    subgraph EXTERNAL["EXTERNAL SERVICES"]
+        direction LR
+        PAYHERE["PayHere\nLKR checkout + verified IPN"]
+        NOWPAYMENTS["NOWPayments\nCrypto checkout + verified IPN"]
+        RESEND["Resend\nTransactional email"]
+        R2["Cloudflare R2\nPrivate KYC + photo objects"]
+        GOOGLE["Google Identity Services\nFederated sign-in"]
+    end
+
+    VERCEL -->|"Serves SPA over HTTPS"| SPA
+    SPA -->|"HTTPS REST"| API
+    REALTIME -->|"Authenticated event stream"| SPA
+    PRISMA -->|"Pooled connection\nDirect URL for migrations"| NEON
+    API <-->|"Orders + signed callbacks"| PAYHERE
+    API <-->|"Invoices + signed callbacks"| NOWPAYMENTS
+    API -->|"HTTPS email API"| RESEND
+    API <-->|"S3-compatible API"| R2
+    SPA -->|"Identity credential"| GOOGLE
+    GOOGLE -->|"Server-side verification"| API
+
+    subgraph DELIVERY["DEVELOPMENT / CI / DELIVERY"]
+        direction LR
+        CODE["GitHub repository\nCurrent codebase"]
+        ACTIONS["GitHub Actions\nChange classification"]
+        CHECKS["CI checks\nProtected-files guard · secret scan\nLint/build · backend tests\nDependency audit · Docker smoke"]
+        GATE["Required gate"]
+        CODE --> ACTIONS --> CHECKS --> GATE
+    end
+
+    GATE -->|"Approved main revision"| VERCEL
+    GATE -->|"Approved Docker revision"| NORTHFLANK
+
+    subgraph KG["KNOWLEDGE GRAPH DELIVERY"]
+        direction LR
+        KGSOURCE["Codebase"]
+        KGGEN["KG + architecture generation"]
+        KGVERIFY["Validation + deterministic drift check"]
+        PAGES["GitHub Pages\nInteractive explorers"]
+        KGSOURCE --> KGGEN --> KGVERIFY --> PAGES
+    end
+
+    CODE --> KGSOURCE
+
+    classDef actor fill:#f5f1e8,stroke:#7c6a42,color:#171717,stroke-width:1.5px;
+    classDef frontend fill:#dbeafe,stroke:#2563eb,color:#172554,stroke-width:2px;
+    classDef backend fill:#dcfce7,stroke:#15803d,color:#052e16,stroke-width:2px;
+    classDef data fill:#f3e8ff,stroke:#7e22ce,color:#3b0764,stroke-width:2px;
+    classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px;
+    classDef delivery fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px;
+    class CUSTOMER,PROVIDER,ADMIN actor;
+    class SPA,VERCEL frontend;
+    class NORTHFLANK,API,REALTIME,PRISMA backend;
+    class NEON data;
+    class PAYHERE,NOWPAYMENTS,RESEND,R2,GOOGLE external;
+    class CODE,ACTIONS,CHECKS,GATE,KGSOURCE,KGGEN,KGVERIFY,PAGES delivery;

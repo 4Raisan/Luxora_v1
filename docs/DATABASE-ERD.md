@@ -34,6 +34,7 @@ erDiagram
     providers ||--o{ kyc_documents : "submits"
     providers ||--o{ bookings : "is assigned"
     providers ||--o{ reviews : "receives"
+    providers |o--o{ support_tickets : "handles"
     providers ||--o{ provider_bank_accounts : "owns"
     providers ||--o{ provider_payouts : "earns"
     provider_bank_accounts ||--o{ provider_payouts : "receives"
@@ -68,7 +69,7 @@ erDiagram
     }
     providers {
         int id PK
-        int userId FK_UK
+        int userId FK, UK
         string kycStatus
         string category
         decimal earnings
@@ -150,7 +151,7 @@ erDiagram
     }
     reviews {
         int id PK
-        int bookingId FK_UK
+        int bookingId FK, UK
         int userId FK
         int providerId FK
         int rating
@@ -169,6 +170,7 @@ erDiagram
     support_tickets {
         int id PK
         int userId FK
+        int providerId FK
         string status
         string priority
     }
@@ -222,6 +224,7 @@ erDiagram
     providers ||--o{ kyc_documents : "KYC documents"
     providers ||--o{ provider_bank_accounts : "bank accounts"
     providers ||--o{ provider_payouts : "payouts"
+    providers |o--o{ support_tickets : "assigned support"
     provider_bank_accounts ||--o{ provider_payouts : "paid to"
 ```
 
@@ -274,7 +277,7 @@ erDiagram
 | `payments` | Payment intent, gateway response, and captured amount | Belongs to user; may reference plan, booking, or subscription |
 | `reviews` | Customer review of a completed booking/provider | One per booking; references user and provider |
 | `complaints` | Customer complaint workflow | Belongs to user; may relate to a booking |
-| `support_tickets` | Customer support conversation and status | Belongs to user |
+| `support_tickets` | Customer support conversation and status | Belongs to a user and may be assigned to a provider |
 | `notifications` | In-app customer/provider/admin messages | Belongs to user |
 | `provider_bank_accounts` | Provider payout destination | Belongs to provider |
 | `provider_payouts` | Monthly/provider settlement record | Belongs to provider and bank account |
@@ -288,7 +291,7 @@ erDiagram
 | Parent | Child | Database behaviour |
 | --- | --- | --- |
 | `users` | `providers`, password reset tokens, subscriptions, payments, support tickets, notifications, audit logs | Cascade delete where defined |
-| `providers` | KYC documents, bank accounts, payouts | Cascade delete where defined |
+| `providers` | KYC documents, bank accounts, payouts, support tickets | Cascade delete where defined; assigned support tickets use set null |
 | `categories` | `services`, subscription entitlements | Cascade delete |
 | `subscription_plans` | Entitlements | Cascade delete |
 | `subscription_plans` | Payments | Restrict delete; preserve payment history |
