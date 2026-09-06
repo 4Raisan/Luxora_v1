@@ -57,3 +57,52 @@ pg_dump -h <db_host> -U <db_user> -d <db_name> -F c -b -v -f luxora_backup_$(dat
    // Iterate accounts within transaction and update with reencryptAccountNumber(acc.accountNumber, OLD_BANK_KEY, NEW_BANK_KEY)
    ```
 3. Deploy new application instances configured with `BANK_ENCRYPTION_KEY=NEW_BANK_KEY`.
+
+---
+
+## 5. Rate Limiting Across Replicas (Required for Multi-Instance)
+
+The login/reset/chat limiters are per-process in memory by default. With more
+than one backend replica, each replica keeps its own counter, so the effective
+threshold is `limit x replica count`. This is verified behavior, not a bug.
+
+- **Single replica**: nothing to do; limits enforce exactly.
+- **Multiple replicas**: set `REDIS_URL` (any managed Redis reachable from the
+  replicas). On startup the first limited request logs
+  `[rate-limit] Connected to Redis distributed store.` — confirm that line
+  appears in the logs of EVERY replica. If instead you see
+  `[rate-limit] Redis connection error, using local fallback: ...`, the
+  counters are NOT shared (service stays up, but limits are per-instance).
+
+Verified behavior matrix (probe: 11 invalid `POST /api/auth/login` from one IP):
+
+| Configuration | Result |
+| --- | --- |
+| 1 replica, no Redis | 401 x10, then 429 on attempt #11 |
+| 2 replicas, no Redis | counters split; no 429 within 11 attempts |
+| 2 replicas + shared Redis | shared counter; 429 as above |
+| Redis unreachable | loud fallback warning; per-instance limits (fail-open, service stays up) |
+
+## 6. Production Demo-Account Rotation (One-Time, Required)
+
+`prisma/seed.js` can no longer create demo accounts in production (it refuses),
+but accounts seeded historically may still exist. Verify and rotate on the
+production database:
+
+```sql
+SELECT id, email, role, active FROM "User" WHERE email IN
+  ('customer@luxora.lk', 'provider@luxora.lk', 'admin@luxora.lk');
+```
+
+For any row that must stay (e.g. the admin), rotate its password through the
+application or set a new strong hash. For rows that are not needed, deactivate
+them (`active = false`) — deactivated accounts cannot log in and cannot receive
+password-reset credentials.
+
+## 7. Storage Fail-Fast (Informational)
+
+Production refuses to start without `S3_BUCKET`, `S3_ACCESS_KEY_ID`, and
+`S3_SECRET_ACCESS_KEY` (`assertStorageConfigured()` in
+`backend/src/services/storage.js`). This is intentional: ephemeral local disk
+would silently lose KYC documents and booking evidence on redeploy. If the
+backend crash-loops on deploy, check these three variables first.
