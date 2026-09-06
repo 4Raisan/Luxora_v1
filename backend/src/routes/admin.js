@@ -3,12 +3,13 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { notify, logAdminAction } from '../services/notify.js';
 import { sendEmail, escapeHtml } from '../services/integrations.js';
-import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES } from '../middleware/validators.js';
+import { toEnum, toPositiveInt, BOOKING_STATUSES, KYC_STATUSES, COMPLAINT_STATUSES, REFUND_STATUSES } from '../middleware/validators.js';
 import { getPlatformSettings, handleProviderHoldBookings, providerCanTakeBooking, reassignOrUnassignProviderBookings } from '../services/scheduling.js';
 import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookingsThrottled } from '../services/bookingTimeouts.js';
 import { broadcastBookingEvent, broadcastToRole, broadcastToUser } from '../services/realtime.js';
+import { transitionRefund } from '../services/refunds.js';
 import { invalidateSubscriptionsCache } from './services.js';
 
 const router = Router();
@@ -654,6 +655,120 @@ router.put('/complaints/:id', async (req, res) => {
 
   logAdminAction({ adminId: req.user.id, action: `COMPLAINT_${status}`, targetType: 'Complaint', targetId: String(complaint.id), details: { status, adminNote }, ipAddress: req.ip }).catch(() => {});
   res.json({ message: `Complaint updated to ${status.toLowerCase()}` });
+});
+
+// V2 Slice 3 — admin refund operations. State/eligibility/amounts live in
+// services/refunds.js; this route handles authorization, filters, audit,
+// transition-gated customer notifications, and admin SSE refresh.
+router.get('/refunds', async (req, res) => {
+  const status = req.query.status ? toEnum(req.query.status, REFUND_STATUSES) : null;
+  if (req.query.status && !status) return res.status(400).json({ error: 'Invalid refund status filter' });
+
+  const where = {};
+  if (status) where.status = status;
+  if (req.query.payment_id) {
+    const paymentId = toPositiveInt(req.query.payment_id);
+    if (!paymentId) return res.status(400).json({ error: 'Invalid payment id filter' });
+    where.paymentId = paymentId;
+  }
+  if (req.query.customer) {
+    where.requester = {
+      OR: [
+        { name: { contains: String(req.query.customer) } },
+        { email: { contains: String(req.query.customer) } },
+      ],
+    };
+  }
+
+  const refunds = await prisma.refundRequest.findMany({
+    where,
+    orderBy: { requestedAt: 'desc' },
+    include: {
+      payment: { select: { id: true, gateway: true, capturedAmount: true, capturedCurrency: true } },
+      requester: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  res.json(refunds.map((refund) => ({
+    id: refund.id,
+    payment_id: refund.paymentId,
+    status: refund.status.toLowerCase(),
+    amount: Number(refund.amount),
+    currency: refund.currency,
+    reason: refund.reason,
+    admin_note: refund.adminNote,
+    provider_ref: refund.providerRef,
+    requested_at: refund.requestedAt,
+    decided_at: refund.decidedAt,
+    completed_at: refund.completedAt,
+    customer_name: refund.requester?.name,
+    customer_email: refund.requester?.email,
+    payment: refund.payment && {
+      id: refund.payment.id,
+      gateway: refund.payment.gateway,
+      captured_amount: Number(refund.payment.capturedAmount || 0),
+      captured_currency: refund.payment.capturedCurrency,
+    },
+  })));
+});
+
+// Admin transition map -> customer notification text (sent once per actual
+// transition; the service rejects no-ops, so retries never re-notify).
+const REFUND_CUSTOMER_MESSAGES = {
+  UNDER_REVIEW: (refund) => `Your refund request #${refund.id} is being reviewed by our team.`,
+  APPROVED: (refund) => `Your refund request #${refund.id} has been approved and is being prepared for processing.`,
+  PROCESSING: (refund) => `Your refund of ${refund.currency} ${Number(refund.amount).toFixed(2)} is being processed back to your original payment method.`,
+  COMPLETED: (refund) => `Your refund of ${refund.currency} ${Number(refund.amount).toFixed(2)} has been completed.`,
+  FAILED: (refund) => `Your refund request #${refund.id} could not be processed. Our support team will contact you.`,
+  REJECTED: (refund) => `Your refund request #${refund.id} has been declined. Please check your dashboard for details.`,
+};
+
+router.put('/refunds/:id', requireRole('ADMIN'), async (req, res) => {
+  const action = String(req.body.action || '').trim();
+  if (!['review', 'approve', 'reject', 'process', 'complete', 'fail'].includes(action)) {
+    return res.status(400).json({ error: 'action must be one of: review, approve, reject, process, complete, fail' });
+  }
+  const adminNote = req.body.admin_note === undefined ? undefined : String(req.body.admin_note).trim();
+  const providerRef = req.body.provider_ref === undefined ? undefined : String(req.body.provider_ref).trim();
+
+  let updated;
+  try {
+    updated = await transitionRefund({
+      refundId: req.params.id,
+      actorUserId: req.user.id,
+      actorRole: req.user.role,
+      action,
+      adminNote,
+      providerRef,
+    });
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    throw error;
+  }
+
+  // Audit + customer notification + SSE only for transitions that actually happened.
+  logAdminAction({
+    adminId: req.user.id,
+    action: `REFUND_${action.toUpperCase()}`,
+    targetType: 'RefundRequest',
+    targetId: String(updated.id),
+    details: { from: updated.status, status: updated.status, providerRef: updated.providerRef || undefined },
+    ipAddress: req.ip,
+  }).catch(() => {});
+
+  const messageBuilder = REFUND_CUSTOMER_MESSAGES[updated.status];
+  if (messageBuilder) {
+    await notify(updated.requestedBy, messageBuilder(updated), '/customer-dashboard');
+  }
+
+  const payload = { refundId: updated.id, paymentId: updated.paymentId, status: updated.status.toLowerCase() };
+  broadcastToRole('ADMIN', 'REFUND_UPDATED', payload);
+  broadcastToUser(updated.requestedBy, 'REFUND_UPDATED', payload);
+
+  res.json({
+    message: `Refund ${action} completed`,
+    refund: { id: updated.id, status: updated.status.toLowerCase(), amount: Number(updated.amount), currency: updated.currency },
+  });
 });
 
 router.get('/payouts', async (_req, res) => {

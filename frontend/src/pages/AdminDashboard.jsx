@@ -35,6 +35,7 @@ const NAV_ITEMS = [
   { id: 'approvals', label: 'Approvals', icon: Icons.Approvals },
   { id: 'subscriptions', label: 'Packages', icon: Icons.Subscriptions },
   { id: 'session_payouts', label: 'Session Payout & Payments', icon: Icons.Subscriptions },
+  { id: 'refunds', label: 'Refunds', icon: Icons.Subscriptions },
   { id: 'bookings', label: 'Bookings', icon: Icons.Bookings },
   { id: 'requested_services', label: 'Requested Services', icon: Icons.Bookings },
   { id: 'complaints', label: 'Complaints', icon: Icons.Complaints },
@@ -138,6 +139,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([])
   const [bookings, setBookings] = useState([])
   const [complaints, setComplaints] = useState([])
+  const [refunds, setRefunds] = useState([])
   const [supportTickets, setSupportTickets] = useState([])
   const [requestedServices, setRequestedServices] = useState([])
   const [plans, setPlans] = useState([])
@@ -163,6 +165,12 @@ const AdminDashboard = () => {
   const [bookingSearch, setBookingSearch] = useState('')
   const [bookingStatusFilter, setBookingStatusFilter] = useState('all')
   const [requestedServiceSearch, setRequestedServiceSearch] = useState('')
+  const [refundSearch, setRefundSearch] = useState('')
+  const [refundStatusFilter, setRefundStatusFilter] = useState('all')
+  const [refundOpen, setRefundOpen] = useState(null)
+  const [refundNote, setRefundNote] = useState('')
+  const [refundProviderRef, setRefundProviderRef] = useState('')
+  const [refundError, setRefundError] = useState('')
   const [complaintSearch, setComplaintSearch] = useState('')
   const [complaintStatusFilter, setComplaintStatusFilter] = useState('all')
   const [supportSearch, setSupportSearch] = useState('')
@@ -191,7 +199,7 @@ const AdminDashboard = () => {
     if (!token) return
     setLoadError('')
     try {
-      const [s, p, b, c, t, requestRows, subs, cats, promos, notes, u, sessionRows, payoutRows, reviewRows] = await Promise.all([
+      const [s, p, b, c, t, requestRows, subs, cats, promos, notes, u, sessionRows, payoutRows, reviewRows, rf] = await Promise.all([
         apiRequest('/admin/stats', 'GET', null, token),
         apiRequest('/admin/providers', 'GET', null, token),
         apiRequest('/admin/bookings', 'GET', null, token),
@@ -206,11 +214,13 @@ const AdminDashboard = () => {
         apiRequest('/admin/session-payouts', 'GET', null, token),
         apiRequest('/admin/payouts', 'GET', null, token),
         apiRequest('/admin/reviews', 'GET', null, token),
+        apiRequest('/admin/refunds', 'GET', null, token),
       ])
       setStats(s)
       setProviders(Array.isArray(p) ? p : [])
       setBookings(Array.isArray(b) ? b : [])
       setComplaints(Array.isArray(c) ? c : [])
+      setRefunds(Array.isArray(rf) ? rf : [])
       setSupportTickets(Array.isArray(t) ? t : [])
       setRequestedServices(Array.isArray(requestRows) ? requestRows : [])
       setPlans(Array.isArray(subs) ? subs.map((plan) => ({
@@ -352,6 +362,47 @@ const AdminDashboard = () => {
   const toggleUserActive = (user) => runAction(async () => {
     await apiRequest(`/admin/users/${user.id}`, 'PUT', { active: !user.active }, token)
   }, `User ${user.active ? 'deactivated' : 'activated'}.`)
+
+  const submitRefundAction = async (refund, action) => {
+    setRefundError('')
+    const note = refundNote.trim()
+    if (action === 'reject' && note.length < 1) { setRefundError('A rejection note is required.'); return }
+    if ((action === 'process' || action === 'complete') && !refund.provider_ref && !refundProviderRef.trim()) {
+      setRefundError('A provider reference is required for this step.')
+      return
+    }
+    setBusy(true)
+    try {
+      await apiRequest(`/admin/refunds/${refund.id}`, 'PUT', {
+        action,
+        admin_note: note || undefined,
+        provider_ref: refundProviderRef.trim() || undefined,
+      }, token)
+      setRefundOpen(null)
+      setRefundNote('')
+      setRefundProviderRef('')
+      await refreshRefunds()
+    } catch (err) {
+      // Stale-state races surface as 409: refresh the list so the row reflects reality.
+      if (err.statusCode === 409 || err.statusCode === 400) {
+        setRefundError(err.message)
+        await refreshRefunds()
+        // Re-sync the open modal with the fresh server state so the shown
+        // actions match reality after another admin moved the refund first.
+        try {
+          const fresh = await apiRequest('/admin/refunds', 'GET', null, token)
+          const freshRow = (Array.isArray(fresh) ? fresh : []).find((r) => r.id === refund.id)
+          if (freshRow) setRefundOpen(freshRow)
+        } catch { /* keep the stale modal; the error already explains the conflict */ }
+      } else {
+        setRefundOpen(null)
+        setRefundError(err.message || 'Refund action failed.')
+        await refreshRefunds()
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const decideKyc = () => {
     const { provider, mode } = kycDecision || {}
@@ -572,6 +623,10 @@ const AdminDashboard = () => {
   const filteredComplaints = complaints.filter((complaint) => {
     const matchesStatus = complaintStatusFilter === 'all' || String(complaint.status || '').toLowerCase() === complaintStatusFilter
     return matchesStatus && matchesSearch(complaintSearch, complaint.customer_name)
+  })
+  const filteredRefunds = refunds.filter((refund) => {
+    const matchesStatus = refundStatusFilter === 'all' || String(refund.status || '').toLowerCase() === refundStatusFilter
+    return matchesStatus && matchesSearch(refundSearch, refund.customer_name, `#${refund.id}`)
   })
   const filteredSupportTickets = generalSupportTickets.filter((ticket) => matchesSearch(supportSearch, ticket.id, `#${ticket.id}`, ticket.user?.name))
   const filteredUsers = users.filter((u) => {
@@ -974,6 +1029,43 @@ const AdminDashboard = () => {
           )}
 
           {/* SUPPORT DESK */}
+          {activeNav === 'refunds' && (
+            <div className="ad-table-card" style={{ marginTop: 0 }}>
+              <h3 className="ad-table-title">CUSTOMER REFUNDS ({filteredRefunds.length})</h3>
+              <div className="ad-filter-bar">
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '300px' }} aria-label="Filter refunds by customer name" placeholder="Search customer name…" value={refundSearch} onChange={(e) => setRefundSearch(e.target.value)} />
+                <select className="ad-filter-select" style={{ ...fieldStyle, maxWidth: '210px' }} aria-label="Filter refunds by status" value={refundStatusFilter} onChange={(e) => setRefundStatusFilter(e.target.value)}>
+                  <option value="all">All statuses</option>
+                  <option value="requested">Requested</option>
+                  <option value="under_review">Under review</option>
+                  <option value="approved">Approved</option>
+                  <option value="processing">Processing</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>CUSTOMER</th><th>AMOUNT</th><th>REASON</th><th>REQUESTED</th><th>STATUS</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {filteredRefunds.map((refund) => (
+                    <tr key={refund.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{refund.id}</td>
+                      <td>{refund.customer_name || '—'}<br /><span style={{ color: '#777', fontSize: '0.72rem' }}>{refund.customer_email || ''}</span></td>
+                      <td>{fmtMoney(refund.amount)}</td>
+                      <td style={{ maxWidth: '220px' }}>{refund.reason || '—'}</td>
+                      <td>{fmtDateTime(refund.requested_at)}</td>
+                      <td><StatBadge value={refund.status} /></td>
+                      <td><button style={ghostBtn} onClick={() => { setRefundOpen(refund); setRefundNote(refund.admin_note || ''); setRefundProviderRef(refund.provider_ref || ''); setRefundError('') }}>Review</button></td>
+                    </tr>
+                  ))}
+                  {filteredRefunds.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No refunds match the selected filters.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {activeNav === 'support' && (
             <div className="ad-table-card" style={{ marginTop: 0 }}>
               <h3 className="ad-table-title">SUPPORT TICKETS ({filteredSupportTickets.length})</h3>
@@ -1368,6 +1460,57 @@ const AdminDashboard = () => {
           <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button style={ghostBtn} disabled={busy} onClick={() => saveComplaint('in_review')}>Mark In Review</button>
             <button style={goldBtn} disabled={busy} onClick={() => saveComplaint('resolved')}>Resolve</button>
+          </div>
+        </Modal>
+      )}
+
+      {refundOpen && (
+        <Modal title={`REFUND #${refundOpen.id}`} eyebrow={refundOpen.customer_name || 'MEMBER'} onClose={() => setRefundOpen(null)}>
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>
+            {fmtMoney(refundOpen.amount)} — payment #{refundOpen.payment_id}
+          </p>
+          {refundOpen.reason && <p style={{ color: '#bbb', fontSize: '0.84rem' }}>Reason: {refundOpen.reason}</p>}
+          {refundOpen.provider_ref && <p style={{ color: '#777', fontSize: '0.75rem' }}>Provider reference: {refundOpen.provider_ref}</p>}
+
+          {(refundOpen.status === 'approved' || refundOpen.status === 'processing') && (
+            <>
+              <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>
+                Provider reference (portal/API refund reference){refundOpen.status === 'approved' ? ' — required' : ''}
+              </label>
+              <input style={fieldStyle} value={refundProviderRef} onChange={(e) => setRefundProviderRef(e.target.value)} placeholder="e.g. PayHere refund id" />
+            </>
+          )}
+
+          {(refundOpen.status === 'requested' || refundOpen.status === 'under_review') && (
+            <>
+              <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Admin note (internal)</label>
+              <textarea rows={3} style={fieldStyle} value={refundNote} onChange={(e) => setRefundNote(e.target.value)} placeholder="Internal review note…" />
+            </>
+          )}
+          {refundOpen.status === 'processing' && (
+            <>
+              <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>Admin note (internal, optional)</label>
+              <textarea rows={2} style={fieldStyle} value={refundNote} onChange={(e) => setRefundNote(e.target.value)} placeholder="Optional processing note…" />
+            </>
+          )}
+
+          {refundError && <p style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.82rem', marginTop: '0.9rem' }}>{refundError}</p>}
+
+          <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {refundOpen.status === 'requested' && <button style={ghostBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'review')}>Mark Under Review</button>}
+            {refundOpen.status === 'under_review' && (
+              <>
+                <button style={ghostBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'reject')}>Reject…</button>
+                <button style={goldBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'approve')}>Approve</button>
+              </>
+            )}
+            {refundOpen.status === 'approved' && <button style={goldBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'process')}>Mark Processing</button>}
+            {refundOpen.status === 'processing' && (
+              <>
+                <button style={redBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'fail')}>Mark Failed</button>
+                <button style={goldBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'complete')}>Mark Completed</button>
+              </>
+            )}
           </div>
         </Modal>
       )}

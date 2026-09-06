@@ -6,10 +6,10 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 216,
-    "totalEdges": 466,
+    "totalNodes": 218,
+    "totalEdges": 471,
     "nodesByGroup": {
-      "api": 106,
+      "api": 108,
       "database": 35,
       "frontend": 37,
       "middleware": 3,
@@ -147,6 +147,21 @@
       "metadata": {
         "method": "GET",
         "path": "/api/admin/providers/:id",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/refunds",
+      "label": "GET /api/admin/refunds",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/refunds",
         "routeFile": "admin.js"
       },
       "source": {
@@ -1302,6 +1317,21 @@
       "metadata": {
         "method": "PUT",
         "path": "/api/admin/providers/:id/kyc",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:PUT_/api/admin/refunds/:id",
+      "label": "PUT /api/admin/refunds/:id",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "PUT",
+        "path": "/api/admin/refunds/:id",
         "routeFile": "admin.js"
       },
       "source": {
@@ -4546,6 +4576,20 @@
       }
     },
     {
+      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/refunds:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:GET_/api/admin/refunds",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:GET_/api/admin/refunds",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/reports:FETCHES_API",
       "from": "frontend:AdminDashboard",
       "to": "endpoint:GET_/api/admin/reports",
@@ -4833,6 +4877,20 @@
       "label": "PUT",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:PUT_/api/admin/providers/:id/kyc",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:AdminDashboard->endpoint:PUT_/api/admin/refunds/:id:FETCHES_API",
+      "from": "frontend:AdminDashboard",
+      "to": "endpoint:PUT_/api/admin/refunds/:id",
+      "type": "FETCHES_API",
+      "label": "PUT",
+      "source": "frontend:AdminDashboard",
+      "target": "endpoint:PUT_/api/admin/refunds/:id",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -7584,6 +7642,20 @@
       }
     },
     {
+      "id": "routefile:admin->endpoint:GET_/api/admin/refunds:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/refunds",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:admin",
+      "target": "endpoint:GET_/api/admin/refunds",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:admin->endpoint:GET_/api/admin/reports:EXPOSES_ENDPOINT",
       "from": "routefile:admin",
       "to": "endpoint:GET_/api/admin/reports",
@@ -7773,6 +7845,20 @@
       "label": "PUT",
       "source": "routefile:admin",
       "target": "endpoint:PUT_/api/admin/providers/:id/kyc",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:admin->endpoint:PUT_/api/admin/refunds/:id:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:PUT_/api/admin/refunds/:id",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "PUT",
+      "source": "routefile:admin",
+      "target": "endpoint:PUT_/api/admin/refunds/:id",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/admin.js",
@@ -7983,6 +8069,20 @@
       "label": "prisma.providerPayout",
       "source": "routefile:admin",
       "target": "model:ProviderPayout",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:admin->model:RefundRequest:QUERIES_DB",
+      "from": "routefile:admin",
+      "to": "model:RefundRequest",
+      "type": "QUERIES_DB",
+      "label": "prisma.refundRequest",
+      "source": "routefile:admin",
+      "target": "model:RefundRequest",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/admin.js",

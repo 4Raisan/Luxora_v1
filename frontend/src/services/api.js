@@ -63,7 +63,11 @@ export async function apiRequest(endpoint, method = 'GET', data = null, token = 
       }
     }
 
-    throw new Error(message);
+    const error = new Error(message);
+    // Carry the HTTP status so callers can distinguish conflicts/validation
+    // errors from failures without parsing messages.
+    error.statusCode = response.status;
+    throw error;
   }
 
   return result;

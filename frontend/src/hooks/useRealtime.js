@@ -91,6 +91,8 @@ export function useRealtime({ onEvent, onSync, enabled = true } = {}) {
         'PAYOUT_UPDATED',
         'COMPLAINT_CREATED',
         'COMPLAINT_UPDATED',
+        'REFUND_CREATED',
+        'REFUND_UPDATED',
       ];
 
       eventNames.forEach((name) => {
