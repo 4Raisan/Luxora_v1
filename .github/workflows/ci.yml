@@ -109,6 +109,9 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Run frontend unit tests
+        run: npm run test:frontend
+
       - name: Install frontend dependencies
         if: needs.classify.outputs.frontend == 'true'
         run: npm --prefix frontend ci
@@ -161,6 +164,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 7
     services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
       postgres:
         image: postgres:15-alpine
         env:
@@ -196,6 +208,13 @@ jobs:
         run: |
           echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "BANK_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Run isolated Redis rate-limit tests
+        run: node --test --test-force-exit backend/tests/rate-limit.test.js
+        env:
+          TEST_REDIS_URL: redis://127.0.0.1:6379/15
+          REDIS_URL: ''
+          NODE_ENV: test
 
       - name: Run selected backend suites
         run: npm --prefix backend run test:ci -- --suite=${{ needs.classify.outputs.backend_suites }}

@@ -10,6 +10,7 @@
     "build": "npm --prefix frontend run build",
     "lint": "oxlint",
     "test": "node backend/tests/run-tests.js",
+    "test:frontend": "node --test \"frontend/tests/*.test.mjs\"",
     "test:ci-plan": "node --test scripts/ci/plan-checks.test.mjs scripts/ci/guard-protected-files.test.mjs",
     "test:ci-guard": "node --test scripts/ci/guard-protected-files.test.mjs",
     "graph": "node Knowladge-Graph/generate-graph.js && node Knowladge-Graph/generate-architecture.js",
