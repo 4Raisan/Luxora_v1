@@ -18,7 +18,19 @@ import { getEntitlementSnapshot } from '../services/entitlements.js';
 const router = Router();
 
 const BILLING_OPTIONS = ['one_time', 'auto_renew'];
-const checkoutLimiter = rateLimit({ max: 30, windowMs: 15 * 60 * 1000 });
+const checkoutLimiter = rateLimit({ max: 30, windowMs: 15 * 60 * 1000, keyPrefix: 'demo-checkout', strategy: 'hybrid' });
+
+// Demo purchases grant real subscriptions and coins at zero cost, so the
+// gateway is opt-in in production (documented switch); development/test and
+// the legacy PAYMENT_MODE=demo setting keep it available. This gate is the
+// single authority — the /payments/mode diagnostic and the demo renewal loop
+// read the same flag.
+export function demoPaymentsEnabled() {
+  const enabled = process.env.NODE_ENV !== 'production'
+    || process.env.DEMO_PAYMENTS_ENABLED === 'true'
+    || process.env.PAYMENT_MODE === 'demo';
+  return enabled;
+}
 
 function demoCheckoutResponse(res, { status = 201, duplicate = false, payment }) {
   return res.status(status).json({
@@ -48,6 +60,7 @@ function demoCheckoutResponse(res, { status = 201, duplicate = false, payment })
 }
 
 router.post('/payments/demo/checkout', authenticateToken, requireRole('CUSTOMER'), checkoutLimiter, async (req, res) => {
+  if (!demoPaymentsEnabled()) return res.status(404).json({ error: 'Endpoint not found' });
   try {
     const planId = toPositiveInt(req.body.plan_id);
     const billingOption = String(req.body.billing_option || '').trim().toLowerCase();

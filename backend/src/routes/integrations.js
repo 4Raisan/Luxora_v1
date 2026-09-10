@@ -18,9 +18,11 @@ import {
 } from '../services/paymentContracts.js';
 import { convertLkrToUsd } from '../services/currency.js';
 import { toPositiveInt } from '../middleware/validators.js';import { rateLimit } from '../middleware/rateLimit.js';
+import { demoPaymentsEnabled } from './demoPayments.js';
 import { selectSupersededPayHereOrders } from '../services/paymentContracts.js';
 import { calculatePromotionPrice, findActivePromotionForPlan } from '../services/promotions.js';
 import { activateSubscription, completePaymentExperience, buildReceiptHtml } from '../services/paymentFulfilment.js';
+import { settleRefundFromGatewayEvent, findOpenRefundForPayment } from '../services/refunds.js';
 
 const router = Router();
 // Money is normalized and compared as exact 2-decimal-place Decimals end to end.
@@ -29,7 +31,21 @@ const sameMoney = (left, right) => {
   try { return new Prisma.Decimal(left).toDecimalPlaces(2).equals(new Prisma.Decimal(right).toDecimalPlaces(2)); }
   catch { return false; }
 };
-const emailLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
+// Slice 5: a signature-verified gateway refund event can settle an APPROVED or
+// PROCESSING refund request through the normal refund state machine. Without a
+// matching refund this is a no-op, so the historical V1.5 reversal behavior is
+// unchanged. Best-effort: the V1.5 payment handling has already been applied,
+// so a correlation failure is logged (never the payload) and never fails the
+// webhook. PayHere retries are what make this self-healing after a transient
+// failure during the first delivery.
+const settleGatewayRefund = (payment, providerRef) => (
+  settleRefundFromGatewayEvent({ paymentId: payment.id, providerRef })
+    .catch((error) => { console.warn('[webhook] refund correlation skipped:', error.message); return null; })
+);
+const emailLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000, keyPrefix: 'email-send', strategy: 'hybrid' });
+// Gateway order creation opens hosted sessions and persists orders; it shares
+// the demo checkout's bounded profile (independent IP and verified user quotas).
+const checkoutLimiter = rateLimit({ max: 30, windowMs: 15 * 60 * 1000, keyPrefix: 'gateway-checkout', strategy: 'hybrid' });
 const environment = () => String(process.env.PAYHERE_BASE_URL || 'https://sandbox.payhere.lk').includes('sandbox') ? 'SANDBOX' : 'LIVE';
 const payHereUrls = () => {
   const frontend = (process.env.FRONTEND_URL || 'https://luxora.bond').replace(/\/+$/, '');
@@ -97,7 +113,12 @@ router.post('/payments/payhere/webhook', async (req, res) => {
   // transition, not a duplicate, and must still be processed.
   const duplicateCharge = statusCode === 2 && ['COMPLETED', 'REFUNDED'].includes(payment.status);
   const duplicateRefund = statusCode === -3 && payment.status === 'REFUNDED';
-  if (duplicateCharge || duplicateRefund) return res.status(200).send('OK');
+  if (duplicateCharge || duplicateRefund) {
+    // A retried refund event can heal a correlation that failed during the
+    // first delivery; with nothing to settle this is a no-op.
+    if (duplicateRefund) await settleGatewayRefund(payment, `payhere-ipn-${payload.payment_id}`);
+    return res.status(200).send('OK');
+  }
   const amount = Number(payload.payhere_amount);
   const currency = String(payload.payhere_currency || '').toUpperCase();
   if (!sameMoney(amount, payment.expectedAmount) || currency !== payment.expectedCurrency) {
@@ -123,13 +144,18 @@ router.post('/payments/payhere/webhook', async (req, res) => {
       ]);
       await notify(payment.userId, 'Your Luxora payment has been refunded.', '/customer-dashboard');
     }
+    // Slice 5: if the externally refunded payment has an APPROVED/PROCESSING
+    // refund request, the verified event settles it via the refund state
+    // machine (provider reference derived from the event). Requests still
+    // awaiting an admin decision are never advanced here.
+    await settleGatewayRefund(payment, `payhere-ipn-${payload.payment_id}`);
   } else if (payment.status === 'PENDING') {
     await prisma.payment.update({ where: { id: payment.id }, data: { webhookPayload: payload } });
   }
   res.status(200).send('OK');
 });
 
-router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
+router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'), checkoutLimiter, async (req, res) => {
   try {
     if (!payHereIsReady()) return res.status(503).json({ error: 'PayHere is not ready. Configure public HTTPS return, cancel, and webhook URLs before enabling checkout.' });
     const planId = toPositiveInt(req.body.plan_id);
@@ -184,7 +210,7 @@ router.post('/payments/payhere/order', authenticateToken, requireRole('CUSTOMER'
   } catch (error) { console.error('[payhere] order creation failed:', error.message); res.status(502).json({ error: 'Could not create payment order' }); }
 });
 
-router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTOMER'), async (req, res) => {
+router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTOMER'), checkoutLimiter, async (req, res) => {
   try {
     if (!nowPaymentsConfigured()) {
       return res.status(503).json({ error: 'NOWPayments is not configured on the server. Please configure NOWPAYMENTS_API_KEY and NOWPAYMENTS_IPN_SECRET.' });
@@ -272,6 +298,33 @@ router.post('/payments/nowpayments/order', authenticateToken, requireRole('CUSTO
   }
 });
 
+// V1.5 gateway reversal for NOWPayments: mark the payment refunded and revoke
+// the package atomically so entitlements stop immediately. Shared by the IPN
+// refunded branch and the Slice 5 correlation path.
+const applyNowPaymentsRefund = async (payment, payload) => {
+  await prisma.$transaction([
+    prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'REFUNDED',
+        webhookPayload: {
+          ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
+          ...payload,
+        },
+      },
+    }),
+    ...(payment.subscriptionId
+      ? [
+          prisma.userSubscription.update({
+            where: { id: payment.subscriptionId },
+            data: { status: 'refunded', autoRenew: false, nextRenewalDate: null },
+          }),
+        ]
+      : []),
+  ]);
+  await notify(payment.userId, 'Your Luxora payment has been refunded.', '/customer-dashboard');
+};
+
 async function handleNowPaymentsIpn(req, res) {
   const payload = req.body || {};
   const signature = req.headers['x-nowpayments-sig'];
@@ -295,8 +348,32 @@ async function handleNowPaymentsIpn(req, res) {
 
   const classification = classifyNowPaymentsIpn(payment, payload);
 
-  // Idempotency: duplicate delivery of an already-completed payment is acknowledged immediately
+  // Idempotency: duplicate delivery of an already-completed payment is acknowledged immediately.
   if (classification === 'already_completed') {
+    // A signed 'refunded' IPN for a settled payment is a NEW transition (the
+    // same situation PayHere handles for -3), not a duplicate. Historical
+    // V1.5 behavior is preserved unless an APPROVED/PROCESSING refund request
+    // correlates, in which case the externally settled refund is recorded
+    // truthfully through the refund state machine.
+    if (String(payload.payment_status || '').toLowerCase() === 'refunded' && payment.status === 'COMPLETED') {
+      const open = await findOpenRefundForPayment(payment.id);
+      if (open && (open.status === 'APPROVED' || open.status === 'PROCESSING')) {
+        // Same price contract classifyNowPaymentsIpn enforces for settled
+        // charges: a signed refund event may not correlate with a mismatched
+        // invoice amount.
+        const conversion = payment.webhookPayload?.conversion;
+        const expectedGatewayAmount = conversion ? Number(conversion.convertedAmount) : Number(payment.expectedAmount);
+        const expectedGatewayCurrency = conversion ? String(conversion.convertedCurrency).toUpperCase() : String(payment.expectedCurrency || '').toUpperCase();
+        if (payload.price_amount !== undefined && payload.price_amount !== null) {
+          const currency = String(payload.price_currency || '').toUpperCase();
+          if (!sameMoney(Number(payload.price_amount), expectedGatewayAmount) || (currency && currency !== expectedGatewayCurrency)) {
+            return res.status(400).json({ error: 'Amount or currency mismatch' });
+          }
+        }
+        await applyNowPaymentsRefund(payment, payload);
+        await settleGatewayRefund(payment, `nowpayments-ipn-${payload.payment_id}`);
+      }
+    }
     return res.status(200).json({ status: 'ok', message: 'Payment already completed' });
   }
 
@@ -375,28 +452,11 @@ async function handleNowPaymentsIpn(req, res) {
     }
   } else if (classification === 'refunded') {
     if (payment.status === 'COMPLETED') {
-      await prisma.$transaction([
-        prisma.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: 'REFUNDED',
-            webhookPayload: {
-              ...(typeof payment.webhookPayload === 'object' && payment.webhookPayload ? payment.webhookPayload : {}),
-              ...payload,
-            },
-          },
-        }),
-        ...(payment.subscriptionId
-          ? [
-              prisma.userSubscription.update({
-                where: { id: payment.subscriptionId },
-                data: { status: 'refunded', autoRenew: false, nextRenewalDate: null },
-              }),
-            ]
-          : []),
-      ]);
-      await notify(payment.userId, 'Your Luxora payment has been refunded.', '/customer-dashboard');
+      await applyNowPaymentsRefund(payment, payload);
     }
+    // Slice 5: settle an APPROVED/PROCESSING refund request correlated with
+    // the verified event; without one this is a no-op (V1.5 behavior).
+    await settleGatewayRefund(payment, `nowpayments-ipn-${payload.payment_id}`);
   } else if (payment.status === 'PENDING') {
     await prisma.payment.update({
       where: { id: payment.id },
@@ -433,7 +493,7 @@ router.get('/payments/mode', authenticateToken, (_req, res) => {
         label: 'NOWPayments cryptocurrency',
       },
       demo: {
-        enabled: true,
+        enabled: demoPaymentsEnabled(),
         environment: 'DEMO',
         label: 'Demo payment — no real charge',
       },
@@ -452,7 +512,7 @@ router.post('/email', authenticateToken, emailLimiter, async (req, res) => {
   try { res.json(await sendEmail(req.body)); } catch (error) { console.warn('[email] send failed:', error.message); res.status(502).json({ error: 'Email delivery failed' }); }
 });
 
-router.post('/payments/:id/receipt/resend', authenticateToken, async (req, res) => {
+router.post('/payments/:id/receipt/resend', authenticateToken, emailLimiter, async (req, res) => {
   const paymentId = toPositiveInt(req.params.id);
   if (!paymentId) return res.status(400).json({ error: 'Valid payment ID is required' });
 

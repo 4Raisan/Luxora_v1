@@ -4,8 +4,26 @@
 // refund-initiation API is assumed. Gateway-initiated external reversals
 // (PayHere -3 / NOWPayments refunded IPN) keep their V1.5 behavior unchanged.
 import { prisma } from '../config/prisma.js';
+import { notify } from './notify.js';
+import { broadcastToRole, broadcastToUser } from './realtime.js';
 
 export const OPEN_REFUND_STATUSES = ['REQUESTED', 'UNDER_REVIEW', 'APPROVED', 'PROCESSING'];
+
+// Admin transition map -> customer notification text (single source shared by
+// the admin route and gateway settlement; sent once per real transition).
+export const REFUND_CUSTOMER_MESSAGES = {
+  UNDER_REVIEW: (refund) => `Your refund request #${refund.id} is being reviewed by our team.`,
+  APPROVED: (refund) => `Your refund request #${refund.id} has been approved and is being prepared for processing.`,
+  PROCESSING: (refund) => `Your refund of ${refund.currency} ${Number(refund.amount).toFixed(2)} is being processed back to your original payment method.`,
+  COMPLETED: (refund) => `Your refund of ${refund.currency} ${Number(refund.amount).toFixed(2)} has been completed.`,
+  FAILED: (refund) => `Your refund request #${refund.id} could not be processed. Our support team will contact you.`,
+  REJECTED: (refund) => `Your refund request #${refund.id} has been declined. Please check your dashboard for details.`,
+};
+
+const notifyRefundTransition = (userId, refund) => {
+  const builder = REFUND_CUSTOMER_MESSAGES[refund.status];
+  return builder ? notify(userId, builder(refund), '/customer-dashboard') : Promise.resolve();
+};
 
 const fail = (statusCode, message) => {
   throw Object.assign(new Error(message), { statusCode });
@@ -90,6 +108,9 @@ export async function transitionRefund(args) {
   } catch (error) {
     // Duplicate provider references (portal/reference typos) are a client-facing conflict.
     if (error.code === 'P2002') fail(409, 'A refund with this provider reference is already in use');
+    // Serializable write conflicts are race losers, not server faults: surface
+    // them as conflicts so retries see the winner's state (matches payouts).
+    if (error.code === 'P2034') fail(409, 'This refund was modified concurrently, retry the action');
     throw error;
   }
 }
@@ -104,7 +125,14 @@ function runTransition({ refundId, actorUserId, actorRole, action, adminNote, pr
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(existing.paymentId)})`;
     const refund = await tx.refundRequest.findUnique({ where: { id: existing.id } });
 
-    if (spec.role === 'ADMIN' && actorRole !== 'ADMIN') fail(403, 'Only administrators can perform this refund action');
+    if (spec.role === 'ADMIN' && actorRole !== 'ADMIN') {
+      // Slice 5: a signature-verified gateway refund event may drive only
+      // process/complete (with a provider reference); review, approve,
+      // reject, and fail stay admin-only so external events can never make
+      // (or fake) an admin decision.
+      const gatewayActor = actorRole === 'GATEWAY' && (action === 'process' || action === 'complete');
+      if (!gatewayActor) fail(403, 'Only administrators can perform this refund action');
+    }
     if (spec.role === 'REQUESTER' && refund.requestedBy !== Number(actorUserId)) fail(403, 'Only the requester can cancel this refund');
     if (!spec.from.includes(refund.status)) {
       fail(409, `Invalid refund transition: cannot ${action} a refund in status ${refund.status}`);
@@ -162,4 +190,42 @@ export async function findOpenRefundForPayment(paymentId) {
   return prisma.refundRequest.findFirst({
     where: { paymentId: Number(paymentId), status: { in: OPEN_REFUND_STATUSES } },
   });
+}
+
+// Slice 5 — gateway settlement correlation. A signature-verified provider
+// refund event (PayHere -3 IPN / NOWPayments refunded IPN) proves the money
+// was returned outside Luxora. If an APPROVED or PROCESSING refund request
+// exists for that payment, it settles through the exact same state machine an
+// admin uses — never from REQUESTED/UNDER_REVIEW, which still require an
+// explicit admin decision. Without a matching refund this is a no-op and V1.5
+// reversal behavior stands untouched.
+// - APPROVED: the verified event reference records the externally handled
+//   settlement (PROCESSING), then the same evidence completes it.
+// - PROCESSING: the admin already recorded the real external reference, so it
+//   is preserved and only the completion is recorded.
+// Duplicate deliveries and lost races surface as statusCode errors and are
+// absorbed: correlation is best-effort and never fails the V1.5 payment
+// handling that the caller has already applied.
+export async function settleRefundFromGatewayEvent({ paymentId, providerRef }) {
+  if (!providerRef) return null;
+  const refund = await findOpenRefundForPayment(paymentId);
+  if (!refund || !['APPROVED', 'PROCESSING'].includes(refund.status)) return null;
+  try {
+    if (refund.status === 'APPROVED') {
+      const processing = await transitionRefund({ refundId: refund.id, actorRole: 'GATEWAY', action: 'process', providerRef });
+      await notifyRefundTransition(refund.requestedBy, processing);
+      const processingSse = { refundId: processing.id, paymentId: processing.paymentId, status: 'processing' };
+      broadcastToRole('ADMIN', 'REFUND_UPDATED', processingSse);
+      broadcastToUser(processing.requestedBy, 'REFUND_UPDATED', processingSse);
+    }
+    const settled = await transitionRefund({ refundId: refund.id, actorRole: 'GATEWAY', action: 'complete' });
+    await notifyRefundTransition(refund.requestedBy, settled);
+    const settledSse = { refundId: settled.id, paymentId: settled.paymentId, status: 'completed' };
+    broadcastToRole('ADMIN', 'REFUND_UPDATED', settledSse);
+    broadcastToUser(settled.requestedBy, 'REFUND_UPDATED', settledSse);
+    return settled;
+  } catch (error) {
+    if (error.statusCode) return null;
+    throw error;
+  }
 }

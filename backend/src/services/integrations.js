@@ -86,10 +86,17 @@ export function createPayHereFields({ amount, currency = 'LKR', orderId, custome
   return { merchant_id: merchantId, order_id: orderId, items: customer.items || 'Luxora service', amount: value, currency, first_name: customer.firstName || 'Luxora', last_name: customer.lastName || 'Customer', email: customer.email || '', phone: customer.phone || '', address: customer.address || '', city: customer.city || '', country: 'Sri Lanka', return_url: returnUrl, cancel_url: cancelUrl, hash };
 }
 
+// PayHere's webhook protocol mandates this exact MD5-based signature — the
+// provider's documented scheme, not a Luxora choice. Centralized so checkout
+// fields, webhook verification, and test fixtures share one implementation.
+export function payHereWebhookSignature({ merchantId, orderId, amount, currency, statusCode, merchantSecret }) {
+  const md5 = (value) => crypto.createHash('md5').update(value).digest('hex').toUpperCase();
+  return md5(merchantId + orderId + amount + currency + statusCode + md5(merchantSecret));
+}
+
 export function verifyPayHereWebhook({ merchant_id, order_id, payhere_amount, status_code, payhere_currency, md5sig }) {
   if (!process.env.PAYHERE_MERCHANT_SECRET) return false;
-  const md5 = (value) => crypto.createHash('md5').update(value).digest('hex').toUpperCase();
-  const expected = md5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + md5(process.env.PAYHERE_MERCHANT_SECRET));
+  const expected = payHereWebhookSignature({ merchantId: merchant_id, orderId: order_id, amount: payhere_amount, currency: payhere_currency, statusCode: status_code, merchantSecret: process.env.PAYHERE_MERCHANT_SECRET });
   if (merchant_id !== process.env.PAYHERE_MERCHANT_ID || !md5sig) return false;
   const provided = Buffer.from(String(md5sig).toUpperCase(), 'utf8');
   const computed = Buffer.from(expected, 'utf8');
@@ -171,6 +178,10 @@ export async function createNowPaymentsInvoice({
  */
 export async function fetchNowPaymentsPaymentStatus(paymentId) {
   if (!process.env.NOWPAYMENTS_API_KEY || !paymentId) return null;
+  // NOWPayments payment identifiers are numeric. Validating before URL
+  // construction keeps a provider-supplied value from altering the request
+  // path (defense in depth on top of IPN signature verification).
+  if (!/^\d{1,20}$/.test(String(paymentId))) return null;
   const baseUrl = (process.env.NOWPAYMENTS_BASE_URL || 'https://api.nowpayments.io/v1').replace(/\/+$/, '');
   const response = await fetch(`${baseUrl}/payment/${paymentId}`, {
     method: 'GET',

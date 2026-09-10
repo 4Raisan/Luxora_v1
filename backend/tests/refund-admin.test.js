@@ -116,7 +116,7 @@ test('admin can list refunds; customer/provider/unauthenticated cannot', async (
   await mkRefund((await mkPayment(customer.id)).id, customer.id);
   const ok = await authJson(admin, '/refunds');
   assert.equal(ok.status, 200);
-  assert.ok(Array.isArray(ok.body));
+  assert.ok(Array.isArray(ok.body.data));
 
   const asCustomer = await authJson(customer, '/refunds');
   assert.equal(asCustomer.status, 403);
@@ -131,8 +131,8 @@ test('list filters by status and customer search', async () => {
   await mkRefund(payment.id, customer.id, 25);
   const filtered = await authJson(admin, '/refunds?status=requested&customer=AdmRef');
   assert.equal(filtered.status, 200);
-  assert.ok(filtered.body.every((r) => r.status === 'requested'));
-  assert.ok(filtered.body.every((r) => /AdmRef/.test(r.customer_name || '')));
+  assert.ok(filtered.body.data.every((r) => r.status === 'requested'));
+  assert.ok(filtered.body.data.every((r) => /AdmRef/.test(r.customer_name || '')));
 });
 
 test('admin can move a refund through review -> approve -> process -> complete', async () => {

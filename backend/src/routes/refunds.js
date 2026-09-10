@@ -16,13 +16,12 @@ const router = Router();
 // per-route — a router-level guard would shadow every other /api path
 // mounted before/after it (including /api/health and /api/realtime).
 
-// Customer refund requests are rare, legitimate actions; 30 per 15 minutes per
-// IP matches the checkout limiter profile and stops scripted bursts without
-// blocking real users. Keyed by req.ip (trust-proxy aware) like every limiter.
+// Refunds retain the checkout quota independently per IP and verified user.
 const refundRequestLimiter = rateLimit({
   max: 30,
   windowMs: 15 * 60 * 1000,
   keyPrefix: 'refund-request',
+  strategy: 'hybrid',
   message: 'Too many refund requests, try again later',
 });
 
