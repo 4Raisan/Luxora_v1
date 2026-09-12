@@ -25,6 +25,7 @@ const ProviderDashboard = lazy(() => import('./pages/ProviderDashboard'))
 const BookService = lazy(() => import('./pages/BookService'))
 const Reviews = lazy(() => import('./pages/Reviews'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'))
 
 const PageLoader = () => (
   <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -73,6 +74,7 @@ function App() {
             <Route path="/book-service" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><BookService /></ErrorBoundary></RequireAuth>} />
             <Route path="/reviews" element={<RequireAuth allow={['CUSTOMER']}><ErrorBoundary><Reviews /></ErrorBoundary></RequireAuth>} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
           </Routes>
         </Suspense>
         <ChatbotRouteGate />
