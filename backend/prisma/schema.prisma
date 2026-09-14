@@ -15,6 +15,7 @@ model User {
   passwordHash           String
   phone                  String?
   phoneVerified          Boolean              @default(false)
+  emailVerified          Boolean              @default(false)
   town                   String?
   addressStreet          String?
   addressDistrict        String?
@@ -30,11 +31,13 @@ model User {
   reviews                Review[]
   subscriptions          UserSubscription[]
   passwordResetTokens    PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   payments               Payment[]
   refundsRequested       RefundRequest[]      @relation("RefundRequests")
   supportTickets         SupportTicket[]
   adminAuditLogs         AdminAuditLog[]      @relation("AdminAuditLogs")
 
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -49,6 +52,19 @@ model PasswordResetToken {
 
   @@index([userId, expiresAt])
   @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("email_verification_tokens")
 }
 
 model Provider {
@@ -83,9 +99,11 @@ model KycDocument {
   mimeType     String
   sizeBytes    Int
   createdAt    DateTime @default(now())
+  supersededAt DateTime?
   provider     Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@index([providerId])
+  @@index([providerId, documentType, supersededAt])
   @@map("kyc_documents")
 }
 
@@ -233,6 +251,7 @@ model Booking {
   @@index([status])
   @@index([providerId, bookingDate])
   @@index([userId, subscriptionId, status])
+  @@index([createdAt])
   @@map("bookings")
 }
 
@@ -318,6 +337,7 @@ model RefundRequest {
   @@index([paymentId])
   @@index([status])
   @@index([requestedBy])
+  @@index([requestedAt])
   @@map("refund_requests")
 }
 
@@ -353,6 +373,7 @@ model Complaint {
 
   @@index([userId])
   @@index([status])
+  @@index([createdAt])
   @@map("complaints")
 }
 
