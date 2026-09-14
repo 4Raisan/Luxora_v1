@@ -9,8 +9,11 @@ import { queueMonthlyPayouts } from '../services/payouts.js';
 import { decryptAccountNumber, maskAccountNumber } from '../services/bankingCrypto.js';
 import { processExpiredBookingsThrottled } from '../services/bookingTimeouts.js';
 import { broadcastBookingEvent, broadcastToRole, broadcastToUser } from '../services/realtime.js';
-import { transitionRefund } from '../services/refunds.js';
+import { transitionRefund, REFUND_CUSTOMER_MESSAGES } from '../services/refunds.js';
 import { invalidateSubscriptionsCache } from './services.js';
+import { parsePagination, paginationMeta, paginated, DESC_ORDER, clampSearch } from '../middleware/pagination.js';
+import { buildPayoutStatement, toStatementCsv, parsePeriodRange, STATEMENT_EXPORT_MAX_ROWS } from '../services/payoutStatements.js';
+import { listWebhookEvents, describeWebhookEvent, WEBHOOK_FILTERS } from '../services/webhookEvents.js';
 
 const router = Router();
 router.use(authenticateToken, requireRole('ADMIN'));
@@ -139,9 +142,16 @@ router.get('/providers', async (_req, res) => {
   })));
 });
 
-router.get('/reviews', async (_req, res) => {
-  const [reviews, overall, providerRatings] = await Promise.all([
+router.get('/reviews', async (req, res) => {
+  const page = parsePagination(req.query);
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 100' });
+  const search = clampSearch(req.query.search);
+  const reviewWhere = search
+    ? { provider: { is: { user: { is: { name: { contains: search, mode: 'insensitive' } } } } } }
+    : {};
+  const [reviews, total, overall, providerRatings] = await Promise.all([
     prisma.review.findMany({
+      where: reviewWhere,
       select: {
         id: true,
         rating: true,
@@ -158,8 +168,11 @@ router.get('/reviews', async (_req, res) => {
         provider: { select: { id: true, user: { select: { name: true, email: true } } } },
         user: { select: { id: true, name: true, email: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: DESC_ORDER('createdAt'),
+      skip: page.skip,
+      take: page.take,
     }),
+    prisma.review.count({ where: reviewWhere }),
     prisma.review.aggregate({ _avg: { rating: true }, _count: { rating: true } }),
     prisma.review.groupBy({
       by: ['providerId'],
@@ -210,6 +223,7 @@ router.get('/reviews', async (_req, res) => {
       comment: review.comment,
       created_at: review.createdAt,
     })),
+    pagination: paginationMeta(page, total),
   });
 });
 
@@ -217,17 +231,31 @@ router.put('/providers/:id/kyc', async (req, res) => {
   const status = toEnum(req.body.status, KYC_STATUSES);
   if (!status) return res.status(400).json({ error: 'status must be one of: pending, approved, rejected' });
 
-  const provider = await prisma.provider.findUnique({
-    where: { id: Number(req.params.id) },
-    include: { user: { select: { id: true, name: true, email: true } } },
-  });
-  if (!provider) return res.status(404).json({ error: 'Provider not found' });
-
+  const providerId = toPositiveInt(req.params.id);
+  if (!providerId) return res.status(400).json({ error: 'A valid provider id is required' });
   const rejectionReason = typeof req.body.rejection_reason === 'string' ? req.body.rejection_reason.trim() : '';
   if (status === 'REJECTED' && (rejectionReason.length < 3 || rejectionReason.length > 500)) return res.status(400).json({ error: 'rejection_reason must be 3-500 characters' });
-  
+
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(731, ${providerId}::integer)`;
+    const provider = await tx.provider.findUnique({ where: { id: providerId }, include: { user: { select: { id: true, name: true, email: true } } } });
+    if (!provider) return { error: 'Provider not found', statusCode: 404 };
+    const documents = await tx.kycDocument.findMany({ where: { providerId, supersededAt: null }, select: { id: true }, orderBy: { id: 'asc' } });
+    const documentIds = documents.map((document) => document.id);
+    const submitted = req.body.document_ids;
+    // Legacy providers without uploaded records retain their existing review contract.
+    if (documentIds.length || submitted !== undefined) {
+      if (!Array.isArray(submitted) || submitted.length !== documentIds.length || submitted.some((id) => !Number.isSafeInteger(id)) || [...submitted].sort((a, b) => a - b).some((id, index) => id !== documentIds[index])) {
+        return { error: 'KYC documents changed. Reload and review the current documents before deciding.', statusCode: 409 };
+      }
+    }
+    await tx.provider.update({ where: { id: providerId }, data: { kycStatus: status, kycRejectionReason: status === 'REJECTED' ? rejectionReason : null } });
+    await tx.adminAuditLog.create({ data: { adminId: req.user.id, action: `KYC_${status}`, targetType: 'Provider', targetId: String(providerId), details: { status, rejectionReason, documentIds }, ipAddress: req.ip } });
+    return { provider };
+  });
+  if (result.error) return res.status(result.statusCode).json({ error: result.error });
+  const { provider } = result;
   const isStatusTransition = provider.kycStatus !== status;
-  await prisma.provider.update({ where: { id: provider.id }, data: { kycStatus: status, kycRejectionReason: status === 'REJECTED' ? rejectionReason : null } });
 
   if (isStatusTransition) {
     if (status === 'APPROVED') {
@@ -251,8 +279,6 @@ router.put('/providers/:id/kyc', async (req, res) => {
       }
     }
   }
-
-  logAdminAction({ adminId: req.user.id, action: `KYC_${status}`, targetType: 'Provider', targetId: String(provider.id), details: { status, rejectionReason }, ipAddress: req.ip }).catch(() => {});
 
   res.json({ message: `Provider KYC updated to ${status.toLowerCase()}`, status: status.toLowerCase() });
 });
@@ -278,14 +304,25 @@ router.get('/stats', async (_req, res) => {
 });
 
 router.get('/users', async (req, res) => {
-  const search = String(req.query.search || '').trim();
+  const page = parsePagination(req.query);
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 100' });
+  const search = clampSearch(req.query.search);
   const role = String(req.query.role || '').toUpperCase();
-  const users = await prisma.user.findMany({
-    where: { ...(role && ['CUSTOMER', 'PROVIDER', 'ADMIN'].includes(role) ? { role } : {}), ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : {}) },
-    select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true, createdAt: true, provider: { select: { id: true, category: true, kycStatus: true } }, subscriptions: { where: { status: 'active', endDate: { gt: new Date() } }, select: { id: true, plan: { select: { title: true } } } } },
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json(users);
+  const where = {
+    ...(role && ['CUSTOMER', 'PROVIDER', 'ADMIN'].includes(role) ? { role } : {}),
+    ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : {}),
+  };
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true, createdAt: true, provider: { select: { id: true, category: true, kycStatus: true } }, subscriptions: { where: { status: 'active', endDate: { gt: new Date() } }, select: { id: true, plan: { select: { title: true } } } } },
+      orderBy: DESC_ORDER('createdAt'),
+      skip: page.skip,
+      take: page.take,
+    }),
+    prisma.user.count({ where }),
+  ]);
+  return paginated(res, users, page, total);
 });
 
 router.put('/users/:id', async (req, res) => {
@@ -343,10 +380,10 @@ router.put('/users/:id', async (req, res) => {
 });
 
 router.get('/providers/:id', async (req, res) => {
-  const provider = await prisma.provider.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 }, include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, active: true } }, kycDocuments: { select: { id: true, documentType: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true } }, reviews: { select: { rating: true } } } });
+  const provider = await prisma.provider.findUnique({ where: { id: toPositiveInt(req.params.id) || 0 }, include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, active: true } }, kycDocuments: { orderBy: { id: 'asc' }, select: { id: true, documentType: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true, supersededAt: true } }, reviews: { select: { rating: true } } } });
   if (!provider) return res.status(404).json({ error: 'Provider not found' });
   const averageRating = provider.reviews.length ? provider.reviews.reduce((sum, item) => sum + item.rating, 0) / provider.reviews.length : null;
-  res.json({ ...provider, averageRating, service_towns: townsList(provider.serviceTowns), documents: provider.kycDocuments.map((document) => ({ ...document, url: `/api/uploads/kyc/${document.id}` })) });
+  res.json({ ...provider, averageRating, service_towns: townsList(provider.serviceTowns), current_document_ids: provider.kycDocuments.filter((document) => !document.supersededAt).map((document) => document.id), documents: provider.kycDocuments.map((document) => ({ ...document, url: `/api/uploads/kyc/${document.id}` })) });
 });
 
 router.get('/subscriptions', async (_req, res) => {
@@ -497,13 +534,36 @@ router.get('/reports', async (req, res) => {
   res.json({ from, to, summary: { customers, providers, bookings, completedBookings, revenue: Number(payments._sum.expectedAmount ?? 0) || 0, revenueCurrency: 'LKR', completedPayments: payments._count.id, activeSubscriptions: subscriptions, complaints, averageRating: ratings._avg.rating || 0, ratingCount: ratings._count.rating }, servicePopularity: popularServices.map((item) => ({ serviceId: item.serviceId, service: services.find((service) => service.id === item.serviceId)?.title || 'Unknown', bookings: item._count.id })), providerPerformance: providerPerformance.map((item) => ({ providerId: item.providerId, provider: providerRows.find((provider) => provider.id === item.providerId)?.user.name || 'Unknown', completedBookings: item._count.id, serviceValue: Number(item._sum.totalPrice ?? 0) || 0 })) });
 });
 
-router.get('/bookings', async (_req, res) => {
+router.get('/bookings', async (req, res) => {
   await processExpiredBookingsThrottled(prisma).catch(() => {});
-  const bookings = await prisma.booking.findMany({
-    include: { service: { include: { category: true } }, user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } } } } },
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json(bookings.map((b) => ({
+  const page = parsePagination(req.query);
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 100' });
+  const status = req.query.status ? toEnum(req.query.status, BOOKING_STATUSES) : null;
+  if (req.query.status && !status) return res.status(400).json({ error: 'Invalid booking status filter' });
+  const search = clampSearch(req.query.search);
+  let searchWhere = {};
+  if (search) {
+    const numeric = /^\d+$/.test(search.replace(/^#/, ''));
+    searchWhere = {
+      OR: [
+        { user: { is: { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } } },
+        { provider: { is: { user: { is: { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } } } } },
+        ...(numeric ? [{ id: Number(search.replace(/^#/, '')) }] : []),
+      ],
+    };
+  }
+  const where = { ...(status ? { status } : {}), ...searchWhere };
+  const [bookings, total] = await Promise.all([
+    prisma.booking.findMany({
+      where,
+      include: { service: { include: { category: true } }, user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, provider: { include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } } } } },
+      orderBy: DESC_ORDER('createdAt'),
+      skip: page.skip,
+      take: page.take,
+    }),
+    prisma.booking.count({ where }),
+  ]);
+  return paginated(res, bookings.map((b) => ({
     ...b,
     startPinHash: undefined,
     completionPinHash: undefined,
@@ -521,7 +581,7 @@ router.get('/bookings', async (_req, res) => {
     customer_email: b.user?.email,
     provider_name: b.provider?.user?.name,
     total_price: b.totalPrice,
-  })));
+  })), page, total);
 });
 
 // Admin override booking status / reassign
@@ -611,19 +671,34 @@ router.put('/bookings/:id', async (req, res) => {
   res.json({ message: `Booking #${id} updated` });
 });
 
-router.get('/complaints', async (_req, res) => {
-  const complaints = await prisma.complaint.findMany({
-    include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, booking: { include: { service: { include: { category: true } } } } },
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json(complaints.map((c) => ({
+router.get('/complaints', async (req, res) => {
+  const page = parsePagination(req.query);
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 100' });
+  const status = req.query.status ? toEnum(req.query.status, COMPLAINT_STATUSES) : null;
+  if (req.query.status && !status) return res.status(400).json({ error: 'Invalid complaint status filter' });
+  const search = clampSearch(req.query.search);
+  const where = {
+    ...(status ? { status } : {}),
+    ...(search ? { user: { is: { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } } } : {}),
+  };
+  const [complaints, total] = await Promise.all([
+    prisma.complaint.findMany({
+      where,
+      include: { user: { select: { id: true, name: true, email: true, phone: true, town: true, role: true, active: true } }, booking: { include: { service: { include: { category: true } } } } },
+      orderBy: DESC_ORDER('createdAt'),
+      skip: page.skip,
+      take: page.take,
+    }),
+    prisma.complaint.count({ where }),
+  ]);
+  return paginated(res, complaints.map((c) => ({
     ...c,
     status: c.status.toLowerCase(),
     customer_name: c.user?.name,
     customer_email: c.user?.email,
     service_title: c.booking?.service?.title,
     category_name: c.booking?.service?.category?.name,
-  })));
+  })), page, total);
 });
 
 router.put('/complaints/:id', async (req, res) => {
@@ -661,6 +736,8 @@ router.put('/complaints/:id', async (req, res) => {
 // services/refunds.js; this route handles authorization, filters, audit,
 // transition-gated customer notifications, and admin SSE refresh.
 router.get('/refunds', async (req, res) => {
+  const page = parsePagination(req.query);
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 100' });
   const status = req.query.status ? toEnum(req.query.status, REFUND_STATUSES) : null;
   if (req.query.status && !status) return res.status(400).json({ error: 'Invalid refund status filter' });
 
@@ -671,25 +748,31 @@ router.get('/refunds', async (req, res) => {
     if (!paymentId) return res.status(400).json({ error: 'Invalid payment id filter' });
     where.paymentId = paymentId;
   }
-  if (req.query.customer) {
-    where.requester = {
-      OR: [
-        { name: { contains: String(req.query.customer) } },
-        { email: { contains: String(req.query.customer) } },
-      ],
-    };
+  const customer = clampSearch(req.query.customer);
+  if (customer) {
+    // Search matches requester identity, or a specific refund via '#id' / digits.
+    const numeric = /^\d+$/.test(customer.replace(/^#/, ''));
+    where.OR = [
+      { requester: { is: { OR: [{ name: { contains: customer, mode: 'insensitive' } }, { email: { contains: customer, mode: 'insensitive' } }] } } },
+      ...(numeric ? [{ id: Number(customer.replace(/^#/, '')) }] : []),
+    ];
   }
 
-  const refunds = await prisma.refundRequest.findMany({
-    where,
-    orderBy: { requestedAt: 'desc' },
-    include: {
-      payment: { select: { id: true, gateway: true, capturedAmount: true, capturedCurrency: true } },
-      requester: { select: { id: true, name: true, email: true } },
-    },
-  });
+  const [refunds, total] = await Promise.all([
+    prisma.refundRequest.findMany({
+      where,
+      orderBy: DESC_ORDER('requestedAt'),
+      include: {
+        payment: { select: { id: true, gateway: true, capturedAmount: true, capturedCurrency: true } },
+        requester: { select: { id: true, name: true, email: true } },
+      },
+      skip: page.skip,
+      take: page.take,
+    }),
+    prisma.refundRequest.count({ where }),
+  ]);
 
-  res.json(refunds.map((refund) => ({
+  return paginated(res, refunds.map((refund) => ({
     id: refund.id,
     payment_id: refund.paymentId,
     status: refund.status.toLowerCase(),
@@ -709,19 +792,13 @@ router.get('/refunds', async (req, res) => {
       captured_amount: Number(refund.payment.capturedAmount || 0),
       captured_currency: refund.payment.capturedCurrency,
     },
-  })));
+  })), page, total);
 });
 
-// Admin transition map -> customer notification text (sent once per actual
-// transition; the service rejects no-ops, so retries never re-notify).
-const REFUND_CUSTOMER_MESSAGES = {
-  UNDER_REVIEW: (refund) => `Your refund request #${refund.id} is being reviewed by our team.`,
-  APPROVED: (refund) => `Your refund request #${refund.id} has been approved and is being prepared for processing.`,
-  PROCESSING: (refund) => `Your refund of ${refund.currency} ${Number(refund.amount).toFixed(2)} is being processed back to your original payment method.`,
-  COMPLETED: (refund) => `Your refund of ${refund.currency} ${Number(refund.amount).toFixed(2)} has been completed.`,
-  FAILED: (refund) => `Your refund request #${refund.id} could not be processed. Our support team will contact you.`,
-  REJECTED: (refund) => `Your refund request #${refund.id} has been declined. Please check your dashboard for details.`,
-};
+// Admin transition map -> customer notification text now lives in the refund
+// service (REFUND_CUSTOMER_MESSAGES) so gateway-settled refunds reuse the
+// exact same wording. Sent once per actual transition; the service rejects
+// no-ops, so retries never re-notify.
 
 router.put('/refunds/:id', requireRole('ADMIN'), async (req, res) => {
   const action = String(req.body.action || '').trim();
@@ -779,8 +856,10 @@ router.get('/payouts', async (_req, res) => {
   });
   res.json(payouts.map((payout) => {
     const encryptedAccountNumber = payout.accountNumberSnapshot || payout.bankAccount.accountNumber;
+    // Only a masked reference leaves the API; the plaintext number stays
+    // server-side for the external transfer workflow, never for display.
     let accountNumber;
-    try { accountNumber = decryptAccountNumber(encryptedAccountNumber); }
+    try { accountNumber = maskAccountNumber(decryptAccountNumber(encryptedAccountNumber)); }
     catch { accountNumber = maskAccountNumber(encryptedAccountNumber); }
     return {
     id: payout.id,
@@ -858,14 +937,78 @@ router.put('/payouts/:id', async (req, res) => {
   res.json({ id: updated.id, status: updated.status.toLowerCase(), paid_at: updated.paidAt });
 });
 
+// Slice 10 — payout statements. buildPayoutStatement is the single authority
+// for statement data; this route only paginates/filters and serializes JSON.
+router.get('/payout-statements', async (req, res) => {
+  const page = parsePagination(req.query);
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 100' });
+  const range = parsePeriodRange(req.query);
+  if (range.error) return res.status(400).json({ error: range.error });
+  const status = req.query.status ? String(req.query.status).toUpperCase() : null;
+  if (status && !['PENDING', 'PAID', 'FAILED'].includes(status)) return res.status(400).json({ error: 'status must be pending, paid, or failed' });
+  const providerId = req.query.provider_id ? toPositiveInt(req.query.provider_id) : null;
+  if (req.query.provider_id && !providerId) return res.status(400).json({ error: 'Invalid provider id filter' });
+  const statement = await buildPayoutStatement({ from: range.from, to: range.to, status, providerId, skip: page.skip, take: page.take });
+  return res.json({ period: statement.period, summary: statement.summary, data: statement.lines, pagination: paginationMeta(page, statement.total) });
+});
+
+// CSV export reuses the exact same statement model — serialization contains
+// no payout logic. Unbounded exports fail safely instead of streaming forever.
+router.get('/payout-statements/export', async (req, res) => {
+  const range = parsePeriodRange(req.query);
+  if (range.error) return res.status(400).json({ error: range.error });
+  const status = req.query.status ? String(req.query.status).toUpperCase() : null;
+  if (status && !['PENDING', 'PAID', 'FAILED'].includes(status)) return res.status(400).json({ error: 'status must be pending, paid, or failed' });
+  const providerId = req.query.provider_id ? toPositiveInt(req.query.provider_id) : null;
+  if (req.query.provider_id && !providerId) return res.status(400).json({ error: 'Invalid provider id filter' });
+  const statement = await buildPayoutStatement({ from: range.from, to: range.to, status, providerId, skip: 0, take: STATEMENT_EXPORT_MAX_ROWS + 1 });
+  if (statement.total > STATEMENT_EXPORT_MAX_ROWS) {
+    return res.status(400).json({ error: `Statement export is limited to ${STATEMENT_EXPORT_MAX_ROWS} rows; narrow the period range or filters` });
+  }
+  const window = range.from || range.to ? `_${range.from || 'start'}_${range.to || 'latest'}` : '';
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="luxora-payout-statement${window}.csv"`);
+  return res.send(toStatementCsv(statement.lines));
+});
+
+// Slice 10 — webhook/event viewer. Read-only: no replay, no mutation route.
+router.get('/webhook-events', async (req, res) => {
+  const page = parsePagination(req.query);
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 100' });
+  const gateway = req.query.gateway ? toEnum(req.query.gateway, WEBHOOK_FILTERS.GATEWAYS) : null;
+  if (req.query.gateway && !gateway) return res.status(400).json({ error: 'Invalid gateway filter' });
+  const status = req.query.status ? toEnum(req.query.status, WEBHOOK_FILTERS.STATUSES) : null;
+  if (req.query.status && !status) return res.status(400).json({ error: 'Invalid status filter' });
+  const paymentId = req.query.payment_id ? toPositiveInt(req.query.payment_id) : null;
+  if (req.query.payment_id && !paymentId) return res.status(400).json({ error: 'Invalid payment id filter' });
+  const reference = clampSearch(req.query.reference);
+  const window = WEBHOOK_FILTERS.parseDayWindow(req.query);
+  if (window.error) return res.status(400).json({ error: window.error });
+  const { total, events } = await listWebhookEvents({ gateway, status, paymentId, reference, from: window.from, to: window.to, skip: page.skip, take: page.take });
+  return paginated(res, events, page, total);
+});
+
+router.get('/webhook-events/:paymentId', async (req, res) => {
+  const paymentId = toPositiveInt(req.params.paymentId);
+  if (!paymentId) return res.status(400).json({ error: 'A valid payment id is required' });
+  const event = await describeWebhookEvent(paymentId);
+  if (!event) return res.status(404).json({ error: 'Webhook event not found' });
+  return res.json(event);
+});
+
 router.get('/audit-logs', async (req, res) => {
-  const take = Math.min(toPositiveInt(req.query.limit) || 100, 200);
-  const logs = await prisma.adminAuditLog.findMany({
-    include: { admin: { select: { id: true, name: true, email: true } } },
-    orderBy: { createdAt: 'desc' },
-    take,
-  });
-  res.json(logs);
+  const page = parsePagination(req.query, { defaultPageSize: 50, maxPageSize: 200 });
+  if (!page) return res.status(400).json({ error: 'page and pageSize must be positive integers with pageSize at most 200' });
+  const [logs, total] = await Promise.all([
+    prisma.adminAuditLog.findMany({
+      include: { admin: { select: { id: true, name: true, email: true } } },
+      orderBy: DESC_ORDER('createdAt'),
+      skip: page.skip,
+      take: page.take,
+    }),
+    prisma.adminAuditLog.count(),
+  ]);
+  return paginated(res, logs, page, total);
 });
 
 export default router;
