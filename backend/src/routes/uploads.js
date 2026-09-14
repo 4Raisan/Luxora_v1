@@ -62,17 +62,24 @@ router.post('/provider/kyc-documents', authenticateToken, requireRole('PROVIDER'
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
   if (!provider) return res.status(404).json({ error: 'Provider record not found' });
   const persisted = [];
-  for (const file of files) {
-    const stored = await persistValidatedFile(file, ALLOWED_KYC_TYPES);
-    if (!stored) {
-      await removeFiles(persisted.map((item) => item.filename));
-      return res.status(415).json({ error: 'Files must be genuine JPEG, PNG, or PDF content matching the declared type' });
-    }
-    persisted.push(stored);
-  }
   let documents;
   try {
-    documents = await prisma.kycDocument.createManyAndReturn({ data: persisted.map((stored, index) => ({ providerId: provider.id, documentType, filePath: stored.filename, originalName: path.basename(String(files[index].originalname || 'document')), mimeType: stored.mimeType, sizeBytes: stored.sizeBytes })) });
+    for (const file of files) {
+      const stored = await persistValidatedFile(file, ALLOWED_KYC_TYPES);
+      if (!stored) {
+        await removeFiles(persisted.map((item) => item.filename));
+        return res.status(415).json({ error: 'Files must be genuine JPEG, PNG, or PDF content matching the declared type' });
+      }
+      persisted.push(stored);
+    }
+    documents = await prisma.$transaction(async (tx) => {
+      // Upload and admin review share this lock; a NIC set may contain both sides.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(731, ${provider.id}::integer)`;
+      await tx.kycDocument.updateMany({ where: { providerId: provider.id, documentType, supersededAt: null }, data: { supersededAt: new Date() } });
+      const current = await tx.kycDocument.createManyAndReturn({ data: persisted.map((stored, index) => ({ providerId: provider.id, documentType, filePath: stored.filename, originalName: path.basename(String(files[index].originalname || 'document')), mimeType: stored.mimeType, sizeBytes: stored.sizeBytes })) });
+      await tx.provider.update({ where: { id: provider.id }, data: { kycStatus: 'PENDING', kycRejectionReason: null } });
+      return current;
+    });
   } catch (error) {
     await removeFiles(persisted.map((item) => item.filename));
     throw error;
@@ -86,7 +93,9 @@ router.post('/bookings/:id/photos', authenticateToken, requireRole('PROVIDER'), 
   const files = req.files || [];
   if (!bookingId || !['BEFORE', 'AFTER'].includes(kind) || !files.length) { return res.status(400).json({ error: 'A booking, kind (BEFORE/AFTER), and JPEG/PNG photo are required' }); }
   const provider = await prisma.provider.findUnique({ where: { userId: req.user.id } });
-  const booking = provider && await prisma.booking.findFirst({ where: { id: bookingId, providerId: provider.id } });
+  if (!provider) return res.status(403).json({ error: 'This booking is not assigned to you' });
+  if (provider.kycStatus !== 'APPROVED') return res.status(403).json({ error: 'Your KYC must be approved before you can upload booking photos' });
+  const booking = await prisma.booking.findFirst({ where: { id: bookingId, providerId: provider.id } });
   if (!booking) return res.status(403).json({ error: 'This booking is not assigned to you' });
   if ((kind === 'BEFORE' && booking.status !== 'ASSIGNED') || (kind === 'AFTER' && booking.status !== 'IN_PROGRESS')) { return res.status(400).json({ error: `${kind} photos can only be uploaded at the appropriate service stage` }); }
   const persisted = [];
