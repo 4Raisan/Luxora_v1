@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE, apiRequest } from '../services/api'
 import { ActionButton } from '../components/ui'
@@ -43,6 +43,8 @@ const NAV_ITEMS = [
   { id: 'promotions', label: 'Promotions', icon: Icons.Promotions },
   { id: 'reports', label: 'Reports & Analysis', icon: Icons.Reports },
   { id: 'operations', label: 'Operations', icon: Icons.Operations },
+  { id: 'payout_statements', label: 'Payout Statements', icon: Icons.Subscriptions },
+  { id: 'webhooks', label: 'Webhook Events', icon: Icons.Operations },
 ]
 
 const fmtMoney = (v) => 'LKR ' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
@@ -52,6 +54,18 @@ const matchesSearch = (query, ...values) => {
   const normalizedQuery = String(query || '').trim().toLowerCase()
   return !normalizedQuery || values.some((value) => String(value ?? '').toLowerCase().includes(normalizedQuery))
 }
+
+// Bounded pagination footer shared by every paginated admin collection.
+const PAGE_SIZE = 25
+const pageNavBtn = { background: '#181818', border: '1px solid #333', borderRadius: '7px', padding: '0.45rem 0.85rem', fontSize: '0.78rem', fontWeight: 700, fontFamily: 'inherit' }
+const PageNav = ({ meta, onPage, busy }) => (!meta ? null : (
+  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.85rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#999' }}>
+    <button type="button" disabled={busy || !meta.hasPrevious} onClick={() => onPage(meta.page - 1)} style={{ ...pageNavBtn, color: meta.hasPrevious ? '#ddd' : '#555', cursor: meta.hasPrevious ? 'pointer' : 'not-allowed' }}>← Previous</button>
+    <span>Page <strong style={{ color: 'var(--gold, #c9a84c)' }}>{meta.page}</strong> of {meta.totalPages} · {meta.total} total</span>
+    <button type="button" disabled={busy || !meta.hasNext} onClick={() => onPage(meta.page + 1)} style={{ ...pageNavBtn, color: meta.hasNext ? '#ddd' : '#555', cursor: meta.hasNext ? 'pointer' : 'not-allowed' }}>Next →</button>
+    {busy && <span style={{ color: '#777' }}>Loading…</span>}
+  </div>
+))
 const bookingCareLabel = (booking) => {
   const base = booking?.category_name || booking?.service_title || '—'
   const pet = (booking?.petType || booking?.pet_type)
@@ -175,7 +189,10 @@ const AdminDashboard = () => {
   const [complaintStatusFilter, setComplaintStatusFilter] = useState('all')
   const [supportSearch, setSupportSearch] = useState('')
   const [providerDetail, setProviderDetail] = useState(null)
-  const [kycDecision, setKycDecision] = useState(null)
+  const [kycDecision, setKycDecision] = useState(null) // { provider, mode, details, docIds }
+  const [kycDetailBusy, setKycDetailBusy] = useState(false)
+  const [kycDetailError, setKycDetailError] = useState('')
+  const [kycHistoryOpen, setKycHistoryOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [complaintOpen, setComplaintOpen] = useState(null)
   const [complaintNote, setComplaintNote] = useState('')
@@ -190,37 +207,138 @@ const AdminDashboard = () => {
   const [reportRange, setReportRange] = useState({ from: '', to: '' })
   const [payoutEdits, setPayoutEdits] = useState({})
   const [redemptionDecision, setRedemptionDecision] = useState(null)
+  const [statementRows, setStatementRows] = useState([])
+  const [statementSummary, setStatementSummary] = useState(null)
+  const [statementFrom, setStatementFrom] = useState('')
+  const [statementTo, setStatementTo] = useState('')
+  const [statementStatus, setStatementStatus] = useState('all')
+  const [webhookRows, setWebhookRows] = useState([])
+  const [webhookGateway, setWebhookGateway] = useState('all')
+  const [webhookStatusFilter, setWebhookStatusFilter] = useState('all')
+  const [webhookSearch, setWebhookSearch] = useState('')
+  const [webhookDetail, setWebhookDetail] = useState(null)
   const activePromotionPlans = plans.filter((plan) => plan.active)
   const generalSupportTickets = supportTickets.filter((ticket) => ticket.kind !== 'SERVICE_REQUEST')
 
   const token = sessionStorage.getItem('token')
 
+  /* Server-side pagination state for the high-growth collections. Rows live in
+     the existing list state; `pages` holds per-collection metadata. */
+  const emptyMeta = { page: 1, totalPages: 1, total: 0, hasNext: false, hasPrevious: false }
+  const [pages, setPages] = useState({ users: emptyMeta, bookings: emptyMeta, complaints: emptyMeta, refunds: emptyMeta, reviews: emptyMeta, statements: emptyMeta, webhooks: emptyMeta })
+  const [tableBusy, setTableBusy] = useState('')
+  const pagesRef = useRef(pages)
+  pagesRef.current = pages
+  const filtersRef = useRef({})
+  filtersRef.current = { userSearch, userRoleView, bookingSearch, bookingStatusFilter, complaintSearch, complaintStatusFilter, refundSearch, refundStatusFilter, providerReviewSearch }
+  const pageReqSeq = useRef({})
+  const filterMounted = useRef({})
+
+  // Every bounded collection request runs through here: responses from stale
+  // navigations are discarded so a slow earlier page can never overwrite a
+  // newer one.
+  const loadPage = useCallback(async (key, route, apply) => {
+    if (!token) return
+    const seq = (pageReqSeq.current[key] || 0) + 1
+    pageReqSeq.current[key] = seq
+    setTableBusy(key)
+    try {
+      const result = await apiRequest(route, 'GET', null, token)
+      if (pageReqSeq.current[key] !== seq) return
+      apply(result)
+    } catch (err) {
+      if (pageReqSeq.current[key] === seq) setLoadError(err.message || 'Could not load admin data.')
+    } finally {
+      if (pageReqSeq.current[key] === seq) setTableBusy((current) => (current === key ? '' : current))
+    }
+  }, [token])
+
+  const loadUsers = useCallback(async (page = pagesRef.current.users.page) => {
+    const f = filtersRef.current
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (f.userSearch.trim()) params.set('search', f.userSearch.trim())
+    if (f.userRoleView) params.set('role', f.userRoleView)
+    await loadPage('users', `/admin/users?${params.toString()}`, (result) => {
+      setUsers(Array.isArray(result.data) ? result.data : [])
+      if (result.pagination) setPages((prev) => ({ ...prev, users: result.pagination }))
+    })
+  }, [token, loadPage])
+
+  const loadBookings = useCallback(async (page = pagesRef.current.bookings.page) => {
+    const f = filtersRef.current
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (f.bookingSearch.trim()) params.set('search', f.bookingSearch.trim())
+    if (f.bookingStatusFilter !== 'all') params.set('status', f.bookingStatusFilter)
+    await loadPage('bookings', `/admin/bookings?${params.toString()}`, (result) => {
+      setBookings(Array.isArray(result.data) ? result.data : [])
+      if (result.pagination) setPages((prev) => ({ ...prev, bookings: result.pagination }))
+    })
+  }, [token, loadPage])
+
+  const loadComplaints = useCallback(async (page = pagesRef.current.complaints.page) => {
+    const f = filtersRef.current
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (f.complaintSearch.trim()) params.set('search', f.complaintSearch.trim())
+    if (f.complaintStatusFilter !== 'all') params.set('status', f.complaintStatusFilter)
+    await loadPage('complaints', `/admin/complaints?${params.toString()}`, (result) => {
+      setComplaints(Array.isArray(result.data) ? result.data : [])
+      if (result.pagination) setPages((prev) => ({ ...prev, complaints: result.pagination }))
+    })
+  }, [token, loadPage])
+
+  const loadRefunds = useCallback(async (page = pagesRef.current.refunds.page) => {
+    const f = filtersRef.current
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (f.refundSearch.trim()) params.set('customer', f.refundSearch.trim())
+    if (f.refundStatusFilter !== 'all') params.set('status', f.refundStatusFilter)
+    await loadPage('refunds', `/admin/refunds?${params.toString()}`, (result) => {
+      setRefunds(Array.isArray(result.data) ? result.data : [])
+      if (result.pagination) setPages((prev) => ({ ...prev, refunds: result.pagination }))
+    })
+  }, [token, loadPage])
+
+  const loadReviews = useCallback(async (page = pagesRef.current.reviews.page) => {
+    const f = filtersRef.current
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (f.providerReviewSearch.trim()) params.set('search', f.providerReviewSearch.trim())
+    await loadPage('reviews', `/admin/reviews?${params.toString()}`, (result) => {
+      setProviderReviews((prev) => ({
+        summary: result.summary || prev.summary || { average_rating: 0, review_count: 0, rated_provider_count: 0 },
+        providers: Array.isArray(result.providers) ? result.providers : (prev.providers || []),
+        reviews: Array.isArray(result.reviews) ? result.reviews : [],
+      }))
+      if (result.pagination) setPages((prev) => ({ ...prev, reviews: result.pagination }))
+    })
+  }, [token, loadPage])
+
   const loadAll = useCallback(async () => {
     if (!token) return
     setLoadError('')
     try {
-      const [s, p, b, c, t, requestRows, subs, cats, promos, notes, u, sessionRows, payoutRows, reviewRows, rf] = await Promise.all([
+      const [s, p, t, requestRows, subs, cats, promos, notes, sessionRows, payoutRows] = await Promise.all([
         apiRequest('/admin/stats', 'GET', null, token),
         apiRequest('/admin/providers', 'GET', null, token),
-        apiRequest('/admin/bookings', 'GET', null, token),
-        apiRequest('/admin/complaints', 'GET', null, token),
         apiRequest('/support', 'GET', null, token),
         apiRequest('/support/service-requests/admin', 'GET', null, token),
         apiRequest('/admin/subscriptions', 'GET', null, token),
         apiRequest('/categories', 'GET', null, token),
         apiRequest('/promotions/all', 'GET', null, token),
         apiRequest('/notifications', 'GET', null, token),
-        apiRequest('/admin/users', 'GET', null, token),
         apiRequest('/admin/session-payouts', 'GET', null, token),
         apiRequest('/admin/payouts', 'GET', null, token),
-        apiRequest('/admin/reviews', 'GET', null, token),
-        apiRequest('/admin/refunds', 'GET', null, token),
+        loadUsers(),
+        loadBookings(),
+        loadComplaints(),
+        loadRefunds(),
+        loadReviews(),
       ])
       setStats(s)
       setProviders(Array.isArray(p) ? p : [])
-      setBookings(Array.isArray(b) ? b : [])
-      setComplaints(Array.isArray(c) ? c : [])
-      setRefunds(Array.isArray(rf) ? rf : [])
       setSupportTickets(Array.isArray(t) ? t : [])
       setRequestedServices(Array.isArray(requestRows) ? requestRows : [])
       setPlans(Array.isArray(subs) ? subs.map((plan) => ({
@@ -230,20 +348,122 @@ const AdminDashboard = () => {
       setCategories(Array.isArray(cats) ? cats : [])
       setPromotions(Array.isArray(promos) ? promos : [])
       setNotifications(Array.isArray(notes) ? notes : [])
-      setUsers(Array.isArray(u) ? u : [])
       setSessionPayouts(Array.isArray(sessionRows) ? sessionRows : [])
       setProviderPayouts(Array.isArray(payoutRows) ? payoutRows : [])
-      if (reviewRows && typeof reviewRows === 'object') {
-        setProviderReviews({
-          summary: reviewRows.summary || { average_rating: 0, review_count: 0, rated_provider_count: 0 },
-          providers: Array.isArray(reviewRows.providers) ? reviewRows.providers : [],
-          reviews: Array.isArray(reviewRows.reviews) ? reviewRows.reviews : [],
-        })
-      }
     } catch (err) {
       setLoadError(err.message || 'Could not load admin data. Please refresh.')
     }
-  }, [token])
+  }, [token, loadUsers, loadBookings, loadComplaints, loadRefunds, loadReviews])
+
+  // Server-side filters: debounce keystrokes, reset to page 1, skip the
+  // initial mount (loadAll already fetches page 1 once).
+  useEffect(() => {
+    if (!filterMounted.current.users) { filterMounted.current.users = true; return }
+    const timer = setTimeout(() => { loadUsers(1) }, 350)
+    return () => clearTimeout(timer)
+  }, [userSearch, userRoleView, loadUsers])
+  useEffect(() => {
+    if (!filterMounted.current.bookings) { filterMounted.current.bookings = true; return }
+    const timer = setTimeout(() => { loadBookings(1) }, 350)
+    return () => clearTimeout(timer)
+  }, [bookingSearch, bookingStatusFilter, loadBookings])
+  useEffect(() => {
+    if (!filterMounted.current.complaints) { filterMounted.current.complaints = true; return }
+    const timer = setTimeout(() => { loadComplaints(1) }, 350)
+    return () => clearTimeout(timer)
+  }, [complaintSearch, complaintStatusFilter, loadComplaints])
+  useEffect(() => {
+    if (!filterMounted.current.refunds) { filterMounted.current.refunds = true; return }
+    const timer = setTimeout(() => { loadRefunds(1) }, 350)
+    return () => clearTimeout(timer)
+  }, [refundSearch, refundStatusFilter, loadRefunds])
+  useEffect(() => {
+    if (!filterMounted.current.reviews) { filterMounted.current.reviews = true; return }
+    const timer = setTimeout(() => { loadReviews(1) }, 350)
+    return () => clearTimeout(timer)
+  }, [providerReviewSearch, loadReviews])
+
+  /* Slice 10 operational tooling: payout statements + webhook viewer. Both are
+     loaded on demand when their section opens (like reports) and reuse the
+     same guarded bounded-page loader. */
+  const loadStatements = useCallback(async (page = pagesRef.current.statements.page) => {
+    if (!token) return
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (statementFrom) params.set('from', statementFrom)
+    if (statementTo) params.set('to', statementTo)
+    if (statementStatus !== 'all') params.set('status', statementStatus)
+    await loadPage('statements', `/admin/payout-statements?${params.toString()}`, (result) => {
+      setStatementRows(Array.isArray(result.data) ? result.data : [])
+      setStatementSummary(result.summary || null)
+      if (result.pagination) setPages((prev) => ({ ...prev, statements: result.pagination }))
+    })
+  }, [token, loadPage, statementFrom, statementTo, statementStatus])
+
+  const loadWebhooks = useCallback(async (page = pagesRef.current.webhooks.page) => {
+    if (!token) return
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (webhookGateway !== 'all') params.set('gateway', webhookGateway)
+    if (webhookStatusFilter !== 'all') params.set('status', webhookStatusFilter)
+    if (webhookSearch.trim()) params.set('reference', webhookSearch.trim())
+    await loadPage('webhooks', `/admin/webhook-events?${params.toString()}`, (result) => {
+      setWebhookRows(Array.isArray(result.data) ? result.data : [])
+      if (result.pagination) setPages((prev) => ({ ...prev, webhooks: result.pagination }))
+    })
+  }, [token, loadPage, webhookGateway, webhookStatusFilter, webhookSearch])
+
+  const toolingMounted = useRef({})
+  useEffect(() => {
+    if (activeNav !== 'payout_statements') return
+    if (!toolingMounted.current.statements) { toolingMounted.current.statements = true; return }
+    const timer = setTimeout(() => { loadStatements(1) }, 250)
+    return () => clearTimeout(timer)
+  }, [activeNav, statementFrom, statementTo, statementStatus, loadStatements])
+  useEffect(() => {
+    if (activeNav !== 'payout_statements' || toolingMounted.current.statements) return
+    loadStatements(1) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeNav])
+  useEffect(() => {
+    if (activeNav !== 'webhooks') return
+    if (!toolingMounted.current.webhooks) {
+      toolingMounted.current.webhooks = true
+      loadWebhooks(1) // eslint-disable-line react-hooks/exhaustive-deps
+      return
+    }
+    const timer = setTimeout(() => { loadWebhooks(1) }, 250)
+    return () => clearTimeout(timer)
+  }, [activeNav, webhookGateway, webhookStatusFilter, webhookSearch])
+
+  const exportStatement = async () => {
+    try {
+      const params = new URLSearchParams()
+      if (statementFrom) params.set('from', statementFrom)
+      if (statementTo) params.set('to', statementTo)
+      if (statementStatus !== 'all') params.set('status', statementStatus)
+      const response = await fetch(`${API_BASE}/admin/payout-statements/export?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || 'Export failed.')
+      }
+      const url = URL.createObjectURL(await response.blob())
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `luxora-payout-statement${statementFrom || statementTo ? `_${statementFrom || 'start'}_${statementTo || 'latest'}` : ''}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) { alert(err.message || 'Export failed.') }
+  }
+
+  const openWebhookDetail = async (row) => {
+    setWebhookDetail({ loading: true, error: '', event: null })
+    try {
+      const event = await apiRequest(`/admin/webhook-events/${row.payment_id}`, 'GET', null, token)
+      setWebhookDetail({ loading: false, error: '', event })
+    } catch (err) {
+      setWebhookDetail({ loading: false, error: err.message || 'Could not load event.', event: null })
+    }
+  }
 
   const loadScheduling = useCallback(async () => {
     if (!token) return
@@ -259,19 +479,15 @@ const AdminDashboard = () => {
   useEffect(() => { loadAll() }, [loadAll])
   useEffect(() => { loadScheduling() }, [loadScheduling])
 
-  // Targeted realtime refresh for complaint events: keeps the complaints list
-  // and the open-complaints stat current without a full loadAll().
+  // Targeted realtime refresh for complaint events: keeps the current bounded
+  // complaints page and the open-complaints stat current without a full loadAll().
   const refreshComplaints = useCallback(async () => {
     if (!token) return
     try {
-      const [freshComplaints, freshStats] = await Promise.all([
-        apiRequest('/admin/complaints', 'GET', null, token),
-        apiRequest('/admin/stats', 'GET', null, token),
-      ])
-      setComplaints(freshComplaints)
-      setStats(freshStats)
+      setStats(await apiRequest('/admin/stats', 'GET', null, token))
     } catch { /* non-fatal: next event or reload will sync */ }
-  }, [token])
+    await loadComplaints()
+  }, [token, loadComplaints])
 
   useRealtime({
     onEvent: (type, data) => {
@@ -298,23 +514,9 @@ const AdminDashboard = () => {
       if (!b) return
 
       if (type === 'BOOKING_CREATED') {
-        const id = b.id || b.bookingId
-        setBookings((prev) => {
-          if (prev.some((item) => item.id === id)) return prev
-          const newBooking = {
-            id,
-            bookingDate: b.bookingDate,
-            bookingTime: b.bookingTime,
-            town: b.town,
-            petType: b.petType,
-            status: String(b.status || 'pending').toLowerCase(),
-            totalPrice: b.totalPrice || b.total_price || 0,
-            service: { title: b.serviceTitle || b.service_title, category: { name: b.categoryName || b.category_name } },
-            user: { name: b.customerName || b.customer_name || 'Customer', email: '', phone: b.customerPhone || b.customer_phone || '' },
-            provider: b.providerName ? { user: { name: b.providerName, phone: b.providerPhone } } : null,
-          }
-          return [newBooking, ...prev]
-        })
+        // Refresh the current bounded page instead of prepending locally —
+        // server ordering and pagination metadata stay authoritative.
+        void loadBookings()
         setStats((prev) => prev ? {
           ...prev,
           totalBookings: (prev.totalBookings || 0) + 1,
@@ -381,40 +583,82 @@ const AdminDashboard = () => {
       setRefundOpen(null)
       setRefundNote('')
       setRefundProviderRef('')
-      await refreshRefunds()
+      await loadRefunds()
     } catch (err) {
       // Stale-state races surface as 409: refresh the list so the row reflects reality.
       if (err.statusCode === 409 || err.statusCode === 400) {
         setRefundError(err.message)
-        await refreshRefunds()
+        await loadRefunds()
         // Re-sync the open modal with the fresh server state so the shown
         // actions match reality after another admin moved the refund first.
         try {
-          const fresh = await apiRequest('/admin/refunds', 'GET', null, token)
-          const freshRow = (Array.isArray(fresh) ? fresh : []).find((r) => r.id === refund.id)
+          const fresh = await apiRequest(`/admin/refunds?page=1&pageSize=100&payment_id=${refund.payment_id}`, 'GET', null, token)
+          const freshRow = (Array.isArray(fresh.data) ? fresh.data : []).find((r) => r.id === refund.id)
           if (freshRow) setRefundOpen(freshRow)
         } catch { /* keep the stale modal; the error already explains the conflict */ }
       } else {
         setRefundOpen(null)
         setRefundError(err.message || 'Refund action failed.')
-        await refreshRefunds()
+        await loadRefunds()
       }
     } finally {
       setBusy(false)
     }
   }
 
-  const decideKyc = () => {
-    const { provider, mode } = kycDecision || {}
-    if (!provider) return
-    if (mode === 'reject' && rejectReason.trim().length < 3) { alert('Rejection reason must be at least 3 characters.'); return }
-    runAction(async () => {
-      await apiRequest(`/admin/providers/${provider.id}/kyc`, 'PUT', {
-        status: mode === 'approve' ? 'approved' : 'rejected',
-        ...(mode === 'reject' ? { rejection_reason: rejectReason.trim() } : {}),
+  /* Open the KYC review modal: fetch the provider's CURRENT document snapshot
+     at open time. The submitted document_ids are frozen from that snapshot so
+     the backend can reject (409) if the documents changed underneath us. */
+  const openKycDecision = async (provider, mode) => {
+    setKycDecision({ provider, mode, details: null, docIds: null })
+    setKycHistoryOpen(false)
+    setKycDetailError('')
+    setKycDetailBusy(true)
+    try {
+      const details = await apiRequest(`/admin/providers/${provider.id}`, 'GET', null, token)
+      const currentIds = Array.isArray(details.current_document_ids) ? details.current_document_ids : []
+      setKycDecision({ provider, mode, details, docIds: currentIds })
+      setKycDetailError('')
+    } catch (err) {
+      setKycDecision({ provider, mode, details: null, docIds: null })
+      setKycDetailError(err.message || 'Could not load the current KYC documents.')
+    } finally {
+      setKycDetailBusy(false)
+    }
+  }
+
+  const closeKycDecision = () => {
+    setKycDecision(null)
+    setKycHistoryOpen(false)
+    setKycDetailError('')
+    setRejectReason('')
+  }
+
+  const decideKyc = async () => {
+    const decision = kycDecision
+    if (!decision) return
+    if (decision.mode === 'reject' && rejectReason.trim().length < 3) { alert('Rejection reason must be at least 3 characters.'); return }
+    if (decision.docIds === null) { setKycDetailError('The current documents could not be loaded. Close and reopen this review.'); return }
+    setBusy(true)
+    try {
+      await apiRequest(`/admin/providers/${decision.provider.id}/kyc`, 'PUT', {
+        status: decision.mode === 'approve' ? 'approved' : 'rejected',
+        document_ids: decision.docIds,
+        ...(decision.mode === 'reject' ? { rejection_reason: rejectReason.trim() } : {}),
       }, token)
-      setKycDecision(null); setRejectReason('')
-    }, `KYC ${mode === 'approve' ? 'approved' : 'rejected'}.`)
+      setKycDecision(null); setKycHistoryOpen(false); setRejectReason('')
+      await loadAll()
+      alert(`KYC ${decision.mode === 'approve' ? 'approved' : 'rejected'}.`)
+    } catch (err) {
+      if (err.statusCode === 409) {
+        // Documents changed since this review was opened. Never retry the
+        // approval implicitly — the admin must reopen and re-review.
+        setKycDetailError('KYC documents changed since this review opened. Close this dialog and reopen the review to see the current documents.')
+        await loadAll().catch(() => {})
+      } else {
+        alert(err.message || 'KYC decision failed.')
+      }
+    } finally { setBusy(false) }
   }
 
   const openProviderDetail = async (id) => {
@@ -610,31 +854,20 @@ const AdminDashboard = () => {
   const approvedProviders = providers.filter((p) => p.kyc_status === 'approved')
   const filteredProviders = providers.filter((provider) => matchesSearch(providerSearch, provider.id, `#${provider.id}`, provider.name))
   const filteredProviderRatings = providerReviews.providers.filter((provider) => matchesSearch(providerReviewSearch, provider.provider_name))
-  const filteredProviderReviews = providerReviews.reviews.filter((review) => matchesSearch(providerReviewSearch, review.provider_name))
+  // Users, bookings, complaints, refunds and reviews are filtered and paginated
+  // server-side (search + status + page); the loaded page is already the
+  // filtered set, so these are pass-throughs.
+  const filteredProviderReviews = providerReviews.reviews
   const filteredPendingKyc = pendingKyc.filter((provider) => matchesSearch(approvalSearch, provider.name, provider.email))
   const filteredPlans = plans.filter((plan) => matchesSearch(packageSearch, plan.title))
   const redemptionRequests = providerPayouts.filter((payout) => payout.kind === 'redemption')
   const filteredRedemptionRequests = redemptionRequests.filter((payout) => matchesSearch(redemptionSearch, payout.provider_name))
-  const filteredBookings = bookings.filter((booking) => {
-    const matchesStatus = bookingStatusFilter === 'all' || String(booking.status || '').toLowerCase() === bookingStatusFilter
-    return matchesStatus && matchesSearch(bookingSearch, booking.id, `#${booking.id}`, booking.customer_name, booking.provider_name)
-  })
+  const filteredBookings = bookings
   const filteredRequestedServices = requestedServices.filter((request) => matchesSearch(requestedServiceSearch, request.subject, request.customer_name, request.provider_name))
-  const filteredComplaints = complaints.filter((complaint) => {
-    const matchesStatus = complaintStatusFilter === 'all' || String(complaint.status || '').toLowerCase() === complaintStatusFilter
-    return matchesStatus && matchesSearch(complaintSearch, complaint.customer_name)
-  })
-  const filteredRefunds = refunds.filter((refund) => {
-    const matchesStatus = refundStatusFilter === 'all' || String(refund.status || '').toLowerCase() === refundStatusFilter
-    return matchesStatus && matchesSearch(refundSearch, refund.customer_name, `#${refund.id}`)
-  })
+  const filteredComplaints = complaints
+  const filteredRefunds = refunds
   const filteredSupportTickets = generalSupportTickets.filter((ticket) => matchesSearch(supportSearch, ticket.id, `#${ticket.id}`, ticket.user?.name))
-  const filteredUsers = users.filter((u) => {
-    const roleOk = (u.role || '').toUpperCase() === userRoleView
-    const q = userSearch.trim().toLowerCase()
-    const searchOk = !q || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
-    return roleOk && searchOk
-  })
+  const filteredUsers = users
 
   return (
     <div className="ad-wrapper">
@@ -725,7 +958,7 @@ const AdminDashboard = () => {
                         <tr key={p.id}>
                           <td>{p.name}</td>
                           <td>{p.category || '—'}</td>
-                          <td><button style={goldBtn} onClick={() => setKycDecision({ provider: p, mode: 'approve' })}>Review</button></td>
+                          <td><button style={goldBtn} onClick={() => openKycDecision(p, 'approve')}>Review</button></td>
                         </tr>
                       ))}
                       {pendingKyc.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No pending KYC requests.</td></tr>}
@@ -747,7 +980,7 @@ const AdminDashboard = () => {
                     color: userRoleView === role ? '#000' : '#ddd',
                     border: '1px solid ' + (userRoleView === role ? 'var(--gold, #c9a84c)' : '#333'),
                     borderRadius: '7px', padding: '0.5rem 0.9rem', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
-                  }}>{role}S ({users.filter((u) => (u.role || '').toUpperCase() === role).length})</button>
+                  }}>{role}S{userRoleView === role ? ` (${pages.users.total})` : ''}</button>
                 ))}
                 <input className="ad-search-input" style={{ ...fieldStyle, maxWidth: '260px', marginLeft: 'auto' }} placeholder="Search name or email…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
               </div>
@@ -773,6 +1006,7 @@ const AdminDashboard = () => {
                   {filteredUsers.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No users match.</td></tr>}
                 </tbody>
               </table>
+              <PageNav meta={pages.users} busy={tableBusy === 'users'} onPage={(p) => loadUsers(p)} />
             </div>
           )}
 
@@ -852,6 +1086,7 @@ const AdminDashboard = () => {
                     {filteredProviderReviews.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No booking reviews match this provider name.</td></tr>}
                   </tbody>
                 </table>
+                <PageNav meta={pages.reviews} busy={tableBusy === 'reviews'} onPage={(p) => loadReviews(p)} />
               </div>
             </>
           )}
@@ -873,8 +1108,8 @@ const AdminDashboard = () => {
                       <td style={{ color: '#999' }}>{p.email}</td>
                       <td>{p.category || '—'}</td>
                       <td style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="ad-btn-approve" style={goldBtn} disabled={busy} onClick={() => setKycDecision({ provider: p, mode: 'approve' })}>Approve</button>
-                        <button className="ad-btn-reject" style={redBtn} disabled={busy} onClick={() => setKycDecision({ provider: p, mode: 'reject' })}>Reject</button>
+                        <button className="ad-btn-approve" style={goldBtn} disabled={busy} onClick={() => openKycDecision(p, 'approve')}>Approve</button>
+                        <button className="ad-btn-reject" style={redBtn} disabled={busy} onClick={() => openKycDecision(p, 'reject')}>Reject</button>
                         <button style={ghostBtn} onClick={() => openProviderDetail(p.id)}>Documents</button>
                       </td>
                     </tr>
@@ -967,6 +1202,7 @@ const AdminDashboard = () => {
                   {filteredBookings.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No bookings match the selected filters.</td></tr>}
                 </tbody>
               </table>
+              <PageNav meta={pages.bookings} busy={tableBusy === 'bookings'} onPage={(p) => loadBookings(p)} />
             </div>
           )}
 
@@ -1025,6 +1261,7 @@ const AdminDashboard = () => {
                   {filteredComplaints.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No complaints match the selected filters.</td></tr>}
                 </tbody>
               </table>
+              <PageNav meta={pages.complaints} busy={tableBusy === 'complaints'} onPage={(p) => loadComplaints(p)} />
             </div>
           )}
 
@@ -1063,6 +1300,93 @@ const AdminDashboard = () => {
                   {filteredRefunds.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>No refunds match the selected filters.</td></tr>}
                 </tbody>
               </table>
+              <PageNav meta={pages.refunds} busy={tableBusy === 'refunds'} onPage={(p) => loadRefunds(p)} />
+            </div>
+          )}
+
+          {/* PAYOUT STATEMENTS (Slice 10) */}
+          {activeNav === 'payout_statements' && (
+            <div className="ad-table-card">
+              <h3 className="ad-table-title">PAYOUT STATEMENTS</h3>
+              <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <label style={{ color: '#999', fontSize: '0.78rem' }}>From <input type="month" value={statementFrom} onChange={(e) => setStatementFrom(e.target.value)} style={{ ...fieldStyle, maxWidth: '160px' }} aria-label="Statement period from" /></label>
+                <label style={{ color: '#999', fontSize: '0.78rem' }}>To <input type="month" value={statementTo} onChange={(e) => setStatementTo(e.target.value)} style={{ ...fieldStyle, maxWidth: '160px' }} aria-label="Statement period to" /></label>
+                <select value={statementStatus} onChange={(e) => setStatementStatus(e.target.value)} style={{ ...fieldStyle, maxWidth: '150px' }} aria-label="Filter payouts by status">
+                  <option value="all">All statuses</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <button type="button" className="ad-btn-approve" style={{ ...goldBtn, marginLeft: 'auto' }} onClick={exportStatement} disabled={tableBusy === 'statements'}>Export CSV</button>
+              </div>
+              {statementSummary && (
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', fontSize: '0.82rem', color: '#bbb' }}>
+                  <span>Paid: <strong style={{ color: '#4ade80' }}>{fmtMoney(statementSummary.paidTotal)}</strong> ({statementSummary.paidCount})</span>
+                  <span>Pending: <strong style={{ color: '#facc15' }}>{fmtMoney(statementSummary.pendingTotal)}</strong> ({statementSummary.pendingCount})</span>
+                  <span>Failed: <strong style={{ color: '#ef4444' }}>{fmtMoney(statementSummary.failedTotal)}</strong> ({statementSummary.failedCount})</span>
+                </div>
+              )}
+              <table className="ad-data-table">
+                <thead><tr><th>ID</th><th>PERIOD</th><th>KIND</th><th>PROVIDER</th><th>AMOUNT</th><th>STATUS</th><th>BANK</th><th>PAID AT</th></tr></thead>
+                <tbody>
+                  {statementRows.map((row) => (
+                    <tr key={row.id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{row.id}</td>
+                      <td>{row.period}</td>
+                      <td>{row.kind}</td>
+                      <td>{row.provider?.name}<small style={{ display: 'block', color: '#777' }}>{row.provider?.email}</small></td>
+                      <td>{Number(row.amount).toFixed(2)} {row.currency}</td>
+                      <td><StatBadge value={row.status} /></td>
+                      <td>{row.bank?.name || '—'}<small style={{ display: 'block', color: '#777' }}>{row.bank?.account_masked || ''}</small></td>
+                      <td>{fmtDateTime(row.paid_at)}</td>
+                    </tr>
+                  ))}
+                  {statementRows.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>{tableBusy === 'statements' ? 'Loading statement…' : 'No payouts match the selected filters.'}</td></tr>}
+                </tbody>
+              </table>
+              <PageNav meta={pages.statements} busy={tableBusy === 'statements'} onPage={(p) => loadStatements(p)} />
+            </div>
+          )}
+
+          {/* WEBHOOK EVENT VIEWER (Slice 10 — read-only) */}
+          {activeNav === 'webhooks' && (
+            <div className="ad-table-card">
+              <h3 className="ad-table-title">PAYMENT WEBHOOK EVENTS</h3>
+              <p style={{ color: '#777', fontSize: '0.78rem', margin: '0 0 1rem' }}>Read-only delivery log (latest event per payment). Signatures and secret-like payload fields are redacted automatically.</p>
+              <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <select value={webhookGateway} onChange={(e) => setWebhookGateway(e.target.value)} style={{ ...fieldStyle, maxWidth: '170px' }} aria-label="Filter events by gateway">
+                  <option value="all">All gateways</option>
+                  <option value="payhere">PayHere</option>
+                  <option value="nowpayments">NOWPayments</option>
+                  <option value="demo">Demo</option>
+                </select>
+                <select value={webhookStatusFilter} onChange={(e) => setWebhookStatusFilter(e.target.value)} style={{ ...fieldStyle, maxWidth: '170px' }} aria-label="Filter events by payment status">
+                  <option value="all">All payment states</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+                <input type="search" className="ad-search-input" style={{ ...fieldStyle, maxWidth: '260px' }} aria-label="Search events by payment reference" placeholder="Search payment reference…" value={webhookSearch} onChange={(e) => setWebhookSearch(e.target.value)} />
+              </div>
+              <table className="ad-data-table">
+                <thead><tr><th>PAYMENT</th><th>GATEWAY</th><th>EVENT</th><th>STATE</th><th>AMOUNT</th><th>RECEIVED</th><th>ACTION</th></tr></thead>
+                <tbody>
+                  {webhookRows.map((row) => (
+                    <tr key={row.payment_id}>
+                      <td style={{ color: 'var(--gold, #c9a84c)', fontWeight: 800 }}>#{row.payment_id}<small style={{ display: 'block', color: '#777' }}>{row.reference}</small></td>
+                      <td>{row.gateway}</td>
+                      <td>{row.event_kind}</td>
+                      <td><StatBadge value={row.payment_status} /></td>
+                      <td>{fmtMoney(row.amount)}<small style={{ display: 'block', color: '#777' }}>{row.captured_amount === null ? 'not captured' : `${Number(row.captured_amount).toFixed(2)} ${row.captured_currency || ''}`}</small></td>
+                      <td>{fmtDateTime(row.received_at)}</td>
+                      <td><button style={ghostBtn} onClick={() => openWebhookDetail(row)}>Inspect</button></td>
+                    </tr>
+                  ))}
+                  {webhookRows.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '1.5rem', color: '#777' }}>{tableBusy === 'webhooks' ? 'Loading events…' : 'No webhook events match the selected filters.'}</td></tr>}
+                </tbody>
+              </table>
+              <PageNav meta={pages.webhooks} busy={tableBusy === 'webhooks'} onPage={(p) => loadWebhooks(p)} />
             </div>
           )}
 
@@ -1330,6 +1654,35 @@ const AdminDashboard = () => {
 
       {/* ══ MODALS ══ */}
 
+      {webhookDetail && (
+        <Modal title={`WEBHOOK EVENT — PAYMENT #${webhookDetail.event?.payment_id ?? ''}`} onClose={() => setWebhookDetail(null)}>
+          {webhookDetail.loading && <p style={{ color: '#999' }}>Loading event…</p>}
+          {webhookDetail.error && <p style={{ color: '#ef4444', fontWeight: 600 }}>{webhookDetail.error}</p>}
+          {webhookDetail.event && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 1rem', fontSize: '0.85rem', color: '#ccc', marginBottom: '1rem' }}>
+                <span>Gateway: <strong>{webhookDetail.event.gateway}</strong></span>
+                <span>Event: <strong>{webhookDetail.event.event_kind}</strong></span>
+                <span>Reference: <strong>{webhookDetail.event.reference}</strong></span>
+                <span>Payment state: <strong>{webhookDetail.event.payment_status}</strong></span>
+                <span>Expected: {Number(webhookDetail.event.amount).toFixed(2)} {webhookDetail.event.expected_currency}</span>
+                <span>Captured: {webhookDetail.event.captured_amount === null ? '—' : `${Number(webhookDetail.event.captured_amount).toFixed(2)} ${webhookDetail.event.captured_currency || ''}`}</span>
+                <span>Received: {fmtDateTime(webhookDetail.event.received_at)}</span>
+                <span>Payload size: {webhookDetail.event.payload_bytes} bytes</span>
+              </div>
+              {webhookDetail.event.refund_correlation && (
+                <p style={{ color: '#bbb', fontSize: '0.85rem' }}>Refund correlation: #{webhookDetail.event.refund_correlation.refund_id} ({webhookDetail.event.refund_correlation.status}) · provider ref {webhookDetail.event.refund_correlation.provider_ref || '—'} · {Number(webhookDetail.event.refund_correlation.amount).toFixed(2)}</p>
+              )}
+              {webhookDetail.event.payload_truncated && <p style={{ color: '#facc15', fontSize: '0.8rem' }}>Payload was too large to display in full and has been truncated or omitted.</p>}
+              {webhookDetail.event.payload
+                ? <pre style={{ background: '#0d0d0d', border: '1px solid #333', borderRadius: '8px', padding: '0.9rem', maxHeight: '320px', overflow: 'auto', fontSize: '0.75rem', color: '#9ca3af', whiteSpace: 'pre-wrap' }}>{JSON.stringify(webhookDetail.event.payload, null, 2)}</pre>
+                : <p style={{ color: '#777', fontSize: '0.8rem' }}>Sanitized payload withheld (size limit). Use the payment record and logs for deeper debugging.</p>}
+              <p style={{ color: '#666', fontSize: '0.72rem' }}>Signature and secret-like fields are redacted. This viewer is read-only — events cannot be replayed or modified here.</p>
+            </>
+          )}
+        </Modal>
+      )}
+
       {showNotifModal && (
         <Modal title={`NOTIFICATIONS (${unreadNotifs.length} unread)`} onClose={() => setShowNotifModal(false)}
           footer={<button className="ad-notif-clear-btn" style={goldBtn} onClick={markAllNotifsRead}>Mark all read</button>}>
@@ -1384,7 +1737,53 @@ const AdminDashboard = () => {
       )}
 
       {kycDecision && (
-        <Modal title={`${kycDecision.mode === 'approve' ? 'APPROVE' : 'REJECT'} KYC — ${kycDecision.provider.name}`} onClose={() => { setKycDecision(null); setRejectReason('') }}>
+        <Modal title={`${kycDecision.mode === 'approve' ? 'APPROVE' : 'REJECT'} KYC — ${kycDecision.provider.name}`} onClose={closeKycDecision}>
+          {kycDetailBusy && <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Loading current KYC documents…</p>}
+          {kycDetailError && (
+            <div style={{ padding: '0.75rem 0.9rem', marginBottom: '0.9rem', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)', borderRadius: '8px' }}>
+              <p style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.82rem', margin: 0 }}>{kycDetailError}</p>
+              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.6rem' }}>
+                <button style={ghostBtn} onClick={closeKycDecision}>Close Review</button>
+                <button style={goldBtn} disabled={kycDetailBusy} onClick={() => openKycDecision(kycDecision.provider, kycDecision.mode)}>Reopen Review</button>
+              </div>
+            </div>
+          )}
+          {kycDecision.details && (
+            <div style={{ marginBottom: '0.9rem' }}>
+              <h4 style={{ margin: '0 0 0.5rem', color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', letterSpacing: '0.12em' }}>CURRENT DOCUMENTS ({(kycDecision.details.documents || []).filter((d) => !d.supersededAt).length})</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {(kycDecision.details.documents || []).filter((d) => !d.supersededAt).map((d) => (
+                  <button key={d.id} type="button" onClick={() => openKycDoc(d)} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.55rem 0.8rem', border: '1px solid #262626', borderRadius: '8px', color: '#ddd', background: '#121214', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                    <span>#{d.id} · {d.originalName || d.documentType}<small style={{ display: 'block', color: '#777', fontSize: '0.7rem', marginTop: '0.15rem' }}>{String(d.documentType || '').toUpperCase()}</small></span>
+                    <span style={{ color: 'var(--gold, #c9a84c)' }}>Open ↗</span>
+                  </button>
+                ))}
+                {(kycDecision.details.documents || []).filter((d) => !d.supersededAt).length === 0 && (
+                  <p style={{ color: '#777', fontSize: '0.8rem', margin: 0 }}>No current documents — legacy provider without uploads. The decision will be recorded without a document check.</p>
+                )}
+              </div>
+              {(kycDecision.details.documents || []).some((d) => d.supersededAt) && (
+                <>
+                  <button type="button" style={{ ...ghostBtn, marginTop: '0.75rem' }} onClick={() => setKycHistoryOpen((open) => !open)}>
+                    {kycHistoryOpen ? 'Hide' : 'Show'} superseded document history ({(kycDecision.details.documents || []).filter((d) => d.supersededAt).length})
+                  </button>
+                  {kycHistoryOpen && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem' }}>
+                      {(kycDecision.details.documents || []).filter((d) => d.supersededAt).map((d) => (
+                        <button key={d.id} type="button" onClick={() => openKycDoc(d)} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.45rem 0.8rem', border: '1px dashed #333', borderRadius: '8px', color: '#999', background: '#0e0e10', fontSize: '0.76rem', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                          <span>#{d.id} {d.originalName || d.documentType}<small style={{ display: 'block', color: '#666', marginTop: '0.15rem' }}>Superseded {fmtDateTime(d.supersededAt)}</small></span>
+                          <span style={{ color: '#888' }}>Open ↗</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              <p style={{ margin: '0.75rem 0 0', color: '#777', fontSize: '0.74rem', lineHeight: 1.5 }}>
+                This review is locked to the {Array.isArray(kycDecision.docIds) ? kycDecision.docIds.length : 0} document(s) listed above. If the provider uploads new documents while you review, confirming will fail — reopen the review to see the latest set.
+              </p>
+            </div>
+          )}
           {kycDecision.mode === 'reject' && (
             <label style={{ color: '#888', fontSize: '0.78rem' }}>Rejection reason (required, 3-500 chars)
               <textarea rows={3} style={{ ...fieldStyle, marginTop: '0.4rem' }} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Explain what the provider must fix…" />
@@ -1392,11 +1791,12 @@ const AdminDashboard = () => {
           )}
           {kycDecision.mode === 'approve' && <p style={{ color: '#aaa', fontSize: '0.85rem' }}>Approve {kycDecision.provider.name} ({kycDecision.provider.category || 'provider'})? They will be notified and can start receiving bookings.</p>}
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.1rem', justifyContent: 'flex-end' }}>
-            <button style={ghostBtn} onClick={() => { setKycDecision(null); setRejectReason('') }}>Cancel</button>
+            <button style={ghostBtn} onClick={closeKycDecision}>Cancel</button>
             <ActionButton
               style={kycDecision.mode === 'approve' ? goldBtn : redBtn}
               loading={busy}
               loadingText={kycDecision.mode === 'approve' ? 'Approving...' : 'Rejecting...'}
+              disabled={kycDetailBusy || !kycDecision.details || kycDetailError}
               onClick={decideKyc}
             >
               {kycDecision.mode === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
@@ -1416,16 +1816,29 @@ const AdminDashboard = () => {
             <span>Earnings: {fmtMoney(providerDetail.earnings)}</span>
             <span>Rating: {providerDetail.averageRating ? Number(providerDetail.averageRating).toFixed(1) : 'No reviews yet'}</span>
           </div>
-          <h4 style={{ margin: '1.1rem 0 0.5rem', color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', letterSpacing: '0.12em' }}>KYC DOCUMENTS</h4>
+          <h4 style={{ margin: '1.1rem 0 0.5rem', color: 'var(--gold, #c9a84c)', fontSize: '0.72rem', letterSpacing: '0.12em' }}>CURRENT KYC DOCUMENTS</h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {(providerDetail.documents || []).map((d) => (
+            {(providerDetail.documents || []).filter((d) => !d.supersededAt).map((d) => (
               <button key={d.id} type="button" onClick={() => openKycDoc(d)} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.55rem 0.8rem', border: '1px solid #262626', borderRadius: '8px', color: '#ddd', background: '#121214', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                <span>{d.originalName || d.documentType}</span>
+                <span>#{d.id} {d.originalName || d.documentType}<small style={{ display: 'block', color: '#777', marginTop: '0.15rem' }}>{String(d.documentType || '').toUpperCase()} · uploaded {fmtDateTime(d.createdAt)}</small></span>
                 <span style={{ color: 'var(--gold, #c9a84c)' }}>Open ↗</span>
               </button>
             ))}
-            {(providerDetail.documents || []).length === 0 && <p style={{ color: '#777', fontSize: '0.8rem' }}>No documents uploaded.</p>}
+            {(providerDetail.documents || []).filter((d) => !d.supersededAt).length === 0 && <p style={{ color: '#777', fontSize: '0.8rem' }}>No current documents uploaded.</p>}
           </div>
+          {(providerDetail.documents || []).some((d) => d.supersededAt) && (
+            <>
+              <h4 style={{ margin: '1.1rem 0 0.5rem', color: '#777', fontSize: '0.72rem', letterSpacing: '0.12em' }}>SUPERSEDED HISTORY</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {(providerDetail.documents || []).filter((d) => d.supersededAt).map((d) => (
+                  <button key={d.id} type="button" onClick={() => openKycDoc(d)} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.45rem 0.8rem', border: '1px dashed #333', borderRadius: '8px', color: '#999', background: '#0e0e10', fontSize: '0.76rem', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                    <span>#{d.id} {d.originalName || d.documentType}<small style={{ display: 'block', color: '#666', marginTop: '0.15rem' }}>{String(d.documentType || '').toUpperCase()} · superseded {fmtDateTime(d.supersededAt)}</small></span>
+                    <span style={{ color: '#888' }}>Open ↗</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </Modal>
       )}
 
@@ -1474,8 +1887,11 @@ const AdminDashboard = () => {
 
           {(refundOpen.status === 'approved' || refundOpen.status === 'processing') && (
             <>
-              <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.9rem 0 0.4rem' }}>
-                Provider reference (portal/API refund reference){refundOpen.status === 'approved' ? ' — required' : ''}
+              <p style={{ color: '#777', fontSize: '0.72rem', lineHeight: 1.5, margin: '0.9rem 0 0' }}>
+                The money is returned to the customer outside Luxora via the provider portal. Recording the reference below documents that external settlement — it does not move money.
+              </p>
+              <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0.6rem 0 0.4rem' }}>
+                External refund reference (provider portal/API){refundOpen.status === 'approved' ? ' — required' : ''}
               </label>
               <input style={fieldStyle} value={refundProviderRef} onChange={(e) => setRefundProviderRef(e.target.value)} placeholder="e.g. PayHere refund id" />
             </>
@@ -1508,7 +1924,7 @@ const AdminDashboard = () => {
             {refundOpen.status === 'processing' && (
               <>
                 <button style={redBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'fail')}>Mark Failed</button>
-                <button style={goldBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'complete')}>Mark Completed</button>
+                <button style={goldBtn} disabled={busy} onClick={() => submitRefundAction(refundOpen, 'complete')}>Record Completed Settlement</button>
               </>
             )}
           </div>
