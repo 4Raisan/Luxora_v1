@@ -24,7 +24,7 @@ router.put('/town', requireRole('CUSTOMER'), async (req, res) => {
   res.json({ town: location.name, address_district: location.province });
 });
 
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', requireRole('CUSTOMER'), async (req, res) => {
   const userId = req.user.id;
   const now = new Date();
 

@@ -285,8 +285,8 @@ router.post('/', async (req, res) => {
     totalPrice: service.price,
     total_price: service.price,
     providerEarning: service.providerEarning,
-    pin_code: effectiveStartPin,
-    start_pin: effectiveStartPin,
+    // The start PIN is intentionally absent: the customer shares it with the
+    // provider in person, which is what makes the PIN-verified start meaningful.
     pinExpiresAt: booking.pinExpiresAt,
     entitlement: { plan_title: entitlement.planTitle, remaining_units: entitlement.remainingUnits - 1 },
   });
@@ -363,6 +363,9 @@ router.get('/assigned', async (req, res) => {
       customerCompletionPinCipher: undefined,
       pinCode: undefined,
       pinAttempts: undefined,
+      pinLockedUntil: undefined,
+      startPinUsedAt: undefined,
+      completionPinUsedAt: undefined,
       status: b.status.toLowerCase(),
       service_title: b.service?.title,
       service_desc: b.service?.description,
@@ -380,7 +383,6 @@ router.get('/pending', async (req, res) => {
   if (req.user.role !== 'PROVIDER') {
     return res.status(403).json({ error: 'Only service providers can view pending bookings' });
   }
-  await processExpiredBookingsThrottled(prisma).catch(() => {});
   const provider = await prisma.provider.findUnique({
     where: { userId: req.user.id },
     include: { user: { select: { id: true, active: true } } },
@@ -392,6 +394,8 @@ router.get('/pending', async (req, res) => {
   if (provider.user && provider.user.active === false) {
     return res.json([]);
   }
+
+  await processExpiredBookingsThrottled(prisma).catch(() => {});
 
   // Find all PENDING bookings with no provider assigned
   const pendingBookings = await prisma.booking.findMany({
