@@ -2807,6 +2807,10 @@
       "metadata": {
         "fields": [
           {
+            "name": "@@index([providerId,",
+            "type": "documentType,"
+          },
+          {
             "name": "createdAt",
             "type": "DateTime"
           },
@@ -2841,6 +2845,10 @@
           {
             "name": "sizeBytes",
             "type": "Int"
+          },
+          {
+            "name": "supersededAt",
+            "type": "DateTime?"
           }
         ],
         "relations": []
@@ -3934,6 +3942,14 @@
             "type": "String"
           },
           {
+            "name": "emailVerificationTokens",
+            "type": "EmailVerificationToken[]"
+          },
+          {
+            "name": "emailVerified",
+            "type": "Boolean"
+          },
+          {
             "name": "id",
             "type": "Int"
           },
@@ -4504,6 +4520,21 @@
       }
     },
     {
+      "id": "service:payoutStatements",
+      "label": "payoutStatements.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/payoutStatements.js",
+      "metadata": {
+        "modelsAccessed": [
+          "providerPayout"
+        ]
+      },
+      "source": {
+        "path": "backend/src/services/payoutStatements.js"
+      }
+    },
+    {
       "id": "service:promotions",
       "label": "promotions.js",
       "type": "Service",
@@ -4608,6 +4639,22 @@
       "source": {
         "path": "backend/src/services/storage.js"
       }
+    },
+    {
+      "id": "service:webhookEvents",
+      "label": "webhookEvents.js",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/services/webhookEvents.js",
+      "metadata": {
+        "modelsAccessed": [
+          "payment",
+          "refundRequest"
+        ]
+      },
+      "source": {
+        "path": "backend/src/services/webhookEvents.js"
+      }
     }
   ],
   "edges": [
@@ -4682,34 +4729,6 @@
       }
     },
     {
-      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/bookings:FETCHES_API",
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/bookings",
-      "type": "FETCHES_API",
-      "label": "GET",
-      "source": "frontend:AdminDashboard",
-      "target": "endpoint:GET_/api/admin/bookings",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/AdminDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/complaints:FETCHES_API",
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/complaints",
-      "type": "FETCHES_API",
-      "label": "GET",
-      "source": "frontend:AdminDashboard",
-      "target": "endpoint:GET_/api/admin/complaints",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/AdminDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
       "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/payouts:FETCHES_API",
       "from": "frontend:AdminDashboard",
       "to": "endpoint:GET_/api/admin/payouts",
@@ -4752,20 +4771,6 @@
       }
     },
     {
-      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/refunds:FETCHES_API",
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/refunds",
-      "type": "FETCHES_API",
-      "label": "GET",
-      "source": "frontend:AdminDashboard",
-      "target": "endpoint:GET_/api/admin/refunds",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/AdminDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
       "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/reports:FETCHES_API",
       "from": "frontend:AdminDashboard",
       "to": "endpoint:GET_/api/admin/reports",
@@ -4773,20 +4778,6 @@
       "label": "GET",
       "source": "frontend:AdminDashboard",
       "target": "endpoint:GET_/api/admin/reports",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/pages/AdminDashboard.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/reviews:FETCHES_API",
-      "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/reviews",
-      "type": "FETCHES_API",
-      "label": "GET",
-      "source": "frontend:AdminDashboard",
-      "target": "endpoint:GET_/api/admin/reviews",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
