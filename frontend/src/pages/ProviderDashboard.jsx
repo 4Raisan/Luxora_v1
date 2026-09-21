@@ -132,8 +132,8 @@ const ProviderDashboard = () => {
   }
 
   const [providerKyc, setProviderKyc] = useState({ status: 'APPROVED', rejectionReason: null })
-  const [kycDocType, setKycDocType] = useState('NIC_FRONT')
-  const [kycDocFile, setKycDocFile] = useState(null)
+  const [kycDocType, setKycDocType] = useState('NIC')
+  const [kycDocFiles, setKycDocFiles] = useState([])
   const [kycDocBusy, setKycDocBusy] = useState(false)
   const [kycDocMsg, setKycDocMsg] = useState('')
 
@@ -281,18 +281,43 @@ const ProviderDashboard = () => {
     }
   }, [token, mapServiceRequestRow])
 
+  /* KYC resubmission: a complete same-type upload supersedes the previous set,
+     so a NIC set must carry BOTH sides (front + back) in the same request. */
+  const handleKycDocTypeChange = (e) => {
+    setKycDocType(e.target.value)
+    setKycDocFiles([])
+    setKycDocMsg('')
+  }
+
+  const handleKycDocFilesChange = (e) => {
+    const selected = [...(e.target.files || [])]
+    e.target.value = ''
+    if (selected.length > 3) {
+      setKycDocFiles([])
+      return setKycDocMsg('You can attach at most 3 files per upload.')
+    }
+    setKycDocFiles(selected)
+    setKycDocMsg('')
+  }
+
   const handleKycDocUpload = async (e) => {
     e.preventDefault()
-    if (!kycDocFile) return setKycDocMsg('Please select a file to upload.')
+    if (!kycDocFiles.length) return setKycDocMsg('Please select at least one file to upload.')
+    if (kycDocType === 'NIC' && kycDocFiles.length !== 2) {
+      return setKycDocMsg('Attach BOTH sides of your NIC (front and back) together in one upload.')
+    }
     setKycDocBusy(true)
     setKycDocMsg('')
     try {
       const formData = new FormData()
       formData.append('document_type', kycDocType)
-      formData.append('document', kycDocFile)
+      kycDocFiles.forEach((file) => formData.append('documents', file))
       await apiRequest('/provider/kyc-documents', 'POST', formData, token)
-      setKycDocMsg('Document uploaded successfully! Our team will review your submission.')
-      setKycDocFile(null)
+      // A complete same-type upload supersedes the previous set and the backend
+      // re-opens review, so mirror that state locally.
+      setProviderKyc({ status: 'PENDING', rejectionReason: null })
+      setKycDocMsg('Documents uploaded successfully! Your verification is back under review.')
+      setKycDocFiles([])
     } catch (err) {
       setKycDocMsg(err.message || 'Upload failed')
     } finally {
@@ -1185,19 +1210,29 @@ const ProviderDashboard = () => {
                     </div>
                   )}
                   <form onSubmit={handleKycDocUpload} style={{ marginTop: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
-                    <select id="provider-kyc-document-type" name="document_type" value={kycDocType} onChange={(e) => setKycDocType(e.target.value)} style={{ background: '#111', border: '1px solid #333', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.88rem' }}>
-                      <option value="NIC_FRONT">National ID (Front)</option>
-                      <option value="NIC_BACK">National ID (Back)</option>
+                    <select id="provider-kyc-document-type" name="document_type" value={kycDocType} onChange={handleKycDocTypeChange} style={{ background: '#111', border: '1px solid #333', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.88rem' }}>
+                      <option value="NIC">National ID (NIC — front and back)</option>
                       <option value="PASSPORT">Passport</option>
-                      <option value="BUSINESS_REG">Business Registration</option>
                       <option value="SELFIE">Selfie Verification</option>
-                      <option value="UTILITY_BILL">Proof of Address</option>
                     </select>
-                    <input id="provider-kyc-document" name="kyc_document" type="file" accept="image/jpeg,image/png,application/pdf" onChange={(e) => setKycDocFile(e.target.files?.[0] || null)} style={{ color: '#ccc', fontSize: '0.85rem' }} />
-                    <button type="submit" disabled={kycDocBusy || !kycDocFile} style={{ background: 'var(--gold)', color: '#000', fontWeight: 800, border: 'none', borderRadius: '8px', padding: '0.6rem 1.25rem', cursor: kycDocBusy || !kycDocFile ? 'not-allowed' : 'pointer' }}>
-                      {kycDocBusy ? 'Uploading...' : 'Upload Document'}
+                    <input
+                      id="provider-kyc-document"
+                      name="kyc_documents"
+                      type="file"
+                      multiple
+                      max={3}
+                      accept="image/jpeg,image/png,application/pdf"
+                      onChange={handleKycDocFilesChange}
+                      style={{ color: '#ccc', fontSize: '0.85rem' }}
+                    />
+                    <button type="submit" disabled={kycDocBusy || kycDocFiles.length === 0} style={{ background: 'var(--gold)', color: '#000', fontWeight: 800, border: 'none', borderRadius: '8px', padding: '0.6rem 1.25rem', cursor: kycDocBusy || kycDocFiles.length === 0 ? 'not-allowed' : 'pointer' }}>
+                      {kycDocBusy ? 'Uploading...' : 'Upload Documents'}
                     </button>
                     {kycDocMsg && <span style={{ fontSize: '0.85rem', color: kycDocMsg.includes('successfully') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{kycDocMsg}</span>}
+                    <p style={{ flexBasis: '100%', margin: 0, color: '#999', fontSize: '0.8rem', lineHeight: 1.5 }}>
+                      Supported files: JPG, PNG, or PDF — up to 3 files per upload. Uploading a complete set for a type replaces the previous set of that type.
+                      {kycDocType === 'NIC' ? ' NIC front and back must be uploaded together in the same request.' : ''}
+                    </p>
                   </form>
                 </div>
               )}
