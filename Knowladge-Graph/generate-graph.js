@@ -339,7 +339,9 @@ function parseFrontend() {
       }
       const file = entry.name;
       if (!file.endsWith('.jsx') && !file.endsWith('.js')) continue;
-      const filePath = path.join(dir, file);
+      const filePath = path.resolve(path.join(dir, file));
+      // Defensive boundary: the scanner only ever reads inside the project root.
+      if (!filePath.startsWith(rootDir + path.sep)) continue;
       const content = fs.readFileSync(filePath, 'utf-8');
       const relPath = path.posix.join('frontend', 'src', groupName, relativeDir.split(path.sep).join('/'), file);
       const componentId = `frontend:${file.replace(/\.(jsx|js)$/, '')}`;
