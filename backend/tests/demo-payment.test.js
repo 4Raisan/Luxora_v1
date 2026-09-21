@@ -212,3 +212,66 @@ test('Gateway isolation: Demo availability does not depend on the real gateways'
   });
   assert.equal(checkout.status, 201);
 });
+
+test('Production gate: demo checkout is disabled by default and opt-in via env', async () => {
+  const seededCustomer = await prisma.user.findUnique({ where: { email: 'customer@luxora.lk' } });
+  assert.ok(seededCustomer, 'seeded customer required for the gate test');
+  const demoModuleUrl = new URL(`file:///${path.join(backendDir, 'src', 'routes', 'demoPayments.js').replaceAll('\\', '/')}`).href;
+  const childScript = `
+    import express from 'express';
+    import demoRouter from '${demoModuleUrl}';
+    import { demoPaymentsEnabled } from '${demoModuleUrl}';
+    const app = express();
+    app.use(express.json());
+    app.use('/api', demoRouter);
+    app.use((error, _req, res, _next) => res.status(500).json({ error: error.message }));
+    console.log('FLAG ' + demoPaymentsEnabled());
+    const server = app.listen(0, '127.0.0.1', () => console.log('READY ' + server.address().port));
+  `;
+  const runChild = (demoEnabledEnv) => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', childScript], {
+      cwd: backendDir,
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        PAYMENT_MODE: '',
+        DEMO_PAYMENTS_ENABLED: demoEnabledEnv,
+        JWT_SECRET: 'gate-test-secret',
+        RESEND_API_KEY: '',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let out = '';
+    const collect = (chunk) => { out += chunk.toString(); };
+    child.stdout.on('data', collect);
+    child.stderr.on('data', collect);
+    const watch = (chunk) => {
+      const match = String(chunk).match(/READY (\d+)/);
+      if (!match) return;
+      child.stdout.off('data', watch);
+      const finish = async () => {
+        try {
+          const token = jwt.sign({ id: seededCustomer.id, role: 'CUSTOMER', tokenVersion: 0 }, 'gate-test-secret');
+          const checkout = await fetch(`http://127.0.0.1:${match[1]}/api/payments/demo/checkout`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ billing_option: 'one_time', idempotency_key: `gate_${RND}` }),
+          });
+          resolve({ checkoutStatus: checkout.status, flagLine: (out.match(/FLAG \w+/) || [])[0] });
+        } catch (error) { reject(error); } finally { child.kill(); }
+      };
+      finish();
+    };
+    child.stdout.on('data', watch);
+    child.on('exit', (code) => { if (code && code !== 0 && !out.includes('READY')) reject(new Error('child failed: ' + out)); });
+  });
+
+  // Default production mode: the zero-cost checkout must be unreachable.
+  const disabled = await runChild('');
+  assert.equal(disabled.flagLine, 'FLAG false', 'production default must disable the demo gateway');
+  assert.equal(disabled.checkoutStatus, 404, 'demo checkout must 404 when disabled');
+  // Explicit operator opt-in re-enables it (invalid plan reaches validation = 400).
+  const enabled = await runChild('true');
+  assert.equal(enabled.flagLine, 'FLAG true', 'DEMO_PAYMENTS_ENABLED=true must opt in');
+  assert.equal(enabled.checkoutStatus, 400, 'route must be reachable (validation error) when enabled');
+});
