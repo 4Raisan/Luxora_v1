@@ -198,6 +198,9 @@ app.use((err, _req, res, _next) => {
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large' });
+  }
   if (err?.name === 'MulterError') {
     if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Uploaded files must be 5 MB or smaller' });
     if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ error: 'Unexpected upload field or too many files' });
