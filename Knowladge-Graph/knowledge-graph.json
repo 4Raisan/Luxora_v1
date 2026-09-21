@@ -4841,13 +4841,13 @@
       }
     },
     {
-      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/users:FETCHES_API",
+      "id": "frontend:AdminDashboard->endpoint:GET_/api/admin/webhook-events/:paymentId:FETCHES_API",
       "from": "frontend:AdminDashboard",
-      "to": "endpoint:GET_/api/admin/users",
+      "to": "endpoint:GET_/api/admin/webhook-events/:paymentId",
       "type": "FETCHES_API",
       "label": "GET",
       "source": "frontend:AdminDashboard",
-      "target": "endpoint:GET_/api/admin/users",
+      "target": "endpoint:GET_/api/admin/webhook-events/:paymentId",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/AdminDashboard.jsx",
@@ -5513,6 +5513,20 @@
       }
     },
     {
+      "id": "frontend:CustomerDashboard->endpoint:GET_/api/payments/refunds/my:FETCHES_API",
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:GET_/api/payments/refunds/my",
+      "type": "FETCHES_API",
+      "label": "GET",
+      "source": "frontend:CustomerDashboard",
+      "target": "endpoint:GET_/api/payments/refunds/my",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:CustomerDashboard->endpoint:GET_/api/profile:FETCHES_API",
       "from": "frontend:CustomerDashboard",
       "to": "endpoint:GET_/api/profile",
@@ -5576,6 +5590,20 @@
       "label": "GET",
       "source": "frontend:CustomerDashboard",
       "target": "endpoint:GET_/api/support/service-requests/my",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:CustomerDashboard->endpoint:POST_/api/auth/resend-verification:FETCHES_API",
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:POST_/api/auth/resend-verification",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:CustomerDashboard",
+      "target": "endpoint:POST_/api/auth/resend-verification",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
@@ -5653,6 +5681,20 @@
       }
     },
     {
+      "id": "frontend:CustomerDashboard->endpoint:POST_/api/payments/refunds:FETCHES_API",
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:POST_/api/payments/refunds",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:CustomerDashboard",
+      "target": "endpoint:POST_/api/payments/refunds",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "frontend:CustomerDashboard->endpoint:POST_/api/reviews:FETCHES_API",
       "from": "frontend:CustomerDashboard",
       "to": "endpoint:POST_/api/reviews",
@@ -5702,6 +5744,20 @@
       "label": "PUT",
       "source": "frontend:CustomerDashboard",
       "target": "endpoint:PUT_/api/notifications/read-all",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/CustomerDashboard.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:CustomerDashboard->endpoint:PUT_/api/payments/refunds/:id/cancel:FETCHES_API",
+      "from": "frontend:CustomerDashboard",
+      "to": "endpoint:PUT_/api/payments/refunds/:id/cancel",
+      "type": "FETCHES_API",
+      "label": "PUT",
+      "source": "frontend:CustomerDashboard",
+      "target": "endpoint:PUT_/api/payments/refunds/:id/cancel",
       "kind": "FETCHES_API",
       "evidence": {
         "path": "frontend/src/pages/CustomerDashboard.jsx",
@@ -6549,6 +6605,62 @@
       }
     },
     {
+      "id": "frontend:VerifyEmail->endpoint:POST_/api/auth/resend-verification:FETCHES_API",
+      "from": "frontend:VerifyEmail",
+      "to": "endpoint:POST_/api/auth/resend-verification",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:VerifyEmail",
+      "target": "endpoint:POST_/api/auth/resend-verification",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/VerifyEmail.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:VerifyEmail->endpoint:POST_/api/auth/verify-email:FETCHES_API",
+      "from": "frontend:VerifyEmail",
+      "to": "endpoint:POST_/api/auth/verify-email",
+      "type": "FETCHES_API",
+      "label": "POST",
+      "source": "frontend:VerifyEmail",
+      "target": "endpoint:POST_/api/auth/verify-email",
+      "kind": "FETCHES_API",
+      "evidence": {
+        "path": "frontend/src/pages/VerifyEmail.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:VerifyEmail->frontend:api_client:USES_CLIENT",
+      "from": "frontend:VerifyEmail",
+      "to": "frontend:api_client",
+      "type": "USES_CLIENT",
+      "label": "",
+      "source": "frontend:VerifyEmail",
+      "target": "frontend:api_client",
+      "kind": "USES_CLIENT",
+      "evidence": {
+        "path": "frontend/src/pages/VerifyEmail.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "frontend:VerifyEmail->frontend:ui:RENDERS_COMPONENT",
+      "from": "frontend:VerifyEmail",
+      "to": "frontend:ui",
+      "type": "RENDERS_COMPONENT",
+      "label": "",
+      "source": "frontend:VerifyEmail",
+      "target": "frontend:ui",
+      "kind": "RENDERS_COMPONENT",
+      "evidence": {
+        "path": "frontend/src/pages/VerifyEmail.jsx",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "model:AdminAuditLog->model:User:DB_RELATION",
       "from": "model:AdminAuditLog",
       "to": "model:User",
@@ -6765,6 +6877,20 @@
       "type": "DB_RELATION",
       "label": "user",
       "source": "model:Complaint",
+      "target": "model:User",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:EmailVerificationToken->model:User:DB_RELATION",
+      "from": "model:EmailVerificationToken",
+      "to": "model:User",
+      "type": "DB_RELATION",
+      "label": "user",
+      "source": "model:EmailVerificationToken",
       "target": "model:User",
       "kind": "DB_RELATION",
       "evidence": {
@@ -7494,6 +7620,20 @@
       "label": "complaints",
       "source": "model:User",
       "target": "model:Complaint",
+      "kind": "DB_RELATION",
+      "evidence": {
+        "path": "backend/prisma/schema.prisma",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "model:User->model:EmailVerificationToken:DB_RELATION",
+      "from": "model:User",
+      "to": "model:EmailVerificationToken",
+      "type": "DB_RELATION",
+      "label": "emailVerificationTokens",
+      "source": "model:User",
+      "target": "model:EmailVerificationToken",
       "kind": "DB_RELATION",
       "evidence": {
         "path": "backend/prisma/schema.prisma",
