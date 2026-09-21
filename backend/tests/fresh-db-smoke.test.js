@@ -305,10 +305,11 @@ test('3. Admin Audit Trail Logging on Fresh DB', async () => {
   });
   assert.equal(logsRes.status, 200);
   const logsData = await logsRes.json();
-  assert.ok(Array.isArray(logsData), 'Audit log response must be an array');
-  assert.ok(logsData.length >= 1, 'Audit log must record admin action');
-  assert.equal(logsData[0].action, 'UPDATE_SCHEDULING_SETTINGS');
-  assert.equal(logsData[0].admin.email, 'admin@luxora.lk');
+  assert.ok(Array.isArray(logsData.data), 'Audit log response must contain a bounded data array');
+  assert.ok(logsData.data.length >= 1, 'Audit log must record admin action');
+  assert.ok(logsData.pagination.total >= 1, 'Audit log pagination must report totals');
+  assert.equal(logsData.data[0].action, 'UPDATE_SCHEDULING_SETTINGS');
+  assert.equal(logsData.data[0].admin.email, 'admin@luxora.lk');
 });
 
 test('4. Login attempts are rate limited', async () => {

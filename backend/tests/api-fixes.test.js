@@ -16,6 +16,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
+import { payHereWebhookSignature } from '../src/services/integrations.js';
+import { colomboDate } from './helpers/colombo-date.js';
 import './assert-test-database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -144,7 +146,8 @@ test('B3: pre-KYC provider token gets no operational access, but can upload KYC 
   const providers = (await authJson(admin, '/admin/providers')).body;
   const created = providers.find((p) => p.email === email);
   assert.ok(created, 'created provider not listed');
-  const approval = await authJson(admin, `/admin/providers/${created.id}/kyc`, { method: 'PUT', body: JSON.stringify({ status: 'approved' }) });
+  const review = await authJson(admin, `/admin/providers/${created.id}`);
+  const approval = await authJson(admin, `/admin/providers/${created.id}/kyc`, { method: 'PUT', body: JSON.stringify({ status: 'approved', document_ids: review.body.current_document_ids }) });
   assert.equal(approval.status, 200);
 
   const approvedLogin = await json('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'secret123' }) });
@@ -247,7 +250,7 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   assert.ok(checkout.body.entitlement_snapshot.some((item) => item.remaining_units >= 1));
 
   // Full booking lifecycle: book (server auto-assigns) -> photo -> PIN start -> photo -> PIN complete -> review
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const tomorrow = colomboDate(1);
   const booking = await authJson(token, '/bookings', { method: 'POST', body: JSON.stringify({ service_id: 1, booking_date: tomorrow, booking_time: '09:00' }) });
   assert.ok([200, 201].includes(booking.status), JSON.stringify(booking.body));
   assert.ok(booking.body.start_pin);
@@ -318,8 +321,7 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   const payment = await prisma.payment.create({ data: { userId: reg.user.id, planId: 1, gateway: 'PAYHERE', gatewayOrderId: `LUX-PH-${RND}-1`, idempotencyKey: `LUX-PH-${RND}-1`, expectedAmount: 12000, expectedCurrency: 'LKR' } });
   const merchantId = process.env.PAYHERE_MERCHANT_ID || '123456';
   const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || 'sandbox_secret_key_123';
-  const md5 = (value) => crypto.createHash('md5').update(String(value || '')).digest('hex').toUpperCase();
-  const sign = (statusCode, amount) => md5(`${merchantId}LUX-PH-${RND}-1${amount}LKR${statusCode}${md5(merchantSecret)}`);
+  const sign = (statusCode, amount) => payHereWebhookSignature({ merchantId, orderId: `LUX-PH-${RND}-1`, amount, currency: 'LKR', statusCode: String(statusCode), merchantSecret });
   const webhook = (statusCode, amount) => json('/payments/payhere/webhook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ merchant_id: merchantId, order_id: `LUX-PH-${RND}-1`, payhere_amount: amount, payhere_currency: 'LKR', status_code: String(statusCode), md5sig: sign(statusCode, amount) }) });
 
   assert.equal((await webhook(2, '12000.00')).status, 200);
@@ -351,7 +353,7 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
   // Mismatched amounts are rejected (existing amount-revalidation still holds):
   // a tampered charge against a still-PENDING payment must not settle it.
   const pendingPayment = await prisma.payment.create({ data: { userId: reg.user.id, planId: 1, gateway: 'PAYHERE', gatewayOrderId: `LUX-PH-${RND}-2`, idempotencyKey: `LUX-PH-${RND}-2`, expectedAmount: 12000, expectedCurrency: 'LKR' } });
-  const tamperedSign = (statusCode, amount) => md5(`${process.env.PAYHERE_MERCHANT_ID}LUX-PH-${RND}-2${amount}LKR${statusCode}${md5(process.env.PAYHERE_MERCHANT_SECRET)}`);
+  const tamperedSign = (statusCode, amount) => payHereWebhookSignature({ merchantId, orderId: `LUX-PH-${RND}-2`, amount, currency: 'LKR', statusCode: String(statusCode), merchantSecret });
   const tampered = await json('/payments/payhere/webhook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ merchant_id: process.env.PAYHERE_MERCHANT_ID, order_id: `LUX-PH-${RND}-2`, payhere_amount: '1.00', payhere_currency: 'LKR', status_code: '2', md5sig: tamperedSign(2, '1.00') }) });
   assert.notEqual(tampered.status, 200);
   const stillPending = await prisma.payment.findUnique({ where: { id: pendingPayment.id } });
@@ -359,7 +361,12 @@ test('B8 + B12 + lifecycle: demo purchase, PayHere refund webhook revokes entitl
 });
 
 test('B11: spoofed uploads with mismatched content are rejected server-side', async () => {
-  const provider = await login('provider@luxora.lk');
+  const registration = await json('/auth/register', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Upload Fixture', email: `upload-${RND}@test.com`, password: 'secret123', role: 'provider', category: 'Auto Care', town: 'Colombo' }),
+  });
+  assert.equal(registration.status, 201);
+  const provider = registration.body.token;
   const spoof = new FormData();
   spoof.append('document_type', 'NIC');
   spoof.append('documents', new Blob([Buffer.from('#!/bin/sh\nrm -rf /', 'utf8')], { type: 'image/jpeg' }), 'malicious.jpg');

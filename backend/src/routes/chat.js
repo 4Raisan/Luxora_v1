@@ -10,10 +10,9 @@ const { getSession, processMessage } = require('../chatbot/services/engine.js');
 const router = Router();
 
 // Chat & Interactive Concierge Endpoint (Directly Connected to Live Database).
-// Public endpoint backed by live DB queries and in-memory sessions: rate-limit
-// per IP so scripted traffic cannot exhaust memory or the database.
-const chatLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000, keyPrefix: 'chat', message: 'Too many chat messages, try again later' });
-router.post('/chat', chatLimiter, optionalAuthentication, async (req, res) => {
+// Anonymous chat shares the IP quota; authenticated chat also consumes user quota.
+const chatLimiter = rateLimit({ max: 60, windowMs: 15 * 60 * 1000, keyPrefix: 'chat', strategy: 'hybrid', message: 'Too many chat messages, try again later' });
+router.post('/chat', optionalAuthentication, chatLimiter, async (req, res) => {
   try {
     const { message, sessionId, structuredPayload } = req.body;
     const user = req.user || null;
@@ -48,8 +47,9 @@ router.get('/chatbot/catalog', async (_req, res) => {
 
 // Live Database Special Ask Submission. Tickets must belong to the signed-in
 // customer — guests are asked to sign in rather than having their request
-// attributed to an arbitrary account.
-router.post('/chatbot/special-ask', optionalAuthentication, async (req, res) => {
+// attributed to an arbitrary account. Auth runs first so the limiter can key
+// hybrid (IP + user), matching the chat endpoint's abuse profile.
+router.post('/chatbot/special-ask', optionalAuthentication, chatLimiter, async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Sign in to submit a Special Ask request' });
     const { details, name, phone, email, category } = req.body;

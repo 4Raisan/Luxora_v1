@@ -2,6 +2,9 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
+
+// Registration fixture password is generated per run — no reusable literal.
+const FIXTURE_REGISTRATION_PASSWORD = `Reg-Fixture-${crypto.randomBytes(12).toString('hex')}!7aZ`;
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import jwt from 'jsonwebtoken';
@@ -13,6 +16,7 @@ import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
 import { getEntitlementSnapshot } from '../src/services/entitlements.js';
+import { colomboDate } from './helpers/colombo-date.js';
 import './assert-test-database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -397,7 +401,7 @@ test('Requested service: provider approval is required and normal bookings enfor
   const providerToken = jwt.sign({ id: providerUser.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
   const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
   const adminToken = jwt.sign({ id: admin.id, role: 'ADMIN', tokenVersion: admin.tokenVersion }, JWT_SECRET);
-  const preferredDate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+  const preferredDate = colomboDate(2);
 
   const created = await authJson(customerToken, '/support/service-requests', {
     method: 'POST',
@@ -501,6 +505,14 @@ test('Requested service: provider approval is required and normal bookings enfor
 
 test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, hidden completion PIN, progressive start PIN)', async () => {
   const uid = crypto.randomUUID().slice(0, 8);
+  // Bookings must sit in the future, so the test computes its dates instead
+  // of hardcoding calendar days that rot once the date passes.
+  const ymd = (offsetDays) => {
+    const day = new Date(Date.now() + offsetDays * 86400000);
+    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+  };
+  const bookDay = ymd(2);
+  const reschedDay = ymd(3);
   // Monaragala has no auto-care providers seeded -> will be PENDING
   const custPending = await prisma.user.create({
     data: { name: `Cust Resched P ${uid}`, email: `cust.resched.p.${uid}@test.luxora`, passwordHash: await bcrypt.hash('pass123', 10), role: 'CUSTOMER', town: 'Monaragala', addressDistrict: 'Uva' },
@@ -516,7 +528,7 @@ test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, 
   // 1. Create unassigned booking -> PENDING
   const bookRes1 = await authJson(tokenPending, '/bookings', {
     method: 'POST',
-    body: JSON.stringify({ service_id: service.id, booking_date: '2026-09-08', booking_time: '10:00' }),
+    body: JSON.stringify({ service_id: service.id, booking_date: bookDay, booking_time: '10:00' }),
   });
   assert.equal(bookRes1.status, 201);
   const bookingId1 = bookRes1.body.booking_id;
@@ -527,7 +539,7 @@ test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, 
   // 2. Reschedule unassigned booking -> new booking must be PENDING with null PINs
   const reschedRes1 = await authJson(tokenPending, `/bookings/${bookingId1}/reschedule`, {
     method: 'PUT',
-    body: JSON.stringify({ booking_date: '2026-09-09', booking_time: '14:00', reason: 'Need afternoon slot', confirmed: true }),
+    body: JSON.stringify({ booking_date: reschedDay, booking_time: '14:00', reason: 'Need afternoon slot', confirmed: true }),
   });
   assert.equal(reschedRes1.status, 200, `Reschedule should succeed: ${reschedRes1.text}`);
   assert.equal(reschedRes1.body.status, 'pending');
@@ -551,7 +563,7 @@ test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, 
 
   const bookRes2 = await authJson(tokenAssigned, '/bookings', {
     method: 'POST',
-    body: JSON.stringify({ service_id: service.id, booking_date: '2026-09-08', booking_time: '10:00' }),
+    body: JSON.stringify({ service_id: service.id, booking_date: bookDay, booking_time: '10:00' }),
   });
   assert.equal(bookRes2.status, 201);
   const bookingId2 = bookRes2.body.booking_id;
@@ -561,7 +573,7 @@ test('Audit Fix 1: Rescheduled booking enforces progressive PIN rules (6-digit, 
 
   const reschedRes2 = await authJson(tokenAssigned, `/bookings/${bookingId2}/reschedule`, {
     method: 'PUT',
-    body: JSON.stringify({ booking_date: '2026-09-09', booking_time: '11:00', reason: 'Change time', confirmed: true }),
+    body: JSON.stringify({ booking_date: reschedDay, booking_time: '11:00', reason: 'Change time', confirmed: true }),
   });
   assert.equal(reschedRes2.status, 200);
   assert.equal(reschedRes2.body.status, 'assigned');
@@ -579,7 +591,7 @@ test('Audit Fix 4: Customer registration and town update enforce canonical Sri L
     body: JSON.stringify({
       name: `Bad Cust ${uid}`,
       email: `bad.cust.${uid}@test.luxora`,
-      password: 'SecretPass123!',
+      password: FIXTURE_REGISTRATION_PASSWORD,
       role: 'customer',
       town: 'NonExistentCityXYZ',
     }),
@@ -594,7 +606,7 @@ test('Audit Fix 4: Customer registration and town update enforce canonical Sri L
     body: JSON.stringify({
       name: `Good Cust ${uid}`,
       email: `good.cust.${uid}@test.luxora`,
-      password: 'SecretPass123!',
+      password: FIXTURE_REGISTRATION_PASSWORD,
       role: 'customer',
       town: 'Kandy',
     }),
@@ -753,7 +765,7 @@ test('Rule 12: Customer booking Dog & Cat pet care modes, database persistence, 
     data: { subscriptionId: userSub.id, categoryId: petCat.id, units: 5 },
   });
 
-  const tomorrow = new Date(Date.now() + 86400 * 1000).toISOString().slice(0, 10);
+  const tomorrow = colomboDate(1);
 
   // 1. Create a Dog Care booking
   const dogRes = await authJson(custToken, '/bookings', {
@@ -779,7 +791,7 @@ test('Rule 12: Customer booking Dog & Cat pet care modes, database persistence, 
   assert.equal(foundDog.petType, 'dog');
 
   // 3. Create a Cat Care booking on day after tomorrow
-  const dayAfter = new Date(Date.now() + 2 * 86400 * 1000).toISOString().slice(0, 10);
+  const dayAfter = colomboDate(2);
   const catRes = await authJson(custToken, '/bookings', {
     method: 'POST',
     body: JSON.stringify({
@@ -796,7 +808,7 @@ test('Rule 12: Customer booking Dog & Cat pet care modes, database persistence, 
   assert.equal(catInDb.petType, 'cat');
 
   // 4. Reschedule preserving petType
-  const nextWeek = new Date(Date.now() + 5 * 86400 * 1000).toISOString().slice(0, 10);
+  const nextWeek = colomboDate(5);
   const reschedRes = await authJson(custToken, `/bookings/${dogBookingId}/reschedule`, {
     method: 'PUT',
     body: JSON.stringify({
