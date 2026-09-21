@@ -74,7 +74,7 @@ npm --prefix backend run seed
 npm run dev:all
 ```
 
-Set `DATABASE_URL` in `backend/.env` to your PostgreSQL database before running migrations. On Windows, `start.bat` provides the guided local startup path.
+Set `DATABASE_URL` in `backend/.env` to your PostgreSQL database before running migrations. Start both processes with `npm run dev:all` (backend on :5000, frontend on :3000 with a dev proxy).
 
 Local services:
 
@@ -99,6 +99,8 @@ npm run architecture:verify
 ```
 
 The standard tests, lint, and build protect application behaviour. GitHub uses deterministic, fail-closed [selective CI rules](docs/CI.md) so ordinary commits run only their relevant checks while unknown and high-risk changes receive broader coverage. `graph:verify` regenerates and validates both the codebase knowledge graph and the live architecture graph; review and commit any generated graph changes with the related code change.
+
+The reusable verification scripts under `scripts/verify/` run against a live local stack and require the local seed account values through environment variables — never hardcoded: `LUXORA_TEST_CUSTOMER_EMAIL`/`LUXORA_TEST_CUSTOMER_PASSWORD`, `LUXORA_TEST_ADMIN_EMAIL`/`LUXORA_TEST_ADMIN_PASSWORD`, and `LUXORA_TEST_PROVIDER_EMAIL`/`LUXORA_TEST_PROVIDER_PASSWORD`. The scripts fail with a clear message when these are unset; see each script's header for usage.
 
 ## Deployment
 

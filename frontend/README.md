@@ -34,6 +34,8 @@ API resolution is intentionally environment-aware:
 | Production without `VITE_API_URL`  | Same-origin `/api`            |
 | Separate frontend and API domains  | Explicit `VITE_API_URL` value |
 
+Google Sign-In is optional: set `VITE_GOOGLE_CLIENT_ID` (matching the backend's `GOOGLE_CLIENT_ID`) to enable the Google button; without it the frontend shows the standard email sign-in only.
+
 The client normalizes an explicit URL so requests consistently use the `/api` prefix. A Vercel frontend deployed separately from the backend must define `VITE_API_URL` with the public backend URL.
 
 All `VITE_` variables are embedded in the browser build and are public. Never store JWT secrets, payment secrets, database credentials, bank-encryption keys, or other server credentials in frontend environment variables.

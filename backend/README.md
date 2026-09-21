@@ -29,10 +29,10 @@ Copy `.env.example` to `.env` for local development. Keep real values in the hos
 | --- | --- |
 | Core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `BACKEND_PUBLIC_URL` |
 | Browser and proxy | `CORS_ORIGIN`, `TRUST_PROXY` |
-| Payment mode | `PAYMENT_MODE` |
+| Payment mode | `PAYMENT_MODE` (legacy demo opt-in), `DEMO_PAYMENTS_ENABLED` |
 | Bank data | `BANK_ENCRYPTION_KEY` |
 | Object storage | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_SESSION_TOKEN`, `S3_PREFIX` |
-| Redis (optional) | `REDIS_URL` (optional; for future multi-instance distributed rate limiting) |
+| Rate-limit store | `REDIS_URL` (required for shared multi-replica limits; optional for one instance), `TEST_REDIS_URL` (isolated tests only) |
 | PayHere | `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET`, `PAYHERE_BASE_URL`, `PAYHERE_NOTIFY_URL`, `PAYHERE_RETURN_URL`, `PAYHERE_CANCEL_URL` |
 | NOWPayments | `NOWPAYMENTS_API_KEY`, `NOWPAYMENTS_IPN_SECRET`, `NOWPAYMENTS_BASE_URL` |
 | Email and sign-in | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `GOOGLE_CLIENT_ID` |
@@ -46,7 +46,7 @@ Production requirements:
 - Configure S3-compatible storage. Local disk uploads are development-only.
 - Use explicit public origins in `CORS_ORIGIN` or `FRONTEND_URL`, and configure `TRUST_PROXY` for the real ingress topology.
 - `npm run seed` never creates demo accounts when `NODE_ENV=production`; production accounts must be created through the application or approved operations workflow.
-- The current single-instance production setup uses bounded in-memory rate limiting and SSE state with zero external broker dependencies. `REDIS_URL` is optional and only required if scaling to multi-instance distributed rate limiting in the future.
+- Without `REDIS_URL`, rate limits are bounded and instance-local. All replicas must share Redis for coordinated quotas; when configured Redis is unavailable, limited endpoints fail closed with 503 rather than switching to local counters. SSE remains instance-local and is not distributed by this change. See [rate-limit policy](../docs/RATE_LIMITING.md).
 
 ## Database and bank-account migration
 
@@ -67,7 +67,7 @@ Key rotation requires a controlled maintenance operation: decrypt each value wit
 
 ## Payments
 
-PayHere, NOWPayments, and Demo run as independent payment paths. Set `DEMO_PAYMENTS_ENABLED=true` for the local deterministic checkout; legacy `PAYMENT_MODE=demo` remains a supported fallback. Enabling Demo does not disable configured PayHere or NOWPayments. Payment state and entitlements change only after the backend validates the callback signature, payment identity, expected amount and currency, and provider status.
+PayHere, NOWPayments, and Demo run as independent payment paths. Set `DEMO_PAYMENTS_ENABLED=true` for the local deterministic checkout; legacy `PAYMENT_MODE=demo` remains a supported fallback. Demo grants real entitlements at zero cost, so it is **disabled by default in production** (development/test have it available without configuration); the demo renewal loop and the `/payments/mode` diagnostic honor the same gate. Enabling Demo does not disable configured PayHere or NOWPayments. Payment state and entitlements change only after the backend validates the callback signature, payment identity, expected amount and currency, and provider status.
 
 For PayHere sandbox checkout, use PayHere’s documented test cards only. Never use a real card in a sandbox environment.
 
@@ -77,7 +77,7 @@ Subscription records preserve their contractual LKR price snapshot separately fr
 
 Production uploads use private S3-compatible objects and short-lived signed read URLs. File validation checks authenticated ownership, MIME type, extension, size, and file signature. Sensitive provider documents and bank details must never be returned through public static paths.
 
-The API also enforces JWT authentication, role and KYC gates, request validation, explicit CORS origins, and rate limits. The current single-instance deployment uses self-contained, in-memory rate limiting and SSE connection tracking. When scaling to multiple API instances in the future, configure `REDIS_URL` so the limiter can coordinate across instances via a shared Redis store, and verify that the application is reachable only through the trusted proxy path.
+The API also enforces JWT authentication, role and KYC gates, request validation, explicit CORS origins, and rate limits. Configure `REDIS_URL` for shared quotas before adding replicas. Preserve a private, authenticated Redis service and a trusted ingress path; Compose defaults to `TRUST_PROXY=false` because it publishes the API port directly. Limited endpoints report 429 for exhausted quotas or 503 when the configured shared store cannot enforce them. See [inventory, headers, outage behavior, and operator requirements](../docs/RATE_LIMITING.md).
 
 ## Source map
 
