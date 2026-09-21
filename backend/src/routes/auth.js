@@ -93,13 +93,14 @@ router.post('/register', authLimiter, async (req, res) => {
         subject: 'Luxora Provider Registration Received – KYC Pending',
         html: `<p>Welcome to the Luxora Concierge Network, ${escapeHtml(name.trim())}.</p><p>We have received your provider registration and details. Your account is currently in <strong>KYC Pending</strong> status while our operations team reviews your information.</p><p>You will receive an update as soon as your verification is complete.</p>`,
       }).catch((error) => console.warn('[email] provider registration notification failed:', error.message));
-    } else {
-      sendEmail({
-        to: normalizedEmail,
-        subject: 'Welcome to Luxora',
-        html: `<p>Welcome to Luxora, ${escapeHtml(name.trim())}.</p><p>Your concierge account is ready.</p>`,
-      }).catch((error) => console.warn('[email] welcome failed:', error.message));
     }
+    // Slice 6: every self-registered account starts unverified. The token row
+    // is created before the response returns (durable even if delivery then
+    // fails), so the account can log in and request a resend — never silently
+    // unusable. Only the email delivery is fire-and-forget.
+    const verifyToken = await createVerificationToken(user.id);
+    sendVerificationEmail(normalizedEmail, name.trim(), verifyToken)
+      .catch((error) => console.warn('[email] verification failed:', error.message));
 
     res.status(201).json({
       token,
@@ -111,6 +112,7 @@ router.post('/register', authLimiter, async (req, res) => {
         phone: user.phone || '',
         town: providerLocation?.name || normalizeTown(town),
         province: providerLocation?.province || null,
+        emailVerified: false,
       },
     });
   } catch (err) {
@@ -257,7 +259,11 @@ router.post('/login', loginLimiter, async (req, res) => {
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, town: user.town },
+    // Verification is informational, not an auth gate: an unverified account
+    // can sign in and use Luxora (the product never gated features on it), the
+    // flag lets the UI prompt for verification. Existing role/active checks
+    // are untouched.
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, town: user.town, emailVerified: user.emailVerified },
     provider,
   });
 });
@@ -266,7 +272,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.get('/me', authenticateToken, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, name: true, email: true, phone: true, town: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, phone: true, town: true, role: true, createdAt: true, emailVerified: true },
   });
   if (!user) return res.status(404).json({ error: 'User not found' });
   let provider = null;
