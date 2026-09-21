@@ -122,7 +122,117 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 const resetTokenHash = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
-const resetLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000 });
+const resetLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000, keyPrefix: 'password-reset' });
+
+// V2 Slice 6 — email verification. Tokens mirror the password-reset design:
+// cryptographically random, stored only as a SHA-256 hash, expiring, one-time
+// use, claimed atomically. The raw token exists only inside the email link —
+// never in logs, API responses, or the database. A verification token proves
+// inbox ownership; it never grants authentication by itself.
+const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+// Roomy enough for a user re-pasting links, far below anything that could
+// brute-force a 122-bit random token.
+const verificationLimiter = rateLimit({ max: 20, windowMs: 15 * 60 * 1000, keyPrefix: 'email-verify' });
+const resendLimiter = rateLimit({ max: 5, windowMs: 15 * 60 * 1000, keyPrefix: 'email-resend' });
+
+const newVerificationToken = () => `${crypto.randomUUID()}-${crypto.randomUUID()}`;
+
+const verificationEmailHtml = (name, verifyUrl) => `<p>Welcome to Luxora, ${escapeHtml(name)}.</p><p>Please confirm this email address to secure your Luxora concierge account.</p><p><a href="${verifyUrl}">Verify my email</a> (valid for 24 hours).</p><p>If the link does not work, open <span style="font-family:monospace">${verifyUrl}</span> in your browser. If you did not create a Luxora account, you can ignore this email.</p>`;
+
+// Creates the one-time verification token row (awaited by callers: the token
+// is durable before the response returns) and sends the email (fire-and-forget
+// at the call site). If delivery fails, the account can log in and request a
+// resend — a failed email never leaves an unusable account.
+async function createVerificationToken(userId) {
+  const token = newVerificationToken();
+  await prisma.emailVerificationToken.create({
+    data: {
+      userId,
+      tokenHash: resetTokenHash(token),
+      expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+    },
+  });
+  return token;
+}
+
+const sendVerificationEmail = (email, name, token) => {
+  const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${encodeURIComponent(token)}`;
+  return sendEmail({
+    to: email,
+    subject: 'Verify your Luxora email address',
+    html: verificationEmailHtml(name, verifyUrl),
+  });
+};
+
+router.post('/verify-email', verificationLimiter, async (req, res) => {
+  const token = String(req.body.token || '').trim();
+  if (!token) return res.status(400).json({ error: 'A verification token is required' });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const record = await tx.emailVerificationToken.findFirst({
+        where: { tokenHash: resetTokenHash(token), usedAt: null, expiresAt: { gt: new Date() } },
+      });
+      if (!record) {
+        const error = new Error('Invalid or expired verification token');
+        error.statusCode = 400;
+        throw error;
+      }
+      const usedAt = new Date();
+      const claimed = await tx.emailVerificationToken.updateMany({
+        where: { id: record.id, usedAt: null, expiresAt: { gt: new Date() } },
+        data: { usedAt },
+      });
+      if (claimed.count !== 1) {
+        const error = new Error('Invalid or expired verification token');
+        error.statusCode = 400;
+        throw error;
+      }
+      // One-time claim consumes the token before anything else; replay always
+      // lands on usedAt != null. Deactivated accounts stay frozen: verifying
+      // an email never reactivates anything.
+      const target = await tx.user.findUnique({ where: { id: record.userId }, select: { active: true, emailVerified: true } });
+      if (!target?.active) {
+        const error = new Error('Invalid or expired verification token');
+        error.statusCode = 400;
+        throw error;
+      }
+      if (!target.emailVerified) {
+        await tx.user.update({ where: { id: record.userId }, data: { emailVerified: true } });
+      }
+    }, { isolationLevel: 'Serializable' });
+  } catch (error) {
+    if (error.statusCode || error.code === 'P2034') return res.status(400).json({ error: 'Invalid or expired verification token' });
+    throw error;
+  }
+  res.json({ message: 'Email verified successfully' });
+});
+
+router.post('/resend-verification', resendLimiter, async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!isEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
+  const user = await prisma.user.findUnique({ where: { email } });
+  // Identical response whether or not the account exists, is deactivated, or
+  // is already verified — no account enumeration. Email is sent only for an
+  // active, still-unverified account.
+  if (user && user.active && !user.emailVerified) {
+    // Expire previous unused tokens first: bounded token records, and an old
+    // link stops working the moment a new one is issued. The same token that
+    // is stored is the one emailed.
+    const token = newVerificationToken();
+    await prisma.$transaction([
+      prisma.emailVerificationToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: new Date() } }),
+      prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: resetTokenHash(token),
+          expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+        },
+      }),
+    ]);
+    sendVerificationEmail(user.email, user.name, token).catch(() => {});
+  }
+  res.json({ message: 'If that account exists and is unverified, a verification email has been sent.' });
+});
 
 router.post('/password-reset/request', resetLimiter, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -185,7 +295,10 @@ router.post('/password-reset/confirm', resetLimiter, async (req, res) => {
         error.statusCode = 400;
         throw error;
       }
-      await tx.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } });
+      // Completing a reset proves inbox control through the emailed token, so
+      // it also settles the email-verification flag. Deactivation is still
+      // enforced above and is never lifted by a reset.
+      await tx.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 }, emailVerified: true } });
     }, { isolationLevel: 'Serializable' });
   } catch (error) {
     if (error.statusCode || error.code === 'P2034') return res.status(400).json({ error: 'Invalid or expired reset token' });
@@ -230,12 +343,21 @@ router.post('/google', authLimiter, async (req, res) => {
   }
   if (!user) {
     const passwordHash = await bcrypt.hash(`${crypto.randomUUID()}${crypto.randomUUID()}`, 10);
-    user = await prisma.user.create({ data: { name: String(profile.name || email.split('@')[0]).slice(0, 100), email, passwordHash, phone: '', role: 'CUSTOMER' } });
+    // Google has already verified this email (profile.email_verified === 'true'
+    // is enforced above), so the local trust flag starts verified — the Google
+    // trust model is neither weakened nor duplicated.
+    user = await prisma.user.create({ data: { name: String(profile.name || email.split('@')[0]).slice(0, 100), email, passwordHash, phone: '', role: 'CUSTOMER', emailVerified: true } });
     sendEmail({ to: email, subject: 'Welcome to Luxora', html: `<p>Welcome to Luxora, ${escapeHtml(user.name)}.</p><p>Your concierge account is ready.</p>` }).catch(() => {});
   }
   if (!user.active) return res.status(403).json({ error: 'This account has been deactivated. Contact Luxora support.' });
+  // An existing password-registered account proving inbox control through a
+  // Google-verified credential counts as email-verified.
+  if (!user.emailVerified) {
+    await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
+    user = { ...user, emailVerified: true };
+  }
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, town: user.town }, provider: null });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, town: user.town, emailVerified: user.emailVerified }, provider: null });
 });
 
 // Login
