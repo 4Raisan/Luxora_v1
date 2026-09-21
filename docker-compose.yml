@@ -16,7 +16,24 @@ services:
       - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-}
       - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
       - S3_PREFIX=${S3_PREFIX:-uploads/}
-      - TRUST_PROXY=${TRUST_PROXY:-true}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - REDIS_URL=${REDIS_URL:-}
+      - BACKEND_PUBLIC_URL=${BACKEND_PUBLIC_URL:-}
+      - DEMO_PAYMENTS_ENABLED=${DEMO_PAYMENTS_ENABLED:-}
+      - PAYHERE_MERCHANT_ID=${PAYHERE_MERCHANT_ID:-}
+      - PAYHERE_MERCHANT_SECRET=${PAYHERE_MERCHANT_SECRET:-}
+      - PAYHERE_BASE_URL=${PAYHERE_BASE_URL:-https://sandbox.payhere.lk}
+      - PAYHERE_RETURN_URL=${PAYHERE_RETURN_URL:-}
+      - PAYHERE_CANCEL_URL=${PAYHERE_CANCEL_URL:-}
+      - PAYHERE_NOTIFY_URL=${PAYHERE_NOTIFY_URL:-}
+      - NOWPAYMENTS_API_KEY=${NOWPAYMENTS_API_KEY:-}
+      - NOWPAYMENTS_IPN_SECRET=${NOWPAYMENTS_IPN_SECRET:-}
+      - NOWPAYMENTS_BASE_URL=${NOWPAYMENTS_BASE_URL:-https://api.nowpayments.io/v1}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - PAYOUT_SCHEDULER_ENABLED=${PAYOUT_SCHEDULER_ENABLED:-false}
+      - S3_SESSION_TOKEN=${S3_SESSION_TOKEN:-}
       # Cross-origin deployments (e.g. Vercel frontend + this backend) must set
       # this to the frontend origin list; same-origin SPA deployments need nothing.
       - CORS_ORIGIN=${CORS_ORIGIN:-}
