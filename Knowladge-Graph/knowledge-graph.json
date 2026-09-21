@@ -7907,6 +7907,34 @@
       }
     },
     {
+      "id": "routefile:admin->endpoint:GET_/api/admin/payout-statements:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/payout-statements",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:admin",
+      "target": "endpoint:GET_/api/admin/payout-statements",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:admin->endpoint:GET_/api/admin/payout-statements/export:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/payout-statements/export",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:admin",
+      "target": "endpoint:GET_/api/admin/payout-statements/export",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:admin->endpoint:GET_/api/admin/payouts:EXPOSES_ENDPOINT",
       "from": "routefile:admin",
       "to": "endpoint:GET_/api/admin/payouts",
@@ -8054,6 +8082,34 @@
       "label": "GET",
       "source": "routefile:admin",
       "target": "endpoint:GET_/api/admin/users",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:admin->endpoint:GET_/api/admin/webhook-events:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/webhook-events",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:admin",
+      "target": "endpoint:GET_/api/admin/webhook-events",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/admin.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:admin->endpoint:GET_/api/admin/webhook-events/:paymentId:EXPOSES_ENDPOINT",
+      "from": "routefile:admin",
+      "to": "endpoint:GET_/api/admin/webhook-events/:paymentId",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "GET",
+      "source": "routefile:admin",
+      "target": "endpoint:GET_/api/admin/webhook-events/:paymentId",
       "kind": "EXPOSES_ENDPOINT",
       "evidence": {
         "path": "backend/src/routes/admin.js",
@@ -8593,6 +8649,34 @@
       }
     },
     {
+      "id": "routefile:auth->endpoint:POST_/api/auth/resend-verification:EXPOSES_ENDPOINT",
+      "from": "routefile:auth",
+      "to": "endpoint:POST_/api/auth/resend-verification",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:auth",
+      "target": "endpoint:POST_/api/auth/resend-verification",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/auth.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:auth->endpoint:POST_/api/auth/verify-email:EXPOSES_ENDPOINT",
+      "from": "routefile:auth",
+      "to": "endpoint:POST_/api/auth/verify-email",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "POST",
+      "source": "routefile:auth",
+      "target": "endpoint:POST_/api/auth/verify-email",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/auth.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:auth->middleware:auth:USES_AUTH",
       "from": "routefile:auth",
       "to": "middleware:auth",
@@ -8642,6 +8726,20 @@
       "label": "prisma.category",
       "source": "routefile:auth",
       "target": "model:Category",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/routes/auth.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "routefile:auth->model:EmailVerificationToken:QUERIES_DB",
+      "from": "routefile:auth",
+      "to": "model:EmailVerificationToken",
+      "type": "QUERIES_DB",
+      "label": "prisma.emailVerificationToken",
+      "source": "routefile:auth",
+      "target": "model:EmailVerificationToken",
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/auth.js",
@@ -10385,6 +10483,20 @@
       }
     },
     {
+      "id": "routefile:refunds->endpoint:PUT_/api/payments/refunds/:id/cancel:EXPOSES_ENDPOINT",
+      "from": "routefile:refunds",
+      "to": "endpoint:PUT_/api/payments/refunds/:id/cancel",
+      "type": "EXPOSES_ENDPOINT",
+      "label": "PUT",
+      "source": "routefile:refunds",
+      "target": "endpoint:PUT_/api/payments/refunds/:id/cancel",
+      "kind": "EXPOSES_ENDPOINT",
+      "evidence": {
+        "path": "backend/src/routes/refunds.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "routefile:refunds->middleware:auth:USES_AUTH",
       "from": "routefile:refunds",
       "to": "middleware:auth",
@@ -11323,6 +11435,20 @@
       }
     },
     {
+      "id": "service:payoutStatements->model:ProviderPayout:QUERIES_DB",
+      "from": "service:payoutStatements",
+      "to": "model:ProviderPayout",
+      "type": "QUERIES_DB",
+      "label": "prisma.providerPayout",
+      "source": "service:payoutStatements",
+      "target": "model:ProviderPayout",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/services/payoutStatements.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
       "id": "service:refunds->model:RefundRequest:QUERIES_DB",
       "from": "service:refunds",
       "to": "model:RefundRequest",
@@ -11333,6 +11459,34 @@
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/services/refunds.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "service:webhookEvents->model:Payment:QUERIES_DB",
+      "from": "service:webhookEvents",
+      "to": "model:Payment",
+      "type": "QUERIES_DB",
+      "label": "prisma.payment",
+      "source": "service:webhookEvents",
+      "target": "model:Payment",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/services/webhookEvents.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "service:webhookEvents->model:RefundRequest:QUERIES_DB",
+      "from": "service:webhookEvents",
+      "to": "model:RefundRequest",
+      "type": "QUERIES_DB",
+      "label": "prisma.refundRequest",
+      "source": "service:webhookEvents",
+      "target": "model:RefundRequest",
+      "kind": "QUERIES_DB",
+      "evidence": {
+        "path": "backend/src/services/webhookEvents.js",
         "extractor": "generate-graph.js:static-analysis"
       }
     }
