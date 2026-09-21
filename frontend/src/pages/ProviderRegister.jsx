@@ -212,17 +212,17 @@ const ProviderRegister = () => {
         service_towns: form.city,
       })
 
-      const uploadDocument = async (file, documentType) => {
-        if (!file) return
+      const uploadDocuments = async (files, documentType) => {
+        const selectedFiles = files.filter(Boolean)
+        if (!selectedFiles.length) return
         const payload = new FormData()
         payload.append('document_type', documentType)
-        payload.append('documents', file)
+        selectedFiles.forEach((file) => payload.append('documents', file))
         await apiRequest('/provider/kyc-documents', 'POST', payload, registration.token)
       }
 
-      await uploadDocument(form.nicFront, 'NIC')
-      await uploadDocument(form.nicBack, 'NIC')
-      await uploadDocument(form.selfie, 'SELFIE')
+      await uploadDocuments([form.nicFront, form.nicBack], 'NIC')
+      await uploadDocuments([form.selfie], 'SELFIE')
 
       setSubmitted(true)
     } catch (error) {
