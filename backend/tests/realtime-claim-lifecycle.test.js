@@ -253,8 +253,9 @@ test('Rich Real-time Payload: BOOKING_CREATED delivers all card properties for 0
     customerName: 'Alice Customer',
     customerPhone: '+94771234567',
     totalPrice: 8500,
-    start_pin: '123456',
-    pin_code: '123456',
+    // Start PINs must never ride on realtime events: the customer shares the
+    // PIN with the provider in person (readiness-audit hardening).
+    pinExpiresAt: '2026-09-12T10:30:00.000Z',
     entitlement: { plan_title: 'Elite Auto Plan', remaining_units: 3 },
   });
 
@@ -270,7 +271,8 @@ test('Rich Real-time Payload: BOOKING_CREATED delivers all card properties for 0
   assert.equal(b.serviceTitle, 'Premium Auto Detailing');
   assert.equal(b.customerName, 'Alice Customer');
   assert.equal(b.totalPrice, 8500);
-  assert.equal(b.start_pin, '123456');
+  assert.equal(b.start_pin, undefined, 'realtime events must never carry the start PIN');
+  assert.equal(b.pin_code, undefined, 'realtime events must never carry the start PIN');
   assert.equal(b.entitlement.remaining_units, 3);
 });
 

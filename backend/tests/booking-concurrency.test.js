@@ -11,6 +11,7 @@ import bcrypt from 'bcryptjs';
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
+import { colomboDate } from './helpers/colombo-date.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
 import './assert-test-database.js';
 
@@ -116,7 +117,7 @@ test('Booking Flow: Normal booking, rapid duplicate idempotency, and concurrent 
   });
 
   // 4. Test 1: Normal booking creation
-  const futureDate = new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10);
+  const futureDate = colomboDate(3);
   const bookingTime = '10:00 AM';
 
   const res1 = await authJson(customerToken, '/bookings', {
@@ -296,7 +297,7 @@ test('Concurrent customers cannot be assigned to the same provider time slot', a
     return { user, token: jwt.sign({ id: user.id, email: user.email, role: 'CUSTOMER' }, JWT_SECRET, { expiresIn: '1h' }) };
   }));
 
-  const bookingDate = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+  const bookingDate = colomboDate(3);
   const responses = await Promise.all(customers.map(({ token }) => authJson(token, '/bookings', {
     method: 'POST',
     body: JSON.stringify({ service_id: service.id, booking_date: bookingDate, booking_time: '10:00' }),
@@ -322,7 +323,7 @@ test('Concurrent wrong Service PIN attempts atomically trigger lockout', async (
       userId: customer.id,
       providerId: provider.id,
       serviceId: service.id,
-      bookingDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+      bookingDate: colomboDate(1),
       bookingTime: '10:00',
       status: 'ASSIGNED',
       totalPrice: service.price,
@@ -506,8 +507,8 @@ test('Audit Verification: Admin Action Audit Trail Logging', async () => {
   // Verify audit log entry was created
   const auditRes = await authJson(adminToken, '/admin/audit-logs?limit=10');
   assert.equal(auditRes.status, 200);
-  assert.ok(Array.isArray(auditRes.body));
-  const entry = auditRes.body.find((l) => l.action === 'UPDATE_SCHEDULING_SETTINGS');
+  assert.ok(Array.isArray(auditRes.body.data), 'audit logs must return a bounded data array');
+  const entry = auditRes.body.data.find((l) => l.action === 'UPDATE_SCHEDULING_SETTINGS');
   assert.ok(entry, 'Audit log entry for scheduling update must exist');
   assert.equal(entry.adminId, admin.id);
 });

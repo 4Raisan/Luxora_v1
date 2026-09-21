@@ -26,8 +26,9 @@ const backendDir = path.resolve(__dirname, '..');
 
 const PORT = 5043;
 const BASE = `http://127.0.0.1:${PORT}/api`;
-const EXPOSED_PASSWORD = 'Exposed-Seed-Password-999!';
-const CONTROL_PASSWORD = 'Legit-Control-Password-999!';
+// Fixture passwords are generated per run — never reusable credential literals.
+const EXPOSED_PASSWORD = `Seed-Expose-${crypto.randomBytes(12).toString('hex')}!7aZ`;
+const CONTROL_PASSWORD = `Seed-Control-${crypto.randomBytes(12).toString('hex')}!7aZ`;
 const CONTROL_EMAIL = 'legit.control@example.com';
 const SEED_EMAILS = ['customer@luxora.lk', 'provider@luxora.lk', 'admin@luxora.lk'];
 

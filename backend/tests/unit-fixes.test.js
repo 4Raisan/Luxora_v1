@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import '../src/config/prisma.js'; // applies the Decimal -> number JSON serialization
 import { detectFileSignature } from '../src/routes/uploads.js';
-import { verifyPayHereWebhook } from '../src/services/integrations.js';
+import { verifyPayHereWebhook, payHereWebhookSignature } from '../src/services/integrations.js';
 import { isPublicHttpsUrl } from '../src/routes/integrations.js';
 import { getObject, putObject, removeObject } from '../src/services/storage.js';
 import { providerOffersCategory } from '../src/services/scheduling.js';
@@ -70,17 +70,14 @@ test('B13: PayHere webhook signature verification accepts a correctly signed pay
     status_code: '2',
     payhere_currency: 'LKR',
   };
-  const md5 = (value) => crypto.createHash('md5').update(value).digest('hex').toUpperCase();
-  payload.md5sig = md5(
-    payload.merchant_id + payload.order_id + payload.payhere_amount
-    + payload.payhere_currency + payload.status_code + md5('test-secret'),
-  );
+  payload.md5sig = payHereWebhookSignature({ merchantId: payload.merchant_id, orderId: payload.order_id, amount: payload.payhere_amount, currency: payload.payhere_currency, statusCode: payload.status_code, merchantSecret: 'test-secret' });
   assert.equal(verifyPayHereWebhook(payload), true);
-  payload.md5sig = md5('wrong');
+  payload.md5sig = 'A'.repeat(32);
+  assert.equal(verifyPayHereWebhook(payload), false);
   assert.equal(verifyPayHereWebhook(payload), false);
   const copy = { ...payload, merchant_id: 'OTHER' };
   copy.md5sig = payload.md5sig;
-  assert.equal(verifyPayHereWebhook({ ...copy, md5sig: md5('wrong') }), false);
+  assert.equal(verifyPayHereWebhook({ ...copy, md5sig: 'B'.repeat(32) }), false);
 });
 
 test('Provider category matching accepts selected categories and preserves legacy single-category providers', () => {

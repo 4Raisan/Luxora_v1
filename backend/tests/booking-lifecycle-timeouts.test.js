@@ -11,6 +11,7 @@ import bcrypt from 'bcryptjs';
 dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
+import { colomboDate } from './helpers/colombo-date.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
 import { bookingStart } from '../src/services/scheduling.js';
 import { processExpiredBookings } from '../src/services/bookingTimeouts.js';
@@ -300,8 +301,8 @@ test('Rule 3: Rescheduling cancels old booking, generates new booking with re-as
   });
 
   // Future booking: Day after tomorrow at 10:00 AM
-  const futureDate1 = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
-  const futureDate2 = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+  const futureDate1 = colomboDate(2);
+  const futureDate2 = colomboDate(3);
 
   const initialBooking = await prisma.booking.create({
     data: {

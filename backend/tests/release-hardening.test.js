@@ -254,7 +254,8 @@ test('Provider redemption reserves balance and admin settlement updates the ledg
   const adminToken = jwt.sign({ id: admin.id, role: 'ADMIN', tokenVersion: admin.tokenVersion }, JWT_SECRET);
   const adminRows = await authJson(adminToken, '/admin/payouts');
   const adminRow = adminRows.body.find((row) => row.id === payout.id);
-  assert.equal(adminRow.account_number, accountNumber);
+  assert.equal(adminRow.account_number, '••••••••9012', 'admin payouts must expose only masked account numbers');
+  assert.ok(!JSON.stringify(adminRows.body).includes(accountNumber), 'full account numbers must never leave the API');
   assert.equal(adminRow.branch, 'Colombo Fort');
 
   const realtimeAbort = new AbortController();
