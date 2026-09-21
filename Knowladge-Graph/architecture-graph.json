@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "stats": {
-    "totalNodes": 86,
+    "totalNodes": 87,
     "totalEdges": 107,
     "totalViews": 12
   },
@@ -582,6 +582,29 @@
       }
     },
     {
+      "id": "model:emailverificationtoken",
+      "label": "🗄️ Model: EmailVerificationToken",
+      "layer": "Database & Models",
+      "type": "database_model",
+      "views": [
+        "database"
+      ],
+      "file": "backend/prisma/schema.prisma",
+      "description": "Prisma PostgreSQL model storing EmailVerificationToken records.",
+      "metadata": {
+        "fieldsCount": 7,
+        "fields": [
+          "id",
+          "userId",
+          "tokenHash",
+          "expiresAt",
+          "usedAt",
+          "createdAt",
+          "user"
+        ]
+      }
+    },
+    {
       "id": "model:kycdocument",
       "label": "🗄️ Model: KycDocument",
       "layer": "Database & Models",
@@ -594,7 +617,7 @@
       "file": "backend/prisma/schema.prisma",
       "description": "Provider operational record tracking KYC approval, coverage towns, AES-256-GCM encrypted bank accounts, and monthly payout ledgers.",
       "metadata": {
-        "fieldsCount": 9,
+        "fieldsCount": 10,
         "fields": [
           "id",
           "providerId",
@@ -604,6 +627,7 @@
           "mimeType",
           "sizeBytes",
           "createdAt",
+          "supersededAt",
           "provider"
         ]
       }
@@ -1029,7 +1053,7 @@
       "file": "backend/prisma/schema.prisma",
       "description": "Identity record holding bcrypt password hashes, tokenVersion for session invalidation, and administrative governance audit logs.",
       "metadata": {
-        "fieldsCount": 25,
+        "fieldsCount": 27,
         "fields": [
           "id",
           "name",
@@ -1037,10 +1061,10 @@
           "passwordHash",
           "phone",
           "phoneVerified",
+          "emailVerified",
           "town",
           "addressStreet",
-          "addressDistrict",
-          "role"
+          "addressDistrict"
         ]
       }
     },
