@@ -6,15 +6,15 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 218,
-    "totalEdges": 471,
+    "totalNodes": 230,
+    "totalEdges": 488,
     "nodesByGroup": {
-      "api": 108,
-      "database": 35,
-      "frontend": 37,
-      "middleware": 3,
+      "api": 115,
+      "database": 36,
+      "frontend": 38,
+      "middleware": 4,
       "routes": 18,
-      "service": 17
+      "service": 19
     }
   },
   "nodes": [
@@ -102,6 +102,36 @@
       "metadata": {
         "method": "GET",
         "path": "/api/admin/complaints",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/payout-statements",
+      "label": "GET /api/admin/payout-statements",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/payout-statements",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/payout-statements/export",
+      "label": "GET /api/admin/payout-statements/export",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/payout-statements/export",
         "routeFile": "admin.js"
       },
       "source": {
@@ -267,6 +297,36 @@
       "metadata": {
         "method": "GET",
         "path": "/api/admin/users",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/webhook-events",
+      "label": "GET /api/admin/webhook-events",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/webhook-events",
+        "routeFile": "admin.js"
+      },
+      "source": {
+        "path": "backend/src/routes/admin.js"
+      }
+    },
+    {
+      "id": "endpoint:GET_/api/admin/webhook-events/:paymentId",
+      "label": "GET /api/admin/webhook-events/:paymentId",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/admin.js",
+      "metadata": {
+        "method": "GET",
+        "path": "/api/admin/webhook-events/:paymentId",
         "routeFile": "admin.js"
       },
       "source": {
@@ -867,6 +927,36 @@
       "metadata": {
         "method": "POST",
         "path": "/api/auth/register",
+        "routeFile": "auth.js"
+      },
+      "source": {
+        "path": "backend/src/routes/auth.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/auth/resend-verification",
+      "label": "POST /api/auth/resend-verification",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/auth.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/auth/resend-verification",
+        "routeFile": "auth.js"
+      },
+      "source": {
+        "path": "backend/src/routes/auth.js"
+      }
+    },
+    {
+      "id": "endpoint:POST_/api/auth/verify-email",
+      "label": "POST /api/auth/verify-email",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/auth.js",
+      "metadata": {
+        "method": "POST",
+        "path": "/api/auth/verify-email",
         "routeFile": "auth.js"
       },
       "source": {
@@ -1501,6 +1591,21 @@
       },
       "source": {
         "path": "backend/src/routes/notifications.js"
+      }
+    },
+    {
+      "id": "endpoint:PUT_/api/payments/refunds/:id/cancel",
+      "label": "PUT /api/payments/refunds/:id/cancel",
+      "type": "ApiEndpoint",
+      "group": "api",
+      "file": "backend/src/routes/refunds.js",
+      "metadata": {
+        "method": "PUT",
+        "path": "/api/payments/refunds/:id/cancel",
+        "routeFile": "refunds.js"
+      },
+      "source": {
+        "path": "backend/src/routes/refunds.js"
       }
     },
     {
@@ -2244,6 +2349,17 @@
       }
     },
     {
+      "id": "frontend:VerifyEmail",
+      "label": "VerifyEmail.jsx",
+      "type": "FrontendPage",
+      "group": "frontend",
+      "file": "frontend/src/pages/VerifyEmail.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/pages/VerifyEmail.jsx"
+      }
+    },
+    {
       "id": "middleware:auth",
       "label": "auth.js",
       "type": "Middleware",
@@ -2254,6 +2370,19 @@
       },
       "source": {
         "path": "backend/src/middleware/auth.js"
+      }
+    },
+    {
+      "id": "middleware:pagination",
+      "label": "pagination.js",
+      "type": "Middleware",
+      "group": "middleware",
+      "file": "backend/src/middleware/pagination.js",
+      "metadata": {
+        "description": "Backend middleware in pagination.js"
+      },
+      "source": {
+        "path": "backend/src/middleware/pagination.js"
       }
     },
     {
@@ -2606,6 +2735,53 @@
           {
             "name": "updatedAt",
             "type": "DateTime"
+          },
+          {
+            "name": "user",
+            "type": "User"
+          },
+          {
+            "name": "userId",
+            "type": "Int"
+          }
+        ],
+        "relations": []
+      },
+      "source": {
+        "path": "backend/prisma/schema.prisma"
+      }
+    },
+    {
+      "id": "model:EmailVerificationToken",
+      "label": "EmailVerificationToken",
+      "type": "DatabaseModel",
+      "group": "database",
+      "file": "backend/prisma/schema.prisma",
+      "metadata": {
+        "fields": [
+          {
+            "name": "@@index([userId,",
+            "type": "expiresAt])"
+          },
+          {
+            "name": "createdAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "expiresAt",
+            "type": "DateTime"
+          },
+          {
+            "name": "id",
+            "type": "Int"
+          },
+          {
+            "name": "tokenHash",
+            "type": "String"
+          },
+          {
+            "name": "usedAt",
+            "type": "DateTime?"
           },
           {
             "name": "user",
