@@ -675,6 +675,7 @@ const CustomerDashboard = () => {
         setPaymentGateways((current) => ({
           payhere: { ...current.payhere, ...mode.gateways.payhere },
           nowpayments: { ...current.nowpayments, ...mode.gateways.nowpayments },
+          demo: { ...current.demo, ...mode.gateways.demo },
         }))
         if (mode.gateways.payhere?.environment) setPayhereEnv(mode.gateways.payhere.environment)
       }
@@ -5048,7 +5049,10 @@ const CustomerDashboard = () => {
                 </small>
               </div>
 
-              {/* Option 3: Demo Payment — independent gateway, always available */}
+              {/* Option 3: Demo Payment — availability comes from /payments/mode
+                  (the same flag that gates the demo checkout endpoint), so a
+                  disabled deployment never shows a dead button. */}
+              {paymentGateways.demo?.enabled && (
               <div className="cd-easypay" style={{ borderColor: 'rgba(95, 189, 139, 0.35)' }}>
                 <div className="cd-easypay__head">
                   <span className="cd-easypay__title">DEMO PAYMENT</span>
@@ -5068,6 +5072,7 @@ const CustomerDashboard = () => {
                   Complete this purchase without a real financial charge. The selected package and service tokens will be added to your account.
                 </small>
               </div>
+              )}
 
             </div>
           </div>
