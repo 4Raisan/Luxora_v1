@@ -37,6 +37,11 @@
     .stat-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; margin-right: 4px; }
     .legend { position: absolute; bottom: 20px; right: 20px; width: 235px; background: rgba(21, 29, 48, 0.94); backdrop-filter: blur(12px); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155; font-size: 0.76rem; z-index: 20; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
     .legend.dragging { cursor: grabbing; box-shadow: 0 12px 40px rgba(0,0,0,0.7); }
+    .legend-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .legend-header h3 { margin: 0; font-size: 0.76rem; color: #fff; }
+    .legend-toggle { border: 0; background: transparent; color: #94a3b8; cursor: pointer; font: inherit; font-size: 1rem; padding: 0 4px; line-height: 1; }
+    .legend-toggle:hover, .legend-toggle:focus-visible { color: #fff; }
+    .legend.minimized .legend-header { margin-bottom: 0; }
     .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
     .legend-color { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 14px; }
     .settings-dock { position: absolute; top: 20px; right: 20px; width: 248px; max-height: calc(100vh - 40px); z-index: 21; background: rgba(21, 29, 48, 0.96); backdrop-filter: blur(12px); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); overflow-y: auto; overscroll-behavior: contain; }
@@ -158,7 +163,11 @@
       </div>
     </details>
     <div class="legend">
-      <div style="font-weight: bold; margin-bottom: 12px; color: #fff;">System Legend</div>
+      <div class="legend-header">
+        <h3>System Legend</h3>
+        <button class="legend-toggle" id="legendToggle" type="button" aria-label="Minimize legend" aria-expanded="true" aria-controls="legendItems">−</button>
+      </div>
+      <div id="legendItems">
       <div class="legend-item"><div class="legend-color" style="background:#38bdf8"></div>Frontend UI / Components</div>
       <div class="legend-item"><div class="legend-color" style="background:#818cf8"></div>Route Handlers</div>
       <div class="legend-item"><div class="legend-color" style="background:#34d399"></div>API Endpoints</div>
@@ -166,6 +175,7 @@
       <div class="legend-item"><div class="legend-color" style="background:#f472b6"></div>Middleware / RBAC Auth</div>
       <div class="legend-item"><div class="legend-color" style="background:#facc15"></div>Prisma Database Models</div>
       <div class="legend-item"><div class="legend-color" style="background:#ef4444"></div>Unlinked Source Evidence</div>
+      </div>
     </div>
   </div>
 
@@ -216,6 +226,45 @@
       degreeById.set(edge.from, (degreeById.get(edge.from) || 0) + 1);
       degreeById.set(edge.to, (degreeById.get(edge.to) || 0) + 1);
     });
+
+    const nodeById = new Map(graphData.nodes.map(node => [node.id, node]));
+    const searchTextById = new Map(graphData.nodes.map(node => [node.id,
+      [node.label, node.id, node.file, node.type].filter(Boolean).join(' ').toLowerCase()
+    ]));
+    const incomingById = new Map();
+    const outgoingById = new Map();
+    graphData.edges.forEach(edge => {
+      if (!incomingById.has(edge.to)) incomingById.set(edge.to, []);
+      if (!outgoingById.has(edge.from)) outgoingById.set(edge.from, []);
+      incomingById.get(edge.to).push(edge);
+      outgoingById.get(edge.from).push(edge);
+    });
+
+    // DataSet updates notify the renderer even when their values are unchanged.
+    // Compare only supplied properties; omitted properties retain their values.
+    function sameProperties(current, patch) {
+      if (current === patch) return true;
+      if (!current || !patch || typeof current !== 'object' || typeof patch !== 'object') return false;
+      return Object.keys(patch).every(key => sameProperties(current[key], patch[key]));
+    }
+
+    function updateChanged(dataset, updates) {
+      const changed = updates.filter(update => !sameProperties(dataset.get(update.id), update));
+      if (changed.length) dataset.update(changed);
+    }
+
+    const pendingViewUpdates = new Set();
+    let viewUpdateFrame = null;
+    function scheduleViewUpdate(update) {
+      pendingViewUpdates.add(update);
+      if (viewUpdateFrame !== null) return;
+      viewUpdateFrame = window.requestAnimationFrame(() => {
+        viewUpdateFrame = null;
+        const updates = [...pendingViewUpdates];
+        pendingViewUpdates.clear();
+        updates.forEach(run => run());
+      });
+    }
 
     const nodeOrbitInfo = new Map();
 
@@ -405,6 +454,90 @@
     };
 
     const network = new window.vis.Network(container, data, options);
+    // Keep the pinned renderer's geometry and paint routines unchanged. Only
+    // skip edges whose conservative curve/label bounds miss the viewport.
+    let viewportEdgeIds = null;
+    let viewportArrowIds = null;
+    network.on('beforeDrawing', () => {
+      const frame = network.canvas.frame;
+      const topLeft = network.DOMtoCanvas({ x: 0, y: 0 });
+      const bottomRight = network.DOMtoCanvas({ x: frame.clientWidth, y: frame.clientHeight });
+      const scale = network.getScale();
+      if (scale <= 0.4) {
+        viewportEdgeIds = viewportArrowIds = network.body.edgeIndices;
+        return;
+      }
+      viewportEdgeIds = network.body.edgeIndices.filter(id => {
+        const edge = network.body.edges[id];
+        if (!edge.connected || !edge.from || !edge.to || edge.from === edge.to) return true;
+        // Other curve types must retain the renderer's normal behavior.
+        if (edge.options.smooth?.type !== 'curvedCW') return true;
+        const via = edge.edgeType.getViaNode();
+        if (!via || !Number.isFinite(via.x) || !Number.isFinite(via.y)) return true;
+        const fontSize = Number(edge.options.font?.size) || 8;
+        // Overestimate rotated text, endpoint shapes and arrow/stroke extents.
+        const padding = 64 / scale + String(edge.options.label || '').length * fontSize * 2
+          + Math.max(edge.from.shape.width || 0, edge.from.shape.height || 0,
+            edge.to.shape.width || 0, edge.to.shape.height || 0);
+        const left = Math.min(edge.from.x, edge.to.x, via.x) - padding;
+        const right = Math.max(edge.from.x, edge.to.x, via.x) + padding;
+        const top = Math.min(edge.from.y, edge.to.y, via.y) - padding;
+        const bottom = Math.max(edge.from.y, edge.to.y, via.y) + padding;
+        return right >= topLeft.x && left <= bottomRight.x && bottom >= topLeft.y && top <= bottomRight.y;
+      });
+      viewportArrowIds = viewportEdgeIds.filter(id => {
+        const edge = network.body.edges[id];
+        if (!edge.to || edge.options.arrows.from.enabled || edge.options.arrows.middle.enabled) return true;
+        const padding = 64 / scale + Math.max(edge.to.shape.width || 0, edge.to.shape.height || 0);
+        return edge.to.x + padding >= topLeft.x && edge.to.x - padding <= bottomRight.x
+          && edge.to.y + padding >= topLeft.y && edge.to.y - padding <= bottomRight.y;
+      });
+    });
+    for (const method of ['_drawEdges', '_drawArrows']) {
+      const originalDraw = network.renderer[method];
+      network.renderer[method] = function(ctx) {
+        const allEdges = this.body.edgeIndices;
+        this.body.edgeIndices = (method === '_drawArrows' ? viewportArrowIds : viewportEdgeIds) || allEdges;
+        try { return originalDraw.call(this, ctx); }
+        finally { this.body.edgeIndices = allEdges; }
+      };
+    }
+    // Opt-in diagnostics: expose timing through a data attribute, without UI changes.
+    if (new URLSearchParams(window.location.search).has('performance')) {
+      let sampleStart = performance.now();
+      let previousFrame = sampleStart;
+      let drawStart = 0;
+      let draws = 0;
+      let drawMs = 0;
+      let sizeChecks = 0;
+      const frameIntervals = [];
+      network.on('setSize', () => { sizeChecks++; });
+      network.on('beforeDrawing', () => { drawStart = performance.now(); });
+      network.on('afterDrawing', () => { draws++; drawMs += performance.now() - drawStart; });
+      const sampleFrame = now => {
+        frameIntervals.push(now - previousFrame);
+        previousFrame = now;
+        const elapsed = now - sampleStart;
+        if (elapsed >= 3000) {
+          const sorted = [...frameIntervals].sort((a, b) => a - b);
+          container.dataset.graphPerformance = JSON.stringify({
+            fps: Number((frameIntervals.length * 1000 / elapsed).toFixed(1)),
+            p95FrameMs: Number(sorted[Math.floor((sorted.length - 1) * 0.95)].toFixed(1)),
+            drawsPerSecond: Number((draws * 1000 / elapsed).toFixed(1)),
+            averageDrawMs: draws ? Number((drawMs / draws).toFixed(2)) : 0,
+            sizeChecksPerSecond: Number((sizeChecks * 1000 / elapsed).toFixed(1)),
+            zoomScale: Number(network.getScale().toFixed(2)),
+            renderedEdges: viewportEdgeIds?.length ?? network.body.edgeIndices.length,
+            renderedArrowEdges: viewportArrowIds?.length ?? network.body.edgeIndices.length
+          });
+          sampleStart = now;
+          frameIntervals.length = 0;
+          draws = drawMs = sizeChecks = 0;
+        }
+        window.requestAnimationFrame(sampleFrame);
+      };
+      window.requestAnimationFrame(sampleFrame);
+    }
     window.requestAnimationFrame(() => {
       fitGraph();
     });
@@ -449,10 +582,104 @@
     let orbitAnimFrame = null;
     let activeDragNodeId = null;
     let lastAnimTime = performance.now();
+    // Reuse high-resolution glyph rasters during motion. Inspection, paused
+    // views and the separate PNG exporter retain the original text renderer.
+    const textContext = network.canvas.frame.canvas.getContext('2d');
+    const glyphCache = new Map();
+    let glyphCacheBytes = 0;
+    const glyphCacheLimit = 64 * 1024 * 1024;
+    let pairedLabelDepth = 0;
+    let pendingGlyphFill = null;
+    // The pinned label renderer paints each text block's outline immediately
+    // followed by its fill. Combine that pair into one cached image at alpha 1.
+    const labelModules = new Set([...Object.values(network.body.nodes),
+      ...Object.values(network.body.edges)].map(item => item.labelModule).filter(Boolean));
+    for (const label of labelModules) {
+      const drawText = label._drawText;
+      label._drawText = function(...args) {
+        pairedLabelDepth++;
+        try { return drawText.apply(this, args); }
+        finally { pendingGlyphFill = null; pairedLabelDepth--; }
+      };
+    }
+    for (const method of ['fillText', 'strokeText']) {
+      const nativePaint = textContext[method];
+      textContext[method] = function(text, x, y, maxWidth) {
+        if (method === 'fillText' && pendingGlyphFill && maxWidth === undefined
+          && pendingGlyphFill.text === text && pendingGlyphFill.x === x && pendingGlyphFill.y === y
+          && pendingGlyphFill.font === this.font && pendingGlyphFill.style === this.fillStyle
+          && this.globalAlpha === 1 && pairedLabelDepth > 0) {
+          pendingGlyphFill = null;
+          return;
+        }
+        pendingGlyphFill = null;
+        if (!uiState.motionEnabled || uiState.selectedNodeId || uiState.rotationSpeed <= 0
+          || network.getScale() <= 0.4 || maxWidth !== undefined || this.shadowBlur
+          || this.shadowOffsetX || this.shadowOffsetY || this.globalCompositeOperation !== 'source-over') {
+          return nativePaint.apply(this, arguments);
+        }
+        const transform = this.getTransform();
+        const pixelScale = Math.hypot(transform.a, transform.b);
+        // Never enlarge a cached raster beyond its native pixel resolution.
+        if (pixelScale > 8) return nativePaint.apply(this, arguments);
+        const density = Math.min(8, Math.max(2, Math.ceil(pixelScale * 3)));
+        const style = method === 'strokeText' ? this.strokeStyle : this.fillStyle;
+        if (typeof style !== 'string') return nativePaint.apply(this, arguments);
+        const combineFill = method === 'strokeText' && pairedLabelDepth > 0
+          && this.globalAlpha === 1 && typeof this.fillStyle === 'string';
+        const key = JSON.stringify([method, text, this.font, this.textAlign, this.textBaseline,
+          this.direction, style, this.lineWidth, this.lineJoin, this.miterLimit, density,
+          combineFill ? this.fillStyle : null]);
+        let glyph = glyphCache.get(key);
+        if (!glyph) {
+          const bounds = this.measureText(text);
+          const metrics = [bounds.actualBoundingBoxLeft, bounds.actualBoundingBoxRight,
+            bounds.actualBoundingBoxAscent, bounds.actualBoundingBoxDescent];
+          if (!metrics.every(Number.isFinite)) return nativePaint.apply(this, arguments);
+          const strokeExtent = this.lineJoin === 'miter' ? this.lineWidth * this.miterLimit : this.lineWidth;
+          const padding = 2 + (method === 'strokeText' ? strokeExtent : 0);
+          const left = Math.floor(-metrics[0] - padding);
+          const top = Math.floor(-metrics[2] - padding);
+          const width = Math.ceil(metrics[1] + padding) - left;
+          const height = Math.ceil(metrics[3] + padding) - top;
+          const bytes = width * height * density * density * 4;
+          if (!width || !height || width * density > 4096 || height * density > 4096
+            || bytes > glyphCacheLimit / 4) return nativePaint.apply(this, arguments);
+          const image = document.createElement('canvas');
+          image.width = width * density;
+          image.height = height * density;
+          const raster = image.getContext('2d');
+          raster.scale(density, density);
+          for (const property of ['font', 'textAlign', 'textBaseline', 'direction',
+            'lineWidth', 'lineJoin', 'miterLimit', 'fillStyle', 'strokeStyle']) raster[property] = this[property];
+          raster[method](text, -left, -top);
+          if (combineFill) raster.fillText(text, -left, -top);
+          while (glyphCacheBytes + bytes > glyphCacheLimit && glyphCache.size) {
+            const firstKey = glyphCache.keys().next().value;
+            glyphCacheBytes -= glyphCache.get(firstKey).bytes;
+            glyphCache.delete(firstKey);
+          }
+          glyph = { image, left, top, width, height, bytes };
+          glyphCache.set(key, glyph);
+          glyphCacheBytes += bytes;
+        }
+        this.drawImage(glyph.image, x + glyph.left, y + glyph.top, glyph.width, glyph.height);
+        if (combineFill) pendingGlyphFill = { text, x, y, font: this.font, style: this.fillStyle };
+      };
+    }
     const legend = document.querySelector('.legend');
     let legendDrag;
+    const legendToggle = document.getElementById('legendToggle');
+    legendToggle.addEventListener('click', () => {
+      const minimized = legend.classList.toggle('minimized');
+      document.getElementById('legendItems').hidden = minimized;
+      legendToggle.textContent = minimized ? '+' : '−';
+      legendToggle.setAttribute('aria-expanded', String(!minimized));
+      legendToggle.setAttribute('aria-label', minimized ? 'Expand legend' : 'Minimize legend');
+    });
 
     function startLegendDrag(event) {
+      if (event.target.closest('button')) return;
       if (event.button !== undefined && event.button !== 0) return;
       const legendBox = legend.getBoundingClientRect();
       const containerBox = document.getElementById('graph-container').getBoundingClientRect();
@@ -518,16 +745,21 @@
         window.cancelAnimationFrame(orbitAnimFrame);
         orbitAnimFrame = null;
       }
-      if (!uiState.motionEnabled) return;
+      if (!uiState.motionEnabled || document.hidden || uiState.selectedNodeId || uiState.rotationSpeed <= 0) {
+        if (!document.hidden) network.body.emitter.emit('_requestRedraw');
+        return;
+      }
       lastAnimTime = performance.now();
       const orbitLoop = (now) => {
-        if (!uiState.motionEnabled) return;
+        orbitAnimFrame = null;
+        if (!uiState.motionEnabled || document.hidden || uiState.selectedNodeId || uiState.rotationSpeed <= 0) return;
         const dt = Math.min(0.1, (now - lastAnimTime) / 1000);
         lastAnimTime = now;
         if (uiState.rotationSpeed > 0 && !uiState.selectedNodeId && network.body && network.body.nodes) {
           orbitTime += dt * uiState.rotationSpeed;
           const stretch = 1 + (uiState.horizontalVibe / 100) * 3;
           const bodyNodes = network.body.nodes;
+          let positionsChanged = false;
           nodeOrbitInfo.forEach((info, id) => {
             if (id === activeDragNodeId) return;
             const currentAngle = info.baseAngle + orbitTime * info.speedMultiplier;
@@ -536,11 +768,15 @@
             const y = Math.round(r * Math.sin(currentAngle));
             const nodeObj = bodyNodes[id];
             if (nodeObj) {
+              if (nodeObj.x !== x || nodeObj.y !== y) positionsChanged = true;
               nodeObj.x = x;
               nodeObj.y = y;
             }
           });
-          network.redraw();
+          // The pinned vis-network renderer already observes container resizing.
+          // Its internal redraw event skips per-frame size/layout reads and lets
+          // an active camera/physics render loop paint these same coordinates.
+          if (positionsChanged) network.body.emitter.emit('_requestRedraw');
         }
         orbitAnimFrame = window.requestAnimationFrame(orbitLoop);
       };
@@ -548,6 +784,7 @@
     }
 
     startCosmicOrbit();
+    document.addEventListener('visibilitychange', startCosmicOrbit);
 
     function applyConcentricLayout(repositionAll = true) {
       const spacingMultiplier = uiState.innerSpacing / 120;
@@ -579,7 +816,7 @@
     function matchingNodeIds() {
       return new Set(graphData.nodes.filter(node => {
         const matchesGroup = uiState.group === 'all' || node.group === uiState.group;
-        const searchableText = [node.label, node.id, node.file, node.type].filter(Boolean).join(' ').toLowerCase();
+        const searchableText = searchTextById.get(node.id);
         const matchesSearch = !uiState.term || searchableText.includes(uiState.term);
         return matchesGroup && matchesSearch;
       }).map(node => node.id));
@@ -598,8 +835,8 @@
           hidden: !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)
         });
       });
-      visNodes.update(nodeUpdates);
-      visEdges.update(edgeUpdates);
+      updateChanged(visNodes, nodeUpdates);
+      updateChanged(visEdges, edgeUpdates);
       updateLabelVisibility();
       const visibleLinkedNodes = [...visibleNodeIds].filter(id => (degreeById.get(id) || 0) > 0).length;
       document.getElementById('graphStatus').textContent = 'Showing ' + visibleNodeIds.size + ' of ' + graphData.nodes.length + ' nodes • ' + visibleLinkedNodes + ' linked • ' + (visibleNodeIds.size - visibleLinkedNodes) + ' unlinked evidence';
@@ -608,7 +845,7 @@
     function updateNodeScale() {
       const updates = [];
       visNodes.forEach(node => updates.push({ id: node.id, size: Math.round(node.baseSize * uiState.nodeScale) }));
-      visNodes.update(updates);
+      updateChanged(visNodes, updates);
     }
 
     function updateLabelScale() {
@@ -617,7 +854,7 @@
         id: node.id,
         font: { ...node.font, size: Math.round(node.baseFontSize * uiState.labelScale) }
       }));
-      visNodes.update(updates);
+      updateChanged(visNodes, updates);
     }
 
     function updateLabelVisibility() {
@@ -629,7 +866,7 @@
           font: { ...node.font, color: node.baseFontColor, size: Math.round(node.baseFontSize * uiState.labelScale) }
         });
       });
-      visNodes.update(updates);
+      updateChanged(visNodes, updates);
     }
 
     function setDiagramBackground(color) {
@@ -740,7 +977,7 @@
           font: { color: labelColor, size: 8, align: 'middle', strokeWidth: labelsOff ? 0 : 2, strokeColor: labelsOff ? 'rgba(0,0,0,0)' : uiState.backgroundColor }
         });
       });
-      visEdges.update(updates);
+      updateChanged(visEdges, updates);
     }
 
     function fitGraph(duration = 350) {
@@ -759,10 +996,11 @@
     }
 
     function selectAndFocusNode(nodeId) {
-      const node = graphData.nodes.find(n => n.id === nodeId);
+      const node = nodeById.get(nodeId);
       if (!node) return;
       setSidebarCollapsed(false);
       uiState.selectedNodeId = nodeId;
+      startCosmicOrbit();
       network.selectNodes([nodeId]);
       network.focus(nodeId, {
         scale: 1.3,
@@ -774,8 +1012,8 @@
     }
 
     function renderNodeDetails(node) {
-      const inbound = graphData.edges.filter(e => e.to === node.id);
-      const outbound = graphData.edges.filter(e => e.from === node.id);
+      const inbound = incomingById.get(node.id) || [];
+      const outbound = outgoingById.get(node.id) || [];
 
       let html = `
         <h2 style="color: #fff; font-size: 1.05rem; margin-bottom: 8px; word-break: break-word;">${node.label}</h2>
@@ -836,6 +1074,7 @@
 
     function resetNodeInspector() {
       uiState.selectedNodeId = null;
+      startCosmicOrbit();
       document.getElementById('details-panel').innerHTML = `
         <h3 style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 10px;">🔍 Node Inspector</h3>
         <p style="color: #64748b; line-height: 1.5;">Click on any node in the interactive graph to analyze its file path, API routes, database models, and impact blast radius.</p>
@@ -900,9 +1139,10 @@
     network.on('click', (params) => {
       if (params.nodes.length > 0) {
         const nodeId = params.nodes[0];
-        const node = graphData.nodes.find(n => n.id === nodeId);
+        const node = nodeById.get(nodeId);
         if (!node) return;
         uiState.selectedNodeId = nodeId;
+        startCosmicOrbit();
         renderNodeDetails(node);
         updateLabelVisibility();
         updateEdgeAppearance();
@@ -926,7 +1166,7 @@
     function applySearch() {
       uiState.term = searchInput.value.toLowerCase().trim();
       searchClear.style.display = uiState.term ? 'block' : 'none';
-      updateGraphVisibility();
+      scheduleViewUpdate(updateGraphVisibility);
     }
 
     searchInput.addEventListener('input', applySearch);
@@ -979,19 +1219,19 @@
     document.getElementById('nodeScale').addEventListener('input', (event) => {
       uiState.nodeScale = Number(event.target.value) / 100;
       document.getElementById('nodeScaleValue').textContent = event.target.value + '%';
-      updateNodeScale();
+      scheduleViewUpdate(updateNodeScale);
     });
 
     document.getElementById('labelScale').addEventListener('input', (event) => {
       uiState.labelScale = Number(event.target.value) / 100;
       document.getElementById('labelScaleValue').textContent = event.target.value + '%';
-      updateLabelScale();
+      scheduleViewUpdate(updateLabelScale);
     });
 
     document.getElementById('edgeOpacity').addEventListener('input', (event) => {
       uiState.edgeOpacity = Number(event.target.value) / 100;
       document.getElementById('edgeOpacityValue').textContent = event.target.value + '%';
-      updateEdgeAppearance();
+      scheduleViewUpdate(updateEdgeAppearance);
     });
 
     document.getElementById('innerSpacing').addEventListener('input', (event) => {
@@ -1015,6 +1255,7 @@
     document.getElementById('rotationSpeed').addEventListener('input', (event) => {
       uiState.rotationSpeed = Number(event.target.value) / 100;
       document.getElementById('rotationSpeedValue').textContent = event.target.value + '%';
+      if (orbitAnimFrame === null || uiState.rotationSpeed <= 0) startCosmicOrbit();
     });
 
     document.getElementById('horizontalVibe').addEventListener('input', (event) => {
