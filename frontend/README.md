@@ -1,4 +1,4 @@
-# iLuxora Frontend
+# Luxora Frontend
 
 The Luxora frontend is a React and Vite application for customer, provider, and administrator workflows. It consumes the Luxora API through the shared request client in `src/services/api.js`.
 

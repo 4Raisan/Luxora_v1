@@ -38,6 +38,8 @@ Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet 
 
 There is no separate Super Admin role; Admin is the platform-administration role.
 
+The original V1 scope described above has since gained a customer refund-request ledger and admin review workflow. Eligible booking cancellations still restore service coins. Refund execution at the payment provider is recorded manually; the current service does not initiate refunds through a gateway API.
+
 ## MVP demo flow
 
 The clearest end-to-end demo is: customer signs up or signs in, purchases a package in demo-payment mode, creates a booking, and follows its status. An approved provider then records before evidence, starts and completes the work with the required PINs and after evidence. Admin can oversee KYC, bookings, plans, payouts, promotions, and reports.
@@ -74,7 +76,9 @@ npm --prefix backend run seed
 npm run dev:all
 ```
 
-Set `DATABASE_URL` in `backend/.env` to your PostgreSQL database before running migrations. Start both processes with `npm run dev:all` (backend on :5000, frontend on :3000 with a dev proxy).
+Before running migrations, set `DATABASE_URL` to a reachable local PostgreSQL database and set a long random `JWT_SECRET` in `backend/.env`. Set `CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, and `ADMIN_PASSWORD` before seeding local demo accounts. The commands above do not start PostgreSQL automatically. Neon uses a pooled runtime URL and direct `DIRECT_URL` for migrations; see the [database guide](docs/database/DATABASE-DESIGN.md).
+
+Start both processes with `npm run dev:all` (backend on :5000, frontend on :3000). The API client calls `http://localhost:5000/api` by default in development; Vite also proxies relative `/api` requests. Set `VITE_API_URL` when using a different backend.
 
 Local services:
 
@@ -91,6 +95,8 @@ Docker Compose requires its PostgreSQL and application secrets to be configured.
 
 ```powershell
 npm test
+npm run test:frontend
+node --test scripts/graph-rendering.test.mjs
 npm run test:ci-plan
 npm run lint
 npm run build
@@ -98,7 +104,7 @@ npm run graph:verify
 npm run architecture:verify
 ```
 
-The standard tests, lint, and build protect application behaviour. GitHub uses deterministic, fail-closed [selective CI rules](docs/CI.md) so ordinary commits run only their relevant checks while unknown and high-risk changes receive broader coverage. `graph:verify` regenerates and validates both the codebase knowledge graph and the live architecture graph; review and commit any generated graph changes with the related code change.
+`npm test` requires a reachable local PostgreSQL server and prepares the isolated `luxora_test` schema; safety checks reject managed database hosts. Frontend and graph-rendering tests do not require a database. GitHub uses deterministic, fail-closed [selective CI rules](docs/CI.md) so ordinary commits run only their relevant checks while unknown and high-risk changes receive broader coverage. `graph:verify` regenerates and validates both the codebase knowledge graph and the live architecture graph; review and commit any generated graph changes with the related code change.
 
 The reusable verification scripts under `scripts/verify/` run against a live local stack and require the local seed account values through environment variables — never hardcoded: `LUXORA_TEST_CUSTOMER_EMAIL`/`LUXORA_TEST_CUSTOMER_PASSWORD`, `LUXORA_TEST_ADMIN_EMAIL`/`LUXORA_TEST_ADMIN_PASSWORD`, and `LUXORA_TEST_PROVIDER_EMAIL`/`LUXORA_TEST_PROVIDER_PASSWORD`. The scripts fail with a clear message when these are unset; see each script's header for usage.
 
@@ -119,11 +125,22 @@ frontend/             React application
 backend/              Express API, Prisma schema, services, and tests
 docs/                 API and supporting documentation
 Knowladge-Graph/      Codebase graph, architecture references, and agent playbooks
+scripts/ci/           CI selection and protected-file checks
+scripts/verify/       Live-stack verification scripts
+assets/               Reserved asset folders (currently placeholders)
 .github/workflows/    CI, deployment checks, and Knowledge Graph publication
+Dockerfile            Production image with built SPA and Express API
+docker-compose*.yml   Container API and local PostgreSQL configuration
+package.json          Root orchestration, checks, and graph commands
+AGENTS.md             Coding-agent entry point
+RELEASE_PREFLIGHT.md  Release verification checklist
 ```
 
 - [Backend guide](backend/README.md)
+  - `backend/src/routes/`: API endpoints; `middleware/`: access checks; `services/`: business rules; `config/`: environment and Prisma client.
+  - `backend/prisma/`: schema, committed migrations, seed, and startup migration runner; `backend/tests/`: isolated automated tests.
 - [Frontend guide](frontend/README.md)
+  - `frontend/src/pages/` and `components/`: screens and reusable UI; `services/api.js`: shared API client; `frontend/tests/`: unit tests; `frontend/public/`: browser assets.
 - [Knowledge Graph guide](Knowladge-Graph/README.md)
 - [API documentation](docs/api/API-DOCUMENTATION.md)
 - [CI and test-selection guide](docs/CI.md)

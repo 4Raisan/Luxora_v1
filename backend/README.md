@@ -27,7 +27,7 @@ Copy `.env.example` to `.env` for local development. Keep real values in the hos
 
 | Area | Variables |
 | --- | --- |
-| Core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `BACKEND_PUBLIC_URL` |
+| Core | `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `FRONTEND_URL`, `BACKEND_PUBLIC_URL` |
 | Browser and proxy | `CORS_ORIGIN`, `TRUST_PROXY` |
 | Payment mode | `PAYMENT_MODE` (legacy demo opt-in), `DEMO_PAYMENTS_ENABLED` |
 | Bank data | `BANK_ENCRYPTION_KEY` |
