@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 // Reuse the original diagram's brand artwork without regenerating logo text.
 const original = fs.readFileSync(new URL('../docs/assets/Luxora-HAD.jpg', import.meta.url)).toString('base64');
+const officialLogo = (name, x, y, width, height) => fs.readFileSync(new URL(`../docs/assets/${name}-wordmark.svg`, import.meta.url), 'utf8').replace(/<svg\b[^>]*>/, (opening) => `<svg x="${x}" y="${y}" width="${width}" height="${height}" viewBox="${opening.match(/viewBox="([^"]+)"/)[1]}" preserveAspectRatio="xMidYMid meet">`);
 const brand = (x, y, w, h, sx, sy, sw, sh) => `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${sx} ${sy} ${sw} ${sh}"><use href="#brand-source"/></svg>`;
 
 const escape = (s) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
@@ -29,14 +30,14 @@ ${panel(795,145,390,515,'#e7f3ff')}${text(815,187,'Backend (Northflank)',25,700)
 ${panel(812,280,355,360,'#ffffff')}${brand(834,293,59,66,840,286,68,75)}${text(903,333,'Node.js (Express)',24,700)}
 ${lines(835,371,['• Authentication (JWT)','• Bookings and subscriptions','• PayHere / NOWPayments / Demo','• Email (Resend)','• File storage (Cloudflare R2)','• Role and KYC checks','• Admin APIs','• Rate limits (local / optional Redis)','• Realtime (SSE)'],29)}
 ${panel(1340,135,370,155,'#f5f6fc')}${text(1360,171,'Payment Providers',25,700)}${panel(1360,185,330,87,'#ffffff')}${brand(1375,202,170,54,1370,205,180,57)}${brand(1571,193,113,72,1580,194,122,77)}
-${panel(1340,310,370,130,'#f5f6fc')}${text(1360,349,'Email Service',25,700)}${panel(1360,365,330,58,'#ffffff')}${brand(1420,370,47,44,1432,363,55,51)}${text(1480,407,'Resend',34,700,'#111111')}
+${panel(1340,310,370,130,'#f5f6fc')}${text(1360,349,'Email Service',25,700)}${panel(1360,365,330,58,'#ffffff')}${officialLogo('resend',1430,377,190,40)}
 ${panel(1340,460,370,135,'#f5f6fc')}${text(1360,498,'File Storage (S3 Compatible)',22,700)}${panel(1360,513,330,62,'#ffffff')}${brand(1400,514,265,58,1394,495,296,65)}
 ${arrow('M250 435H338')}${text(260,418,'HTTPS',17)}${arrow('M680 390H792')}${text(690,350,'API Requests',16)}${text(705,375,'(HTTPS)',16)}${arrow('M795 475H683')}${text(690,506,'JSON / SSE',16)}
 ${arrow('M1185 251H1335')}${text(1200,220,'Payment APIs',17)}${text(1230,241,'(HTTPS)',16)}${arrow('M1185 386H1335')}${text(1220,358,'Email API',17)}${arrow('M1185 535H1335')}${text(1200,508,'Object Storage',17)}
-${arrow('M930 660V735')}${text(744,698,'Prisma · Runtime queries',18)}${text(771,722,'DATABASE_URL',17)}${arrow('M1010 735V662')}${text(1030,698,'Schema migrations',18)}${text(1030,722,'DIRECT_URL',17)}
+${arrow('M970 660V735')}${text(725,698,'Prisma · Runtime queries',18)}${text(755,722,'DATABASE_URL',17)}${arrow('M1010 735V662')}${text(1030,698,'Schema migrations',18)}${text(1030,722,'DIRECT_URL',17)}
 ${panel(500,740,870,150,'#f3ebff')}${text(525,779,'Database (Supabase PostgreSQL)',25,700)}
-<g fill="#7642b3"><ellipse cx="557" cy="815" rx="22" ry="9"/><path d="M535 816v17q22 17 44 0v-17q-22 17-44 0m0 20v17q22 17 44 0v-17q-22 17-44 0"/></g><path d="M614 851l30-49h-28l-20 35h23l-5 14z" fill="#3ecf8e"/>${text(654,843,'supabase',32,700,'#15352b')}
-${lines(910,806,['• Users and providers','• Bookings and subscriptions','• Payments and refunds'],28)}${lines(1170,806,['• KYC and payouts','• Notifications','• Other application data'],28)}
+${officialLogo('supabase',535,804,285,60)}
+${lines(855,806,['• Users and providers','• Bookings and subscriptions','• Payments and refunds'],28)}${lines(1135,806,['• KYC and payouts','• Notifications','• Other application data'],28)}
 ${text(550,925,'Knowledge Graph and Architecture Explorer: GitHub Pages (generated from code)',19)}
 </g></svg>`;
 fs.writeFileSync(new URL('../docs/assets/luxora-readme-architecture.svg', import.meta.url), svg);
