@@ -23,7 +23,7 @@
 <br>
 
 <p align="center">
-  <a href="https://4raisan.github.io/Luxora_v1/architecture/"><img src="docs/assets/luxora-readme-architecture.svg" alt="Luxora: React and Vite on Vercel, Express on Northflank, Prisma with Neon, and external services" width="100%"></a>
+  <a href="https://4raisan.github.io/Luxora_v1/architecture/"><img src="docs/assets/luxora-high-level-updated.png" alt="Luxora: React and Vite on Vercel, Express on Northflank, Prisma with Neon, and external services" width="100%"></a>
 </p>
 
 ## Overview
