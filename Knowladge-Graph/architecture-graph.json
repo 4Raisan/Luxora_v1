@@ -2,7 +2,7 @@
   "schemaVersion": "1.0.0",
   "stats": {
     "totalNodes": 87,
-    "totalEdges": 107,
+    "totalEdges": 108,
     "totalViews": 12
   },
   "views": [
@@ -1825,9 +1825,23 @@
       "from": "deploy:northflank",
       "to": "ext:postgresql",
       "type": "pools_connections",
-      "label": "Prisma Connection Pool",
-      "description": "Northflank API communicates with PostgreSQL instance.",
+      "label": "DATABASE_URL · Neon Pooler",
+      "description": "Northflank runtime queries use the Neon pooled PostgreSQL endpoint through the shared Prisma client.",
       "views": [
+        "system",
+        "deployment",
+        "database"
+      ]
+    },
+    {
+      "id": "deploy:northflank->ext:postgresql:runs_migrations",
+      "from": "deploy:northflank",
+      "to": "ext:postgresql",
+      "type": "runs_migrations",
+      "label": "DIRECT_URL · Migrations",
+      "description": "Startup runs backend/prisma/run-migrations.js before Express. Prisma migrate deploy uses the direct unpooled endpoint; when DIRECT_URL is absent the runner derives it from the Neon pooler hostname.",
+      "views": [
+        "system",
         "deployment",
         "database"
       ]
@@ -2505,8 +2519,8 @@
       "from": "server:express-app",
       "to": "ext:postgresql",
       "type": "acid_transactions",
-      "label": "Prisma Connection Pool",
-      "description": "Executes type-safe SQL queries, migrations, and row locks.",
+      "label": "Prisma · Runtime Queries",
+      "description": "The shared Prisma client uses DATABASE_URL for SQL queries, ACID transactions, and transaction-scoped advisory locks. Schema migrations use the separate direct connection during startup.",
       "views": [
         "system",
         "database"

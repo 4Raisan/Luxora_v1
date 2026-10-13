@@ -8,6 +8,8 @@ npm run graph
 
 ## Request path
 
+Production database hosting migrated from Aiven to Neon (commit `64eb69f`, August 23, 2026). The shared Prisma client uses pooled `DATABASE_URL` for runtime queries. Before Express starts, `backend/prisma/run-migrations.js` runs migrations through direct unpooled `DIRECT_URL`, deriving it from the Neon pooler hostname when needed. Local development and CI retain isolated Docker PostgreSQL databases.
+
 ```mermaid
 flowchart LR
   UI[React page] --> API[frontend/src/services/api.js]

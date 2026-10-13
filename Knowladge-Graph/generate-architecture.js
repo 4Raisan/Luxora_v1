@@ -458,7 +458,8 @@ addEdge('route:uploads', 'service:storage', 'persists_buffer', 'Stores File Buff
 addEdge('user:customer', 'deploy:vercel', 'accesses_spa', 'HTTPS luxora.bond', 'Customer accesses React SPA through Vercel Edge CDN.', ['deployment', 'system']);
 addEdge('user:provider', 'deploy:vercel', 'accesses_spa', 'HTTPS luxora.bond', 'Provider accesses portal through Vercel Edge CDN.', ['deployment']);
 addEdge('user:admin', 'deploy:vercel', 'accesses_spa', 'HTTPS luxora.bond', 'Administrator accesses control desk through Vercel Edge CDN.', ['deployment']);
-addEdge('deploy:northflank', 'ext:postgresql', 'pools_connections', 'Prisma Connection Pool', 'Northflank API communicates with PostgreSQL instance.', ['deployment', 'database']);
+addEdge('deploy:northflank', 'ext:postgresql', 'pools_connections', 'DATABASE_URL · Neon Pooler', 'Northflank runtime queries use the Neon pooled PostgreSQL endpoint through the shared Prisma client.', ['system', 'deployment', 'database']);
+addEdge('deploy:northflank', 'ext:postgresql', 'runs_migrations', 'DIRECT_URL · Migrations', 'Startup runs backend/prisma/run-migrations.js before Express. Prisma migrate deploy uses the direct unpooled endpoint; when DIRECT_URL is absent the runner derives it from the Neon pooler hostname.', ['system', 'deployment', 'database']);
 addEdge('deploy:northflank', 'ext:s3', 'object_storage', 'S3 API Over HTTPS', 'Northflank API streams photos and documents to S3.', ['deployment', 'email']);
 
 // Security Connections
@@ -508,7 +509,7 @@ addEdge('route:integrations', 'ext:payhere', 'verifies_ipn', 'MD5 IPN Verificati
 addEdge('route:integrations', 'ext:nowpayments', 'verifies_ipn', 'HMAC-SHA512 IPN', 'Validates HMAC-SHA512 signature over sorted JSON payload.', ['payments', 'email']);
 addEdge('service:integrations', 'ext:resend', 'dispatches', 'HTTPS POST /emails', 'Sends transactional email alerts for bookings, welcomes, and resets.', ['email']);
 addEdge('service:storage', 'ext:s3', 'puts_object', 'Streams Document Buffers', 'Stores validated multipart file buffers in cloud bucket.', ['security', 'email']);
-addEdge('server:express-app', 'ext:postgresql', 'acid_transactions', 'Prisma Connection Pool', 'Executes type-safe SQL queries, migrations, and row locks.', ['system', 'database']);
+addEdge('server:express-app', 'ext:postgresql', 'acid_transactions', 'Prisma · Runtime Queries', 'The shared Prisma client uses DATABASE_URL for SQL queries, ACID transactions, and transaction-scoped advisory locks. Schema migrations use the separate direct connection during startup.', ['system', 'database']);
 
 // =========================================================================
 // 7. EXTRACT CI/CD PIPELINE & QUALITY CHECKS (DevOps Layer)
