@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/luxora-logo.png" alt="Luxora" width="160">
+  <a href="https://luxora.bond"><img src="frontend/public/luxora-logo.png" alt="Luxora — Home Concierge Service" width="260"></a>
 </p>
 
 <h1 align="center">Luxora</h1>
@@ -23,7 +23,7 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/Luxora-HAD.jpg" alt="Luxora high-level architecture diagram" width="100%">
+  <a href="https://4raisan.github.io/Luxora_v1/architecture/"><img src="docs/assets/luxora-readme-architecture.svg" alt="Luxora: React and Vite on Vercel, Express on Northflank, Prisma with Neon, and external services" width="100%"></a>
 </p>
 
 ## Overview
@@ -127,13 +127,12 @@ docs/                 API and supporting documentation
 Knowladge-Graph/      Codebase graph, architecture references, and agent playbooks
 scripts/ci/           CI selection and protected-file checks
 scripts/verify/       Live-stack verification scripts
-assets/               Reserved asset folders (currently placeholders)
 .github/workflows/    CI, deployment checks, and Knowledge Graph publication
 Dockerfile            Production image with built SPA and Express API
 docker-compose*.yml   Container API and local PostgreSQL configuration
 package.json          Root orchestration, checks, and graph commands
 AGENTS.md             Coding-agent entry point
-RELEASE_PREFLIGHT.md  Release verification checklist
+docs/RELEASE_PREFLIGHT.md  Release verification checklist
 ```
 
 - [Backend guide](backend/README.md)
