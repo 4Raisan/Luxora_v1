@@ -27,7 +27,7 @@ frontend/src/pages|components
         -> backend/src/routes (request validation + orchestration)
         -> backend/src/services (business rules/integrations)
         -> backend/prisma/schema.prisma (models, relations, enums)
-        -> PostgreSQL (production: Neon; local Docker Compose: postgres:5432)
+        -> PostgreSQL (production: Supabase; local Docker Compose: postgres:5432)
 ```
 
 ## Change protocol

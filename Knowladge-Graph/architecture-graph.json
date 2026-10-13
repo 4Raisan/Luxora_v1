@@ -328,7 +328,7 @@
     },
     {
       "id": "ext:postgresql",
-      "label": "🗄️ Neon PostgreSQL 15",
+      "label": "🗄️ Supabase PostgreSQL",
       "layer": "External Cloud Services",
       "type": "external_service",
       "views": [
@@ -337,7 +337,7 @@
         "deployment"
       ],
       "file": "backend/prisma/schema.prisma",
-      "description": "Managed serverless Neon PostgreSQL database hosting all relational business entities, ACID transactions, pg_advisory_xact_lock row locks, and exact decimal balances. Configured with pooled DATABASE_URL for runtime queries and direct DIRECT_URL for Prisma migrations.",
+      "description": "Managed serverless Supabase PostgreSQL database hosting all relational business entities, ACID transactions, pg_advisory_xact_lock row locks, and exact decimal balances. Configured with pooled DATABASE_URL for runtime queries and direct DIRECT_URL for Prisma migrations.",
       "metadata": {}
     },
     {
@@ -1825,8 +1825,8 @@
       "from": "deploy:northflank",
       "to": "ext:postgresql",
       "type": "pools_connections",
-      "label": "DATABASE_URL · Neon Pooler",
-      "description": "Northflank runtime queries use the Neon pooled PostgreSQL endpoint through the shared Prisma client.",
+      "label": "DATABASE_URL · Runtime connection",
+      "description": "Northflank runtime queries use the configured Supabase PostgreSQL endpoint through the shared Prisma client.",
       "views": [
         "system",
         "deployment",
@@ -1839,7 +1839,7 @@
       "to": "ext:postgresql",
       "type": "runs_migrations",
       "label": "DIRECT_URL · Migrations",
-      "description": "Startup runs backend/prisma/run-migrations.js before Express. Prisma migrate deploy uses the direct unpooled endpoint; when DIRECT_URL is absent the runner derives it from the Neon pooler hostname.",
+      "description": "Startup runs backend/prisma/run-migrations.js before Express. Prisma migrate deploy uses the direct unpooled endpoint; Supabase requires an explicitly configured migration-capable DIRECT_URL; the runner retains legacy Neon hostname fallback.",
       "views": [
         "system",
         "deployment",

@@ -458,8 +458,8 @@ addEdge('route:uploads', 'service:storage', 'persists_buffer', 'Stores File Buff
 addEdge('user:customer', 'deploy:vercel', 'accesses_spa', 'HTTPS luxora.bond', 'Customer accesses React SPA through Vercel Edge CDN.', ['deployment', 'system']);
 addEdge('user:provider', 'deploy:vercel', 'accesses_spa', 'HTTPS luxora.bond', 'Provider accesses portal through Vercel Edge CDN.', ['deployment']);
 addEdge('user:admin', 'deploy:vercel', 'accesses_spa', 'HTTPS luxora.bond', 'Administrator accesses control desk through Vercel Edge CDN.', ['deployment']);
-addEdge('deploy:northflank', 'ext:postgresql', 'pools_connections', 'DATABASE_URL · Neon Pooler', 'Northflank runtime queries use the Neon pooled PostgreSQL endpoint through the shared Prisma client.', ['system', 'deployment', 'database']);
-addEdge('deploy:northflank', 'ext:postgresql', 'runs_migrations', 'DIRECT_URL · Migrations', 'Startup runs backend/prisma/run-migrations.js before Express. Prisma migrate deploy uses the direct unpooled endpoint; when DIRECT_URL is absent the runner derives it from the Neon pooler hostname.', ['system', 'deployment', 'database']);
+addEdge('deploy:northflank', 'ext:postgresql', 'pools_connections', 'DATABASE_URL · Runtime connection', 'Northflank runtime queries use the configured Supabase PostgreSQL endpoint through the shared Prisma client.', ['system', 'deployment', 'database']);
+addEdge('deploy:northflank', 'ext:postgresql', 'runs_migrations', 'DIRECT_URL · Migrations', 'Startup runs backend/prisma/run-migrations.js before Express. Prisma migrate deploy uses the direct unpooled endpoint; Supabase requires an explicitly configured migration-capable DIRECT_URL; the runner retains legacy Neon hostname fallback.', ['system', 'deployment', 'database']);
 addEdge('deploy:northflank', 'ext:s3', 'object_storage', 'S3 API Over HTTPS', 'Northflank API streams photos and documents to S3.', ['deployment', 'email']);
 
 // Security Connections
@@ -490,7 +490,7 @@ const externalServices = [
   { id: 'ext:resend', label: '✉️ Resend Email API', file: 'backend/src/services/integrations.js', desc: 'Modern transactional email platform dispatched via direct HTTPS REST API (https://api.resend.com/emails) with HTML-escaped templates.', views: ['system', 'email'] },
   { id: 'ext:s3', label: '☁️ S3 Cloud Bucket', file: 'backend/src/services/storage.js', desc: 'Durable private cloud object storage (Cloudflare R2 or AWS S3) storing encrypted provider KYC identity documents and booking photographic evidence.', views: ['system', 'security', 'email', 'deployment'] },
   { id: 'ext:google-oauth', label: '🔑 Google OAuth 2.0', file: 'backend/src/routes/auth.js', desc: 'Federated Google Sign-In validating client tokens via Google tokeninfo API to streamline customer onboarding.', views: ['security', 'email'] },
-  { id: 'ext:postgresql', label: '🗄️ Neon PostgreSQL 15', file: 'backend/prisma/schema.prisma', desc: 'Managed serverless Neon PostgreSQL database hosting all relational business entities, ACID transactions, pg_advisory_xact_lock row locks, and exact decimal balances. Configured with pooled DATABASE_URL for runtime queries and direct DIRECT_URL for Prisma migrations.', views: ['system', 'database', 'deployment'] },
+  { id: 'ext:postgresql', label: '🗄️ Supabase PostgreSQL', file: 'backend/prisma/schema.prisma', desc: 'Managed serverless Supabase PostgreSQL database hosting all relational business entities, ACID transactions, pg_advisory_xact_lock row locks, and exact decimal balances. Configured with pooled DATABASE_URL for runtime queries and direct DIRECT_URL for Prisma migrations.', views: ['system', 'database', 'deployment'] },
 ];
 
 for (const e of externalServices) {

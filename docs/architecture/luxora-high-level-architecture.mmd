@@ -25,7 +25,7 @@ flowchart TB
     end
 
     subgraph DATA["DATABASE BOUNDARY"]
-        NEON["Neon PostgreSQL 15\nManaged relational data"]
+        SUPABASE["Supabase PostgreSQL\nManaged relational data"]
     end
 
     subgraph EXTERNAL["EXTERNAL SERVICES"]
@@ -40,7 +40,7 @@ flowchart TB
     VERCEL -->|"Serves SPA over HTTPS"| SPA
     SPA -->|"HTTPS REST"| API
     REALTIME -->|"Authenticated event stream"| SPA
-    PRISMA -->|"Pooled connection\nDirect URL for migrations"| NEON
+    PRISMA -->|"Pooled connection\nDirect URL for migrations"| SUPABASE
     API <-->|"Orders + signed callbacks"| PAYHERE
     API <-->|"Invoices + signed callbacks"| NOWPAYMENTS
     API -->|"HTTPS email API"| RESEND
@@ -80,6 +80,6 @@ flowchart TB
     class CUSTOMER,PROVIDER,ADMIN actor;
     class SPA,VERCEL frontend;
     class NORTHFLANK,API,REALTIME,PRISMA backend;
-    class NEON data;
+    class SUPABASE data;
     class PAYHERE,NOWPAYMENTS,RESEND,R2,GOOGLE external;
     class CODE,ACTIONS,CHECKS,GATE,KGSOURCE,KGGEN,KGVERIFY,PAGES delivery;

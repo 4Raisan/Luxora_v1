@@ -23,7 +23,7 @@
 <br>
 
 <p align="center">
-  <a href="https://4raisan.github.io/Luxora_v1/architecture/"><img src="docs/assets/luxora-high-level-updated.png" alt="Luxora: React and Vite on Vercel, Express on Northflank, Prisma with Neon, and external services" width="100%"></a>
+  <a href="https://4raisan.github.io/Luxora_v1/architecture/"><img src="docs/assets/luxora-readme-architecture.svg" alt="Luxora: React and Vite on Vercel, Express on Northflank, Prisma with Supabase, and external services" width="100%"></a>
 </p>
 
 ## Overview
@@ -52,7 +52,7 @@ The application demonstrates the agreed MVP scope. External production services 
 React 19 + Vite frontend (Vercel Global Edge)
         │  HTTPS / JSON / SSE
         ▼
-Express 5 API Gateway (Northflank Container) ── Prisma ORM ── Neon PostgreSQL
+Express 5 API Gateway (Northflank Container) ── Prisma ORM ── Supabase PostgreSQL
     │
     ├── Server-Sent Events (/api/realtime) ── Realtime Booking & Alert Sync
     ├── PayHere / NOWPayments ─────────────── Tri-Gateway Payment Settlement
@@ -76,7 +76,7 @@ npm --prefix backend run seed
 npm run dev:all
 ```
 
-Before running migrations, set `DATABASE_URL` to a reachable local PostgreSQL database and set a long random `JWT_SECRET` in `backend/.env`. Set `CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, and `ADMIN_PASSWORD` before seeding local demo accounts. The commands above do not start PostgreSQL automatically. Neon uses a pooled runtime URL and direct `DIRECT_URL` for migrations; see the [database guide](docs/database/DATABASE-DESIGN.md).
+Before running migrations, set `DATABASE_URL` to a reachable local PostgreSQL database and set a long random `JWT_SECRET` in `backend/.env`. Set `CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, and `ADMIN_PASSWORD` before seeding local demo accounts. The commands above do not start PostgreSQL automatically. Supabase uses a pooled runtime URL and direct `DIRECT_URL` for migrations; see the [database guide](docs/database/DATABASE-DESIGN.md).
 
 Start both processes with `npm run dev:all` (backend on :5000, frontend on :3000). The API client calls `http://localhost:5000/api` by default in development; Vite also proxies relative `/api` requests. Set `VITE_API_URL` when using a different backend.
 
@@ -112,7 +112,7 @@ The reusable verification scripts under `scripts/verify/` run against a live loc
 
 - Frontend: Vercel Global Edge (`https://luxora.bond`)
 - Backend: Northflank Container Cluster (`https://site--luxora-backend--6kb9tg67ytl4.code.run`)
-- Database: Neon Serverless PostgreSQL 15 (pooled `DATABASE_URL` + direct `DIRECT_URL` for migrations)
+- Database: Supabase PostgreSQL (pooled `DATABASE_URL` + direct `DIRECT_URL` for migrations)
 - Knowledge Graph: GitHub Pages (`https://4raisan.github.io/Luxora_v1/`)
 - Architecture Explorer: GitHub Pages (`https://4raisan.github.io/Luxora_v1/architecture/`)
 

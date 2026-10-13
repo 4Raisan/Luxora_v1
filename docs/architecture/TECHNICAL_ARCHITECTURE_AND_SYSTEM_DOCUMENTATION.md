@@ -440,7 +440,7 @@ Prisma database exceptions are caught and transformed into clean HTTP responses,
 ## SECTION 7: DATABASE ARCHITECTURE & PRISMA ENTITY-RELATIONSHIP MODEL
 
 ### Database Specifications
-- **Engine**: PostgreSQL 15 (managed container in local dev, Neon Serverless PostgreSQL in production).
+- **Engine**: PostgreSQL 15 (managed container in local dev, Supabase PostgreSQL in production).
 - **ORM / Schema Manager**: Prisma ORM v6.19.3.
 - **Connection Model**: Dual-URL connection topology: pooled connection via `DATABASE_URL` (with connection pooling) for high-throughput runtime queries, and direct unpooled connection via `DIRECT_URL` for transactional Prisma migrations (`prisma migrate deploy`).
 - **Precision Standard**: Financial amounts (`price`, `providerEarning`, `priceMonthly`, `expectedAmount`, `capturedAmount`, `amount`) are strictly defined as `Decimal(12, 2)` to eliminate floating-point inaccuracies.

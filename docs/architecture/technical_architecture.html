@@ -607,7 +607,7 @@
 <hr class="divider" />
 <h2 class="section-title">SECTION 7: DATABASE ARCHITECTURE & PRISMA ENTITY-RELATIONSHIP MODEL</h2>
 <h3 class="subsection-title">Database Specifications</h3>
-<li>**Engine**: PostgreSQL 15 (local Docker container; Neon Serverless PostgreSQL in production, replacing Aiven).</li>
+<li>**Engine**: PostgreSQL 15 (local Docker container; Supabase PostgreSQL in production, replacing Aiven).</li>
 <li>**ORM / Schema Manager**: Prisma ORM v6.19.3.</li>
 <li>**Connection Model**: Runtime queries use the pooled Neon endpoint via `DATABASE_URL`. Startup runs `prisma migrate deploy` through the direct unpooled `DIRECT_URL`; when absent, the migration runner derives it by removing `-pooler` from the Neon hostname.</li>
 <li>**Precision Standard**: Financial amounts (`price`, `providerEarning`, `priceMonthly`, `expectedAmount`, `capturedAmount`, `amount`) are strictly defined as `Decimal(12, 2)` to eliminate floating-point inaccuracies.</li>
