@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const base = path.resolve(__dirname, '..', 'Knowladge-Graph');
+const base = path.resolve(__dirname, '..', 'Knowledge-Graph');
 const mime = {
   '.html': 'text/html; charset=utf-8',
   '.json': 'application/json; charset=utf-8',

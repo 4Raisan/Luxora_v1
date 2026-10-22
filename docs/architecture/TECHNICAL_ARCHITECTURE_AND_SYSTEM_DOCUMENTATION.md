@@ -78,7 +78,7 @@ Repository Audit Surface:
 ├── frontend/src/                  # React 19 SPA (Pages, Components, Services, Chatbot)
 ├── backend/src/                   # Express 5 API (Routes, Middleware, Domain Services)
 ├── backend/prisma/                # Schema definitions, 25 versioned migrations, seed scripts
-├── Knowladge-Graph/               # generate-graph.js, validate-graph.js, knowledge-graph.json
+├── Knowledge-Graph/               # generate-graph.js, validate-graph.js, knowledge-graph.json
 ├── scripts/ci/                    # plan-checks.mjs, guard-protected-files.mjs, test runners
 ├── .github/workflows/             # ci.yml (8 CI jobs), knowledge-graph-pages.yml
 ├── Dockerfile & docker-compose    # Production alpine container, health probes
@@ -725,7 +725,7 @@ Files are never served via public, unauthenticated bucket URLs. When an authoriz
 ## SECTION 12: MACHINE-READABLE CODEBASE KNOWLEDGE GRAPH SYSTEM
 
 ### Purpose & Architecture
-Luxora implements a dedicated, machine-readable Codebase Knowledge Graph generator in `Knowladge-Graph/generate-graph.js` and validator in `Knowladge-Graph/validate-graph.js`.
+Luxora implements a dedicated, machine-readable Codebase Knowledge Graph generator in `Knowledge-Graph/generate-graph.js` and validator in `Knowledge-Graph/validate-graph.js`.
 It serves as the living source of truth for all human developers and autonomous AI engineering agents (enforced via `AGENTS.md`).
 
 ```text
@@ -798,7 +798,7 @@ The classifier inspects git commit diffs (`git diff-tree` or PR head/base) and d
 | **Frontend Dependency** | `frontend/package.json` | Run | Run | Run (Lint + FE Build) | Run | Skip | Run | Skip | Passes |
 | **Backend Dependency** | `backend/package.json` | Run | Run | Run (Lint only) | Run | Run (`full`) | Run | Run | Passes |
 | **Docker-only** | `Dockerfile` | Run | Run | Skip | Skip | Skip | Skip | Run | Passes |
-| **Knowledge Graph-only** | `Knowladge-Graph/index.html` | Run | Run | Run (Lint only) | Run | Skip | Skip | Skip | Passes |
+| **Knowledge Graph-only** | `Knowledge-Graph/index.html` | Run | Run | Run (Lint only) | Run | Skip | Skip | Skip | Passes |
 | **Documentation-only** | `README.md`, `docs/api.md` | Run | Run | Skip | Skip | Skip | Skip | Skip | Passes |
 | **Workflow / CI config** | `.github/workflows/ci.yml` | Run | Run | Run (Full) | Run | Run (`full`) | Run | Run | Passes |
 | **Mixed Backend + DB** | `bookings.js`, `schema.prisma` | Run | Run | Run (Lint only) | Run | Run (`full`) | Skip | Run | Passes |

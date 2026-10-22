@@ -73,4 +73,4 @@ src/App.jsx           Routes and role entry points
 public/              Static public assets
 ```
 
-See the [root README](../README.md) for full-project setup and the [Knowledge Graph guide](../Knowladge-Graph/README.md) for cross-layer navigation.
+See the [root README](../README.md) for full-project setup and the [Knowledge Graph guide](../Knowledge-Graph/README.md) for cross-layer navigation.

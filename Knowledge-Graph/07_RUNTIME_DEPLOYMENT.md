@@ -19,7 +19,7 @@ Primary runtime files & deployment targets:
 - `frontend/`: Deployed to **Vercel Global Edge** via git-integrated deployment.
 - `backend/`: Deployed to **Northflank Container Cluster** via multi-stage `Dockerfile`.
 - `backend/prisma/schema.prisma`: Deployed against **Neon Serverless PostgreSQL** using pooled `DATABASE_URL` for queries and `DIRECT_URL` for migrations.
-- `Knowladge-Graph/`: Deployed to **GitHub Pages** via `.github/workflows/knowledge-graph-pages.yml`:
+- `Knowledge-Graph/`: Deployed to **GitHub Pages** via `.github/workflows/knowledge-graph-pages.yml`:
   - Knowledge Graph: `https://4raisan.github.io/Luxora_v1/`
   - Architecture Explorer: `https://4raisan.github.io/Luxora_v1/architecture/`
 - `start.bat`: Local self-healing startup for developer machines.

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 
-const html = fs.readFileSync(new URL('../Knowladge-Graph/index.html', import.meta.url), 'utf8');
+const html = fs.readFileSync(new URL('../Knowledge-Graph/index.html', import.meta.url), 'utf8');
 const start = html.indexOf('    const textContext =');
 const end = html.indexOf('    const legend =', start);
 assert.ok(start >= 0 && end > start, 'generated explorer contains the text cache');

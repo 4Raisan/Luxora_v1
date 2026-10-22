@@ -5,8 +5,8 @@
  * to construct a living, queryable Knowledge Graph of files, APIs, models, and dependencies.
  * 
  * Outputs:
- * - Knowladge-Graph/knowledge-graph.json (Machine-readable for Coding Agents)
- * - Knowladge-Graph/index.html (Interactive Visual Explorer for Developers & Agents)
+ * - Knowledge-Graph/knowledge-graph.json (Machine-readable for Coding Agents)
+ * - Knowledge-Graph/index.html (Interactive Visual Explorer for Developers & Agents)
  */
 
 import fs from 'node:fs';
@@ -406,7 +406,7 @@ function parseFrontend() {
 // 5. GENERATE OUTPUT FILES
 // ==========================================
 function generateOutput() {
- const outputDir = path.join(rootDir, 'Knowladge-Graph');
+ const outputDir = path.join(rootDir, 'Knowledge-Graph');
   const rendererSourcePath = path.join(rootDir, 'node_modules', 'vis-network', 'standalone', 'umd', 'vis-network.min.js');
   const rendererOutputPath = path.join(outputDir, 'vis-network.min.js');
   if (!fs.existsSync(outputDir)) {

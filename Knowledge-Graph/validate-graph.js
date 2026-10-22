@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const graphDir = path.join(rootDir, 'Knowladge-Graph');
+const graphDir = path.join(rootDir, 'Knowledge-Graph');
 const graphPath = path.join(graphDir, 'knowledge-graph.json');
 const explorerPath = path.join(graphDir, 'index.html');
 const rendererPath = path.join(graphDir, 'vis-network.min.js');

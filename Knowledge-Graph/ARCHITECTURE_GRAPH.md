@@ -42,7 +42,7 @@ The repository provides two synchronized, interactive visual explorers:
    - Knowledge Graph Subsystem
    - Security & Cryptographic Architecture (Defense-in-depth)
 
-Both explorers are deployed together to GitHub Pages by `.github/workflows/knowledge-graph-pages.yml`. Pull requests validate deterministic generation for both graphs (`npm run graph:verify`) without publishing; pushes to `main` publish the entire `Knowladge-Graph/` directory.
+Both explorers are deployed together to GitHub Pages by `.github/workflows/knowledge-graph-pages.yml`. Pull requests validate deterministic generation for both graphs (`npm run graph:verify`) without publishing; pushes to `main` publish the entire `Knowledge-Graph/` directory.
 
 ## Route groups
 

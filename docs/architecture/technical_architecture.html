@@ -302,7 +302,7 @@
 ├── frontend/src/                  # React 19 SPA (Pages, Components, Services, Chatbot)
 ├── backend/src/                   # Express 5 API (Routes, Middleware, Domain Services)
 ├── backend/prisma/                # Schema definitions, 25 versioned migrations, seed scripts
-├── Knowladge-Graph/               # generate-graph.js, validate-graph.js, knowledge-graph.json
+├── Knowledge-Graph/               # generate-graph.js, validate-graph.js, knowledge-graph.json
 ├── scripts/ci/                    # plan-checks.mjs, guard-protected-files.mjs, test runners
 ├── .github/workflows/             # ci.yml (8 CI jobs), knowledge-graph-pages.yml
 ├── Dockerfile &amp; docker-compose    # Production alpine container, health probes
@@ -834,7 +834,7 @@
 <hr class="divider" />
 <h2 class="section-title">SECTION 12: MACHINE-READABLE CODEBASE KNOWLEDGE GRAPH SYSTEM</h2>
 <h3 class="subsection-title">Purpose & Architecture</h3>
-<p>Luxora implements a dedicated, machine-readable Codebase Knowledge Graph generator in <code>Knowladge-Graph/generate-graph.js</code> and validator in <code>Knowladge-Graph/validate-graph.js</code>.</p>
+<p>Luxora implements a dedicated, machine-readable Codebase Knowledge Graph generator in <code>Knowledge-Graph/generate-graph.js</code> and validator in <code>Knowledge-Graph/validate-graph.js</code>.</p>
 <p>It serves as the living source of truth for all human developers and autonomous AI engineering agents (enforced via <code>AGENTS.md</code>).</p>
 <pre class="code-block"><code class="language-text">                                  ┌────────────────────────┐
                                   │ Prisma Database Schema │
@@ -892,7 +892,7 @@
 <tr><td>**Frontend Dependency**</td><td>`frontend/package.json`</td><td>Run</td><td>Run</td><td>Run (Lint + FE Build)</td><td>Run</td><td>Skip</td><td>Run</td><td>Skip</td><td>Passes</td></tr>
 <tr><td>**Backend Dependency**</td><td>`backend/package.json`</td><td>Run</td><td>Run</td><td>Run (Lint only)</td><td>Run</td><td>Run (`full`)</td><td>Run</td><td>Run</td><td>Passes</td></tr>
 <tr><td>**Docker-only**</td><td>`Dockerfile`</td><td>Run</td><td>Run</td><td>Skip</td><td>Skip</td><td>Skip</td><td>Skip</td><td>Run</td><td>Passes</td></tr>
-<tr><td>**Knowledge Graph-only**</td><td>`Knowladge-Graph/index.html`</td><td>Run</td><td>Run</td><td>Run (Lint only)</td><td>Run</td><td>Skip</td><td>Skip</td><td>Skip</td><td>Passes</td></tr>
+<tr><td>**Knowledge Graph-only**</td><td>`Knowledge-Graph/index.html`</td><td>Run</td><td>Run</td><td>Run (Lint only)</td><td>Run</td><td>Skip</td><td>Skip</td><td>Skip</td><td>Passes</td></tr>
 <tr><td>**Documentation-only**</td><td>`README.md`, `docs/api.md`</td><td>Run</td><td>Run</td><td>Skip</td><td>Skip</td><td>Skip</td><td>Skip</td><td>Skip</td><td>Passes</td></tr>
 <tr><td>**Workflow / CI config**</td><td>`.github/workflows/ci.yml`</td><td>Run</td><td>Run</td><td>Run (Full)</td><td>Run</td><td>Run (`full`)</td><td>Run</td><td>Run</td><td>Passes</td></tr>
 <tr><td>**Mixed Backend + DB**</td><td>`bookings.js`, `schema.prisma`</td><td>Run</td><td>Run</td><td>Run (Lint only)</td><td>Run</td><td>Run (`full`)</td><td>Skip</td><td>Run</td><td>Passes</td></tr>

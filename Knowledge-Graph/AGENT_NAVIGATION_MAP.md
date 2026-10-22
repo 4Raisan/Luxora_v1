@@ -1,6 +1,6 @@
 # Agent Navigation Map
 
-This is the fast, human-readable companion to `Knowladge-Graph/knowledge-graph.json`.
+This is the fast, human-readable companion to `Knowledge-Graph/knowledge-graph.json`.
 
 ## Request path
 

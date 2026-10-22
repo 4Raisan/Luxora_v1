@@ -143,17 +143,17 @@ jobs:
 
       - name: Verify deterministic generation
         run: |
-          cp Knowladge-Graph/knowledge-graph.json /tmp/knowledge-graph.json
-          cp Knowladge-Graph/index.html /tmp/knowledge-graph.html
+          cp Knowledge-Graph/knowledge-graph.json /tmp/knowledge-graph.json
+          cp Knowledge-Graph/index.html /tmp/knowledge-graph.html
           npm run graph
-          cmp --silent /tmp/knowledge-graph.json Knowladge-Graph/knowledge-graph.json
-          cmp --silent /tmp/knowledge-graph.html Knowladge-Graph/index.html
+          cmp --silent /tmp/knowledge-graph.json Knowledge-Graph/knowledge-graph.json
+          cmp --silent /tmp/knowledge-graph.html Knowledge-Graph/index.html
 
       - name: Upload Knowledge Graph artifact
         uses: actions/upload-artifact@v4
         with:
           name: knowledge-graph-preview
-          path: Knowladge-Graph
+          path: Knowledge-Graph
           retention-days: 7
           overwrite: true
 

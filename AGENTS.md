@@ -4,12 +4,12 @@ Use this file before changing code in this repository.
 
 ## Source of truth
 
-- Machine graph: `Knowladge-Graph/knowledge-graph.json`
-- Interactive explorer: `Knowladge-Graph/index.html`
-- Architecture and lifecycle reference: `Knowladge-Graph/ARCHITECTURE_GRAPH.md`
-- Debugging/blast-radius procedure: `Knowladge-Graph/AGENT_DEBUGGING_PLAYBOOK.md`
-- Confirmed product rules: `Knowladge-Graph/CONFIRMED_PRODUCT_RULES.md`
-- Graph generator: `Knowladge-Graph/generate-graph.js`
+- Machine graph: `Knowledge-Graph/knowledge-graph.json`
+- Interactive explorer: `Knowledge-Graph/index.html`
+- Architecture and lifecycle reference: `Knowledge-Graph/ARCHITECTURE_GRAPH.md`
+- Debugging/blast-radius procedure: `Knowledge-Graph/AGENT_DEBUGGING_PLAYBOOK.md`
+- Confirmed product rules: `Knowledge-Graph/CONFIRMED_PRODUCT_RULES.md`
+- Graph generator: `Knowledge-Graph/generate-graph.js`
 
 Regenerate after changes to routes, schema, services, or frontend API calls:
 

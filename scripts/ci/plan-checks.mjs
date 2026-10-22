@@ -87,7 +87,7 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
       plan.reasons.push(file + ' changes shared build or dependency tooling.');
       continue;
     }
-    if (file.startsWith('Knowladge-Graph/')) {
+    if (file.startsWith('Knowledge-Graph/')) {
       plan.knowledgeGraph = true;
       plan.quality = true;
       plan.reasons.push(file + ' changes Knowledge Graph definition or artifacts.');
@@ -155,7 +155,7 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
   }
 
   const sourceChangeCount = changed.filter(({ path: file }) => !isDocumentation(file)
-    && !file.startsWith('Knowladge-Graph/')
+    && !file.startsWith('Knowledge-Graph/')
     && !file.startsWith('.vscode/')
     && !file.startsWith('.idea/')
     && !['.gitignore', '.editorconfig'].includes(file)).length;

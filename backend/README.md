@@ -91,4 +91,4 @@ prisma/migrations/    Production schema history
 tests/                Backend automated tests
 ```
 
-For cross-layer dependencies and blast-radius checks, follow the repository [agent entry point](../AGENTS.md) and [Knowledge Graph guide](../Knowladge-Graph/README.md).
+For cross-layer dependencies and blast-radius checks, follow the repository [agent entry point](../AGENTS.md) and [Knowledge Graph guide](../Knowledge-Graph/README.md).

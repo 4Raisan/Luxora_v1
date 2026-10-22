@@ -109,7 +109,7 @@ test('old and new paths of renames are both safety-relevant', () => {
 });
 
 test('Knowledge Graph changes select quality verification', () => {
-  const plan = classifyChanges(['Knowladge-Graph/knowledge-graph.json']);
+  const plan = classifyChanges(['Knowledge-Graph/knowledge-graph.json']);
   assert.equal(plan.quality, true);
   assert.equal(plan.knowledgeGraph, true);
 });

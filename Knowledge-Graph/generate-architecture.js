@@ -6,8 +6,8 @@
  * multi-view System Architecture Graph.
  * 
  * Outputs:
- * - Knowladge-Graph/architecture-graph.json (Deterministic Machine-Readable Architecture Graph)
- * - Knowladge-Graph/architecture.html (Interactive Presentation-Quality Architecture Explorer)
+ * - Knowledge-Graph/architecture-graph.json (Deterministic Machine-Readable Architecture Graph)
+ * - Knowledge-Graph/architecture.html (Interactive Presentation-Quality Architecture Explorer)
  */
 
 import fs from 'node:fs';
@@ -674,7 +674,7 @@ addNode({
   layer: 'Knowledge Graph Subsystem',
   type: 'kg_component',
   views: ['kg', 'system'],
-  file: 'Knowladge-Graph/generate-graph.js',
+  file: 'Knowledge-Graph/generate-graph.js',
   description: 'Static analysis parser scanning Prisma schemas, routes, services, middleware, and frontend components to construct 192 nodes and 408 edges.',
 });
 
@@ -684,7 +684,7 @@ addNode({
   layer: 'Knowledge Graph Subsystem',
   type: 'kg_component',
   views: ['kg'],
-  file: 'Knowladge-Graph/validate-graph.js',
+  file: 'Knowledge-Graph/validate-graph.js',
   description: 'Deterministic test script checking node/edge stability, absence of secrets, source path validity, and relative asset loading.',
 });
 
@@ -694,7 +694,7 @@ addNode({
   layer: 'Knowledge Graph Subsystem',
   type: 'kg_component',
   views: ['kg', 'system'],
-  file: 'Knowladge-Graph/index.html',
+  file: 'Knowledge-Graph/index.html',
   description: 'Vis-network interactive visualizer rendering multi-track concentric layout for developers and coding agents.',
 });
 

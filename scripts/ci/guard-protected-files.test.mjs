@@ -44,7 +44,7 @@ test('isProtectedPath does not flag standard application files', () => {
     'package.json',
     'package-lock.json',
     'scripts/ci/plan-checks.mjs',
-    'Knowladge-Graph/knowledge-graph.json',
+    'Knowledge-Graph/knowledge-graph.json',
     '.gitignore',
   ];
 

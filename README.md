@@ -124,7 +124,7 @@ Keep production URLs and credentials in the deployment platform. Never commit `.
 frontend/             React application
 backend/              Express API, Prisma schema, services, and tests
 docs/                 API and supporting documentation
-Knowladge-Graph/      Codebase graph, architecture references, and agent playbooks
+Knowledge-Graph/      Codebase graph, architecture references, and agent playbooks
 scripts/ci/           CI selection and protected-file checks
 scripts/verify/       Live-stack verification scripts
 .github/workflows/    CI, deployment checks, and Knowledge Graph publication
@@ -140,7 +140,7 @@ docs/RELEASE_PREFLIGHT.md  Release verification checklist
   - `backend/prisma/`: schema, committed migrations, seed, and startup migration runner; `backend/tests/`: isolated automated tests.
 - [Frontend guide](frontend/README.md)
   - `frontend/src/pages/` and `components/`: screens and reusable UI; `services/api.js`: shared API client; `frontend/tests/`: unit tests; `frontend/public/`: browser assets.
-- [Knowledge Graph guide](Knowladge-Graph/README.md)
+- [Knowledge Graph guide](Knowledge-Graph/README.md)
 - [API documentation](docs/api/API-DOCUMENTATION.md)
 - [CI and test-selection guide](docs/CI.md)
 
@@ -155,10 +155,10 @@ docs/RELEASE_PREFLIGHT.md  Release verification checklist
 | [System architecture diagram](docs/architecture/system-architecture.png) | System and deployment overview |
 | [Database ERD](docs/DATABASE-ERD.md) | Entity relationships derived from the Prisma model |
 | [API documentation](docs/api/API-DOCUMENTATION.md) | Active API routes and contracts |
-| [Knowledge Graph](Knowladge-Graph/README.md) | Codebase navigation, architecture references, and agent workflow |
+| [Knowledge Graph](Knowledge-Graph/README.md) | Codebase navigation, architecture references, and agent workflow |
 
 ## Knowledge Graph and coding-agent workflow
 
 The repository includes a machine-readable codebase graph and an interactive explorer. Coding agents begin with [`AGENTS.md`](AGENTS.md), inspect the graph and its upstream/downstream relationships, then follow the architecture, debugging, product-rule, and flow references before changing connected code.
 
-The full workflow and every agent-facing source are documented in the [Knowledge Graph README](Knowladge-Graph/README.md). Changes to routes, services, Prisma models, or frontend API calls must finish with `npm run graph:verify` so those links remain trustworthy.
+The full workflow and every agent-facing source are documented in the [Knowledge Graph README](Knowledge-Graph/README.md). Changes to routes, services, Prisma models, or frontend API calls must finish with `npm run graph:verify` so those links remain trustworthy.
