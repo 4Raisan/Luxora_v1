@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { apiRequest } from '../../services/api'
 import ChatTriggerButton from './ChatTriggerButton'
 import ChatWindow from './ChatWindow'
@@ -26,7 +26,32 @@ const createInitialGreeting = () => ({
 export function LuxoraChatbot() {
   const [isOpen, setIsOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
+  const [overlayOpen, setOverlayOpen] = useState(false)
   const sessionIdRef = useRef('session_' + Math.random().toString(36).substring(2, 9))
+
+  // Portal pages isolate their stacking context, so dialog z-indexes cannot
+  // outrank a root-level launcher. Hide the chat while any fixed dialog,
+  // drawer or backdrop is open instead of floating it over the modal.
+  useEffect(() => {
+    const SELECTOR = '[class*="overlay"], [class*="backdrop"], [class*="drawer"], .pd-modal, .ui-modal'
+    let raf = 0
+    const check = () => {
+      raf = 0
+      const open = Array.from(document.querySelectorAll(SELECTOR)).some((el) => {
+        const s = getComputedStyle(el)
+        return s.position === 'fixed' && s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && el.getBoundingClientRect().width > 0
+      })
+      setOverlayOpen(open)
+    }
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(check) }
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] })
+    check()
+    return () => {
+      observer.disconnect()
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [])
 
   const [messages, setMessages] = useState([createInitialGreeting()])
   const [suggestedQuestions, setSuggestedQuestions] = useState([])
@@ -263,7 +288,7 @@ export function LuxoraChatbot() {
   }
 
   return (
-    <>
+    <div style={{ display: overlayOpen ? 'none' : 'contents' }}>
       <ChatTriggerButton
         isOpen={isOpen}
         onClick={() => setIsOpen(true)}
@@ -284,7 +309,7 @@ export function LuxoraChatbot() {
         onSendPayload={handleSendPayload}
         onActionButtonClick={handleActionButtonClick}
       />
-    </>
+    </div>
   )
 }
 

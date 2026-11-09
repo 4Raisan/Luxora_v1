@@ -1,27 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react'
 
-const STORAGE_KEY = 'lx_chatbot_btn_pos'
+const STORAGE_KEY = 'lx_chatbot_btn_pos_v2'
 const MARGIN = 16
 
-export function ChatTriggerButton({ onClick, isOpen, unreadCount = 0 }) {
+export function ChatTriggerButton({ onClick, isOpen }) {
   const [position, setPosition] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0, moved: false })
   const buttonRef = useRef(null)
 
-  // Initialize position from localStorage or default to bottom-left
+  // Initialize position from localStorage or default to bottom-right
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    let initX = MARGIN
-    let initY = typeof window !== 'undefined' ? window.innerHeight - 80 : 600
+    const rect = buttonRef.current?.getBoundingClientRect()
+    const width = rect?.width || 150
+    const height = rect?.height || 46
+    let initX = Math.max(MARGIN, window.innerWidth - width - MARGIN)
+    let initY = Math.max(MARGIN, window.innerHeight - height - 24)
 
+    const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
         if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          initX = Math.min(Math.max(MARGIN, parsed.x), Math.max(MARGIN, window.innerWidth - 200))
-          initY = Math.min(Math.max(MARGIN, parsed.y), Math.max(MARGIN, window.innerHeight - 70))
+          initX = Math.min(Math.max(MARGIN, parsed.x), Math.max(MARGIN, window.innerWidth - width - MARGIN))
+          initY = Math.min(Math.max(MARGIN, parsed.y), Math.max(MARGIN, window.innerHeight - height - MARGIN))
         }
       } catch {
         // Use default
@@ -129,8 +132,10 @@ export function ChatTriggerButton({ onClick, isOpen, unreadCount = 0 }) {
         touchAction: 'none'
       }
     : {
-        left: `${MARGIN}px`,
-        bottom: '28px',
+        right: `${MARGIN}px`,
+        bottom: '24px',
+        left: 'auto',
+        top: 'auto',
         touchAction: 'none'
       }
 
@@ -165,7 +170,6 @@ export function ChatTriggerButton({ onClick, isOpen, unreadCount = 0 }) {
         <span className="lx-chat-trigger__badge" />
       </div>
       <div className="lx-chat-trigger__text">
-        <span className="lx-chat-trigger__brand">LUXORA CONCIERGE</span>
         <span className="lx-chat-trigger__label">AI Assistant</span>
       </div>
     </button>

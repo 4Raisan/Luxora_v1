@@ -3,7 +3,7 @@ import ChatHeader from './ChatHeader'
 import MessageList from './MessageList'
 import SuggestedQuestions from './SuggestedQuestions'
 
-const WINDOW_STORAGE_KEY = 'lx_chatbot_window_pos'
+const WINDOW_STORAGE_KEY = 'lx_chatbot_window_pos_v2'
 const MARGIN = 16
 
 export function ChatWindow({
@@ -29,19 +29,22 @@ export function ChatWindow({
   const dragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 })
   const windowRef = useRef(null)
 
-  // Initialize desktop position from localStorage or default to bottom-left
+  // Initialize desktop position from localStorage or default to bottom-right
   useEffect(() => {
     if (typeof window === 'undefined' || window.innerWidth <= 640) return
-    const saved = localStorage.getItem(WINDOW_STORAGE_KEY)
-    let initX = MARGIN
-    let initY = Math.max(MARGIN, window.innerHeight - 670)
+    const rect = windowRef.current?.getBoundingClientRect()
+    const width = rect?.width || 420
+    const height = rect?.height || 640
+    let initX = Math.max(MARGIN, window.innerWidth - width - 24)
+    let initY = Math.max(MARGIN, window.innerHeight - height - 24)
 
+    const saved = localStorage.getItem(WINDOW_STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
         if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          initX = Math.min(Math.max(MARGIN, parsed.x), Math.max(MARGIN, window.innerWidth - 440))
-          initY = Math.min(Math.max(MARGIN, parsed.y), Math.max(MARGIN, window.innerHeight - 670))
+          initX = Math.min(Math.max(MARGIN, parsed.x), Math.max(MARGIN, window.innerWidth - width - MARGIN))
+          initY = Math.min(Math.max(MARGIN, parsed.y), Math.max(MARGIN, window.innerHeight - height - MARGIN))
         }
       } catch {
         // Use default

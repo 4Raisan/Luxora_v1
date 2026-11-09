@@ -141,7 +141,7 @@ function OptionChipsWidget({ comp, onSendPayload }) {
   )
 }
 
-function RecommendationCardsWidget({ comp, onSendMessage }) {
+function RecommendationCardsWidget({ comp }) {
   const cards = comp.cards || []
 
   const handleSelectAndBook = (card) => {

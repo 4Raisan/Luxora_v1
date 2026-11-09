@@ -7,11 +7,12 @@
    ========================================================================== */
 .lx-chat-trigger {
   position: fixed;
-  z-index: 999999;
+  /* Below every modal overlay (>=60) so dialogs always cover the launcher. */
+  z-index: 50;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 18px 12px 12px;
+  gap: 8px;
+  padding: 8px 14px 8px 8px;
   border-radius: var(--lx-chat-radius-pill);
   background: linear-gradient(135deg, #1C1C1C 0%, #121212 100%);
   border: 1px solid var(--lx-chat-gold-border);
@@ -19,7 +20,7 @@
   color: var(--lx-chat-white);
   cursor: grab;
   font-family: var(--lx-chat-font-primary);
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
@@ -40,15 +41,15 @@
   transform: scale(1.05) !important;
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 35px rgba(201, 168, 76, 0.6) !important;
   border-color: var(--lx-chat-gold-light) !important;
-  z-index: 1000000 !important;
+  z-index: 55 !important;
 }
 
 .lx-chat-trigger__drag-grip {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 2px;
-  opacity: 0.65;
+  padding: 0;
+  opacity: 0.5;
   cursor: grab;
 }
 
@@ -58,8 +59,8 @@
 
 .lx-chat-trigger__icon-wrap {
   position: relative;
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--lx-chat-gold-bg);
   border: 1px solid var(--lx-chat-gold-border);
@@ -68,12 +69,17 @@
   justify-content: center;
 }
 
+.lx-chat-trigger__icon-wrap svg {
+  width: 16px;
+  height: 16px;
+}
+
 .lx-chat-trigger__badge {
   position: absolute;
   top: -2px;
   right: -2px;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--lx-chat-gold-light);
   border: 2px solid var(--lx-chat-dark);
@@ -81,21 +87,14 @@
 
 .lx-chat-trigger__text {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   text-align: left;
 }
 
-.lx-chat-trigger__brand {
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  color: var(--lx-chat-gold);
-  text-transform: uppercase;
-}
-
 .lx-chat-trigger__label {
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   color: var(--lx-chat-white);
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -104,12 +103,13 @@
 .lx-chat-window {
   position: fixed;
   bottom: 24px;
-  left: 24px;
+  right: 24px;
   width: 420px;
   max-width: calc(100vw - 32px);
   height: 640px;
-  max-height: calc(100vh - 48px);
-  z-index: 10000;
+  /* Keeps the panel clear of the fixed navbar on short viewports. */
+  max-height: calc(100vh - 120px);
+  z-index: 50;
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, #181818 0%, #111111 100%);
@@ -141,13 +141,18 @@
 
 @media (max-width: 640px) {
   .lx-chat-trigger {
-    padding: 10px 14px 10px 10px;
-    font-size: 0.82rem;
+    padding: 8px 12px 8px 8px;
+    font-size: 0.78rem;
   }
 
   .lx-chat-trigger__icon-wrap {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .lx-chat-trigger__icon-wrap svg {
+    width: 14px;
+    height: 14px;
   }
 
   .lx-chat-window {
@@ -164,7 +169,8 @@
     max-height: 100dvh;
     border-radius: 0;
     border: none;
-    z-index: 999999;
+    /* Fullscreen mobile chat must cover the fixed navbar (z 1000). */
+    z-index: 1001;
   }
 
   .lx-chat-header {
