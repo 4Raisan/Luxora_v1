@@ -1,10 +1,71 @@
 /**
  * Real-Time Event Dispatcher for Luxora (Server-Sent Events)
  *
- * Lightweight, standards-based server-push mechanism without external broker dependencies.
+ * Standards-based server push with an optional shared Redis transport.
  * Provides authenticated, role-scoped event streams with automatic keep-alive pings.
  */
 
+import crypto from 'node:crypto';
+import { getRedisClient } from '../middleware/rateLimit.js';
+import { trackTask } from '../runtime/tasks.js';
+
+const instanceId = crypto.randomUUID();
+// Redis Pub/Sub ignores logical database numbers; include that number so
+// staging/test databases on the same broker cannot exchange customer events.
+const brokerDatabase = process.env.REDIS_URL ? new URL(process.env.REDIS_URL).pathname.slice(1) || '0' : '0';
+const channel = `${process.env.LUXORA_NAMESPACE || 'luxora'}:realtime:v1:${brokerDatabase}`;
+let publisher = null;
+let subscriber = null;
+
+async function waitForRedis(redis) {
+  if (redis.status && redis.status !== 'ready') {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { redis.off('ready', ready); reject(new Error('Redis startup timed out')); }, 10000);
+      const ready = () => { clearTimeout(timeout); resolve(); };
+      redis.once('ready', ready);
+    });
+  }
+}
+
+export async function startRealtimeBus({ receive = false, redis = getRedisClient() } = {}) {
+  if (!redis) return;
+  await waitForRedis(redis);
+  await redis.ping();
+  publisher = redis;
+  if (receive && !subscriber) {
+    subscriber = redis.duplicate();
+    subscriber.on('error', error => console.warn('[realtime] subscriber:', error.message));
+    subscriber.on('message', (_channel, raw) => {
+      try {
+        const event = JSON.parse(raw);
+        if (event.origin !== instanceId) deliverRealtimeEvent(event);
+      } catch { /* Ignore malformed broker messages. */ }
+    });
+    await waitForRedis(subscriber);
+    await subscriber.subscribe(channel);
+  }
+}
+
+export async function stopRealtimeBus() {
+  if (subscriber) await subscriber.quit();
+  subscriber = null;
+  publisher = null;
+}
+
+export function deliverRealtimeEvent({ target, id, eventName, data }) {
+  if (!['user', 'role', 'all'].includes(target) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(eventName || '')) return;
+  for (const client of activeClients.values()) {
+    if (target === 'all' || (target === 'user' && client.userId === Number(id)) || (target === 'role' && client.role === String(id).toUpperCase())) sendEvent(client.res, eventName, data);
+  }
+}
+
+function dispatch(target, id, eventName, data) {
+  const event = { origin: instanceId, target, id, eventName, data };
+  deliverRealtimeEvent(event);
+  if (publisher) trackTask(publisher.publish(channel, JSON.stringify(event)).catch(error => console.warn('[realtime] publish:', error.message)));
+}
+
+// Only open HTTP connections are local. Events cross service instances.
 // In-memory registry of active SSE connections
 // Structure: Map<res, { userId: number, role: string, res: Response } >
 const activeClients = new Map();
@@ -67,33 +128,21 @@ function sendEvent(res, eventName, data) {
  * Broadcast event to a specific user ID
  */
 export function broadcastToUser(userId, eventName, data) {
-  const targetId = Number(userId);
-  for (const client of activeClients.values()) {
-    if (client.userId === targetId) {
-      sendEvent(client.res, eventName, data);
-    }
-  }
+  dispatch('user', Number(userId), eventName, data);
 }
 
 /**
  * Broadcast event to all users with a specific role ('CUSTOMER', 'PROVIDER', 'ADMIN')
  */
 export function broadcastToRole(role, eventName, data) {
-  const targetRole = String(role).toUpperCase();
-  for (const client of activeClients.values()) {
-    if (client.role === targetRole) {
-      sendEvent(client.res, eventName, data);
-    }
-  }
+  dispatch('role', String(role).toUpperCase(), eventName, data);
 }
 
 /**
  * Broadcast event to every connected client
  */
 export function broadcastToAll(eventName, data) {
-  for (const client of activeClients.values()) {
-    sendEvent(client.res, eventName, data);
-  }
+  dispatch('all', null, eventName, data);
 }
 
 /**

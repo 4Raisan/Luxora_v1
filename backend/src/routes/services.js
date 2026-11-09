@@ -58,7 +58,7 @@ export function invalidateSubscriptionsCache() {
 
 router.get('/subscriptions', async (_req, res) => {
   const nowMs = Date.now();
-  if (cachedSubscriptions && nowMs < subscriptionsCacheExpiresAt) {
+  if (process.env.LUXORA_RUNTIME !== 'serverless' && cachedSubscriptions && nowMs < subscriptionsCacheExpiresAt) {
     return res.json(cachedSubscriptions);
   }
   const now = new Date(nowMs);
@@ -112,6 +112,7 @@ export async function renewDueDemoSubscriptions() {
   const renewedSubscriptions = [];
   for (const subscription of due) {
     const renewedSubscription = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BigInt(subscription.id)})`;
       const fresh = await tx.userSubscription.findUnique({
         where: { id: subscription.id },
         include: {

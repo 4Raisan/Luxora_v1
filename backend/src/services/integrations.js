@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { trackTask } from '../runtime/tasks.js';
 
 const missing = (...names) => names.filter((name) => !process.env[name]);
 
@@ -19,9 +20,13 @@ export function escapeHtml(value) {
 /**
  * Dispatches an email via Resend REST API.
  */
-export async function sendEmail({ to, subject, html, text = '' }) {
+export function sendEmail(args) {
+  return trackTask(deliverEmail(args));
+}
+async function deliverEmail({ to, subject, html, text = '' }) {
   if (!to || !process.env.RESEND_API_KEY) return { configured: false };
   const response = await fetch('https://api.resend.com/emails', {
+    signal: AbortSignal.timeout(10000),
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || 'no-reply@luxora.bond', to: [to], subject, html, text }),

@@ -55,7 +55,7 @@ const json = async (path, options = {}) => {
     ...options,
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
+      ...options.headers,
     },
   });
   const text = await response.text();

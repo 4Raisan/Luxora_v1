@@ -15,7 +15,6 @@ dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
-import { getEntitlementSnapshot } from '../src/services/entitlements.js';
 import { colomboDate } from './helpers/colombo-date.js';
 import './assert-test-database.js';
 
@@ -652,12 +651,11 @@ test('Rule 11: Provider availability online/offline workflow, 4-hour safeguard, 
   const provUser2 = await prisma.user.create({
     data: { name: `Online Prov 2 ${testId}`, email: `prov2.${testId}@test.luxora`, phone: '0779998882', passwordHash: await bcrypt.hash('pass123', 10), role: 'PROVIDER', town: 'Colombo', addressDistrict: 'Western', active: true },
   });
-  const prov2 = await prisma.provider.create({
+  await prisma.provider.create({
     data: { userId: provUser2.id, category: 'Auto Care', serviceTowns: 'Colombo', kycStatus: 'APPROVED', availabilityStatus: 'available' },
   });
 
   const token1 = jwt.sign({ id: provUser1.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
-  const token2 = jwt.sign({ id: provUser2.id, role: 'PROVIDER', tokenVersion: 0 }, JWT_SECRET);
 
   // 1. Invalid status (e.g. 'busy') is rejected
   const busyRes = await authJson(token1, '/provider/availability', { method: 'PUT', body: JSON.stringify({ availability_status: 'busy' }) });
@@ -677,7 +675,6 @@ test('Rule 11: Provider availability online/offline workflow, 4-hour safeguard, 
   const service = await prisma.service.findFirst({ where: { category: { name: 'Auto Care' } } });
 
   // 3. Create a booking scheduled 2 hours from now (within 4h window) assigned to prov1
-  const today = new Date();
   const twoHoursLater = new Date(Date.now() + 2 * 3600 * 1000);
   const hourStr = String(twoHoursLater.getHours()).padStart(2, '0');
   const minuteStr = String(twoHoursLater.getMinutes()).padStart(2, '0');

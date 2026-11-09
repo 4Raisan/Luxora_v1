@@ -257,7 +257,6 @@ router.post('/', async (req, res) => {
   sendEmail({ to: customer?.email, subject: `Luxora booking confirmed #${booking.id}`, html: `<p>Hi ${escapeHtml(customer?.name || 'Customer')},</p><p>Your ${escapeHtml(service.title)} booking is scheduled for ${escapeHtml(booking_date)} at ${escapeHtml(booking_time)}.</p><p>Booking status: ${escapeHtml(booking.status.toLowerCase())}.</p>` }).catch((error) => console.warn('[email] booking confirmation failed:', error.message));
 
   const isAssigned = booking.status === 'ASSIGNED';
-  const effectiveStartPin = isAssigned ? startPin : null;
 
   broadcastBookingEvent('BOOKING_CREATED', {
     id: booking.id,

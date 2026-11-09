@@ -3,6 +3,7 @@ import { optionalAuthentication } from '../middleware/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { prisma } from '../config/prisma.js';
 import { createRequire } from 'node:module';
+import { withChatSession } from '../runtime/chat-sessions.js';
 
 const require = createRequire(import.meta.url);
 const { getSession, processMessage } = require('../chatbot/services/engine.js');
@@ -16,15 +17,14 @@ router.post('/chat', optionalAuthentication, chatLimiter, async (req, res) => {
   try {
     const { message, sessionId, structuredPayload } = req.body;
     const user = req.user || null;
-    const session = getSession(sessionId || 'guest-session');
-    const response = await processMessage(session, message, structuredPayload, { user, prisma });
-    res.json({
+    const result = await withChatSession({ sessionId, userId: user?.id, create: getSession, work: async session => ({
       sessionId: session.id,
-      ...response
-    });
+      ...await processMessage(session, message, structuredPayload, { user, prisma }),
+    }) });
+    res.json(result);
   } catch (error) {
     console.error('Chat error:', error);
-    res.status(500).json({ error: 'Internal server error processing message' });
+    res.status(error.statusCode || 500).json({ error: error.statusCode ? error.message : 'Internal server error processing message' });
   }
 });
 

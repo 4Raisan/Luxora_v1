@@ -21,7 +21,11 @@
     "demo:seed": "node prisma/demo-bookings.js seed",
     "demo:clean": "node prisma/demo-bookings.js clean",
     "preflight:bank-accounts": "node prisma/migrate-bank-accounts.js --dry-run",
-    "migrate:bank-accounts": "node prisma/migrate-bank-accounts.js"
+    "migrate:bank-accounts": "node prisma/migrate-bank-accounts.js",
+    "start:service": "node src/index.js",
+    "start:gateway": "node src/gateway.js",
+    "job": "node src/jobs.js",
+    "test:architecture": "node --test tests/serverless-architecture.test.js tests/payout-refund-regressions.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",

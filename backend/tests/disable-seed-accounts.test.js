@@ -97,7 +97,7 @@ const createdTokenHashes = [];
 const createdExtraEmails = [];
 
 async function installExposedFixture() {
-  for (const [index, email] of SEED_EMAILS.entries()) {
+  for (const email of SEED_EMAILS) {
     const role = email.startsWith('customer') ? 'CUSTOMER' : email.startsWith('provider') ? 'PROVIDER' : 'ADMIN';
     const user = await prisma.user.upsert({
       where: { email },

@@ -42,7 +42,7 @@ const json = async (apiPath, options = {}) => {
     signal: AbortSignal.timeout(15000),
     headers: {
       ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
+      ...options.headers,
     },
   });
   const text = await response.text();
