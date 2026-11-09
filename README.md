@@ -22,6 +22,11 @@
 
 <br>
 
+The serverless microservices deployment is documented in
+[Serverless architecture and rollout](docs/SERVERLESS_ARCHITECTURE.md).
+It includes four domain services, a gateway, shared realtime/chat state,
+scheduled workers, local Compose and Cloud Run infrastructure.
+
 <p align="center">
   <a href="https://4raisan.github.io/Luxora_v1/architecture/"><img src="docs/assets/luxora-readme-architecture.png" alt="Luxora: React and Vite on Vercel, Express on Northflank, Prisma with Supabase, and external services" width="100%"></a>
 </p>
