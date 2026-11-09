@@ -19,7 +19,6 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 const backendDir = path.join(rootDir, 'backend');
-const frontendDir = path.join(rootDir, 'frontend');
 const prismaSchemaPath = path.join(backendDir, 'prisma', 'schema.prisma');
 const outputJsonPath = path.join(__dirname, 'architecture-graph.json');
 const outputHtmlPath = path.join(__dirname, 'architecture.html');
@@ -205,7 +204,7 @@ const frontendPages = [
   { id: 'component:session-animation', label: '✨ Session Animation', file: 'frontend/src/components/SessionConfirmationAnimation.jsx', desc: 'Luxury SVG completion celebration modal rendered upon successful booking confirmation.', views: ['frontend', 'booking'] },
   { id: 'component:require-auth', label: '🛡️ RequireAuth Guard', file: 'frontend/src/components/RequireAuth.jsx', desc: 'Route-level client security component that validates token existence and user role before granting dashboard access.', views: ['frontend', 'security'] },
   { id: 'service:frontend-api', label: '🔌 API Client (apiRequest)', file: 'frontend/src/services/api.js', desc: 'Central HTTP client that injects Authorization Bearer tokens, enforces a 30s AbortController timeout, and purges sessionStorage on 401/403 session revocations.', views: ['system', 'frontend', 'backend', 'security'] },
-  { id: 'hook:use-realtime', label: '📡 useRealtime Hook', file: 'frontend/src/hooks/useRealtime.js', desc: 'Frontend EventSource subscription to /api/realtime; listens for 7 named events (BOOKING_CREATED, ASSIGNED, CLAIMED, etc.) and triggers onSync state recovery on reconnect.', views: ['system', 'frontend', 'booking', 'realtime'] },
+  { id: 'hook:use-realtime', label: '📡 useRealtime Hook', file: 'frontend/src/hooks/useRealtime.js', desc: 'Frontend EventSource subscription to /api/realtime; listens for named booking, payment and refund events and triggers onSync state recovery on reconnect.', views: ['system', 'frontend', 'booking', 'realtime'] },
 ];
 
 for (const p of frontendPages) {
@@ -245,7 +244,7 @@ addNode({
   type: 'backend_server',
   views: ['system', 'backend', 'security', 'deployment'],
   file: 'backend/src/index.js',
-  description: 'Central HTTP server configuring security headers (CSP, HSTS, X-Frame-Options), strict CORS origins, reverse proxy trust, central Prisma error handling, and background schedulers.',
+  description: 'Shared Express application factory with domain-specific router selection. Serverless services use external scheduled jobs; legacy all mode remains available.',
   metadata: { port: 5000, framework: 'Express 5.2.1', runtime: 'Node.js 22 LTS' },
 });
 
@@ -331,7 +330,7 @@ addNode({
   type: 'realtime_service',
   views: ['system', 'backend', 'booking', 'realtime'],
   file: 'backend/src/services/realtime.js',
-  description: 'Server-Sent Events manager keeping an in-memory map of authenticated active connections, a 25-second keep-alive ping loop, and targeted role/user event broadcasting via broadcastBookingEvent().',
+  description: 'Server-Sent Events manager with local authenticated connections, shared Redis publication/subscription between service instances, a 25-second keep-alive ping loop and user/role audience filtering.',
   metadata: {
     endpoint: 'GET /api/realtime',
     heartbeatIntervalMs: 25000,
@@ -758,14 +757,33 @@ const architectureViews = [
   { id: 'backend', name: 'Backend & API Gateway', icon: '⚡', description: 'Express 5 REST API gateway: Mounted route routers, middleware authentication/role/KYC gates, domain services, and automated background schedulers.' },
   { id: 'database', name: 'Database Architecture', icon: '🗄️', description: 'PostgreSQL 15 Prisma schema models, foreign keys, 1:1 and 1:N relations, exact Decimal(12,2) money fields, and transactional advisory locks.' },
   { id: 'booking', name: 'Booking Lifecycle', icon: '📅', description: 'Complete service fulfillment flow: Booking creation -> Auto-dispatch vs Pending claim -> Start PIN + BEFORE photo -> Completion PIN + AFTER photo -> Earnings accrual.' },
-  { id: 'realtime', name: 'Realtime / SSE', icon: '📡', description: 'Server-Sent Events architecture: /api/realtime endpoint, in-memory connection registry, 25s keep-alive ping, broadcastBookingEvent(), 7 named events, and frontend sync.' },
+  { id: 'realtime', name: 'Realtime / SSE', icon: '📡', description: 'Server-Sent Events architecture: /api/realtime endpoint, local connection registry, shared Redis broadcasts, 25s keep-alive ping, named events, and frontend sync.' },
   { id: 'payments', name: 'Payments Engine', icon: '💳', description: 'Tri-gateway payment processing: PayHere LKR MD5 signatures, NOWPayments Crypto HMAC-SHA512 IPN, Demo mode, atomic subscription activation, and non-refundable coin policy.' },
   { id: 'email', name: 'Email & External Services', icon: '☁️', description: 'External cloud infrastructure: Resend transactional email API, S3 durable object storage, Google OAuth 2.0, PayHere, NOWPayments, Vercel, and Northflank.' },
-  { id: 'cicd', name: 'CI/CD Pipeline', icon: '🚀', description: '8-job GitHub Actions CI pipeline: Selective execution classifier (plan-checks.mjs), Protected Files Guard, 01-06 quality checks, and hardened gate.' },
+  { id: 'cicd', name: 'CI/CD Pipeline', icon: '🚀', description: '9-job GitHub Actions CI pipeline: Selective execution classifier (plan-checks.mjs), Protected Files Guard, 01-06 quality checks, and hardened gate.' },
   { id: 'deployment', name: 'Production Deployments', icon: '🚢', description: 'Decoupled production hosting: Vercel Global Edge (Frontend), Northflank Alpine Container (Backend), and GitHub Pages (Knowledge Graph).' },
   { id: 'kg', name: 'Knowledge Graph', icon: '📊', description: 'Living codebase knowledge graph subsystem: Static analysis AST extractor, deterministic drift validator, and interactive visual network explorer.' },
   { id: 'security', name: 'Security Architecture', icon: '🔒', description: 'Defense-in-depth security engineering: JWT tokenVersion revocation, Bcrypt 10 salt rounds, AES-256-GCM bank account encryption, magic-byte sniffers, and CSP headers.' },
 ];
+
+
+addNode({ id: 'deploy:cloud-run', label: 'Serverless Cloud Run services', layer: 'Deployment Infrastructure', type: 'deployment_target', views: ['system', 'deployment', 'backend'], file: 'infra/cloud-run/main.tf', description: 'Deployable serverless microservices topology. Four independent domain services behind a public gateway, private IAM invocation, external scheduled jobs and shared PostgreSQL transactions. No claim that this topology is already deployed.' });
+addNode({ id: 'runtime:gateway', label: 'Service routing gateway', layer: 'API Gateway & Middleware', type: 'backend_server', views: ['system', 'backend', 'deployment'], file: 'backend/src/gateway.js', description: 'Streams unchanged API requests to independently deployed services; preserves customer JWTs and adds Cloud Run platform identity.' });
+for (const name of ['accounts', 'bookings', 'payments', 'engagement']) {
+  const id = 'runtime:' + name;
+  addNode({ id, label: name + ' service', layer: 'Domain Services', type: 'backend_server', views: ['system', 'backend', 'deployment'], file: 'backend/src/app.js', description: 'Independent Cloud Run service selected by LUXORA_SERVICE=' + name + '. Shared database transactions preserve current financial invariants.' });
+  addEdge('runtime:gateway', id, 'routes_to', name, 'Routing contract in service-map.js', ['system', 'backend', 'deployment']);
+  addEdge('deploy:cloud-run', id, 'hosts', 'Serverless container', 'Terraform service definition', ['deployment']);
+}
+addNode({ id: 'runtime:jobs', label: 'Scheduled serverless jobs', layer: 'Domain Services', type: 'backend_server', views: ['system', 'deployment'], file: 'backend/src/jobs.js', description: 'Booking timeout scans, demo renewals and monthly payouts. External scheduler, shared leases, idempotent database transitions, bounded task lifetime.' });
+addEdge('deploy:cloud-run', 'runtime:jobs', 'schedules', 'Cloud Scheduler', 'IAM-authenticated Cloud Run job executions', ['deployment']);
+
+addNode({ id: 'runtime:redis', label: 'Shared Redis state and event bus', layer: 'External Cloud Services', type: 'external_service', views: ['system', 'backend', 'realtime', 'deployment'], file: 'backend/src/middleware/rateLimit.js', description: 'Shared rate limits, chat state with fenced session leases, job leases and cross-instance realtime Pub/Sub. Financial truth remains in PostgreSQL.' });
+for (const name of ['accounts', 'bookings', 'payments', 'engagement', 'jobs']) {
+  addEdge('runtime:' + name, 'runtime:redis', 'shared_runtime_state', 'Redis', 'Shared counters, leases and realtime messages', ['system', 'backend', 'deployment']);
+  addEdge('runtime:' + name, 'ext:postgresql', 'shared_transactions', 'Prisma / PostgreSQL', 'Existing atomic financial and account invariants remain in the shared database', ['system', 'deployment', 'database']);
+}
+addEdge('service:realtime', 'runtime:redis', 'pubsub', 'Cross-instance events', 'User/role-scoped live hints; reconnect reloads authoritative state', ['realtime']);
 
 // Sort deterministically
 nodes.sort((a, b) => a.id.localeCompare(b.id));

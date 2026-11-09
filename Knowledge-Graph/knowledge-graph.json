@@ -6,15 +6,15 @@
     "branch": "main"
   },
   "stats": {
-    "totalNodes": 230,
-    "totalEdges": 488,
+    "totalNodes": 236,
+    "totalEdges": 611,
     "nodesByGroup": {
       "api": 115,
       "database": 36,
-      "frontend": 38,
+      "frontend": 37,
       "middleware": 4,
       "routes": 18,
-      "service": 19
+      "service": 26
     }
   },
   "nodes": [
@@ -1951,17 +1951,6 @@
       }
     },
     {
-      "id": "frontend:AccountVerificationPanel",
-      "label": "AccountVerificationPanel.jsx",
-      "type": "FrontendComponent",
-      "group": "frontend",
-      "file": "frontend/src/components/AccountVerificationPanel.jsx",
-      "metadata": {},
-      "source": {
-        "path": "frontend/src/components/AccountVerificationPanel.jsx"
-      }
-    },
-    {
       "id": "frontend:ActiveBookingCards",
       "label": "ActiveBookingCards.jsx",
       "type": "FrontendComponent",
@@ -2071,6 +2060,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/components/ErrorBoundary.jsx"
+      }
+    },
+    {
+      "id": "frontend:FinalCTA",
+      "label": "FinalCTA.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/FinalCTA.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/FinalCTA.jsx"
       }
     },
     {
@@ -2195,28 +2195,6 @@
       }
     },
     {
-      "id": "frontend:PortalShell",
-      "label": "PortalShell.jsx",
-      "type": "FrontendComponent",
-      "group": "frontend",
-      "file": "frontend/src/components/PortalShell.jsx",
-      "metadata": {},
-      "source": {
-        "path": "frontend/src/components/PortalShell.jsx"
-      }
-    },
-    {
-      "id": "frontend:ProviderCalendar",
-      "label": "ProviderCalendar.jsx",
-      "type": "FrontendComponent",
-      "group": "frontend",
-      "file": "frontend/src/components/ProviderCalendar.jsx",
-      "metadata": {},
-      "source": {
-        "path": "frontend/src/components/ProviderCalendar.jsx"
-      }
-    },
-    {
       "id": "frontend:ProviderDashboard",
       "label": "ProviderDashboard.jsx",
       "type": "FrontendPage",
@@ -2280,6 +2258,17 @@
       "metadata": {},
       "source": {
         "path": "frontend/src/pages/Reviews.jsx"
+      }
+    },
+    {
+      "id": "frontend:ScrollProgress",
+      "label": "ScrollProgress.jsx",
+      "type": "FrontendComponent",
+      "group": "frontend",
+      "file": "frontend/src/components/ScrollProgress.jsx",
+      "metadata": {},
+      "source": {
+        "path": "frontend/src/components/ScrollProgress.jsx"
       }
     },
     {
@@ -4397,6 +4386,96 @@
       }
     },
     {
+      "id": "runtime:accounts",
+      "label": "accounts microservice",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/app.js",
+      "metadata": {
+        "runtime": "Cloud Run",
+        "selector": "accounts",
+        "databaseTopology": "shared PostgreSQL transactions"
+      },
+      "source": {
+        "path": "backend/src/app.js"
+      }
+    },
+    {
+      "id": "runtime:bookings",
+      "label": "bookings microservice",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/app.js",
+      "metadata": {
+        "runtime": "Cloud Run",
+        "selector": "bookings",
+        "databaseTopology": "shared PostgreSQL transactions"
+      },
+      "source": {
+        "path": "backend/src/app.js"
+      }
+    },
+    {
+      "id": "runtime:engagement",
+      "label": "engagement microservice",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/app.js",
+      "metadata": {
+        "runtime": "Cloud Run",
+        "selector": "engagement",
+        "databaseTopology": "shared PostgreSQL transactions"
+      },
+      "source": {
+        "path": "backend/src/app.js"
+      }
+    },
+    {
+      "id": "runtime:gateway",
+      "label": "Serverless API gateway",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/gateway.js",
+      "source": {
+        "path": "backend/src/gateway.js"
+      }
+    },
+    {
+      "id": "runtime:jobs",
+      "label": "Serverless scheduled workers",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/jobs.js",
+      "source": {
+        "path": "backend/src/jobs.js"
+      }
+    },
+    {
+      "id": "runtime:payments",
+      "label": "payments microservice",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/app.js",
+      "metadata": {
+        "runtime": "Cloud Run",
+        "selector": "payments",
+        "databaseTopology": "shared PostgreSQL transactions"
+      },
+      "source": {
+        "path": "backend/src/app.js"
+      }
+    },
+    {
+      "id": "runtime:redis",
+      "label": "Shared Redis state and realtime bus",
+      "type": "Service",
+      "group": "service",
+      "file": "backend/src/middleware/rateLimit.js",
+      "source": {
+        "path": "backend/src/middleware/rateLimit.js"
+      }
+    },
+    {
       "id": "service:bankingCrypto",
       "label": "bankingCrypto.js",
       "type": "Service",
@@ -4658,34 +4737,6 @@
     }
   ],
   "edges": [
-    {
-      "id": "frontend:AccountVerificationPanel->endpoint:POST_/api/auth/password-reset/request:FETCHES_API",
-      "from": "frontend:AccountVerificationPanel",
-      "to": "endpoint:POST_/api/auth/password-reset/request",
-      "type": "FETCHES_API",
-      "label": "POST",
-      "source": "frontend:AccountVerificationPanel",
-      "target": "endpoint:POST_/api/auth/password-reset/request",
-      "kind": "FETCHES_API",
-      "evidence": {
-        "path": "frontend/src/components/AccountVerificationPanel.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:AccountVerificationPanel->frontend:api_client:USES_CLIENT",
-      "from": "frontend:AccountVerificationPanel",
-      "to": "frontend:api_client",
-      "type": "USES_CLIENT",
-      "label": "",
-      "source": "frontend:AccountVerificationPanel",
-      "target": "frontend:api_client",
-      "kind": "USES_CLIENT",
-      "evidence": {
-        "path": "frontend/src/components/AccountVerificationPanel.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
     {
       "id": "frontend:ActiveBookingCards->frontend:BookingPhotoGallery:RENDERS_COMPONENT",
       "from": "frontend:ActiveBookingCards",
@@ -5971,20 +6022,6 @@
       "kind": "USES_CLIENT",
       "evidence": {
         "path": "frontend/src/components/Plans.jsx",
-        "extractor": "generate-graph.js:static-analysis"
-      }
-    },
-    {
-      "id": "frontend:PortalShell->frontend:ui:RENDERS_COMPONENT",
-      "from": "frontend:PortalShell",
-      "to": "frontend:ui",
-      "type": "RENDERS_COMPONENT",
-      "label": "",
-      "source": "frontend:PortalShell",
-      "target": "frontend:ui",
-      "kind": "RENDERS_COMPONENT",
-      "evidence": {
-        "path": "frontend/src/components/PortalShell.jsx",
         "extractor": "generate-graph.js:static-analysis"
       }
     },
@@ -11375,6 +11412,1770 @@
       "kind": "QUERIES_DB",
       "evidence": {
         "path": "backend/src/routes/uploads.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:GET_/api/auth/me:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:GET_/api/auth/me",
+      "type": "MOUNTS",
+      "label": "GET /api/auth/me",
+      "source": "runtime:accounts",
+      "target": "endpoint:GET_/api/auth/me",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:GET_/api/profile:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:GET_/api/profile",
+      "type": "MOUNTS",
+      "label": "GET /api/profile",
+      "source": "runtime:accounts",
+      "target": "endpoint:GET_/api/profile",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:POST_/api/auth/google:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:POST_/api/auth/google",
+      "type": "MOUNTS",
+      "label": "POST /api/auth/google",
+      "source": "runtime:accounts",
+      "target": "endpoint:POST_/api/auth/google",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:POST_/api/auth/login:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:POST_/api/auth/login",
+      "type": "MOUNTS",
+      "label": "POST /api/auth/login",
+      "source": "runtime:accounts",
+      "target": "endpoint:POST_/api/auth/login",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:POST_/api/auth/password-reset/confirm:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:POST_/api/auth/password-reset/confirm",
+      "type": "MOUNTS",
+      "label": "POST /api/auth/password-reset/confirm",
+      "source": "runtime:accounts",
+      "target": "endpoint:POST_/api/auth/password-reset/confirm",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:POST_/api/auth/password-reset/request:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:POST_/api/auth/password-reset/request",
+      "type": "MOUNTS",
+      "label": "POST /api/auth/password-reset/request",
+      "source": "runtime:accounts",
+      "target": "endpoint:POST_/api/auth/password-reset/request",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:POST_/api/auth/register:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:POST_/api/auth/register",
+      "type": "MOUNTS",
+      "label": "POST /api/auth/register",
+      "source": "runtime:accounts",
+      "target": "endpoint:POST_/api/auth/register",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:POST_/api/auth/resend-verification:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:POST_/api/auth/resend-verification",
+      "type": "MOUNTS",
+      "label": "POST /api/auth/resend-verification",
+      "source": "runtime:accounts",
+      "target": "endpoint:POST_/api/auth/resend-verification",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:POST_/api/auth/verify-email:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:POST_/api/auth/verify-email",
+      "type": "MOUNTS",
+      "label": "POST /api/auth/verify-email",
+      "source": "runtime:accounts",
+      "target": "endpoint:POST_/api/auth/verify-email",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->endpoint:PUT_/api/profile:MOUNTS",
+      "from": "runtime:accounts",
+      "to": "endpoint:PUT_/api/profile",
+      "type": "MOUNTS",
+      "label": "PUT /api/profile",
+      "source": "runtime:accounts",
+      "target": "endpoint:PUT_/api/profile",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:accounts->runtime:redis:USES_SHARED_STATE",
+      "from": "runtime:accounts",
+      "to": "runtime:redis",
+      "type": "USES_SHARED_STATE",
+      "label": "Rate limits, leases, chat or realtime",
+      "source": "runtime:accounts",
+      "target": "runtime:redis",
+      "kind": "USES_SHARED_STATE",
+      "evidence": {
+        "path": "backend/src/middleware/rateLimit.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:DELETE_/api/admin/subscriptions/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:DELETE_/api/admin/subscriptions/:id",
+      "type": "MOUNTS",
+      "label": "DELETE /api/admin/subscriptions/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:DELETE_/api/admin/subscriptions/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/audit-logs:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/audit-logs",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/audit-logs",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/audit-logs",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/bookings:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/bookings",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/bookings",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/bookings",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/complaints:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/complaints",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/complaints",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/complaints",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/payout-statements:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/payout-statements",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/payout-statements",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/payout-statements",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/payout-statements/export:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/payout-statements/export",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/payout-statements/export",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/payout-statements/export",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/payouts:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/payouts",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/payouts",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/payouts",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/providers:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/providers",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/providers",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/providers",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/providers/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/providers/:id",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/providers/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/providers/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/refunds:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/refunds",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/refunds",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/refunds",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/reports:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/reports",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/reports",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/reports",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/reviews:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/reviews",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/reviews",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/reviews",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/session-payouts:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/session-payouts",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/session-payouts",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/session-payouts",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/settings/scheduling:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/settings/scheduling",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/settings/scheduling",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/settings/scheduling",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/stats:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/stats",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/stats",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/stats",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/subscriptions:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/subscriptions",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/subscriptions",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/subscriptions",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/users:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/users",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/users",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/users",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/webhook-events:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/webhook-events",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/webhook-events",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/webhook-events",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/admin/webhook-events/:paymentId:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/admin/webhook-events/:paymentId",
+      "type": "MOUNTS",
+      "label": "GET /api/admin/webhook-events/:paymentId",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/admin/webhook-events/:paymentId",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/bookings/:id/photos:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/bookings/:id/photos",
+      "type": "MOUNTS",
+      "label": "GET /api/bookings/:id/photos",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/bookings/:id/photos",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/bookings/:id/pins:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/bookings/:id/pins",
+      "type": "MOUNTS",
+      "label": "GET /api/bookings/:id/pins",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/bookings/:id/pins",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/bookings/assigned:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/bookings/assigned",
+      "type": "MOUNTS",
+      "label": "GET /api/bookings/assigned",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/bookings/assigned",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/bookings/my:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/bookings/my",
+      "type": "MOUNTS",
+      "label": "GET /api/bookings/my",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/bookings/my",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/bookings/pending:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/bookings/pending",
+      "type": "MOUNTS",
+      "label": "GET /api/bookings/pending",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/bookings/pending",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/customer/dashboard:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/customer/dashboard",
+      "type": "MOUNTS",
+      "label": "GET /api/customer/dashboard",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/customer/dashboard",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/docs:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/docs",
+      "type": "MOUNTS",
+      "label": "GET /api/docs",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/docs",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/docs/:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/docs/",
+      "type": "MOUNTS",
+      "label": "GET /api/docs/",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/docs/",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/openapi.json:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/openapi.json",
+      "type": "MOUNTS",
+      "label": "GET /api/openapi.json",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/openapi.json",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/provider/availability:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/provider/availability",
+      "type": "MOUNTS",
+      "label": "GET /api/provider/availability",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/provider/availability",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/provider/earnings:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/provider/earnings",
+      "type": "MOUNTS",
+      "label": "GET /api/provider/earnings",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/provider/earnings",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/uploads/kyc/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/uploads/kyc/:id",
+      "type": "MOUNTS",
+      "label": "GET /api/uploads/kyc/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/uploads/kyc/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:GET_/api/uploads/photos/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:GET_/api/uploads/photos/:id",
+      "type": "MOUNTS",
+      "label": "GET /api/uploads/photos/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:GET_/api/uploads/photos/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/admin/payouts/run:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/admin/payouts/run",
+      "type": "MOUNTS",
+      "label": "POST /api/admin/payouts/run",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/admin/payouts/run",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/admin/settings/scheduling/restore-defaults:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/admin/settings/scheduling/restore-defaults",
+      "type": "MOUNTS",
+      "label": "POST /api/admin/settings/scheduling/restore-defaults",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/admin/settings/scheduling/restore-defaults",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/admin/subscriptions:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/admin/subscriptions",
+      "type": "MOUNTS",
+      "label": "POST /api/admin/subscriptions",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/admin/subscriptions",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/bookings:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/bookings",
+      "type": "MOUNTS",
+      "label": "POST /api/bookings",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/bookings",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/bookings/:id/claim:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/bookings/:id/claim",
+      "type": "MOUNTS",
+      "label": "POST /api/bookings/:id/claim",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/bookings/:id/claim",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/bookings/:id/photos:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/bookings/:id/photos",
+      "type": "MOUNTS",
+      "label": "POST /api/bookings/:id/photos",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/bookings/:id/photos",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/provider/bank-accounts:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/provider/bank-accounts",
+      "type": "MOUNTS",
+      "label": "POST /api/provider/bank-accounts",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/provider/bank-accounts",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/provider/bookings/:id/cancel:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/provider/bookings/:id/cancel",
+      "type": "MOUNTS",
+      "label": "POST /api/provider/bookings/:id/cancel",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/provider/bookings/:id/cancel",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/provider/kyc-documents:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/provider/kyc-documents",
+      "type": "MOUNTS",
+      "label": "POST /api/provider/kyc-documents",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/provider/kyc-documents",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:POST_/api/provider/payouts/redeem:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:POST_/api/provider/payouts/redeem",
+      "type": "MOUNTS",
+      "label": "POST /api/provider/payouts/redeem",
+      "source": "runtime:bookings",
+      "target": "endpoint:POST_/api/provider/payouts/redeem",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/bookings/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/bookings/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/bookings/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/bookings/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/complaints/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/complaints/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/complaints/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/complaints/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/payouts/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/payouts/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/payouts/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/payouts/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/providers/:id/kyc:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/providers/:id/kyc",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/providers/:id/kyc",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/providers/:id/kyc",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/refunds/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/refunds/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/refunds/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/refunds/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/session-payouts/:categoryId:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/session-payouts/:categoryId",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/session-payouts/:categoryId",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/session-payouts/:categoryId",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/settings/scheduling:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/settings/scheduling",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/settings/scheduling",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/settings/scheduling",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/subscriptions/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/subscriptions/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/subscriptions/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/subscriptions/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/admin/users/:id:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/admin/users/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/admin/users/:id",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/admin/users/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/bookings/:id/cancel:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/bookings/:id/cancel",
+      "type": "MOUNTS",
+      "label": "PUT /api/bookings/:id/cancel",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/bookings/:id/cancel",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/bookings/:id/reschedule:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/bookings/:id/reschedule",
+      "type": "MOUNTS",
+      "label": "PUT /api/bookings/:id/reschedule",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/bookings/:id/reschedule",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/bookings/:id/schedule:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/bookings/:id/schedule",
+      "type": "MOUNTS",
+      "label": "PUT /api/bookings/:id/schedule",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/bookings/:id/schedule",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/bookings/:id/status:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/bookings/:id/status",
+      "type": "MOUNTS",
+      "label": "PUT /api/bookings/:id/status",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/bookings/:id/status",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/customer/town:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/customer/town",
+      "type": "MOUNTS",
+      "label": "PUT /api/customer/town",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/customer/town",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/provider/availability:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/provider/availability",
+      "type": "MOUNTS",
+      "label": "PUT /api/provider/availability",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/provider/availability",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/provider/bank-accounts/:id/select:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/provider/bank-accounts/:id/select",
+      "type": "MOUNTS",
+      "label": "PUT /api/provider/bank-accounts/:id/select",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/provider/bank-accounts/:id/select",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/provider/service-categories:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/provider/service-categories",
+      "type": "MOUNTS",
+      "label": "PUT /api/provider/service-categories",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/provider/service-categories",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->endpoint:PUT_/api/provider/service-towns:MOUNTS",
+      "from": "runtime:bookings",
+      "to": "endpoint:PUT_/api/provider/service-towns",
+      "type": "MOUNTS",
+      "label": "PUT /api/provider/service-towns",
+      "source": "runtime:bookings",
+      "target": "endpoint:PUT_/api/provider/service-towns",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:bookings->runtime:redis:USES_SHARED_STATE",
+      "from": "runtime:bookings",
+      "to": "runtime:redis",
+      "type": "USES_SHARED_STATE",
+      "label": "Rate limits, leases, chat or realtime",
+      "source": "runtime:bookings",
+      "target": "runtime:redis",
+      "kind": "USES_SHARED_STATE",
+      "evidence": {
+        "path": "backend/src/middleware/rateLimit.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:DELETE_/api/notifications/:id:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:DELETE_/api/notifications/:id",
+      "type": "MOUNTS",
+      "label": "DELETE /api/notifications/:id",
+      "source": "runtime:engagement",
+      "target": "endpoint:DELETE_/api/notifications/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/chatbot/catalog:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/chatbot/catalog",
+      "type": "MOUNTS",
+      "label": "GET /api/chatbot/catalog",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/chatbot/catalog",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/complaints/my:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/complaints/my",
+      "type": "MOUNTS",
+      "label": "GET /api/complaints/my",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/complaints/my",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/notifications:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/notifications",
+      "type": "MOUNTS",
+      "label": "GET /api/notifications",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/notifications",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/support:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/support",
+      "type": "MOUNTS",
+      "label": "GET /api/support",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/support",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/support/my:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/support/my",
+      "type": "MOUNTS",
+      "label": "GET /api/support/my",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/support/my",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/support/service-requests/admin:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/support/service-requests/admin",
+      "type": "MOUNTS",
+      "label": "GET /api/support/service-requests/admin",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/support/service-requests/admin",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/support/service-requests/my:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/support/service-requests/my",
+      "type": "MOUNTS",
+      "label": "GET /api/support/service-requests/my",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/support/service-requests/my",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:GET_/api/support/service-requests/provider:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:GET_/api/support/service-requests/provider",
+      "type": "MOUNTS",
+      "label": "GET /api/support/service-requests/provider",
+      "source": "runtime:engagement",
+      "target": "endpoint:GET_/api/support/service-requests/provider",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/chat:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/chat",
+      "type": "MOUNTS",
+      "label": "POST /api/chat",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/chat",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/chatbot/special-ask:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/chatbot/special-ask",
+      "type": "MOUNTS",
+      "label": "POST /api/chatbot/special-ask",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/chatbot/special-ask",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/complaints:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/complaints",
+      "type": "MOUNTS",
+      "label": "POST /api/complaints",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/complaints",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/reviews:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/reviews",
+      "type": "MOUNTS",
+      "label": "POST /api/reviews",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/reviews",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/support:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/support",
+      "type": "MOUNTS",
+      "label": "POST /api/support",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/support",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/support/service-requests:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/support/service-requests",
+      "type": "MOUNTS",
+      "label": "POST /api/support/service-requests",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/support/service-requests",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/support/service-requests/:id/claim:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/support/service-requests/:id/claim",
+      "type": "MOUNTS",
+      "label": "POST /api/support/service-requests/:id/claim",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/support/service-requests/:id/claim",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:POST_/api/support/service-requests/:id/complete:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:POST_/api/support/service-requests/:id/complete",
+      "type": "MOUNTS",
+      "label": "POST /api/support/service-requests/:id/complete",
+      "source": "runtime:engagement",
+      "target": "endpoint:POST_/api/support/service-requests/:id/complete",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:PUT_/api/notifications/:id/read:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:PUT_/api/notifications/:id/read",
+      "type": "MOUNTS",
+      "label": "PUT /api/notifications/:id/read",
+      "source": "runtime:engagement",
+      "target": "endpoint:PUT_/api/notifications/:id/read",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:PUT_/api/notifications/read-all:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:PUT_/api/notifications/read-all",
+      "type": "MOUNTS",
+      "label": "PUT /api/notifications/read-all",
+      "source": "runtime:engagement",
+      "target": "endpoint:PUT_/api/notifications/read-all",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->endpoint:PUT_/api/support/:id:MOUNTS",
+      "from": "runtime:engagement",
+      "to": "endpoint:PUT_/api/support/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/support/:id",
+      "source": "runtime:engagement",
+      "target": "endpoint:PUT_/api/support/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:engagement->runtime:redis:USES_SHARED_STATE",
+      "from": "runtime:engagement",
+      "to": "runtime:redis",
+      "type": "USES_SHARED_STATE",
+      "label": "Rate limits, leases, chat or realtime",
+      "source": "runtime:engagement",
+      "target": "runtime:redis",
+      "kind": "USES_SHARED_STATE",
+      "evidence": {
+        "path": "backend/src/middleware/rateLimit.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:gateway->runtime:accounts:PROXIES_TO",
+      "from": "runtime:gateway",
+      "to": "runtime:accounts",
+      "type": "PROXIES_TO",
+      "label": "accounts",
+      "source": "runtime:gateway",
+      "target": "runtime:accounts",
+      "kind": "PROXIES_TO",
+      "evidence": {
+        "path": "backend/src/runtime/service-map.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:gateway->runtime:bookings:PROXIES_TO",
+      "from": "runtime:gateway",
+      "to": "runtime:bookings",
+      "type": "PROXIES_TO",
+      "label": "bookings",
+      "source": "runtime:gateway",
+      "target": "runtime:bookings",
+      "kind": "PROXIES_TO",
+      "evidence": {
+        "path": "backend/src/runtime/service-map.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:gateway->runtime:engagement:PROXIES_TO",
+      "from": "runtime:gateway",
+      "to": "runtime:engagement",
+      "type": "PROXIES_TO",
+      "label": "engagement",
+      "source": "runtime:gateway",
+      "target": "runtime:engagement",
+      "kind": "PROXIES_TO",
+      "evidence": {
+        "path": "backend/src/runtime/service-map.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:gateway->runtime:payments:PROXIES_TO",
+      "from": "runtime:gateway",
+      "to": "runtime:payments",
+      "type": "PROXIES_TO",
+      "label": "payments",
+      "source": "runtime:gateway",
+      "target": "runtime:payments",
+      "kind": "PROXIES_TO",
+      "evidence": {
+        "path": "backend/src/runtime/service-map.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:jobs->runtime:redis:USES_SHARED_STATE",
+      "from": "runtime:jobs",
+      "to": "runtime:redis",
+      "type": "USES_SHARED_STATE",
+      "label": "Rate limits, leases, chat or realtime",
+      "source": "runtime:jobs",
+      "target": "runtime:redis",
+      "kind": "USES_SHARED_STATE",
+      "evidence": {
+        "path": "backend/src/middleware/rateLimit.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:jobs->service:bookingTimeouts:RUNS",
+      "from": "runtime:jobs",
+      "to": "service:bookingTimeouts",
+      "type": "RUNS",
+      "label": "bookingTimeouts",
+      "source": "runtime:jobs",
+      "target": "service:bookingTimeouts",
+      "kind": "RUNS",
+      "evidence": {
+        "path": "backend/src/jobs.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:jobs->service:payouts:RUNS",
+      "from": "runtime:jobs",
+      "to": "service:payouts",
+      "type": "RUNS",
+      "label": "payouts",
+      "source": "runtime:jobs",
+      "target": "service:payouts",
+      "kind": "RUNS",
+      "evidence": {
+        "path": "backend/src/jobs.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:DELETE_/api/promotions/:id:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:DELETE_/api/promotions/:id",
+      "type": "MOUNTS",
+      "label": "DELETE /api/promotions/:id",
+      "source": "runtime:payments",
+      "target": "endpoint:DELETE_/api/promotions/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/categories:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/categories",
+      "type": "MOUNTS",
+      "label": "GET /api/categories",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/categories",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/payments/mode:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/payments/mode",
+      "type": "MOUNTS",
+      "label": "GET /api/payments/mode",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/payments/mode",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/payments/my:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/payments/my",
+      "type": "MOUNTS",
+      "label": "GET /api/payments/my",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/payments/my",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/payments/refunds/my:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/payments/refunds/my",
+      "type": "MOUNTS",
+      "label": "GET /api/payments/refunds/my",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/payments/refunds/my",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/promotions:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/promotions",
+      "type": "MOUNTS",
+      "label": "GET /api/promotions",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/promotions",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/promotions/all:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/promotions/all",
+      "type": "MOUNTS",
+      "label": "GET /api/promotions/all",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/promotions/all",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/services:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/services",
+      "type": "MOUNTS",
+      "label": "GET /api/services",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/services",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/subscriptions:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/subscriptions",
+      "type": "MOUNTS",
+      "label": "GET /api/subscriptions",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/subscriptions",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:GET_/api/subscriptions/entitlements:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:GET_/api/subscriptions/entitlements",
+      "type": "MOUNTS",
+      "label": "GET /api/subscriptions/entitlements",
+      "source": "runtime:payments",
+      "target": "endpoint:GET_/api/subscriptions/entitlements",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/email:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/email",
+      "type": "MOUNTS",
+      "label": "POST /api/email",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/email",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/:id/receipt/resend:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/:id/receipt/resend",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/:id/receipt/resend",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/:id/receipt/resend",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/demo/checkout:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/demo/checkout",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/demo/checkout",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/demo/checkout",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/nowpayments/ipn:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/nowpayments/ipn",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/nowpayments/ipn",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/nowpayments/ipn",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/nowpayments/order:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/nowpayments/order",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/nowpayments/order",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/nowpayments/order",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/nowpayments/webhook:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/nowpayments/webhook",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/nowpayments/webhook",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/nowpayments/webhook",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/payhere/order:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/payhere/order",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/payhere/order",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/payhere/order",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/payhere/webhook:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/payhere/webhook",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/payhere/webhook",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/payhere/webhook",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/payments/refunds:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/payments/refunds",
+      "type": "MOUNTS",
+      "label": "POST /api/payments/refunds",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/payments/refunds",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/promotions:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/promotions",
+      "type": "MOUNTS",
+      "label": "POST /api/promotions",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/promotions",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:POST_/api/subscriptions/subscribe:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:POST_/api/subscriptions/subscribe",
+      "type": "MOUNTS",
+      "label": "POST /api/subscriptions/subscribe",
+      "source": "runtime:payments",
+      "target": "endpoint:POST_/api/subscriptions/subscribe",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:PUT_/api/payments/refunds/:id/cancel:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:PUT_/api/payments/refunds/:id/cancel",
+      "type": "MOUNTS",
+      "label": "PUT /api/payments/refunds/:id/cancel",
+      "source": "runtime:payments",
+      "target": "endpoint:PUT_/api/payments/refunds/:id/cancel",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:PUT_/api/promotions/:id:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:PUT_/api/promotions/:id",
+      "type": "MOUNTS",
+      "label": "PUT /api/promotions/:id",
+      "source": "runtime:payments",
+      "target": "endpoint:PUT_/api/promotions/:id",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:PUT_/api/subscriptions/:id/auto-renew:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:PUT_/api/subscriptions/:id/auto-renew",
+      "type": "MOUNTS",
+      "label": "PUT /api/subscriptions/:id/auto-renew",
+      "source": "runtime:payments",
+      "target": "endpoint:PUT_/api/subscriptions/:id/auto-renew",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->endpoint:PUT_/api/subscriptions/:id/cancel:MOUNTS",
+      "from": "runtime:payments",
+      "to": "endpoint:PUT_/api/subscriptions/:id/cancel",
+      "type": "MOUNTS",
+      "label": "PUT /api/subscriptions/:id/cancel",
+      "source": "runtime:payments",
+      "target": "endpoint:PUT_/api/subscriptions/:id/cancel",
+      "kind": "MOUNTS",
+      "evidence": {
+        "path": "backend/src/app.js",
+        "extractor": "generate-graph.js:static-analysis"
+      }
+    },
+    {
+      "id": "runtime:payments->runtime:redis:USES_SHARED_STATE",
+      "from": "runtime:payments",
+      "to": "runtime:redis",
+      "type": "USES_SHARED_STATE",
+      "label": "Rate limits, leases, chat or realtime",
+      "source": "runtime:payments",
+      "target": "runtime:redis",
+      "kind": "USES_SHARED_STATE",
+      "evidence": {
+        "path": "backend/src/middleware/rateLimit.js",
         "extractor": "generate-graph.js:static-analysis"
       }
     },

@@ -8,6 +8,14 @@ npm run graph
 
 ## Request path
 
+The repository now also includes a serverless microservices deployment target:
+four domain services behind `backend/src/gateway.js`, selected by the shared
+`backend/src/app.js` factory, and external scheduled jobs in `backend/src/jobs.js`.
+See `docs/SERVERLESS_ARCHITECTURE.md` for the service map, shared-database
+consistency decision, Redis transport and deployment/rollback instructions.
+The existing deployment descriptions below describe the legacy hosting path;
+adding the Cloud Run target does not itself migrate live traffic.
+
 Production database hosting migrated from Aiven to Neon (commit `64eb69f`, August 23, 2026). The shared Prisma client uses pooled `DATABASE_URL` for runtime queries. Before Express starts, `backend/prisma/run-migrations.js` runs migrations through direct unpooled `DIRECT_URL`, deriving it from the Neon pooler hostname when needed. Local development and CI retain isolated Docker PostgreSQL databases.
 
 ```mermaid

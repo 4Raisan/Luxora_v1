@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0.0",
   "stats": {
-    "totalNodes": 87,
-    "totalEdges": 108,
+    "totalNodes": 95,
+    "totalEdges": 128,
     "totalViews": 12
   },
   "views": [
@@ -40,7 +40,7 @@
       "id": "realtime",
       "name": "Realtime / SSE",
       "icon": "📡",
-      "description": "Server-Sent Events architecture: /api/realtime endpoint, in-memory connection registry, 25s keep-alive ping, broadcastBookingEvent(), 7 named events, and frontend sync."
+      "description": "Server-Sent Events architecture: /api/realtime endpoint, local connection registry, shared Redis broadcasts, 25s keep-alive ping, named events, and frontend sync."
     },
     {
       "id": "payments",
@@ -58,7 +58,7 @@
       "id": "cicd",
       "name": "CI/CD Pipeline",
       "icon": "🚀",
-      "description": "8-job GitHub Actions CI pipeline: Selective execution classifier (plan-checks.mjs), Protected Files Guard, 01-06 quality checks, and hardened gate."
+      "description": "9-job GitHub Actions CI pipeline: Selective execution classifier (plan-checks.mjs), Protected Files Guard, 01-06 quality checks, and hardened gate."
     },
     {
       "id": "deployment",
@@ -236,6 +236,20 @@
       "metadata": {}
     },
     {
+      "id": "deploy:cloud-run",
+      "label": "Serverless Cloud Run services",
+      "layer": "Deployment Infrastructure",
+      "type": "deployment_target",
+      "views": [
+        "system",
+        "deployment",
+        "backend"
+      ],
+      "file": "infra/cloud-run/main.tf",
+      "description": "Deployable serverless microservices topology. Four independent domain services behind a public gateway, private IAM invocation, external scheduled jobs and shared PostgreSQL transactions. No claim that this topology is already deployed.",
+      "metadata": {}
+    },
+    {
       "id": "deploy:github-pages",
       "label": "🌐 GitHub Pages (Docs & KG)",
       "layer": "Deployment Infrastructure",
@@ -380,7 +394,7 @@
         "realtime"
       ],
       "file": "frontend/src/hooks/useRealtime.js",
-      "description": "Frontend EventSource subscription to /api/realtime; listens for 7 named events (BOOKING_CREATED, ASSIGNED, CLAIMED, etc.) and triggers onSync state recovery on reconnect.",
+      "description": "Frontend EventSource subscription to /api/realtime; listens for named booking, payment and refund events and triggers onSync state recovery on reconnect.",
       "metadata": {}
     },
     {
@@ -1354,6 +1368,104 @@
       "metadata": {}
     },
     {
+      "id": "runtime:accounts",
+      "label": "accounts service",
+      "layer": "Domain Services",
+      "type": "backend_server",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ],
+      "file": "backend/src/app.js",
+      "description": "Independent Cloud Run service selected by LUXORA_SERVICE=accounts. Shared database transactions preserve current financial invariants.",
+      "metadata": {}
+    },
+    {
+      "id": "runtime:bookings",
+      "label": "bookings service",
+      "layer": "Domain Services",
+      "type": "backend_server",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ],
+      "file": "backend/src/app.js",
+      "description": "Independent Cloud Run service selected by LUXORA_SERVICE=bookings. Shared database transactions preserve current financial invariants.",
+      "metadata": {}
+    },
+    {
+      "id": "runtime:engagement",
+      "label": "engagement service",
+      "layer": "Domain Services",
+      "type": "backend_server",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ],
+      "file": "backend/src/app.js",
+      "description": "Independent Cloud Run service selected by LUXORA_SERVICE=engagement. Shared database transactions preserve current financial invariants.",
+      "metadata": {}
+    },
+    {
+      "id": "runtime:gateway",
+      "label": "Service routing gateway",
+      "layer": "API Gateway & Middleware",
+      "type": "backend_server",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ],
+      "file": "backend/src/gateway.js",
+      "description": "Streams unchanged API requests to independently deployed services; preserves customer JWTs and adds Cloud Run platform identity.",
+      "metadata": {}
+    },
+    {
+      "id": "runtime:jobs",
+      "label": "Scheduled serverless jobs",
+      "layer": "Domain Services",
+      "type": "backend_server",
+      "views": [
+        "system",
+        "deployment"
+      ],
+      "file": "backend/src/jobs.js",
+      "description": "Booking timeout scans, demo renewals and monthly payouts. External scheduler, shared leases, idempotent database transitions, bounded task lifetime.",
+      "metadata": {}
+    },
+    {
+      "id": "runtime:payments",
+      "label": "payments service",
+      "layer": "Domain Services",
+      "type": "backend_server",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ],
+      "file": "backend/src/app.js",
+      "description": "Independent Cloud Run service selected by LUXORA_SERVICE=payments. Shared database transactions preserve current financial invariants.",
+      "metadata": {}
+    },
+    {
+      "id": "runtime:redis",
+      "label": "Shared Redis state and event bus",
+      "layer": "External Cloud Services",
+      "type": "external_service",
+      "views": [
+        "system",
+        "backend",
+        "realtime",
+        "deployment"
+      ],
+      "file": "backend/src/middleware/rateLimit.js",
+      "description": "Shared rate limits, chat state with fenced session leases, job leases and cross-instance realtime Pub/Sub. Financial truth remains in PostgreSQL.",
+      "metadata": {}
+    },
+    {
       "id": "sec:bcrypt",
       "label": "🔒 Bcrypt (10 Rounds)",
       "layer": "Security Controls",
@@ -1414,7 +1526,7 @@
         "deployment"
       ],
       "file": "backend/src/index.js",
-      "description": "Central HTTP server configuring security headers (CSP, HSTS, X-Frame-Options), strict CORS origins, reverse proxy trust, central Prisma error handling, and background schedulers.",
+      "description": "Shared Express application factory with domain-specific router selection. Serverless services use external scheduled jobs; legacy all mode remains available.",
       "metadata": {
         "port": 5000,
         "framework": "Express 5.2.1",
@@ -1517,7 +1629,7 @@
         "realtime"
       ],
       "file": "backend/src/services/realtime.js",
-      "description": "Server-Sent Events manager keeping an in-memory map of authenticated active connections, a 25-second keep-alive ping loop, and targeted role/user event broadcasting via broadcastBookingEvent().",
+      "description": "Server-Sent Events manager with local authenticated connections, shared Redis publication/subscription between service instances, a 25-second keep-alive ping loop and user/role audience filtering.",
       "metadata": {
         "endpoint": "GET /api/realtime",
         "heartbeatIntervalMs": 25000,
@@ -1818,6 +1930,61 @@
       "description": "Gate verifies quality job outcome.",
       "views": [
         "cicd"
+      ]
+    },
+    {
+      "id": "deploy:cloud-run->runtime:accounts:hosts",
+      "from": "deploy:cloud-run",
+      "to": "runtime:accounts",
+      "type": "hosts",
+      "label": "Serverless container",
+      "description": "Terraform service definition",
+      "views": [
+        "deployment"
+      ]
+    },
+    {
+      "id": "deploy:cloud-run->runtime:bookings:hosts",
+      "from": "deploy:cloud-run",
+      "to": "runtime:bookings",
+      "type": "hosts",
+      "label": "Serverless container",
+      "description": "Terraform service definition",
+      "views": [
+        "deployment"
+      ]
+    },
+    {
+      "id": "deploy:cloud-run->runtime:engagement:hosts",
+      "from": "deploy:cloud-run",
+      "to": "runtime:engagement",
+      "type": "hosts",
+      "label": "Serverless container",
+      "description": "Terraform service definition",
+      "views": [
+        "deployment"
+      ]
+    },
+    {
+      "id": "deploy:cloud-run->runtime:jobs:schedules",
+      "from": "deploy:cloud-run",
+      "to": "runtime:jobs",
+      "type": "schedules",
+      "label": "Cloud Scheduler",
+      "description": "IAM-authenticated Cloud Run job executions",
+      "views": [
+        "deployment"
+      ]
+    },
+    {
+      "id": "deploy:cloud-run->runtime:payments:hosts",
+      "from": "deploy:cloud-run",
+      "to": "runtime:payments",
+      "type": "hosts",
+      "label": "Serverless container",
+      "description": "Terraform service definition",
+      "views": [
+        "deployment"
       ]
     },
     {
@@ -2493,6 +2660,188 @@
       ]
     },
     {
+      "id": "runtime:accounts->ext:postgresql:shared_transactions",
+      "from": "runtime:accounts",
+      "to": "ext:postgresql",
+      "type": "shared_transactions",
+      "label": "Prisma / PostgreSQL",
+      "description": "Existing atomic financial and account invariants remain in the shared database",
+      "views": [
+        "system",
+        "deployment",
+        "database"
+      ]
+    },
+    {
+      "id": "runtime:accounts->runtime:redis:shared_runtime_state",
+      "from": "runtime:accounts",
+      "to": "runtime:redis",
+      "type": "shared_runtime_state",
+      "label": "Redis",
+      "description": "Shared counters, leases and realtime messages",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:bookings->ext:postgresql:shared_transactions",
+      "from": "runtime:bookings",
+      "to": "ext:postgresql",
+      "type": "shared_transactions",
+      "label": "Prisma / PostgreSQL",
+      "description": "Existing atomic financial and account invariants remain in the shared database",
+      "views": [
+        "system",
+        "deployment",
+        "database"
+      ]
+    },
+    {
+      "id": "runtime:bookings->runtime:redis:shared_runtime_state",
+      "from": "runtime:bookings",
+      "to": "runtime:redis",
+      "type": "shared_runtime_state",
+      "label": "Redis",
+      "description": "Shared counters, leases and realtime messages",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:engagement->ext:postgresql:shared_transactions",
+      "from": "runtime:engagement",
+      "to": "ext:postgresql",
+      "type": "shared_transactions",
+      "label": "Prisma / PostgreSQL",
+      "description": "Existing atomic financial and account invariants remain in the shared database",
+      "views": [
+        "system",
+        "deployment",
+        "database"
+      ]
+    },
+    {
+      "id": "runtime:engagement->runtime:redis:shared_runtime_state",
+      "from": "runtime:engagement",
+      "to": "runtime:redis",
+      "type": "shared_runtime_state",
+      "label": "Redis",
+      "description": "Shared counters, leases and realtime messages",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:gateway->runtime:accounts:routes_to",
+      "from": "runtime:gateway",
+      "to": "runtime:accounts",
+      "type": "routes_to",
+      "label": "accounts",
+      "description": "Routing contract in service-map.js",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:gateway->runtime:bookings:routes_to",
+      "from": "runtime:gateway",
+      "to": "runtime:bookings",
+      "type": "routes_to",
+      "label": "bookings",
+      "description": "Routing contract in service-map.js",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:gateway->runtime:engagement:routes_to",
+      "from": "runtime:gateway",
+      "to": "runtime:engagement",
+      "type": "routes_to",
+      "label": "engagement",
+      "description": "Routing contract in service-map.js",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:gateway->runtime:payments:routes_to",
+      "from": "runtime:gateway",
+      "to": "runtime:payments",
+      "type": "routes_to",
+      "label": "payments",
+      "description": "Routing contract in service-map.js",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:jobs->ext:postgresql:shared_transactions",
+      "from": "runtime:jobs",
+      "to": "ext:postgresql",
+      "type": "shared_transactions",
+      "label": "Prisma / PostgreSQL",
+      "description": "Existing atomic financial and account invariants remain in the shared database",
+      "views": [
+        "system",
+        "deployment",
+        "database"
+      ]
+    },
+    {
+      "id": "runtime:jobs->runtime:redis:shared_runtime_state",
+      "from": "runtime:jobs",
+      "to": "runtime:redis",
+      "type": "shared_runtime_state",
+      "label": "Redis",
+      "description": "Shared counters, leases and realtime messages",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
+      "id": "runtime:payments->ext:postgresql:shared_transactions",
+      "from": "runtime:payments",
+      "to": "ext:postgresql",
+      "type": "shared_transactions",
+      "label": "Prisma / PostgreSQL",
+      "description": "Existing atomic financial and account invariants remain in the shared database",
+      "views": [
+        "system",
+        "deployment",
+        "database"
+      ]
+    },
+    {
+      "id": "runtime:payments->runtime:redis:shared_runtime_state",
+      "from": "runtime:payments",
+      "to": "runtime:redis",
+      "type": "shared_runtime_state",
+      "label": "Redis",
+      "description": "Shared counters, leases and realtime messages",
+      "views": [
+        "system",
+        "backend",
+        "deployment"
+      ]
+    },
+    {
       "id": "sec:jwt-revocation->middleware:auth:powers",
       "from": "sec:jwt-revocation",
       "to": "middleware:auth",
@@ -2762,6 +3111,17 @@
       "type": "pushes_events",
       "label": "SSE Event Stream",
       "description": "Pushes 7 named event types to connected browser clients.",
+      "views": [
+        "realtime"
+      ]
+    },
+    {
+      "id": "service:realtime->runtime:redis:pubsub",
+      "from": "service:realtime",
+      "to": "runtime:redis",
+      "type": "pubsub",
+      "label": "Cross-instance events",
+      "description": "User/role-scoped live hints; reconnect reloads authoritative state",
       "views": [
         "realtime"
       ]

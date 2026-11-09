@@ -12,6 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SERVICES, serviceForPath } from '../backend/src/runtime/service-map.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1745,4 +1746,17 @@ parsePrismaSchema();
 parseBackendModules();
 parseBackendRoutes();
 parseFrontend();
+
+addNode({ id: 'runtime:gateway', label: 'Serverless API gateway', type: 'Service', group: 'service', file: 'backend/src/gateway.js' });
+for (const name of SERVICES) {
+  const id = 'runtime:' + name;
+  addNode({ id, label: name + ' microservice', type: 'Service', group: 'service', file: 'backend/src/app.js', metadata: { runtime: 'Cloud Run', selector: name, databaseTopology: 'shared PostgreSQL transactions' } });
+  addEdge('runtime:gateway', id, 'PROXIES_TO', name, { path: 'backend/src/runtime/service-map.js' });
+  for (const node of nodes.filter(node => node.type === 'ApiEndpoint' && serviceForPath(node.metadata?.path || '') === name)) addEdge(id, node.id, 'MOUNTS', node.label, { path: 'backend/src/app.js' });
+}
+addNode({ id: 'runtime:jobs', label: 'Serverless scheduled workers', type: 'Service', group: 'service', file: 'backend/src/jobs.js' });
+for (const name of ['payouts', 'bookingTimeouts']) addEdge('runtime:jobs', 'service:' + name, 'RUNS', name, { path: 'backend/src/jobs.js' });
+
+addNode({ id: 'runtime:redis', label: 'Shared Redis state and realtime bus', type: 'Service', group: 'service', file: 'backend/src/middleware/rateLimit.js' });
+for (const name of [...SERVICES, 'jobs']) addEdge('runtime:' + name, 'runtime:redis', 'USES_SHARED_STATE', 'Rate limits, leases, chat or realtime', { path: 'backend/src/middleware/rateLimit.js' });
 generateOutput();
