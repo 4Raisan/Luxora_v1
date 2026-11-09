@@ -61,9 +61,14 @@
   transition: var(--transition);
   position: relative;
   overflow: hidden;
+  cursor: pointer;
+}
+
+/* Initial hidden state only applies once JS has armed the reveal, so the
+   cards remain visible if the observer never initializes. */
+:where(.services--reveal) .service-card {
   opacity: 0;
   transform: translateY(30px);
-  cursor: pointer;
 }
 
 .service-card::before {
@@ -179,5 +184,14 @@
   }
   .services {
     padding: 4rem 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .service-card,
+  :where(.services--reveal) .service-card {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }

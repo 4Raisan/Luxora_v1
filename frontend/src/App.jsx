@@ -8,6 +8,8 @@ import Plans from './components/Plans'
 import About from './components/About'
 import HowItWorks from './components/HowItWorks'
 import TrustSection from './components/TrustSection'
+import FinalCTA from './components/FinalCTA'
+import ScrollProgress from './components/ScrollProgress'
 import Footer from './components/Footer'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -36,6 +38,7 @@ const PageLoader = () => (
 // Main landing page layout
 const HomePage = () => (
   <>
+    <ScrollProgress />
     <Navbar />
     <main>
       <Hero />
@@ -45,6 +48,7 @@ const HomePage = () => (
       <About />
       <HowItWorks />
       <TrustSection />
+      <FinalCTA />
     </main>
     <Footer />
   </>

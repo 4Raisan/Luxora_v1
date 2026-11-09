@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import useScrollReveal from '../hooks/useScrollReveal'
 import './HowItWorks.css'
 
 const MOTION = {
@@ -55,7 +56,7 @@ const steps = [
 export const Card = ({ step }) => (
   <article className="journey-card" aria-label={`${step.number}. ${step.backTitle}`}>
     <div className="journey-card__face journey-card__face--front" aria-hidden="true">
-      <img className="journey-card__artwork" src="/luxora-journey-card.jpg" alt="" draggable="false" />
+      <img className="journey-card__artwork" src="/luxora-journey-card.webp" alt="" draggable="false" decoding="async" />
     </div>
 
     <div className="journey-card__face journey-card__face--back" aria-hidden="true">
@@ -76,6 +77,7 @@ export const Card = ({ step }) => (
 export const CardSection = () => {
   const sectionRef = useRef(null)
   const trackRef = useRef(null)
+  useScrollReveal(sectionRef, { stagger: 0.14, y: 28 })
 
   useLayoutEffect(() => {
     gsap.registerPlugin(ScrollTrigger)
@@ -166,10 +168,10 @@ export const CardSection = () => {
   return (
     <section ref={sectionRef} className="how-it-works" aria-labelledby="how-it-works-title" style={{ '--journey-perspective': `${MOTION.desktopPerspective}px` }}>
       <div className="how-it-works__inner">
-        <h2 id="how-it-works-title" className="how-it-works__title">Your Seamless <em>Care Journey</em></h2>
-        <p className="how-it-works__intro">From choosing a service to verified completion, every step is designed around your time and peace of mind.</p>
+        <h2 id="how-it-works-title" className="how-it-works__title" data-reveal>Your Seamless <em>Care Journey</em></h2>
+        <p className="how-it-works__intro" data-reveal>From choosing a service to verified completion, every step is designed around your time and peace of mind.</p>
 
-        <div className="how-it-works__timeline" aria-hidden="true">
+        <div className="how-it-works__timeline" data-reveal aria-hidden="true">
           <svg className="how-it-works__journey" viewBox="0 0 1200 130" preserveAspectRatio="none" focusable="false">
             <defs>
               <linearGradient id="journey-gold" x1="0" x2="1" y1="0" y2="0">

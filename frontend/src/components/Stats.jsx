@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import useScrollReveal from '../hooks/useScrollReveal'
 import './Stats.css'
 
 const useCountUp = (target, duration = 2000, start = false) => {
@@ -39,7 +40,7 @@ const StatItem = ({ value, label, delay, started }) => {
   const animated = useCountUp(value, 2200, started)
 
   return (
-    <div className="stat" style={{ animationDelay: `${delay}s` }}>
+    <div className="stat" data-reveal style={{ animationDelay: `${delay}s` }}>
       <div className="stat__value">{animated}</div>
       <div className="stat__label">{label}</div>
     </div>
@@ -49,6 +50,7 @@ const StatItem = ({ value, label, delay, started }) => {
 const Stats = () => {
   const [started, setStarted] = useState(false)
   const ref = useRef(null)
+  useScrollReveal(ref, { selector: '[data-reveal]', stagger: 0.14, y: 24 })
 
   useEffect(() => {
     const observer = new IntersectionObserver(

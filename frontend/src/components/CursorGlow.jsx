@@ -20,6 +20,14 @@ const CursorGlow = () => {
     let shown = false
     let hidden = false
 
+    const tick = () => {
+      x += (targetX - x) * 0.18
+      y += (targetY - y) * 0.18
+      glow.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
+      // Park the loop once settled so idle scrolling pays no compositing cost.
+      raf = Math.abs(targetX - x) > 0.1 || Math.abs(targetY - y) > 0.1 ? requestAnimationFrame(tick) : 0
+    }
+
     const onMove = (event) => {
       targetX = event.clientX
       targetY = event.clientY
@@ -28,6 +36,7 @@ const CursorGlow = () => {
         hidden = false
         glow.style.opacity = '1'
       }
+      if (!raf) raf = requestAnimationFrame(tick)
     }
     const onHide = () => {
       shown = false
@@ -35,13 +44,6 @@ const CursorGlow = () => {
         hidden = true
         glow.style.opacity = '0'
       }
-    }
-
-    const tick = () => {
-      x += (targetX - x) * 0.18
-      y += (targetY - y) * 0.18
-      glow.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
-      raf = requestAnimationFrame(tick)
     }
 
     window.addEventListener('mousemove', onMove, { passive: true })

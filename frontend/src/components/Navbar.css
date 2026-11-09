@@ -240,8 +240,14 @@
 
 .navbar__mobile-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.navbar__mobile-actions > * {
+  flex: 1 1 auto;
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {

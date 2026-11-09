@@ -1,12 +1,42 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import './Hero.css'
+
+gsap.registerPlugin(ScrollTrigger)
 
 const Hero = () => {
   const navigate = useNavigate()
+  const sectionRef = useRef(null)
   const headingRef = useRef(null)
   const subtitleRef = useRef(null)
   const actionsRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const section = sectionRef.current
+    if (!section || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+
+    const context = gsap.context(() => {
+      const media = gsap.matchMedia()
+      media.add('(min-width: 769px)', () => {
+        gsap.to('.hero__content', {
+          yPercent: -12,
+          opacity: 0.25,
+          ease: 'none',
+          scrollTrigger: { trigger: section, start: 'top top', end: 'bottom top', scrub: true },
+        })
+        gsap.to('.hero__scroll', {
+          opacity: 0,
+          ease: 'none',
+          scrollTrigger: { trigger: section, start: 'top top', end: '25% top', scrub: true },
+        })
+      })
+      return () => media.revert()
+    }, section)
+
+    return () => context.revert()
+  }, [])
 
   useEffect(() => {
     const els = [headingRef.current, subtitleRef.current, actionsRef.current]
@@ -24,7 +54,7 @@ const Hero = () => {
   }
 
   return (
-    <section id="home" className="hero">
+    <section id="home" className="hero" ref={sectionRef}>
       {/* Background */}
       <div className="hero__bg">
         <div className="hero__overlay" />

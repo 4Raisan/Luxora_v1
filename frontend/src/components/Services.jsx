@@ -48,25 +48,35 @@ const services = [
 ]
 
 const Services = () => {
+  const sectionRef = useRef(null)
   const cardsRef = useRef([])
 
   useEffect(() => {
+    const cards = cardsRef.current.filter(Boolean)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      cards.forEach((el) => el.classList.add('visible'))
+      return undefined
+    }
+    // Hidden state is scoped to this class so cards stay visible if this
+    // effect never runs.
+    sectionRef.current?.classList.add('services--reveal')
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add('visible')
+            observer.unobserve(entry.target)
           }
         })
       },
       { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
     )
-    cardsRef.current.forEach((el) => { if (el) observer.observe(el) })
+    cards.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
   }, [])
 
   return (
-    <section id="services" className="services">
+    <section id="services" className="services" ref={sectionRef}>
       <div className="services__inner">
         {/* Header */}
         <div className="services__header">

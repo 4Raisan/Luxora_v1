@@ -32,10 +32,14 @@
 .how-it-works__journey-path { fill: none; stroke: url(#journey-gold); stroke-width: 2.5; }
 .how-it-works__journey-points circle { fill: #070809; filter: drop-shadow(0 0 5px rgba(247, 220, 136, 0.76)); stroke: #f4d57e; stroke-width: 2.25; }
 
-.how-it-works__stage { perspective: var(--journey-perspective, 1400px); perspective-origin: 50% 45%; width: 100%; }
-.how-it-works__steps { display: grid; gap: clamp(0.8rem, 1.5vw, 1.35rem); grid-template-columns: repeat(4, minmax(0, 1fr)); transform-style: preserve-3d; will-change: transform; }
+.how-it-works__stage { width: 100%; }
+/* Perspective lives on the card row so each flip card composites as its own
+   layer; a shared preserve-3d strip re-rasterizes all four cards per frame. */
+.how-it-works__steps { display: grid; gap: clamp(0.8rem, 1.5vw, 1.35rem); grid-template-columns: repeat(4, minmax(0, 1fr)); perspective: var(--journey-perspective, 1400px); perspective-origin: 50% 45%; }
 
 .journey-card {
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(5, 5, 47, 0.3);
   height: clamp(300px, 46vh, 440px);
   min-height: 0;
   position: relative;
@@ -50,7 +54,6 @@
   background: #f5f2e9;
   border: 1px solid rgba(0, 0, 0, 0.14);
   border-radius: 18px;
-  box-shadow: 0 24px 52px rgba(5, 5, 47, 0.28);
   color: #0e0e12;
   display: flex;
   flex-direction: column;
@@ -110,14 +113,13 @@
     scroll-padding-inline: 18px;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 0.85rem;
-    perspective: 850px;
     scrollbar-width: thin;
     scrollbar-color: rgba(201, 168, 76, 0.45) transparent;
   }
   .how-it-works__stage::-webkit-scrollbar { height: 4px; }
   .how-it-works__stage::-webkit-scrollbar-thumb { background: rgba(201, 168, 76, 0.4); border-radius: 999px; }
-  .how-it-works__steps { gap: 14px; grid-template-columns: repeat(4, min(68vw, 250px)); padding-inline: 18px; width: max-content; }
-  .journey-card { scroll-snap-align: center; height: clamp(300px, 48vh, 350px); width: min(68vw, 250px); }
+  .how-it-works__steps { gap: 14px; grid-template-columns: repeat(4, min(68vw, 250px)); padding-inline: 18px; width: max-content; perspective: 850px; }
+  .journey-card { scroll-snap-align: center; border-radius: 15px; height: clamp(300px, 48vh, 350px); width: min(68vw, 250px); }
   .journey-card__face { padding: 1.35rem; }
   .journey-card__face--front { padding: 0; }
   .journey-card__description { font-size: 0.76rem; }

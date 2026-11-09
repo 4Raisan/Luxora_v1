@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiRequest } from '../services/api'
+import useScrollReveal from '../hooks/useScrollReveal'
 import './Plans.css'
 
 const AutoIcon = () => (
@@ -68,6 +69,8 @@ const CheckIcon = () => (
 
 const Plans = () => {
   const navigate = useNavigate()
+  const sectionRef = useRef(null)
+  useScrollReveal(sectionRef, { stagger: 0.15 })
   const [activeCategory, setActiveCategory] = useState('auto')
   // Live catalogue from the backend. No static price fallback: if the API is
   // unreachable we show a neutral unavailable state rather than invented
@@ -144,11 +147,11 @@ const Plans = () => {
   }
 
   return (
-    <section id="plans" className="plans">
+    <section id="plans" className="plans" ref={sectionRef}>
       <div className="plans__inner">
 
         {/* Header */}
-        <div className="plans__header">
+        <div className="plans__header" data-reveal>
           <span className="section-label">Our Packages</span>
           <h2 className="plans__title">Plans &amp; Pricing</h2>
           <p className="plans__subtitle">
@@ -158,7 +161,7 @@ const Plans = () => {
         </div>
 
         {/* Category Tabs */}
-        <div className="plans__tabs">
+        <div className="plans__tabs" data-reveal>
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
@@ -236,7 +239,7 @@ const Plans = () => {
           </div>
         )}
 
-        <p className="plans__note">
+        <p className="plans__note" data-reveal>
           All prices are in Sri Lankan Rupees (LKR) and include service visits as described.
           Contact us to customise a package for your specific needs.
         </p>

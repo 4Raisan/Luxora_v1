@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import useScrollReveal from '../hooks/useScrollReveal'
 import './About.css'
 
 const About = () => {
+  const sectionRef = useRef(null)
+  useScrollReveal(sectionRef, { stagger: 0.1 })
   const [showVisionModal, setShowVisionModal] = useState(false)
 
   const pillars = [
@@ -12,10 +15,10 @@ const About = () => {
   ]
 
   return (
-    <section id="about" className="about">
+    <section id="about" className="about" ref={sectionRef}>
       <div className="about__inner">
         {/* Left Column */}
-        <div className="about__left">
+        <div className="about__left" data-reveal>
           <span className="section-label">Our Story</span>
           <h2 className="about__title">A More Refined<br />Way to Live</h2>
           <div className="about__divider" />
@@ -47,10 +50,10 @@ const About = () => {
 
         {/* Right Column */}
         <div className="about__right">
-          <h3 className="about__section-heading">Our Principles</h3>
+          <h3 className="about__section-heading" data-reveal>Our Principles</h3>
           <div className="about__pillars">
             {pillars.map((p) => (
-              <div key={p.title} className="about__pillar">
+              <div key={p.title} className="about__pillar" data-reveal>
                 <div className="about__pillar-icon">{p.icon}</div>
                 <div>
                   <h4 className="about__pillar-title">{p.title}</h4>
@@ -61,7 +64,7 @@ const About = () => {
           </div>
 
           {/* Quote */}
-          <div className="about__quote">
+          <div className="about__quote" data-reveal>
             <div className="about__quote-mark">&ldquo;</div>
             <p>
               &ldquo;True luxury is not having more to manage.
