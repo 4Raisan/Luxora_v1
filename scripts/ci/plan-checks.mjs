@@ -76,7 +76,7 @@ export function classifyChanges(entries, { forceFull = false } = {}) {
       plan.reasons.push(file + ' changes CI or its safety rules.');
       continue;
     }
-    if (file === 'Dockerfile' || file === '.dockerignore' || /^docker-compose(?:\.[^/]+)?\.ya?ml$/.test(file)) {
+    if (file.startsWith('Dockerfile') || file.startsWith('infra/') || file === '.dockerignore' || /^docker-compose(?:\.[^/]+)?\.ya?ml$/.test(file)) {
       plan.docker = true;
       plan.reasons.push(file + ' changes the production container path.');
       continue;

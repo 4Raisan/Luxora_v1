@@ -1,0 +1,100 @@
+name: luxora-services
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: luxora
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?Set LOCAL_DB_PASSWORD}
+      POSTGRES_DB: luxora
+    ports: ["127.0.0.1:5435:5432"]
+    volumes: ["service-pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luxora -d luxora"]
+      interval: 5s
+      retries: 15
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6385:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 15
+  accounts: &domain
+    image: ${LOCAL_SERVICES_IMAGE:-luxora-services:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    environment: &domain-env
+      NODE_ENV: development
+      LUXORA_RUNTIME: serverless
+      LUXORA_SERVICE: accounts
+      PORT: 8080
+      DATABASE_URL: postgresql://luxora:${LOCAL_DB_PASSWORD}@postgres:5432/luxora
+      DIRECT_URL: postgresql://luxora:${LOCAL_DB_PASSWORD}@postgres:5432/luxora
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      BANK_ENCRYPTION_KEY: ${BANK_ENCRYPTION_KEY:?Set BANK_ENCRYPTION_KEY}
+      REDIS_URL: redis://redis:6379
+      TRUST_PROXY: 1
+      CORS_ORIGIN: http://localhost:3000
+      DEMO_PAYMENTS_ENABLED: "true"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+  bookings:
+    <<: *domain
+    environment:
+      <<: *domain-env
+      LUXORA_SERVICE: bookings
+    volumes: ["service-uploads:/app/backend/private-uploads"]
+  payments:
+    <<: *domain
+    environment:
+      <<: *domain-env
+      LUXORA_SERVICE: payments
+  engagement:
+    <<: *domain
+    environment:
+      <<: *domain-env
+      LUXORA_SERVICE: engagement
+  gateway:
+    image: ${LOCAL_SERVICES_IMAGE:-luxora-services:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    command: ["node", "backend/src/gateway.js"]
+    ports: ["127.0.0.1:${LOCAL_GATEWAY_PORT:-5000}:8080"]
+    environment:
+      PORT: 8080
+      ACCOUNTS_SERVICE_URL: http://accounts:8080
+      BOOKINGS_SERVICE_URL: http://bookings:8080
+      PAYMENTS_SERVICE_URL: http://payments:8080
+      ENGAGEMENT_SERVICE_URL: http://engagement:8080
+    depends_on: [accounts, bookings, payments, engagement]
+  migrate:
+    <<: *domain
+    profiles: ["tools"]
+    command: ["node", "backend/node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "backend/prisma/schema.prisma"]
+  booking-timeouts:
+    <<: *domain
+    profiles: ["tools"]
+    command: ["node", "backend/src/jobs.js", "booking-timeouts"]
+  seed:
+    <<: *domain
+    profiles: ["tools"]
+    command: ["node", "backend/prisma/seed.js"]
+    environment:
+      <<: *domain-env
+      CUSTOMER_PASSWORD: ${CUSTOMER_PASSWORD:-}
+      PROVIDER_PASSWORD: ${PROVIDER_PASSWORD:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+  monthly-payouts:
+    <<: *domain
+    profiles: ["tools"]
+    command: ["node", "backend/src/jobs.js", "monthly-payouts"]
+  demo-renewals:
+    <<: *domain
+    profiles: ["tools"]
+    command: ["node", "backend/src/jobs.js", "demo-renewals"]
+volumes:
+  service-pgdata:
+  service-uploads:

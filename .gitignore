@@ -6,6 +6,11 @@ dist/
 build/
 coverage/
 .vite/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
 frontend/.vite/
 *.db
 *.sqlite

@@ -5,7 +5,6 @@ import {
   checkProtectedFiles,
   parseNameStatus,
   collectChangedFilesFromEvent,
-  AUTHORIZED_MAINTAINER,
 } from './guard-protected-files.mjs';
 
 test('isProtectedPath accurately flags protected paths', () => {

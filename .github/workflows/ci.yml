@@ -221,6 +221,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://luxora_test_user:luxora_test_password@localhost:5432/luxora_test_db?schema=luxora_test
           PAYMENT_MODE: demo
+          TEST_DISTRIBUTED_REDIS_URL: redis://127.0.0.1:6379/14
           PORT: 5000
           NODE_ENV: test
 
@@ -330,10 +331,40 @@ jobs:
           docker stop luxora-ci-container 2>/dev/null || true
           docker rm -f luxora-ci-container 2>/dev/null || true
 
+  serverless:
+    name: 05b - Serverless deployment validation
+    needs: [classify, guard]
+    if: needs.classify.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build independent service runtime
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.services
+          load: true
+          tags: luxora-services:ci
+          cache-from: type=gha,scope=services
+          cache-to: type=gha,mode=max,scope=services
+      - name: Validate Cloud Run infrastructure
+        run: |
+          docker run --rm -v "$PWD/infra/cloud-run:/work" -w /work hashicorp/terraform:1.13.5 fmt -check
+          docker run --rm -v "$PWD/infra/cloud-run:/work" -w /work hashicorp/terraform:1.13.5 init -backend=false -lockfile=readonly
+          docker run --rm -v "$PWD/infra/cloud-run:/work" -w /work hashicorp/terraform:1.13.5 validate
+      - name: Validate local service topology
+        env:
+          LOCAL_DB_PASSWORD: ci-local-config-only
+          JWT_SECRET: ci-config-validation-only
+          BANK_ENCRYPTION_KEY: ci-config-validation-only
+        run: docker compose -f docker-compose.services.yml config --quiet
+
   validate-and-test:
     name: 06 - Required gate
     if: always()
-    needs: [guard, classify, quality, knowledge_graph, backend, audit, docker]
+    needs: [guard, classify, quality, knowledge_graph, backend, audit, docker, serverless]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -346,6 +377,7 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
+          SERVERLESS_RESULT: ${{ needs.serverless.result }}
           EXPECT_QUALITY: ${{ needs.classify.outputs.quality }}
           EXPECT_KG: ${{ needs.classify.outputs.knowledge_graph }}
           EXPECT_BACKEND: ${{ needs.classify.outputs.backend }}
@@ -388,5 +420,6 @@ jobs:
           check_selective_job "03 - Backend tests" "$BACKEND_RESULT" "$EXPECT_BACKEND"
           check_selective_job "04 - Dependency audit" "$AUDIT_RESULT" "$EXPECT_AUDIT"
           check_selective_job "05 - Docker smoke" "$DOCKER_RESULT" "$EXPECT_DOCKER"
+          check_selective_job "05b - Serverless deployment validation" "$SERVERLESS_RESULT" "$EXPECT_DOCKER"
 
           echo "All required and planned CI checks passed successfully."

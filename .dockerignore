@@ -9,3 +9,9 @@ node_modules
 !*/.env.example
 dist
 */dist
+**/.terraform
+**/*.tfvars
+**/*.tfstate
+**/*.tfstate.*
+backend/private-uploads
+private-uploads

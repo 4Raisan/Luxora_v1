@@ -1,0 +1,30 @@
+project_id = "your-project-id"
+region     = "asia-south1"
+images = {
+  accounts   = "asia-south1-docker.pkg.dev/your-project-id/luxora/services:release"
+  bookings   = "asia-south1-docker.pkg.dev/your-project-id/luxora/services:release"
+  payments   = "asia-south1-docker.pkg.dev/your-project-id/luxora/services:release"
+  engagement = "asia-south1-docker.pkg.dev/your-project-id/luxora/services:release"
+  gateway    = "asia-south1-docker.pkg.dev/your-project-id/luxora/services:release"
+  jobs       = "asia-south1-docker.pkg.dev/your-project-id/luxora/services:release"
+}
+# These are existing Secret Manager resource names, not credential values.
+secrets = {
+  DATABASE_URL         = "luxora-database-url"
+  DIRECT_URL           = "luxora-direct-url"
+  JWT_SECRET           = "luxora-jwt-secret"
+  BANK_ENCRYPTION_KEY  = "luxora-bank-encryption-key"
+  REDIS_URL            = "luxora-redis-url"
+  S3_ACCESS_KEY_ID      = "luxora-object-store-access-key"
+  S3_SECRET_ACCESS_KEY  = "luxora-object-store-secret-key"
+  # Add existing gateway/email credentials by environment variable name.
+}
+environment = {
+  FRONTEND_URL       = "https://your-frontend.example"
+  CORS_ORIGIN        = "https://your-frontend.example"
+  BACKEND_PUBLIC_URL = "https://your-gateway.example"
+  S3_BUCKET          = "your-private-bucket"
+  S3_REGION          = "auto"
+  S3_ENDPOINT        = "https://your-object-store.example"
+}
+max_instances = 3

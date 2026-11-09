@@ -1,0 +1,15 @@
+FROM node:22-alpine
+WORKDIR /app
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Colombo
+COPY backend/package*.json ./backend/
+RUN npm --prefix backend ci
+COPY backend/prisma ./backend/prisma
+RUN npm --prefix backend run prisma:generate
+COPY backend/src ./backend/src
+COPY package.json ./
+RUN mkdir -p /app/backend/private-uploads && chown node:node /app/backend/private-uploads
+USER node
+EXPOSE 8080
+# Migrations run as a separate deployment job, never on every cold start.
+CMD ["node", "backend/src/index.js"]
