@@ -14,17 +14,20 @@ export default function Reviews() {
   const [comment, setComment] = useState('')
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
 
   const loadCompletedBookings = useCallback(async () => {
     if (!token) { navigate('/login'); return }
     try {
       const b = await apiRequest('/bookings/my', 'GET', null, token)
-      const done = (b || []).filter((x) => x.status === 'completed')
+      const done = (b || []).filter((x) => x.status === 'completed' && !x.reviewed_at)
       setBookings(done)
       if (done.length) setSelected(done[0].id)
       else setSelected(null)
     } catch {
-      // non-fatal
+      setError('Could not load your completed bookings. Please refresh or try again shortly.')
+    } finally {
+      setLoading(false)
     }
   }, [token, navigate])
 
@@ -55,21 +58,26 @@ export default function Reviews() {
         <p className="rv-eyebrow">SHARE YOUR EXPERIENCE</p>
         <h1 className="rv-title">Rate a Service</h1>
 
-        {bookings.length === 0 ? (
-          <p className="rv-empty">No completed services to review yet.</p>
+        {loading ? (
+          <p className="rv-empty">Loading your completed services…</p>
+        ) : bookings.length === 0 ? (
+          <>
+            <p className="rv-empty">No completed services to review yet.</p>
+            {error && <div className="rv-error">{error}</div>}
+          </>
         ) : (
           <form className="rv-form" onSubmit={submit}>
-            <label className="rv-label">Completed Service</label>
-            <select className="rv-select" value={selected || ''} onChange={(e) => setSelected(Number(e.target.value))}>
+            <label className="rv-label" htmlFor="rv-booking">Completed Service</label>
+            <select id="rv-booking" className="rv-select" value={selected || ''} onChange={(e) => setSelected(Number(e.target.value))}>
               {bookings.map((b) => (
                 <option key={b.id} value={b.id}>
-                  #{b.id} · {b.service_title} · {b.booking_date}
+                  #{b.id} · {b.service_title} · {b.bookingDate}
                 </option>
               ))}
             </select>
 
-            <label className="rv-label">Your Rating</label>
-            <div className="rv-stars">
+            <span className="rv-label" id="rv-rating-label">Your Rating</span>
+            <div className="rv-stars" role="group" aria-labelledby="rv-rating-label">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   type="button"
@@ -85,8 +93,9 @@ export default function Reviews() {
               ))}
             </div>
 
-            <label className="rv-label">Comment</label>
+            <label className="rv-label" htmlFor="rv-comment">Comment</label>
             <textarea
+              id="rv-comment"
               className="rv-textarea"
               rows="4"
               placeholder="Tell us about the experience…"

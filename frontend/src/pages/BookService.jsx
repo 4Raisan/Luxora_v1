@@ -20,6 +20,7 @@ export default function BookService() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [catalogState, setCatalogState] = useState('loading')
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
@@ -30,6 +31,7 @@ export default function BookService() {
     ]).then(async ([serviceData, planData]) => {
       if (cancelled) return
       setServices(serviceData || [])
+      setCatalogState(serviceData && serviceData.length ? 'ok' : serviceData ? 'empty' : 'failed')
 
       // Chatbot/package handoffs pass selectedPlanId. Resolve it against the
       // live catalog so the pre-selection and package details shown are
@@ -231,9 +233,9 @@ export default function BookService() {
                 )}
               </div>
             )}
-            <label className="bs-label">Service Category</label>
-            <select className="bs-select" value={serviceId} onChange={(e) => setServiceId(e.target.value)} required>
-              <option value="">— Choose a service —</option>
+            <label className="bs-label" htmlFor="bs-service">Service Category</label>
+            <select id="bs-service" className="bs-select" value={serviceId} onChange={(e) => setServiceId(e.target.value)} required disabled={catalogState === 'loading'}>
+              <option value="">{catalogState === 'loading' ? 'Loading services…' : '— Choose a service —'}</option>
               {grouped.map((g) => (
                 <optgroup key={g.id} label={g.name}>
                   {g.items.map((s) => (
@@ -244,11 +246,18 @@ export default function BookService() {
                 </optgroup>
               ))}
             </select>
+            {(catalogState === 'failed' || catalogState === 'empty') && (
+              <p style={{ color: '#e8c96b', fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
+                {catalogState === 'failed'
+                  ? 'The service catalogue could not be reached. Please refresh or try again shortly.'
+                  : 'No services are available for booking right now. Please check back shortly.'}
+              </p>
+            )}
 
             {detectedCategory === 'pet' && (
               <div style={{ marginBottom: '1.25rem', marginTop: '0.5rem' }}>
-                <label className="bs-label">Pet Care Mode</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.4rem' }}>
+                <span className="bs-label" id="bs-petmode-label">Pet Care Mode</span>
+                <div role="group" aria-labelledby="bs-petmode-label" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.4rem' }}>
                   <button
                     type="button"
                     onClick={() => setPetType('dog')}
@@ -293,12 +302,12 @@ export default function BookService() {
 
             <div className="bs-row">
               <div className="bs-field">
-                <label className="bs-label">Date</label>
-                <input className="bs-input" type="date" value={date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setDate(e.target.value)} required />
+                <label className="bs-label" htmlFor="bs-date">Date</label>
+                <input id="bs-date" className="bs-input" type="date" value={date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setDate(e.target.value)} required />
               </div>
               <div className="bs-field">
-                <label className="bs-label">Time</label>
-                <input className="bs-input" type="time" value={time} step="900" onChange={(e) => setTime(e.target.value)} required />
+                <label className="bs-label" htmlFor="bs-time">Time</label>
+                <input id="bs-time" className="bs-input" type="time" value={time} step="900" onChange={(e) => setTime(e.target.value)} required />
               </div>
             </div>
 

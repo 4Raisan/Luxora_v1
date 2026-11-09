@@ -397,26 +397,26 @@ const ProviderRegister = () => {
           <form className="pr-form" onSubmit={nextStep} id="pr-step1-form">
             <div className="pr-row">
               <input id="pr-fullname" name="fullName" type="text" className="pr-input"
-                placeholder="Full Name" value={form.fullName}
+                placeholder="Full Name" aria-label="Full Name" value={form.fullName}
                 onChange={handleChange} required />
               <input id="pr-nic" name="nicNumber" type="text" className="pr-input"
-                placeholder="NIC Number" value={form.nicNumber}
+                placeholder="NIC Number" aria-label="NIC Number" value={form.nicNumber}
                 onChange={handleNicChange} maxLength={12} required />
             </div>
 
             <div className="pr-row">
               <input id="pr-email" name="email" type="email" className="pr-input"
-                placeholder="Email Address" value={form.email}
+                placeholder="Email Address" aria-label="Email Address" value={form.email}
                 onChange={handleChange} required />
             </div>
 
             <div className="pr-row">
               <input id="pr-password" name="password" type="password" className="pr-input"
-                placeholder="Password (min 6 characters)" value={form.password}
-                onChange={handleChange} minLength={6} autoComplete="new-password" required />
+                placeholder="Password (min 8, letters + numbers)" aria-label="Password" value={form.password}
+                onChange={handleChange} minLength={8} autoComplete="new-password" required />
               <input id="pr-confirm-password" name="confirmPassword" type="password" className="pr-input"
-                placeholder="Re-enter Password" value={form.confirmPassword}
-                onChange={handleChange} minLength={6} autoComplete="new-password" required />
+                placeholder="Re-enter Password" aria-label="Confirm Password" value={form.confirmPassword}
+                onChange={handleChange} minLength={8} autoComplete="new-password" required />
             </div>
 
             <div className="pr-row">
@@ -436,7 +436,7 @@ const ProviderRegister = () => {
 
             <div className="pr-row" style={{ gridTemplateColumns: '1fr' }}>
               <input id="pr-mobile" name="mobile" type="tel" className="pr-input"
-                placeholder="Mobile Number (e.g. 0771234567)" value={form.mobile}
+                placeholder="Mobile Number (e.g. 0771234567)" aria-label="Mobile Number" value={form.mobile}
                 onChange={handleMobileChange}
                 maxLength={10} inputMode="numeric" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" required />
             </div>

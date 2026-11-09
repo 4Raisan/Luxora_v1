@@ -47,11 +47,12 @@ export async function apiRequest(endpoint, method = 'GET', data = null, token = 
   const result = contentType.includes('application/json') ? await response.json().catch(() => ({})) : await response.text();
 
   if (!response.ok) {
-    const message = typeof result === 'object' && result?.error
-      ? result.error
-      : typeof result === 'string' && result.trim()
-        ? result.trim()
-        : `API request failed (${response.status})`;
+    // Backend errors arrive as {error: "msg"} or {error: {type, message}};
+    // using the nested object directly would render "[object Object]".
+    const raw = typeof result === 'string'
+      ? (result.trim() || null)
+      : (typeof result?.error === 'string' ? result.error : result?.error?.message ?? result?.message ?? null);
+    const message = raw || `API request failed (${response.status})`;
 
     if (response.status === 401 || (response.status === 403 && /revoked|deactivated|invalid session|token/i.test(message))) {
       try {

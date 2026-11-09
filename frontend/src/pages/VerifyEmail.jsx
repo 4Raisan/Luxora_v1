@@ -33,7 +33,7 @@ export default function VerifyEmail() {
         await apiRequest('/auth/verify-email', 'POST', { token })
         setStatus('success')
         setTimeout(() => navigate('/login'), 2500)
-      } catch (err) {
+      } catch {
         setStatus('invalid')
       }
     }

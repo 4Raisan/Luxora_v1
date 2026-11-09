@@ -59,7 +59,7 @@ export default function ResetPassword() {
                 onFocus={() => setIsPasswordFocused(true)}
                 onBlur={() => setIsPasswordFocused(false)}
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
           </div>
@@ -79,7 +79,7 @@ export default function ResetPassword() {
                 onFocus={() => setIsConfirmFocused(true)}
                 onBlur={() => setIsConfirmFocused(false)}
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
           </div>

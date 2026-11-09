@@ -29,7 +29,7 @@ async function waitForCdp(retries = 30) {
       const tabs = await res.json();
       const target = tabs.find(t => t.url.includes('architecture'));
       if (target) return target;
-    } catch (e) {}
+    } catch {}
     await new Promise(r => setTimeout(r, 200));
   }
   throw new Error('Timeout waiting for architecture tab');
