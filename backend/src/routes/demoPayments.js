@@ -83,7 +83,6 @@ router.post('/payments/demo/checkout', authenticateToken, requireRole('CUSTOMER'
         return res.status(409).json({ error: 'This checkout reference is already in use' });
       }
       if (existing.status === 'COMPLETED' && existing.subscriptionId) {
-        const entitlements = await getEntitlementSnapshot(prisma, req.user.id);
         return demoCheckoutResponse(res, { status: 200, duplicate: true, payment: existing });
       }
       // A stale non-completed row with this reference (a checkout that died
@@ -145,8 +144,7 @@ router.post('/payments/demo/checkout', authenticateToken, requireRole('CUSTOMER'
           include: { plan: { select: { title: true } }, subscription: true },
         }).catch(() => null);
         if (winner?.status === 'COMPLETED' && winner.subscriptionId && winner.userId === req.user.id) {
-          const entitlements = await getEntitlementSnapshot(prisma, req.user.id);
-          return demoCheckoutResponse(res, { status: 200, duplicate: true, payment: winner });
+            return demoCheckoutResponse(res, { status: 200, duplicate: true, payment: winner });
         }
         return res.status(409).json({ error: 'This checkout reference is already in use' });
       }

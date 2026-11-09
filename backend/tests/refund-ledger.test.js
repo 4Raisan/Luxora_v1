@@ -83,7 +83,7 @@ test('C-S1: nonexistent and non-completed payments are ineligible', async () => 
 
 test('C-S1: invalid amounts are rejected (zero, negative, excessive, non-numeric)', async () => {
   const payment = await mkPayment({ userId: customer.id, captured: 100 });
-  for (const amount of [0, -5, 150, 'abc']) {
+  for (const amount of [0, -5, 150, 'abc', 0.001, '1.234']) {
     await assert.rejects(
       createRefundRequest({ paymentId: payment.id, requestedBy: customer.id, amount }),
       (e) => e.statusCode === 400,
@@ -92,6 +92,18 @@ test('C-S1: invalid amounts are rejected (zero, negative, excessive, non-numeric
   // A valid partial amount still creates the request.
   const refund = await createRefundRequest({ paymentId: payment.id, requestedBy: customer.id, amount: 40 });
   assert.equal(Number(refund.amount), 40);
+});
+
+test('fully refunded payments reject another request with an omitted amount', async () => {
+  const payment = await mkPayment({ userId: customer.id, captured: 100 });
+  const refund = await createRefundRequest({ paymentId: payment.id, requestedBy: admin.id, isAdmin: true });
+  await transitionRefund({ refundId: refund.id, actorUserId: admin.id, actorRole: 'ADMIN', action: 'process', providerRef: `exhausted-${RND}` });
+  await transitionRefund({ refundId: refund.id, actorUserId: admin.id, actorRole: 'ADMIN', action: 'complete' });
+  await assert.rejects(
+    createRefundRequest({ paymentId: payment.id, requestedBy: customer.id }),
+    (error) => error.statusCode === 400,
+  );
+  assert.equal(await prisma.refundRequest.count({ where: { paymentId: payment.id } }), 1);
 });
 
 test('C-S1: a customer cannot request a refund for someone else’s payment', async () => {

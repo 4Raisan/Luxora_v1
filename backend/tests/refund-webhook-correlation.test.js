@@ -15,7 +15,7 @@ dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
 import { registerRealtimeClient, unregisterRealtimeClient } from '../src/services/realtime.js';
-import { sortObject, classifyNowPaymentsIpn } from '../src/services/paymentContracts.js';
+import { sortObject } from '../src/services/paymentContracts.js';
 import { transitionRefund } from '../src/services/refunds.js';
 import { payHereWebhookSignature } from '../src/services/integrations.js';
 import integrationsRouter from '../src/routes/integrations.js';
@@ -42,7 +42,7 @@ const json = async (path, options = {}) => {
     ...options,
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
+      ...options.headers,
     },
   });
   const text = await response.text();
@@ -52,7 +52,7 @@ const json = async (path, options = {}) => {
 };
 const authJson = (user, path, options = {}) => json(path, {
   ...options,
-  headers: { Authorization: `Bearer ${tokenFor(user)}`, ...(options.headers || {}) },
+  headers: { Authorization: `Bearer ${tokenFor(user)}`, ...options.headers },
 });
 
 // Fake realtime clients (EventSource-style response capture)
@@ -283,7 +283,7 @@ test('NOWPayments refunded IPN without a matching refund keeps the historical ac
 test('NOWPayments refunded IPN with a mismatched price contract is rejected', async () => {
   const payment = await mkPayment(customer.id, 'NOWPAYMENTS');
   await mkApprovedRefund(payment.id, customer.id);
-  const { payload, signature } = npRefundPayload(payment, {});
+  const { payload } = npRefundPayload(payment, {});
   payload.price_amount = 999;
   const res = await json('/payments/nowpayments/ipn', {
     method: 'POST',

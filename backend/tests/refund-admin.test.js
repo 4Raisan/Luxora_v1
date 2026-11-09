@@ -33,7 +33,7 @@ const authJson = async (user, apiPath, options = {}) => {
     headers: {
       Authorization: `Bearer ${tokenFor(user)}`,
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
+      ...options.headers,
     },
   });
   const body = await response.json().catch(() => null);

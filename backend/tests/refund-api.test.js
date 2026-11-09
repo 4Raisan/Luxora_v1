@@ -14,7 +14,6 @@ dotenv.config();
 import { prisma } from '../src/config/prisma.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
 import { JWT_SECRET } from '../src/middleware/auth.js';
-import { createRefundRequest } from '../src/services/refunds.js';
 import './assert-test-database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -39,7 +38,7 @@ const json = async (apiPath, options = {}) => {
     signal: AbortSignal.timeout(15000),
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
+      ...options.headers,
     },
   });
   const text = await response.text();
@@ -49,7 +48,7 @@ const json = async (apiPath, options = {}) => {
 };
 const authJson = (token, apiPath, options = {}) => json(apiPath, {
   ...options,
-  headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+  headers: { Authorization: `Bearer ${token}`, ...options.headers },
 });
 const tokenFor = (user) => jwt.sign({ id: user.id, role: user.role, tokenVersion: user.tokenVersion || 0 }, JWT_SECRET);
 

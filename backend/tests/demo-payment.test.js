@@ -75,7 +75,7 @@ after(async () => {
 });
 
 test('Demo checkout completes a payment, activates the plan, and grants tokens', async () => {
-  const { user, token } = await makeCustomer('happy');
+  const { token } = await makeCustomer('happy');
   const plan = await prisma.subscriptionPlan.findFirst({ where: { active: true }, include: { entitlements: true } });
   assert.ok(plan, 'Plan must exist');
   const expectedCoins = plan.entitlements.reduce((sum, e) => sum + e.units, 0);

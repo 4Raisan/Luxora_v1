@@ -29,14 +29,15 @@ const check = (name, ok, detail = '') => {
 };
 
 const json = async (path, { method = 'GET', token, body } = {}) => {
-  const res = await fetch(`${BASE}${path}`, {
+  const request = {
     method,
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  };
+  if (body) request.body = JSON.stringify(body);
+  const res = await fetch(`${BASE}${path}`, request);
   const text = await res.text();
   let data = null;
   try { data = JSON.parse(text); } catch { data = text; }
@@ -53,7 +54,7 @@ const login = async (email, password) => {
 const openSse = async (token) => {
   const events = [];
   const controller = new AbortController();
-  const stream = fetch(`${BASE}/realtime?token=${encodeURIComponent(token)}`, { signal: controller.signal }).then(async (res) => {
+  fetch(`${BASE}/realtime?token=${encodeURIComponent(token)}`, { signal: controller.signal }).then(async (res) => {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -96,7 +97,6 @@ check('logins (customer/admin/provider)', Boolean(customer.token && admin.token 
 // ── Empty history state ──
 let mine = await json('/payments/refunds/my', { token: customer.token });
 check('customer refund history loads (array)', mine.status === 200 && Array.isArray(mine.body));
-const historyBefore = mine.body.length;
 
 // ── Create an eligible payment via the demo gateway (same as UI checkout) ──
 const plans = await json('/subscriptions');

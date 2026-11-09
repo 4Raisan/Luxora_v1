@@ -4,6 +4,7 @@
 // refund-initiation API is assumed. Gateway-initiated external reversals
 // (PayHere -3 / NOWPayments refunded IPN) keep their V1.5 behavior unchanged.
 import { prisma } from '../config/prisma.js';
+import { Prisma } from '@prisma/client';
 import { notify } from './notify.js';
 import { broadcastToRole, broadcastToUser } from './realtime.js';
 
@@ -49,18 +50,18 @@ async function remainingRefundableInTx(tx, payment, { excludeRefundId = null } =
     where: { paymentId: payment.id },
     select: { id: true, amount: true, status: true },
   });
-  const reduce = (list) => list.reduce((total, r) => total + Number(r.amount), 0);
-  const captured = Number(payment.capturedAmount || 0);
+  const reduce = (list) => list.reduce((total, r) => total.plus(r.amount), new Prisma.Decimal(0));
+  const captured = new Prisma.Decimal(payment.capturedAmount || 0);
   const completed = reduce(refunds.filter((r) => r.status === 'COMPLETED'));
   const open = reduce(refunds.filter((r) => OPEN_REFUND_STATUSES.includes(r.status) && r.id !== excludeRefundId));
-  return { captured, reserved: completed + open, remaining: captured - completed - open };
+  return { captured: captured.toNumber(), reserved: completed.plus(open).toNumber(), remaining: captured.minus(completed).minus(open).toNumber() };
 }
 
-function validateAmount(amount, remaining) {
-  if (amount === undefined || amount === null) return remaining; // default: full remaining
-  const value = Number(amount);
+export function validateRefundAmount(amount, remaining) {
+  const value = Number(amount ?? remaining);
   if (!Number.isFinite(value)) fail(400, 'Refund amount must be a number');
   if (value <= 0) fail(400, 'Refund amount must be greater than zero');
+  if (new Prisma.Decimal(value).decimalPlaces() > 2) fail(400, 'Refund amount must have no more than two decimal places');
   if (value > remaining) fail(400, `Refund amount exceeds the refundable amount (${remaining.toFixed(2)})`);
   return value;
 }
@@ -84,7 +85,7 @@ export async function createRefundRequest({ paymentId, requestedBy, amount, reas
     if (open) return { alreadyOpen: true, refund: open };
 
     const { remaining } = await remainingRefundableInTx(tx, payment);
-    const refundAmount = validateAmount(amount, remaining);
+    const refundAmount = validateRefundAmount(amount, remaining);
 
     return tx.refundRequest.create({
       data: {
