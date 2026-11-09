@@ -228,26 +228,30 @@ const ProviderDashboard = () => {
       }
 
       const [avail, bookingRows, pendingRows, serviceRequestRows, earningsRow] = await Promise.all([
-        apiRequest('/provider/availability', 'GET', null, token),
-        apiRequest('/bookings/assigned', 'GET', null, token),
+        apiRequest('/provider/availability', 'GET', null, token).catch(() => null),
+        apiRequest('/bookings/assigned', 'GET', null, token).catch(() => null),
         apiRequest('/bookings/pending', 'GET', null, token).catch(() => []),
         apiRequest('/support/service-requests/provider?include_completed=true', 'GET', null, token).catch(() => []),
-        apiRequest('/provider/earnings', 'GET', null, token),
+        apiRequest('/provider/earnings', 'GET', null, token).catch(() => null),
       ])
-      setAvailability(avail.availability_status)
-      const categories = Array.isArray(avail.categories)
-        ? avail.categories
-        : String(avail.category || '').split(',').map((category) => category.trim()).filter(Boolean)
-      setProviderCategories(categories)
-      setProviderCategory(categories[0] || '')
-      setServiceTowns(avail.service_towns || '')
+      if (avail) {
+        setAvailability(avail.availability_status)
+        const categories = Array.isArray(avail.categories)
+          ? avail.categories
+          : String(avail.category || '').split(',').map((category) => category.trim()).filter(Boolean)
+        setProviderCategories(categories)
+        setProviderCategory(categories[0] || '')
+        setServiceTowns(avail.service_towns || '')
+      }
       setBookingsList((Array.isArray(bookingRows) ? bookingRows : []).map(mapBookingRow))
       setPendingBookingsList((Array.isArray(pendingRows) ? pendingRows : []).map(mapBookingRow))
       setServiceRequests((Array.isArray(serviceRequestRows) ? serviceRequestRows : []).map(mapServiceRequestRow))
-      setEarnings(earningsRow)
-      setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
-      const bank = (earningsRow.bank_accounts || []).find((account) => account.selected) || earningsRow.bank_accounts?.[0]
-      if (bank) setBankForm((current) => ({ ...current, bank_name: bank.bank_name || '', account_holder: bank.account_holder || '', branch: bank.branch || '', account_number: '' }))
+      if (earningsRow) {
+        setEarnings(earningsRow)
+        setSessionPayouts(Array.isArray(earningsRow.session_payouts) ? earningsRow.session_payouts : [])
+        const bank = (earningsRow.bank_accounts || []).find((account) => account.selected) || earningsRow.bank_accounts?.[0]
+        if (bank) setBankForm((current) => ({ ...current, bank_name: bank.bank_name || '', account_holder: bank.account_holder || '', branch: bank.branch || '', account_number: '' }))
+      }
       setLoadError('')
     } catch (error) {
       setLoadError(error.message || 'Could not load your dashboard.')
@@ -873,7 +877,7 @@ const ProviderDashboard = () => {
               <div className="pd-topbar__avatar"><UserIcon /></div>
               <div className="pd-topbar__user-info">
                 <span className="pd-topbar__user-name">{providerFullName}</span>
-                <span className="pd-topbar__user-badge">VERIFIED PROVIDER</span>
+                <span className="pd-topbar__user-badge">{providerKyc.status === 'APPROVED' ? 'VERIFIED PROVIDER' : providerKyc.status === 'REJECTED' ? 'KYC REJECTED' : 'KYC PENDING'}</span>
               </div>
             </button>
 
@@ -1643,7 +1647,7 @@ const ProviderDashboard = () => {
                 <div className="pd-drawer__avatar"><UserIcon /></div>
                 <div>
                   <h3 className="pd-drawer__title">{providerFullName}</h3>
-                  <span className="pd-drawer__badge">VERIFIED PROVIDER ✓</span>
+                  <span className="pd-drawer__badge">{providerKyc.status === 'APPROVED' ? 'VERIFIED PROVIDER ✓' : providerKyc.status === 'REJECTED' ? 'KYC REJECTED' : 'KYC PENDING'}</span>
                 </div>
               </div>
               <button type="button" className="pd-drawer__close" onClick={() => setShowProfileDrawer(false)}>✕</button>

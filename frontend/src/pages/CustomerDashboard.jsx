@@ -692,6 +692,7 @@ const CustomerDashboard = () => {
               id: 'pay-' + p.id,
               serverPaymentId: p.id,
               date: new Date(p.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+              dateISO: p.createdAt ? String(p.createdAt).slice(0, 10) : '',
               service: p.plan?.title || 'Luxora package',
               tier: p.gateway === 'DEMO' ? 'Demo Payment' : p.gateway === 'NOWPAYMENTS' ? 'NOWPayments' : p.gateway === 'PAYHERE' ? 'PayHere' : 'Server payment',
               ref: p.gatewayOrderId || ('PAY-' + p.id),
@@ -1479,9 +1480,22 @@ const CustomerDashboard = () => {
   // loadServerData); no seeded rows so fabricated alerts can never render.
   const [showNotifDrawer, setShowNotifDrawer] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [actionToast, setActionToast] = useState(null)
+  const actionToastTimer = useRef(null)
   const [complaintResolution, setComplaintResolution] = useState(null)
 
-  const addNotification = () => { void loadServerData() }
+  // Ephemeral confirmation for the action just performed. The drawer itself
+  // stays server-only so fabricated alerts can never persist there.
+  const addNotification = (payload) => {
+    if (payload?.title) {
+      setActionToast(payload)
+      clearTimeout(actionToastTimer.current)
+      actionToastTimer.current = setTimeout(() => setActionToast(null), 4200)
+    }
+    void loadServerData()
+  }
+
+  useEffect(() => () => clearTimeout(actionToastTimer.current), [])
 
   const unreadCount = notifications.filter(n => n.unread).length
 
@@ -1736,6 +1750,13 @@ const CustomerDashboard = () => {
 
   return (
     <div className="cd-page">
+      {actionToast && (
+        <div className="cd-action-toast" role="status">
+          <strong>{actionToast.title}</strong>
+          {actionToast.message && <span>{actionToast.message}</span>}
+          <button type="button" aria-label="Dismiss notification" onClick={() => setActionToast(null)}>✕</button>
+        </div>
+      )}
       <ParticleAtmosphere />
       {/* 2-Second Polished Logout Overlay */}
       <LogoutOverlay isOpen={isLoggingOut} onComplete={finalizeLogout} />
@@ -3189,7 +3210,7 @@ const CustomerDashboard = () => {
           </div>
 
           {/* Full Interactive History Table */}
-          <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'hidden' }}>
+          <div className="cd-table-wrap" style={{ background: '#141414', border: '1px solid #282828', borderRadius: '16px', overflow: 'auto' }}>
             <table className="cd-table" style={{ margin: 0 }}>
               <thead>
                 <tr style={{ background: '#18181c', borderBottom: '1px solid #282828' }}>
@@ -3211,7 +3232,7 @@ const CustomerDashboard = () => {
                       (historySearchPackage === 'combo' && (item.cat === 'system' || (item.service || '').toLowerCase().includes('combo') || (item.tier || '').toLowerCase().includes('vip'))) ||
                       (item.service || '').toLowerCase().includes(historySearchPackage.toLowerCase()) ||
                       (item.tier || '').toLowerCase().includes(historySearchPackage.toLowerCase())
-                    const matchDate = !historySearchDate || (item.date || '').includes(historySearchDate)
+                    const matchDate = !historySearchDate || (item.dateISO || item.date || '').includes(historySearchDate)
                     return matchInvoice && matchPackage && matchDate
                   })
 
@@ -3956,20 +3977,19 @@ const CustomerDashboard = () => {
             <input
               type="number"
               min="1"
-              className="cd-address-form-input"
+              className="cd-refund-input"
               value={refundRequestModal.amount}
               onChange={(e) => setRefundRequestModal({ ...refundRequestModal, amount: e.target.value })}
-              style={{ width: '100%', marginBottom: '0.9rem' }}
             />
 
             <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', margin: '0 0 0.35rem' }}>REASON (REQUIRED)</label>
             <textarea
               rows={3}
-              className="cd-address-form-input"
+              className="cd-refund-input"
               value={refundRequestModal.reason}
               onChange={(e) => setRefundRequestModal({ ...refundRequestModal, reason: e.target.value })}
               placeholder="Tell us briefly why you are requesting a refund…"
-              style={{ width: '100%', marginBottom: '0.9rem', resize: 'vertical' }}
+              style={{ resize: 'vertical' }}
             />
 
             {refundRequestModal.error && (
@@ -5258,7 +5278,7 @@ const CustomerDashboard = () => {
               </button>
             </div>
 
-            <div className="cd-receipt-body" style={{ marginTop: '1rem', textAlignment: 'left' }}>
+            <div className="cd-receipt-body" style={{ marginTop: '1rem', textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', padding: '0.85rem 1.1rem', borderRadius: '10px', border: '1px solid #282828' }}>
                 <div>
                   <strong style={{ color: 'var(--gold)', fontSize: '0.9rem', display: 'block' }}>LUXORA HOME CONCIERGE</strong>

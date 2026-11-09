@@ -56,7 +56,6 @@ const matchesSearch = (query, ...values) => {
 }
 
 // Bounded pagination footer shared by every paginated admin collection.
-const PAGE_SIZE = 25
 const pageNavBtn = { background: '#181818', border: '1px solid #333', borderRadius: '7px', padding: '0.45rem 0.85rem', fontSize: '0.78rem', fontWeight: 700, fontFamily: 'inherit' }
 const PageNav = ({ meta, onPage, busy }) => (!meta ? null : (
   <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.85rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#999' }}>
@@ -263,7 +262,7 @@ const AdminDashboard = () => {
       setUsers(Array.isArray(result.data) ? result.data : [])
       if (result.pagination) setPages((prev) => ({ ...prev, users: result.pagination }))
     })
-  }, [token, loadPage])
+  }, [loadPage])
 
   const loadBookings = useCallback(async (page = pagesRef.current.bookings.page) => {
     const f = filtersRef.current
@@ -275,7 +274,7 @@ const AdminDashboard = () => {
       setBookings(Array.isArray(result.data) ? result.data : [])
       if (result.pagination) setPages((prev) => ({ ...prev, bookings: result.pagination }))
     })
-  }, [token, loadPage])
+  }, [loadPage])
 
   const loadComplaints = useCallback(async (page = pagesRef.current.complaints.page) => {
     const f = filtersRef.current
@@ -287,7 +286,7 @@ const AdminDashboard = () => {
       setComplaints(Array.isArray(result.data) ? result.data : [])
       if (result.pagination) setPages((prev) => ({ ...prev, complaints: result.pagination }))
     })
-  }, [token, loadPage])
+  }, [loadPage])
 
   const loadRefunds = useCallback(async (page = pagesRef.current.refunds.page) => {
     const f = filtersRef.current
@@ -299,7 +298,7 @@ const AdminDashboard = () => {
       setRefunds(Array.isArray(result.data) ? result.data : [])
       if (result.pagination) setPages((prev) => ({ ...prev, refunds: result.pagination }))
     })
-  }, [token, loadPage])
+  }, [loadPage])
 
   const loadReviews = useCallback(async (page = pagesRef.current.reviews.page) => {
     const f = filtersRef.current
@@ -314,30 +313,32 @@ const AdminDashboard = () => {
       }))
       if (result.pagination) setPages((prev) => ({ ...prev, reviews: result.pagination }))
     })
-  }, [token, loadPage])
+  }, [loadPage])
 
   const loadAll = useCallback(async () => {
     if (!token) return
     setLoadError('')
     try {
+      // Each endpoint resolves independently: one failing call must not leave
+      // every other section blank behind a single error banner.
       const [s, p, t, requestRows, subs, cats, promos, notes, sessionRows, payoutRows] = await Promise.all([
-        apiRequest('/admin/stats', 'GET', null, token),
-        apiRequest('/admin/providers', 'GET', null, token),
-        apiRequest('/support', 'GET', null, token),
-        apiRequest('/support/service-requests/admin', 'GET', null, token),
-        apiRequest('/admin/subscriptions', 'GET', null, token),
-        apiRequest('/categories', 'GET', null, token),
-        apiRequest('/promotions/all', 'GET', null, token),
-        apiRequest('/notifications', 'GET', null, token),
-        apiRequest('/admin/session-payouts', 'GET', null, token),
-        apiRequest('/admin/payouts', 'GET', null, token),
+        apiRequest('/admin/stats', 'GET', null, token).catch(() => null),
+        apiRequest('/admin/providers', 'GET', null, token).catch(() => null),
+        apiRequest('/support', 'GET', null, token).catch(() => null),
+        apiRequest('/support/service-requests/admin', 'GET', null, token).catch(() => null),
+        apiRequest('/admin/subscriptions', 'GET', null, token).catch(() => null),
+        apiRequest('/categories', 'GET', null, token).catch(() => null),
+        apiRequest('/promotions/all', 'GET', null, token).catch(() => null),
+        apiRequest('/notifications', 'GET', null, token).catch(() => null),
+        apiRequest('/admin/session-payouts', 'GET', null, token).catch(() => null),
+        apiRequest('/admin/payouts', 'GET', null, token).catch(() => null),
         loadUsers(),
         loadBookings(),
         loadComplaints(),
         loadRefunds(),
         loadReviews(),
       ])
-      setStats(s)
+      if (s) setStats(s)
       setProviders(Array.isArray(p) ? p : [])
       setSupportTickets(Array.isArray(t) ? t : [])
       setRequestedServices(Array.isArray(requestRows) ? requestRows : [])
@@ -416,24 +417,24 @@ const AdminDashboard = () => {
   const toolingMounted = useRef({})
   useEffect(() => {
     if (activeNav !== 'payout_statements') return
-    if (!toolingMounted.current.statements) { toolingMounted.current.statements = true; return }
+    if (!toolingMounted.current.statements) {
+      toolingMounted.current.statements = true
+      loadStatements(1)
+      return
+    }
     const timer = setTimeout(() => { loadStatements(1) }, 250)
     return () => clearTimeout(timer)
   }, [activeNav, statementFrom, statementTo, statementStatus, loadStatements])
   useEffect(() => {
-    if (activeNav !== 'payout_statements' || toolingMounted.current.statements) return
-    loadStatements(1) // eslint-disable-line react-hooks/exhaustive-deps
-  }, [activeNav])
-  useEffect(() => {
     if (activeNav !== 'webhooks') return
     if (!toolingMounted.current.webhooks) {
       toolingMounted.current.webhooks = true
-      loadWebhooks(1) // eslint-disable-line react-hooks/exhaustive-deps
+      loadWebhooks(1)
       return
     }
     const timer = setTimeout(() => { loadWebhooks(1) }, 250)
     return () => clearTimeout(timer)
-  }, [activeNav, webhookGateway, webhookStatusFilter, webhookSearch])
+  }, [activeNav, webhookGateway, webhookStatusFilter, webhookSearch, loadWebhooks])
 
   const exportStatement = async () => {
     try {

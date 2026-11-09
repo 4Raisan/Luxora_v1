@@ -3035,3 +3035,65 @@
   /* Support modal close stays reachable and tappable. */
   .cd-support-modal__close { min-width: 44px; min-height: 44px; top: 0; right: 0; }
 }
+
+/* Refund modal inputs — dark theme (previously referenced an undefined class
+   and fell back to light browser defaults inside the dark modal). */
+.cd-refund-input {
+  width: 100%;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.9rem;
+}
+.cd-refund-input:focus {
+  outline: none;
+  border-color: rgba(201, 168, 76, 0.55);
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.12);
+}
+
+/* Ephemeral action confirmation — floats above dialogs, below logout. */
+.cd-action-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99998;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: min(92vw, 430px);
+  background: #161616;
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  border-radius: 14px;
+  padding: 0.8rem 2.6rem 0.8rem 1.1rem;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 24px rgba(201, 168, 76, 0.12);
+  animation: fadeIn 0.25s ease;
+}
+.cd-action-toast strong {
+  color: var(--gold, #c9a84c);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.cd-action-toast span {
+  color: #ccc;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.cd-action-toast button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.8rem;
+  min-width: 28px;
+  min-height: 28px;
+  cursor: pointer;
+}
+.cd-action-toast button:hover { color: #fff; }
