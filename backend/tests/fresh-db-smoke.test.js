@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../src/config/prisma.js';
+import { colomboDate } from './helpers/colombo-date.js';
 import { stopChildProcess } from './helpers/stop-child-process.js';
 import './assert-test-database.js';
 
@@ -157,7 +158,7 @@ test('2. Complete Booking Flow on Fresh DB: Purchase, Auto-Assignment, Service P
   const service = await prisma.service.findFirst({ where: { title: 'Wash + Vacuum' } });
   assert.ok(service, 'Service Wash + Vacuum must exist');
 
-  const testBookingDate = `2026-11-${String(Math.floor(Math.random() * 25) + 1).padStart(2, '0')}`;
+  const testBookingDate = colomboDate(3);
 
   // Customer creates booking
   const bookRes = await fetch(`${BASE}/bookings`, {
