@@ -22,10 +22,7 @@
 
 <br>
 
-The serverless microservices deployment is documented in
-[Serverless architecture and rollout](docs/SERVERLESS_ARCHITECTURE.md).
-It includes four domain services, a gateway, shared realtime/chat state,
-scheduled workers, local Compose and Cloud Run infrastructure.
+The public demo uses a Vercel frontend, a Northflank Express API, and Supabase PostgreSQL. The repository also contains a separate Cloud Run implementation with four domain services, a gateway, and scheduled workers. See the [serverless architecture and rollout plan](docs/SERVERLESS_ARCHITECTURE.md).
 
 <p align="center">
   <a href="https://4raisan.github.io/Luxora_v1/architecture/"><img src="docs/assets/luxora-readme-architecture.png" alt="Luxora: React and Vite on Vercel, Express on Northflank, Prisma with Supabase, and external services" width="100%"></a>
@@ -33,7 +30,7 @@ scheduled workers, local Compose and Cloud Run infrastructure.
 
 ## Overview
 
-Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet Care**. It coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state. There are no customer cash refunds in V1; eligible cancellations restore service coins only.
+Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet Care**. It coordinates customer bookings, provider fulfilment, payments, promotions, notifications, reviews, complaints, and administration. The Express backend is the authority for authentication, role and KYC checks, prices, credits, booking state, provider earnings, and payment state.
 
 | Role | Main capabilities |
 | --- | --- |
@@ -43,7 +40,7 @@ Luxora is a Sri Lankan home-concierge MVP for **Auto Care, Garden Care, and Pet 
 
 There is no separate Super Admin role; Admin is the platform-administration role.
 
-The original V1 scope described above has since gained a customer refund-request ledger and admin review workflow. Eligible booking cancellations still restore service coins. Refund execution at the payment provider is recorded manually; the current service does not initiate refunds through a gateway API.
+The current source includes a customer refund-request ledger and admin review workflow. Eligible booking cancellations still restore service coins. Refund execution at the payment provider is recorded manually; the current service does not initiate refunds through a gateway API.
 
 ## MVP demo flow
 
@@ -60,7 +57,7 @@ React 19 + Vite frontend (Vercel Global Edge)
 Express 5 API Gateway (Northflank Container) ── Prisma ORM ── Supabase PostgreSQL
     │
     ├── Server-Sent Events (/api/realtime) ── Realtime Booking & Alert Sync
-    ├── PayHere / NOWPayments ─────────────── Tri-Gateway Payment Settlement
+    ├── PayHere / NOWPayments ─────────────── Payment Gateway Integrations
     ├── S3-compatible object storage ──────── KYC Proof & Booking Evidence
     └── Resend REST API ───────────────────── Transactional Notifications
 ```
@@ -79,6 +76,13 @@ npm --prefix backend run prisma:generate
 npm --prefix backend run db:migrate
 npm --prefix backend run seed
 npm run dev:all
+```
+
+On Bash, replace the two `Copy-Item` commands with:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
 Before running migrations, set `DATABASE_URL` to a reachable local PostgreSQL database and set a long random `JWT_SECRET` in `backend/.env`. Set `CUSTOMER_PASSWORD`, `PROVIDER_PASSWORD`, and `ADMIN_PASSWORD` before seeding local demo accounts. The commands above do not start PostgreSQL automatically. Supabase uses a pooled runtime URL and direct `DIRECT_URL` for migrations; see the [database guide](docs/database/DATABASE-DESIGN.md).
